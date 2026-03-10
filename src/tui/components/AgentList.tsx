@@ -1,0 +1,177 @@
+/**
+ * TUI AgentList — premium agent rows with status chips and live data.
+ *
+ * Layout per row:
+ *   [cursor] [status chip] [name..........] [adapter chip] [task/role..........] [stats..]
+ *
+ * Design language:
+ *   - Background-tinted status chips matching Header aesthetic
+ *   - Adapter shown as subtle label chip
+ *   - Running agents: spinner inside green chip + current task highlighted
+ *   - Stats display: completed/total with color coding
+ */
+
+import React from 'react';
+import { Box, Text } from 'ink';
+import type { Agent, AgentStatus } from '../../domain/agent.js';
+import type { RunningEntry } from '../../domain/state.js';
+import { tuiColors, DOT } from '../colors.js';
+import { Spinner } from './Spinner.js';
+import { formatDuration } from '../../cli/output.js';
+
+/* ── Glyphs ───────────────────────────────────────── */
+
+const FILLED_CIRCLE = '\u25CF';  // ●
+const CROSS = '\u2715';          // ✕
+const EMPTY_CIRCLE = '\u25CB';   // ○
+const TRIANGLE = '\u25B6';       // ▶
+const CHECK = '\u2713';          // ✓
+
+/* ── Chip backgrounds ─────────────────────────────── */
+
+const chipBg = {
+  green:   '#0f2d1f',
+  red:     '#2d0f0f',
+  neutral: '#1a1a22',
+  amber:   '#2d1f0a',
+} as const;
+
+/* ── Status chip config ───────────────────────────── */
+
+interface StatusChipConfig {
+  icon: string;
+  label: string;
+  fg: string;
+  bg: string;
+  bold?: boolean;
+  spinner?: boolean;
+}
+
+const STATUS_CHIP: Record<AgentStatus, StatusChipConfig> = {
+  running:  { icon: TRIANGLE,       label: 'ACTIVE', fg: tuiColors.green, bg: chipBg.green, bold: true, spinner: true },
+  idle:     { icon: EMPTY_CIRCLE,   label: 'IDLE',   fg: tuiColors.dim,   bg: chipBg.neutral },
+  error:    { icon: CROSS,          label: 'ERROR',  fg: tuiColors.red,   bg: chipBg.red,   bold: true },
+  disabled: { icon: EMPTY_CIRCLE,   label: 'OFF',    fg: tuiColors.ghost, bg: chipBg.neutral },
+};
+
+/** Sort order: running → idle → error → disabled */
+export const AGENT_STATUS_ORDER: Record<AgentStatus, number> = {
+  running: 0,
+  idle: 1,
+  error: 2,
+  disabled: 3,
+};
+
+export interface AgentRowProps {
+  agent: Agent;
+  selected?: boolean;
+  width?: number;
+  /** RunningEntry for this agent if currently running a task */
+  runningEntry?: RunningEntry;
+  /** Title of the current task (resolved from task ID) */
+  currentTaskTitle?: string;
+}
+
+export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitle }: AgentRowProps) {
+  const chip = STATUS_CHIP[agent.status];
+  const isRunning = agent.status === 'running';
+
+  // Time / stats display
+  let timeStr: string;
+  let timeColor: string | undefined;
+  if (isRunning && runningEntry) {
+    const ms = Date.now() - new Date(runningEntry.started_at).getTime();
+    timeStr = formatDuration(ms);
+    timeColor = tuiColors.cyan;
+  } else if (agent.stats.total_runs > 0) {
+    timeStr = `${agent.stats.tasks_completed}/${agent.stats.total_runs}`;
+    timeColor = agent.stats.tasks_completed > 0 ? tuiColors.green : tuiColors.dim;
+  } else {
+    timeStr = '\u2014'; // —
+    timeColor = undefined;
+  }
+
+  const cursor = selected ? '\u25B8' : ' '; // ▸ or space
+
+  // Column widths
+  const chipWidth = 11;     // " ▶ ACTIVE " = ~11 chars
+  const adapterWidth = 10;
+  const roleWidth = 22;
+  const timeWidth = 7;
+  const fixedCols = 2 + chipWidth + adapterWidth + roleWidth + timeWidth;
+  const nameWidth = width ? Math.max(8, width - fixedCols) : 20;
+
+  // Role / current task display
+  let roleText: string;
+  let roleColor: string;
+  let roleBold = false;
+  if (isRunning && currentTaskTitle) {
+    roleText = currentTaskTitle;
+    roleColor = tuiColors.white;
+    roleBold = true;
+  } else if (agent.role) {
+    roleText = agent.role;
+    roleColor = tuiColors.dim;
+  } else {
+    roleText = '\u2014'; // —
+    roleColor = tuiColors.ghost;
+  }
+
+  // Stats badge for agents with history
+  const hasHistory = agent.stats.total_runs > 0;
+  const successRate = hasHistory
+    ? Math.round((agent.stats.tasks_completed / agent.stats.total_runs) * 100)
+    : 0;
+
+  return (
+    <Box>
+      {/* Cursor */}
+      <Text color={selected ? tuiColors.amber : undefined}>{cursor} </Text>
+
+      {/* Status chip with background */}
+      <Box width={chipWidth}>
+        <Text backgroundColor={chip.bg} color={chip.fg} bold={chip.bold}>
+          {chip.spinner ? (
+            <>{' '}<Spinner color={chip.fg} /> {chip.label}{' '}</>
+          ) : (
+            <>{' '}{chip.icon} {chip.label}{' '}</>
+          )}
+        </Text>
+      </Box>
+
+      {/* Agent name */}
+      <Box width={nameWidth}>
+        <Text
+          wrap="truncate"
+          bold={selected || isRunning}
+          color={selected ? tuiColors.white : isRunning ? tuiColors.green : tuiColors.silver}
+        >
+          {agent.name}
+        </Text>
+      </Box>
+
+      {/* Adapter chip */}
+      <Box width={adapterWidth}>
+        <Text backgroundColor={chipBg.neutral} color={tuiColors.dim}>
+          {' '}{agent.adapter}{' '}
+        </Text>
+      </Box>
+
+      {/* Role / current task */}
+      <Box width={roleWidth}>
+        <Text color={roleColor} bold={roleBold} wrap="truncate">{roleText}</Text>
+      </Box>
+
+      {/* Time / stats */}
+      <Box width={timeWidth} justifyContent="flex-end">
+        {hasHistory && !isRunning ? (
+          <Text color={successRate >= 80 ? tuiColors.green : successRate >= 50 ? tuiColors.yellow : tuiColors.red}>
+            {timeStr} {CHECK}
+          </Text>
+        ) : (
+          <Text color={timeColor} dimColor={!timeColor}>{timeStr}</Text>
+        )}
+      </Box>
+    </Box>
+  );
+}

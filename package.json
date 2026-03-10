@@ -1,0 +1,62 @@
+{
+  "name": "agents-organizations",
+  "version": "0.1.0",
+  "description": "Agents Organizations — CLI orchestrator for AI agents",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "bin": {
+    "orchestry": "./dist/cli.js",
+    "orch": "./dist/cli.js",
+    "ao": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "dev": "tsx src/bin/cli.ts",
+    "build": "tsup",
+    "build:watch": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "cli",
+    "orchestrator",
+    "ai",
+    "agents",
+    "claude",
+    "codex",
+    "terminal"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "ink": "^6.8.0",
+    "js-yaml": "^4.1.0",
+    "liquidjs": "^10.21.0",
+    "nanoid": "^5.1.5",
+    "react": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.17.0",
+    "@types/react": "^19.2.14",
+    "@vitest/coverage-v8": "^3.2.4",
+    "ink-testing-library": "^4.0.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

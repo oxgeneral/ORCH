@@ -1,0 +1,30 @@
+/**
+ * Library entry point.
+ *
+ * Re-exports domain types and core services for programmatic use.
+ */
+
+// Domain
+export type { Task, TaskStatus, CreateTaskInput, WorkspaceMode, TaskProof } from './domain/task.js';
+export type { Agent, AgentStatus, AgentConfig, CreateAgentInput, ApprovalPolicy, AgentStats } from './domain/agent.js';
+export type { Run, RunStatus, RunEvent, RunEventType, TokenUsage } from './domain/run.js';
+export type { OrchestratorConfig, ProjectConfig, SchedulingConfig } from './domain/config.js';
+export type { OrchestratorState, RunningEntry, RetryEntry } from './domain/state.js';
+export type { OrchestratorEvent, OrchestratorEventType, EventPayload } from './domain/events.js';
+export { OrchestryError, NotInitializedError, TaskNotFoundError, AgentNotFoundError } from './domain/errors.js';
+export { canTransition, isTerminal, isDispatchable, isBlocked } from './domain/transitions.js';
+
+// Application
+export { EventBus } from './application/event-bus.js';
+export { TaskService } from './application/task-service.js';
+export { AgentService } from './application/agent-service.js';
+export { RunService } from './application/run-service.js';
+export { Orchestrator } from './application/orchestrator.js';
+
+// Infrastructure interfaces
+export type { IAgentAdapter, AgentEvent, ExecuteParams, AdapterTestResult } from './infrastructure/adapters/interface.js';
+export { AdapterRegistry } from './infrastructure/adapters/registry.js';
+
+// Container
+export { buildContainer } from './container.js';
+export type { Container } from './container.js';

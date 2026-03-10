@@ -1,0 +1,65 @@
+/**
+ * Task domain model.
+ *
+ * A Task is the unit of work in the orchestrator.
+ * It moves through a state machine: todo → in_progress → review → done.
+ */
+
+export type TaskStatus =
+  | 'todo'
+  | 'in_progress'
+  | 'retrying'
+  | 'review'
+  | 'done'
+  | 'failed'
+  | 'cancelled';
+
+export type WorkspaceMode = 'shared' | 'worktree' | 'isolated';
+
+export type ReviewCriterion = 'test_pass' | 'typecheck' | 'lint';
+
+export interface ReviewResult {
+  criterion: ReviewCriterion;
+  passed: boolean;
+  output: string;
+}
+
+export interface TaskProof {
+  branch?: string;
+  pr_url?: string;
+  files_changed: string[];
+  test_results?: string;
+  agent_summary?: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: number;
+  assignee?: string;
+  labels: string[];
+  depends_on: string[];
+  created_at: string;
+  updated_at: string;
+  attempts: number;
+  max_attempts: number;
+  workspace_mode?: WorkspaceMode;
+  workspace?: string;
+  proof?: TaskProof;
+  review_criteria?: ReviewCriterion[];
+  review_results?: ReviewResult[];
+}
+
+export interface CreateTaskInput {
+  title: string;
+  description?: string;
+  priority?: number;
+  assignee?: string;
+  labels?: string[];
+  depends_on?: string[];
+  max_attempts?: number;
+  workspace_mode?: WorkspaceMode;
+  review_criteria?: ReviewCriterion[];
+}
