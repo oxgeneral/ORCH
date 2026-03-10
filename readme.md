@@ -1,212 +1,168 @@
 <p align="center">
   <h1 align="center">ORCH</h1>
   <p align="center">
-    <strong>One CLI to orchestrate them all.</strong><br/>
-    Manage a team of AI agents — Claude, Codex, Cursor, shell scripts — executing tasks in parallel from your terminal.
+    <strong>Stop babysitting AI agents. Start orchestrating them.</strong><br/>
+    One CLI to run Claude, Codex, Cursor, and shell scripts as a team — in parallel, with retries, from your terminal.
   </p>
   <p align="center">
-    <a href="#installation"><img src="https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen" alt="Node.js >= 20" /></a>
+    <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-30%20seconds-brightgreen" alt="30s setup" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
     <a href="#development"><img src="https://img.shields.io/badge/tests-345%20passing-brightgreen" alt="Tests" /></a>
-    <a href="#tech-stack"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
+    <a href="#architecture"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
   </p>
 </p>
 
 ---
 
-## The Problem
+## You know the pain
 
-You use multiple AI coding assistants — Claude Code, Codex CLI, Cursor, custom scripts. Each runs in its own silo. You switch between terminals, copy-paste context, and manually track who's doing what.
+You have 3 AI assistants open. Claude is implementing auth in one terminal. Codex is writing tests in another. A shell script runs migrations somewhere else.
 
-## The Solution
+You're the human router — switching tabs, copy-pasting context, manually tracking who's doing what, restarting crashed agents.
 
-**Agents Organizations** gives you a single command center. Define agents, create tasks, assign work, and run everything in parallel — with retries, workspace isolation, and a real-time dashboard.
+**That's not engineering. That's babysitting.**
+
+## What if your AI agents worked like a real team?
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  You                                                │
-│   └── orchestry run --all                           │
-│         ├── Agent: claude  → "Implement auth"       │
-│         ├── Agent: codex   → "Write API tests"     │
-│         └── Agent: shell   → "Run migrations"       │
-│                                                     │
-│  State machine: todo → in_progress → review → done  │
-└─────────────────────────────────────────────────────┘
+$ orch run --all
+
+  orch · watching · 3 running · 0 queued
+
+  14:32  ▶ Backend A    → "Implement OAuth2 flow"
+  14:32  ▶ Backend B    → "Write API integration tests"
+  14:32  ▶ QA           → "Verify auth edge cases"
+  14:35  ✓ Backend B    DONE  (3m 12s · 4,200 tokens)
+  14:38  ✓ Backend A    DONE  (6m 44s · 8,100 tokens)
+  14:39  ↻ QA           RETRY  attempt 2 · found regression
+  14:41  ✓ QA           DONE  (2m 15s · 2,800 tokens)
 ```
 
-## Installation
+One command. Three agents. Zero tab-switching.
+
+## Get started in 30 seconds
 
 ```bash
-# Clone the repository
-git clone https://github.com/anthropics/agents-organizations-cli.git
-cd agents-organizations-cli
+git clone https://github.com/oxgeneral/ORCH.git && cd ORCH
+npm install && npm run build
 
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-
-# Install globally (optional)
-npm install -g .
-```
-
-**Requirements:** Node.js >= 20.0.0
-
-## Quick Start
-
-Get running in under 60 seconds:
-
-```bash
 # Initialize in your project
-orchestry init
+cd ~/your-project
+orch init
 
-# Add agents
-orchestry agent add backend --adapter claude --role "Backend developer"
-orchestry agent add tester  --adapter shell  --command "npm test"
+# Add your team
+orch agent add backend --adapter claude --role "Backend developer"
+orch agent add tester  --adapter shell  --command "npm test"
 
-# Create and run tasks
-orchestry task add "Implement authentication" -p 1
-orchestry run --all
+# Give them work
+orch task add "Implement authentication" -p 1
+orch task add "Write API tests" -p 2
+
+# Let them loose
+orch run --all
 ```
 
-## Features
+**Requirements:** Node.js >= 20
 
-| Feature | Description |
+## Why teams choose ORCH
+
+### Parallel execution that actually works
+Run up to N agents simultaneously. ORCH handles dispatching, slot management, and prevents double-assignments. You set `max_concurrent_agents: 5` and forget about it.
+
+### Agents that don't give up
+Failed? ORCH retries with exponential backoff. Stalled? Automatic detection kills the zombie and re-queues. Crashed? The next tick picks it up. Your tasks finish even when individual runs fail.
+
+### A real state machine, not a TODO list
+```
+todo → in_progress → review → done
+                   ↘ retrying → in_progress
+                   ↘ failed
+```
+Every transition is validated. No task gets lost. No agent runs something that's already done.
+
+### Real-time dashboard in your terminal
+```bash
+orch          # launches TUI
+```
+Full-screen Ink/React dashboard with:
+- Live task & agent status
+- Activity feed with token counts
+- Keyboard-driven: create tasks, assign agents, approve reviews — without leaving the terminal
+- Command bar with `/task add`, `/agent add`, tab completion
+
+### Zero infrastructure
+All state lives in `.orchestry/` — YAML configs, JSON state, JSONL event logs. No database. No cloud. No Docker. `git clone` and you're running.
+
+### Works with any AI tool
+| Adapter | What it runs |
 |---------|-------------|
-| **Task Management** | Create, assign, and track tasks via a state machine (`todo → in_progress → review → done`) |
-| **Multi-Agent Support** | Configure agents with different adapters: Claude, Codex, Shell, or custom |
-| **Parallel Execution** | Run multiple agents simultaneously with automatic dispatching |
-| **Retries** | Exponential backoff on failures — agents don't give up easily |
-| **Workspace Isolation** | Three modes: `shared`, `worktree`, `isolated` |
-| **Interactive Dashboard** | Fullscreen TUI with real-time monitoring (Ink + React) |
-| **Watch Mode** | Daemon that continuously monitors and dispatches new tasks |
-| **Event Log** | All activity stored in JSON-lines format for full auditability |
+| `claude` | Claude Code CLI (`claude --print`) |
+| `shell` | Any command: `npm test`, `python bot.py`, custom scripts |
+| *coming soon* | Codex, Cursor, custom adapters |
 
-## CLI Commands
-
-### Setup & Status
+## Full CLI reference
 
 ```bash
-orchestry init              # Create .orchestry/ in current directory
-orchestry status            # Overview of tasks and agents
-orchestry doctor            # System diagnostics
-```
+# Setup
+orch init                          # Initialize project
+orch doctor                        # System diagnostics
 
-### Tasks
+# Tasks
+orch task add "Title" -p 1         # Create task (priority 1-4)
+orch task list                     # List all tasks
+orch task assign <task> <agent>    # Manual assignment
+orch task cancel <task>            # Cancel running task
 
-```bash
-orchestry task add "Title" [-d description] [-p priority] [-l labels]
-orchestry task list [--status todo|done]
-orchestry task show <id>
-orchestry task assign <task-id> <agent-id>
-orchestry task cancel <task-id>
-orchestry task retry <task-id>
-```
+# Agents
+orch agent add <name> --adapter claude --role "Role description"
+orch agent list                    # Status of all agents
+orch agent disable/enable <id>     # Toggle availability
 
-### Agents
+# Execution
+orch run <task-id>                 # Run single task
+orch run --all                     # Run everything
+orch run --watch                   # Daemon mode
 
-```bash
-orchestry agent add <name> --adapter claude [--role "Role"]
-orchestry agent add <name> --adapter shell --command "python bot.py"
-orchestry agent list
-orchestry agent remove <id>
-orchestry agent disable/enable <id>
-```
+# Monitoring
+orch status                        # Quick overview
+orch logs <run-id>                 # View run logs
+orch tui                           # Interactive dashboard
 
-### Execution & Logs
-
-```bash
-orchestry run <task-id>         # Run a specific task
-orchestry run --all             # Run all todo tasks
-orchestry run --watch           # Daemon with auto-dispatching
-orchestry logs <run-id>         # View logs
-orchestry logs --follow         # Real-time stream
-```
-
-### Configuration
-
-```bash
-orchestry config set defaults.agent.adapter codex
-orchestry config get defaults.agent.timeout_ms
-orchestry config edit           # Open in $EDITOR
-```
-
-### Interactive Mode
-
-```bash
-orchestry                       # Open TUI dashboard
-orchestry tui                   # Explicitly launch TUI
-```
-
-### Global Options
-
-```
---json       JSON output
---quiet      Minimal output
---no-color   No ANSI colors
---ascii      ASCII only (no Unicode)
+# Config
+orch config edit                   # Open in $EDITOR
 ```
 
 **Aliases:** `orchestry`, `orch`, `ao`
 
-## Tech Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Language | TypeScript (strict) |
-| Runtime | Node.js 20+ |
-| CLI | Commander.js |
-| TUI | Ink + React |
-| Templates | LiquidJS |
-| Storage | YAML/JSON files (no database required) |
-| Tests | Vitest (345 tests) |
-| Build | tsup (ESM) |
-
 ## Architecture
 
-The project follows **Domain-Driven Design** with clear layer separation:
+Clean DDD with dependency injection — no frameworks, no decorators, pure TypeScript:
 
 ```
 src/
-├── bin/cli.ts                  # CLI entry point
-├── index.ts                    # Library exports
-├── domain/                     # Core models, state machine, transitions
-├── application/                # Orchestrator, task/agent/run services, event bus
+├── domain/           # Models, state machine, transitions
+├── application/      # Orchestrator engine, services, event bus
 ├── infrastructure/
-│   ├── adapters/               # Agent adapters (Claude, Shell, extensible)
-│   ├── storage/                # File-based storage (YAML/JSON)
-│   ├── process/                # Process management
-│   ├── template/               # LiquidJS prompt templating
-│   └── workspace/              # Workspace isolation (shared/worktree/isolated)
-├── cli/commands/               # CLI command implementations
-└── tui/                        # Ink React components (dashboard, wizards)
+│   ├── adapters/     # Claude, Shell (pluggable)
+│   ├── storage/      # File-based (YAML/JSON)
+│   ├── process/      # PID management, graceful kill
+│   └── workspace/    # Isolation modes (shared/worktree/isolated)
+├── cli/              # Commander.js commands
+└── tui/              # Ink + React dashboard
 ```
-
-All data lives in the `.orchestry/` directory — no external databases, no cloud dependencies. Everything stays local and version-controllable.
 
 ## Development
 
 ```bash
 npm run dev            # Run via tsx
-npm run build          # Build to dist/
-npm run build:watch    # Build in watch mode
-npm test               # Run all 345 tests
-npm run test:watch     # Tests in watch mode
-npm run typecheck      # Type checking
-npm run clean          # Clean dist/
+npm run build          # Build ESM + DTS
+npm test               # 345 tests via Vitest
+npm run typecheck      # Strict TypeScript
 ```
-
-## Documentation
-
-- [Technical Specification](docs/SPEC.md)
-- [UI/UX Design](docs/CLI_UI_DESIGN.md)
-- [User Stories](docs/USER_STORIES.md)
-- [Contributing Guide](CONTRIBUTING.md)
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

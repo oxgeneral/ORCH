@@ -13,6 +13,9 @@ dist/
 # Test coverage
 coverage/
 
+# Internal docs
+docs/
+
 # OS files
 .DS_Store
 Thumbs.db
