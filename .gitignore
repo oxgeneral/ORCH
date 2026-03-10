@@ -16,6 +16,9 @@ coverage/
 # Internal docs
 docs/
 
+# Landing pages
+landing/
+
 # OS files
 .DS_Store
 Thumbs.db
