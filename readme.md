@@ -14,6 +14,14 @@
 
 ---
 
+<p align="center">
+  <img src="assets/screenshot-tui.png" alt="ORCH TUI Dashboard — real-time task monitoring, agent activity feed, and keyboard-driven controls" width="100%" />
+  <br/>
+  <em>Real-time TUI dashboard: tasks running, agents working, activity streaming — all from one terminal.</em>
+</p>
+
+---
+
 ## You know the pain
 
 You have 3 AI assistants open. Claude is implementing auth in one terminal. Codex is writing tests in another. A shell script runs migrations somewhere else.
