@@ -1,6 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="ORCH logo" height="48" align="center" />
-  <h1 align="center">ORCH</h1>
+  <img src="assets/logo.svg" alt="ORCH" height="60" />
   <p align="center">
     <strong>Stop babysitting AI agents. Start orchestrating them.</strong><br/>
     One CLI to run Claude, Codex, Cursor, and shell scripts as a team — in parallel, with retries, from your terminal.
