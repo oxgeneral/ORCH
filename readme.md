@@ -1,4 +1,5 @@
 <p align="center">
+  <img src="assets/logo.svg" alt="ORCH logo" height="48" align="center" />
   <h1 align="center">ORCH</h1>
   <p align="center">
     <strong>Stop babysitting AI agents. Start orchestrating them.</strong><br/>
