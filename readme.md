@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">Agents Organizations</h1>
+  <h1 align="center">ORCH</h1>
   <p align="center">
     <strong>One CLI to orchestrate them all.</strong><br/>
     Manage a team of AI agents — Claude, Codex, Cursor, shell scripts — executing tasks in parallel from your terminal.
