@@ -60,8 +60,31 @@ async function main(): Promise<void> {
     if (err instanceof NotInitializedError) {
       // Not initialized — only init and doctor work without container
       registerDoctorCommand(program);
-      await program.parseAsync(process.argv);
-      return;
+
+      // No args → show welcome message instead of cryptic error
+      if (process.argv.length <= 2) {
+        const { dim } = await import('../cli/output.js');
+        console.log();
+        console.log(`  ${dim('orchestry')} — CLI orchestrator for AI agents`);
+        console.log();
+        console.log(`  Get started:`);
+        console.log(`    $ orch init`);
+        console.log();
+        console.log(`  ${dim('This will create .orchestry/ in the current directory.')}`);
+        console.log();
+        return;
+      }
+
+      // Check if user is running init or doctor — let Commander handle it
+      const sub = process.argv[2];
+      if (sub === 'init' || sub === 'doctor') {
+        await program.parseAsync(process.argv);
+        return;
+      }
+
+      // Any other command → show "Not initialized" error
+      printError(err.message, err.hint);
+      process.exit(err.exitCode);
     }
     throw err;
   }

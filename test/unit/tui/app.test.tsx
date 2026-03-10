@@ -741,8 +741,8 @@ describe('App', () => {
     stdin.write('\r');
     await delay(50);
 
-    // Step 3: description (optional) — Enter to skip
-    stdin.write('\r');
+    // Step 3: description (textarea, optional) — Tab to skip
+    stdin.write('\t');
     await delay(100);
 
     expect(createdTitle).toBe('Build API');
@@ -826,8 +826,8 @@ describe('App', () => {
     // Step 2: priority — Enter for default
     stdin.write('\r');
     await delay(50);
-    // Step 3: description — Enter to skip
-    stdin.write('\r');
+    // Step 3: description (textarea) — Tab to skip
+    stdin.write('\t');
     await delay(100);
     expect(lastFrame()!).toContain('disk full');
   });

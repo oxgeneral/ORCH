@@ -11,8 +11,8 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ```bash
 # Clone the repository
-git clone <repo-url>
-cd AgentsOrchestryCLI
+git clone https://github.com/anthropics/agents-organizations-cli.git
+cd agents-organizations-cli
 
 # Install dependencies
 npm install

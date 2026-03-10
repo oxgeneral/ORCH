@@ -4,7 +4,7 @@
  * Borderless design with horizontal rules, animated spinners,
  * stats ribbon, detail panel, tab-based views, and task actions.
  *
- * Hotkeys: T/A/L switch views, ↑↓/jk navigate, Enter details, R run, Esc back, Q quit
+ * Hotkeys: T/A/L switch views, ↑↓/jk navigate, Enter details, R run, Esc back, Q quit (Esc never quits)
  */
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
@@ -149,8 +149,17 @@ export function App({
 }: AppProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
-  const W = stdout?.columns ?? 80;
-  const H = stdout?.rows ?? 24;
+
+  // Track terminal size with resize listener
+  const [termSize, setTermSize] = useState({ w: stdout?.columns ?? 80, h: stdout?.rows ?? 24 });
+  useEffect(() => {
+    if (!stdout) return;
+    const onResize = () => setTermSize({ w: stdout.columns, h: stdout.rows });
+    stdout.on('resize', onResize);
+    return () => { stdout.off('resize', onResize); };
+  }, [stdout]);
+  const W = termSize.w;
+  const H = termSize.h;
 
   // ── Live data state (refreshed from disk on events) ──
   const [liveTasks, setLiveTasks] = useState<Task[]>(initialTasks);
@@ -873,7 +882,7 @@ export function App({
       return;
     }
 
-    // Escape: close detail panel, or quit
+    // Escape: close detail panel or deselect (never quit — use Q to quit)
     if (key.escape) {
       if (detailOpen) {
         setDetailOpen(false);
@@ -885,7 +894,6 @@ export function App({
         setLogScrollOffset(0);
         return;
       }
-      exit();
       return;
     }
 

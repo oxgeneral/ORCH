@@ -38,7 +38,16 @@
     "codex",
     "terminal"
   ],
+  "author": "Agents Organizations Contributors",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anthropics/agents-organizations-cli.git"
+  },
+  "homepage": "https://github.com/anthropics/agents-organizations-cli#readme",
+  "bugs": {
+    "url": "https://github.com/anthropics/agents-organizations-cli/issues"
+  },
   "dependencies": {
     "chalk": "^5.4.1",
     "commander": "^13.1.0",

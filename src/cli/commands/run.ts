@@ -6,7 +6,6 @@
 
 import type { Command } from 'commander';
 import type { Container } from '../../container.js';
-import { requireLock, releaseLock } from '../../infrastructure/storage/lock.js';
 import { printSuccess, printError, amber, dim, agentName, getIcon } from '../output.js';
 
 export function registerRunCommand(program: Command, container: Container): void {
@@ -80,9 +79,6 @@ async function runAll(container: Container): Promise<void> {
 }
 
 async function runWatch(container: Container): Promise<void> {
-  // Acquire lock
-  await requireLock(container.paths.lockPath);
-
   console.log(`${amber('orch')} · watching · poll interval ${container.config.scheduling.poll_interval_ms / 1000}s`);
   console.log('━'.repeat(43));
   console.log();
@@ -121,7 +117,6 @@ async function runWatch(container: Container): Promise<void> {
   const shutdown = async () => {
     console.log(`\n${dim('Shutting down...')}`);
     await container.orchestrator.stop();
-    await releaseLock(container.paths.lockPath);
     process.exit(0);
   };
 

@@ -411,18 +411,67 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
         {!step.required && <Text color={tuiColors.dim}> (optional, Enter to skip)</Text>}
       </Box>
 
-      {/* Text input */}
+      {/* Text input with cursor */}
       {step.type === 'text' && (
         <Box>
           <Text color={tuiColors.amber}>  {'>'} </Text>
-          {textInput ? (
-            <Text color={tuiColors.white}>{textInput.slice(-(maxW - 8))}</Text>
+          {textInput.length > 0 ? (
+            <>
+              <Text color={tuiColors.white}>{textInput.slice(0, cursorPos)}</Text>
+              <Text color={tuiColors.amber}>{CURSOR}</Text>
+              <Text color={tuiColors.white}>{textInput.slice(cursorPos)}</Text>
+            </>
           ) : step.placeholder ? (
-            <Text color={tuiColors.ghost}>{step.placeholder}</Text>
-          ) : null}
-          <Text color={tuiColors.amber}>{CURSOR}</Text>
+            <>
+              <Text color={tuiColors.ghost}>{step.placeholder}</Text>
+              <Text color={tuiColors.amber}>{CURSOR}</Text>
+            </>
+          ) : (
+            <Text color={tuiColors.amber}>{CURSOR}</Text>
+          )}
         </Box>
       )}
+
+      {/* Textarea (multiline editor) */}
+      {step.type === 'textarea' && (() => {
+        const taVisibleH = Math.max(3, height - 6);
+        let taScrollStart = 0;
+        if (taCursorRow >= taVisibleH) {
+          taScrollStart = taCursorRow - taVisibleH + 1;
+        }
+        const visibleLines = taLines.slice(taScrollStart, taScrollStart + taVisibleH);
+        const lineNumWidth = String(taLines.length).length;
+        return (
+          <Box flexDirection="column">
+            {visibleLines.map((line, i) => {
+              const realRow = i + taScrollStart;
+              const lineNum = String(realRow + 1).padStart(lineNumWidth, ' ');
+              const isCursorLine = realRow === taCursorRow;
+              return (
+                <Box key={realRow}>
+                  <Text color={tuiColors.dim}> {lineNum} </Text>
+                  <Text color={tuiColors.ghost}>{'\u2502'} </Text>
+                  {isCursorLine ? (
+                    <>
+                      <Text color={tuiColors.white}>{line.slice(0, taCursorCol)}</Text>
+                      <Text color={tuiColors.amber}>{CURSOR}</Text>
+                      <Text color={tuiColors.white}>{line.slice(taCursorCol)}</Text>
+                    </>
+                  ) : (
+                    <Text color={tuiColors.silver}>{line || ' '}</Text>
+                  )}
+                </Box>
+              );
+            })}
+            {/* Show placeholder on empty textarea */}
+            {taLines.length === 1 && taLines[0] === '' && step.placeholder && (
+              <Box>
+                <Text color={tuiColors.dim}>  {''.padStart(lineNumWidth, ' ')}  {step.placeholder}</Text>
+              </Box>
+            )}
+          </Box>
+        );
+      })()}
 
       {/* Select list */}
       {step.type === 'select' && (
@@ -452,7 +501,11 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
       <Box marginTop={0}>
         <Text color={tuiColors.ghost}>
           {'  '}
-          {step.type === 'select' ? '\u2191\u2193 select  Enter confirm' : 'Enter confirm'}
+          {step.type === 'select'
+            ? '\u2191\u2193 select  Enter confirm'
+            : step.type === 'textarea'
+              ? 'Enter newline  Tab confirm  \u2190\u2191\u2192\u2193 navigate'
+              : '\u2190\u2192 move  Enter confirm'}
           {'  Esc '}
           {currentStep > 0 ? 'back' : 'cancel'}
         </Text>

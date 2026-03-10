@@ -63,6 +63,9 @@ export interface Container {
 export async function buildContainer(context: CliContext): Promise<Container> {
   const paths = new Paths(context.projectRoot);
 
+  // Fail fast if .orchestry/ does not exist
+  await paths.requireInit();
+
   // Infrastructure
   const configStore = new ConfigStore(paths);
   const config = await configStore.read();
@@ -106,6 +109,7 @@ export async function buildContainer(context: CliContext): Promise<Container> {
     contextStore,
     config,
     projectRoot: context.projectRoot,
+    lockPath: paths.lockPath,
   });
 
   return {

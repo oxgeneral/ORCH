@@ -45,6 +45,8 @@ export function registerAgentCommand(program: Command, container: Container): vo
         const initial = agentToEditorContent({ name, model: opts.model, role });
         const edited = await openInEditor(initial);
         const parsed = agentFromEditorContent(edited);
+        if (parsed.name) name = parsed.name;
+        if (parsed.model) opts.model = parsed.model;
         if (parsed.role) role = parsed.role;
       }
 

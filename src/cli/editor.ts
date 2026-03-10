@@ -165,13 +165,16 @@ export function agentToEditorContent(fields: {
  * Strips comment lines (starting with #) before parsing.
  */
 export function agentFromEditorContent(content: string): AgentEditorFields {
-  // Strip comment lines
-  const stripped = content
-    .split('\n')
-    .filter((line) => !line.startsWith('#'))
-    .join('\n');
+  // Strip comment lines only BEFORE the first --- delimiter
+  // (preserves # in role body — markdown headings, shell comments, etc.)
+  const lines = content.split('\n');
+  const firstFence = lines.findIndex((l) => l.trimEnd() === '---');
+  const stripped = (firstFence >= 0
+    ? [...lines.slice(0, firstFence).filter((l) => !l.startsWith('#')), ...lines.slice(firstFence)]
+    : lines.filter((l) => !l.startsWith('#'))
+  ).join('\n');
 
-  const match = stripped.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  const match = stripped.trimStart().match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!match) {
     // No frontmatter — treat entire content as role
     const role = stripped.trim();
@@ -187,15 +190,15 @@ export function agentFromEditorContent(content: string): AgentEditorFields {
     if (!kv) continue;
     const key = kv[1];
     const value = kv[2] ?? '';
-    if (key === 'name' && value.trim()) {
+    if (key === 'name') {
       result.name = value.trim();
-    } else if (key === 'model' && value.trim()) {
+    } else if (key === 'model') {
       result.model = value.trim();
     }
   }
 
-  const role = body.trim();
-  if (role) result.role = role;
+  // Always set role (empty string = cleared) so callers can detect clearing
+  result.role = body.trim();
 
   return result;
 }

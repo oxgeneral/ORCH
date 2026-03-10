@@ -15,10 +15,12 @@ import type { RunEvent } from '../domain/run.js';
 import {
   isDispatchable,
   isBlocked,
+  isTerminal,
   resolveCompletionStatus,
   calculateRetryDelay,
 } from '../domain/transitions.js';
-import { NoAgentsError, TaskAlreadyRunningError } from '../domain/errors.js';
+import { NoAgentsError, TaskAlreadyRunningError, LockConflictError } from '../domain/errors.js';
+import { acquireLock, releaseLock } from '../infrastructure/storage/lock.js';
 import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IContextStore } from '../infrastructure/storage/interfaces.js';
 import { CachedTaskStore, CachedAgentStore } from '../infrastructure/storage/cached-stores.js';
 import type { AdapterRegistry } from '../infrastructure/adapters/registry.js';
@@ -49,6 +51,7 @@ export interface OrchestratorDeps {
   contextStore?: IContextStore;
   config: OrchestratorConfig;
   projectRoot: string;
+  lockPath: string;
 }
 
 export class Orchestrator {
@@ -60,6 +63,7 @@ export class Orchestrator {
   private readonly cachedAgentStore: CachedAgentStore;
   private saveStateTimer: ReturnType<typeof setTimeout> | null = null;
   private saveStateDirty = false;
+  private lockAcquired = false;
 
   constructor(private readonly deps: OrchestratorDeps) {
     this.cachedTaskStore = new CachedTaskStore(deps.taskStore);
@@ -67,25 +71,42 @@ export class Orchestrator {
   }
 
   /**
-   * Run a single task by ID.
+   * Check if this instance owns the lock (can mutate state).
+   */
+  get isOwner(): boolean {
+    return this.lockAcquired;
+  }
+
+  /**
+   * Run a single task by ID. Requires lock ownership.
    */
   async runTask(taskId: string): Promise<void> {
+    this.requireOwnership();
     await this.loadState();
     await this.dispatchTask(taskId);
   }
 
   /**
-   * Run all dispatchable tasks.
+   * Run all dispatchable tasks. Requires lock ownership.
    */
   async runAll(): Promise<void> {
+    this.requireOwnership();
     await this.loadState();
     await this.dispatchAll();
   }
 
   /**
    * Start watch mode — continuous tick loop.
+   * Acquires a PID lock to prevent multiple orchestrators.
    */
   async startWatch(): Promise<void> {
+    // Acquire lock — only one orchestrator per project
+    const lockResult = await acquireLock(this.deps.lockPath);
+    if (!lockResult.acquired) {
+      throw new LockConflictError(lockResult.pid!);
+    }
+    this.lockAcquired = true;
+
     await this.loadState();
 
     this.state!.pid = process.pid;
@@ -144,12 +165,20 @@ export class Orchestrator {
       this.state.started_at = undefined;
       await this.saveState();
     }
+
+    // Release lock
+    if (this.lockAcquired) {
+      await releaseLock(this.deps.lockPath);
+      this.lockAcquired = false;
+    }
   }
 
   /**
    * Cancel a running task: kill agent process, clean state, mark cancelled.
+   * Requires lock ownership.
    */
   async cancelTask(taskId: string): Promise<void> {
+    this.requireOwnership();
     await this.loadState();
     const state = this.state!;
     const entry = state.running[taskId];
@@ -186,8 +215,10 @@ export class Orchestrator {
 
   /**
    * Force-stop a specific agent: kill process, clean state, release agent.
+   * Requires lock ownership.
    */
   async forceStopAgent(agentId: string): Promise<void> {
+    this.requireOwnership();
     await this.loadState();
     const state = this.state!;
 
@@ -248,10 +279,25 @@ export class Orchestrator {
 
     // Check running processes
     for (const [taskId, entry] of Object.entries(state.running)) {
+      // If task is already terminal (done/failed/cancelled), just clean up the stale entry
+      const taskData = await this.deps.taskStore.get(taskId);
+      if (!taskData || isTerminal(taskData.status)) {
+        this.abortControllers.delete(taskId);
+        delete state.running[taskId];
+        await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch(() => {});
+        continue;
+      }
+
       // PID check
       if (!this.deps.processManager.isAlive(entry.pid)) {
-        // Process crashed
-        await this.handleRunFailure(taskId, entry, 'Process crashed unexpectedly');
+        // Process crashed — wrap in try/catch to ensure running entry is always cleaned
+        try {
+          await this.handleRunFailure(taskId, entry, 'Process crashed unexpectedly');
+        } catch {
+          // Cleanup even if handleRunFailure fails (e.g. invalid transition)
+          delete state.running[taskId];
+          await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch(() => {});
+        }
         continue;
       }
 
@@ -267,7 +313,12 @@ export class Orchestrator {
 
         this.abortControllers.get(taskId)?.abort();
         await this.deps.processManager.killWithGrace(entry.pid, 5_000);
-        await this.handleRunFailure(taskId, entry, 'Agent stalled (no events)');
+        try {
+          await this.handleRunFailure(taskId, entry, 'Agent stalled (no events)');
+        } catch {
+          delete state.running[taskId];
+          await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch(() => {});
+        }
       }
     }
 
@@ -761,6 +812,15 @@ export class Orchestrator {
   private unclaim(taskId: string): void {
     const idx = this.state!.claimed.indexOf(taskId);
     if (idx !== -1) this.state!.claimed.splice(idx, 1);
+  }
+
+  /**
+   * Throw if this instance doesn't own the lock (read-only session).
+   */
+  private requireOwnership(): void {
+    if (!this.lockAcquired) {
+      throw new LockConflictError(0);
+    }
   }
 
   private async loadState(): Promise<void> {

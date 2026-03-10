@@ -176,22 +176,22 @@ export function TaskRow({ task, selected, width, agentNameMap }: TaskRowProps) {
         </Text>
       </Box>
 
-      {/* Title */}
+      {/* Title (truncated to column width) */}
       <Box width={titleWidth}>
         <Text
           wrap="truncate"
           bold={selected || isRunning}
           color={selected ? tuiColors.white : isRunning ? tuiColors.silver : undefined}
         >
-          {task.title}
+          {task.title.length > titleWidth ? task.title.slice(0, titleWidth - 1) + '\u2026' : task.title}
         </Text>
       </Box>
 
-      {/* Assignee chip */}
+      {/* Assignee chip (truncated to column width) */}
       <Box width={assigneeWidth}>
         {assigneeName ? (
-          <Text backgroundColor={chipBg.green} color={tuiColors.green}>
-            {' '}{assigneeName}{' '}
+          <Text backgroundColor={chipBg.green} color={tuiColors.green} wrap="truncate">
+            {' '}{assigneeName.length > assigneeWidth - 2 ? assigneeName.slice(0, assigneeWidth - 3) + '\u2026' : assigneeName}{' '}
           </Text>
         ) : (
           <Text color={tuiColors.ghost}>{'\u2014'}</Text>

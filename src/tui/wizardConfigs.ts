@@ -77,7 +77,7 @@ export function getAgentWizardSteps(): WizardStep[] {
     {
       id: 'role_custom',
       label: 'Describe the role',
-      type: 'text',
+      type: 'textarea',
       placeholder: 'e.g. Specialist in React and TypeScript',
       skip: (vals) => vals.role !== '__custom__',
     },
@@ -142,7 +142,7 @@ export function getTaskWizardSteps(agents: Agent[]): WizardStep[] {
     {
       id: 'description',
       label: 'Description',
-      type: 'text',
+      type: 'textarea',
       placeholder: 'Optional details, context, acceptance criteria...',
     },
   ];
@@ -207,7 +207,7 @@ export function getEditTaskWizardSteps(task: Task, agents: Agent[]): WizardStep[
     {
       id: 'description',
       label: 'Description',
-      type: 'text',
+      type: 'textarea',
       defaultValue: task.description || '',
       placeholder: 'Optional details...',
     },
@@ -255,7 +255,7 @@ export function getEditAgentWizardSteps(agent: Agent): WizardStep[] {
     {
       id: 'role_custom',
       label: 'Describe the role',
-      type: 'text',
+      type: 'textarea',
       defaultValue: agent.role && !currentRoleInPresets ? agent.role : '',
       placeholder: 'e.g. Specialist in React and TypeScript',
       skip: (vals) => vals.role !== '__custom__',
