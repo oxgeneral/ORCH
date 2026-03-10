@@ -1,84 +1,84 @@
 # Agents Organizations
 
-Легковесный CLI-оркестратор для AI-агентов. Управляет командой агентов (Claude Code, Codex, Cursor, shell-скрипты и др.), выполняющих задачи параллельно.
+A lightweight CLI orchestrator for AI agents. Manages a team of agents (Claude Code, Codex, Cursor, shell scripts, etc.) executing tasks in parallel.
 
-## Возможности
+## Features
 
-- **Управление задачами** — создание, назначение и отслеживание задач через конечный автомат (`todo → in_progress → review → done`)
-- **Управление агентами** — конфигурация нескольких агентов с разными адаптерами и ролями
-- **Параллельное выполнение** — запуск нескольких агентов одновременно с автоматической диспетчеризацией
-- **Повторные попытки** — стратегия экспоненциального отступа при ошибках
-- **Изоляция рабочих пространств** — три режима: `shared`, `worktree`, `isolated`
-- **Интерактивный дашборд** — полноэкранный TUI с мониторингом в реальном времени
-- **Watch-режим** — демон, непрерывно отслеживающий и распределяющий задачи
-- **Журнал событий** — хранение в формате JSON-lines
+- **Task Management** — create, assign, and track tasks via a state machine (`todo → in_progress → review → done`)
+- **Agent Management** — configure multiple agents with different adapters and roles
+- **Parallel Execution** — run multiple agents simultaneously with automatic dispatching
+- **Retries** — exponential backoff strategy on failures
+- **Workspace Isolation** — three modes: `shared`, `worktree`, `isolated`
+- **Interactive Dashboard** — fullscreen TUI with real-time monitoring
+- **Watch Mode** — daemon that continuously monitors and dispatches tasks
+- **Event Log** — stored in JSON-lines format
 
-## Технологии
+## Tech Stack
 
-| Компонент | Технология |
+| Component | Technology |
 |-----------|-----------|
-| Язык | TypeScript (strict) |
-| Рантайм | Node.js 20+ |
+| Language | TypeScript (strict) |
+| Runtime | Node.js 20+ |
 | CLI | Commander.js |
 | TUI | Ink + React |
-| Шаблоны | LiquidJS |
-| Хранение | YAML/JSON файлы |
-| Тесты | Vitest |
-| Сборка | tsup |
+| Templates | LiquidJS |
+| Storage | YAML/JSON files |
+| Tests | Vitest |
+| Build | tsup |
 
-## Установка
+## Installation
 
 ```bash
-# Клонировать репозиторий
+# Clone the repository
 git clone <repo-url>
 cd AgentsOrchestryCLI
 
-# Установить зависимости
+# Install dependencies
 npm install
 
-# Собрать проект
+# Build the project
 npm run build
 
-# Установить глобально (опционально)
+# Install globally (optional)
 npm install -g .
 ```
 
-**Требования:** Node.js >= 20.0.0
+**Requirements:** Node.js >= 20.0.0
 
-## Быстрый старт
+## Quick Start
 
 ```bash
-# Инициализация в проекте
+# Initialize in a project
 orchestry init
 
-# Добавить агента
+# Add an agent
 orchestry agent add backend --adapter claude --role "Backend developer"
 
-# Добавить задачу
-orchestry task add "Реализовать авторизацию" -p 1
+# Add a task
+orchestry task add "Implement authentication" -p 1
 
-# Назначить и запустить
+# Assign and run
 orchestry task assign <task-id> <agent-id>
 orchestry run <task-id>
 
-# Или запустить всё
+# Or run everything
 orchestry run --all
 ```
 
-## Команды CLI
+## CLI Commands
 
-### Инициализация и статус
+### Initialization and Status
 
 ```bash
-orchestry init          # Создать .orchestry/ в текущей директории
-orchestry status        # Обзор задач и агентов
-orchestry doctor        # Диагностика системы
+orchestry init          # Create .orchestry/ in the current directory
+orchestry status        # Overview of tasks and agents
+orchestry doctor        # System diagnostics
 ```
 
-### Задачи
+### Tasks
 
 ```bash
-orchestry task add "Заголовок" [-d описание] [-p приоритет] [-l метки]
+orchestry task add "Title" [-d description] [-p priority] [-l labels]
 orchestry task list [--status todo|done]
 orchestry task show <id>
 orchestry task assign <task-id> <agent-id>
@@ -86,99 +86,99 @@ orchestry task cancel <task-id>
 orchestry task retry <task-id>
 ```
 
-### Агенты
+### Agents
 
 ```bash
-orchestry agent add <имя> --adapter claude [--role "Роль"]
-orchestry agent add <имя> --adapter shell --command "python bot.py"
+orchestry agent add <name> --adapter claude [--role "Role"]
+orchestry agent add <name> --adapter shell --command "python bot.py"
 orchestry agent list
 orchestry agent remove <id>
 orchestry agent disable/enable <id>
 ```
 
-### Выполнение и логи
+### Execution and Logs
 
 ```bash
-orchestry run <task-id>       # Запустить конкретную задачу
-orchestry run --all           # Запустить все todo-задачи
-orchestry run --watch         # Демон с автодиспетчеризацией
-orchestry logs <run-id>       # Просмотр логов
-orchestry logs --follow       # Поток в реальном времени
+orchestry run <task-id>       # Run a specific task
+orchestry run --all           # Run all todo tasks
+orchestry run --watch         # Daemon with auto-dispatching
+orchestry logs <run-id>       # View logs
+orchestry logs --follow       # Real-time stream
 ```
 
-### Конфигурация
+### Configuration
 
 ```bash
 orchestry config set defaults.agent.adapter codex
 orchestry config get defaults.agent.timeout_ms
-orchestry config edit         # Открыть в $EDITOR
+orchestry config edit         # Open in $EDITOR
 ```
 
-### Интерактивный режим
+### Interactive Mode
 
 ```bash
-orchestry                     # Открыть TUI-дашборд
-orchestry tui                 # Явный запуск TUI
+orchestry                     # Open TUI dashboard
+orchestry tui                 # Explicitly launch TUI
 ```
 
-### Глобальные опции
+### Global Options
 
 ```
---json       JSON-вывод
---quiet      Минимальный вывод
---no-color   Без ANSI-цветов
---ascii      Только ASCII (без Unicode)
+--json       JSON output
+--quiet      Minimal output
+--no-color   No ANSI colors
+--ascii      ASCII only (no Unicode)
 ```
 
-**Псевдонимы:** `orchestry`, `orch`, `ao`
+**Aliases:** `orchestry`, `orch`, `ao`
 
-## Структура проекта
+## Project Structure
 
 ```
 src/
-├── bin/cli.ts              # Точка входа CLI
-├── index.ts                # Экспорт библиотеки
-├── cli/commands/           # Реализация команд
-├── tui/                    # Ink React-компоненты
-├── domain/                 # Доменные модели (DDD)
-├── application/            # Бизнес-логика (сервисы)
-└── infrastructure/         # Инфраструктура
-    ├── adapters/           # Адаптеры агентов (Claude, Shell)
-    ├── storage/            # Файловое хранилище
-    ├── process/            # Управление процессами
-    ├── template/           # Шаблонизатор промптов
-    └── workspace/          # Изоляция рабочих пространств
+├── bin/cli.ts              # CLI entry point
+├── index.ts                # Library exports
+├── cli/commands/           # Command implementations
+├── tui/                    # Ink React components
+├── domain/                 # Domain models (DDD)
+├── application/            # Business logic (services)
+└── infrastructure/         # Infrastructure
+    ├── adapters/           # Agent adapters (Claude, Shell)
+    ├── storage/            # File storage
+    ├── process/            # Process management
+    ├── template/           # Prompt templating engine
+    └── workspace/          # Workspace isolation
 ```
 
-## Архитектура
+## Architecture
 
-Проект построен по принципам **Domain-Driven Design** с чётким разделением слоёв:
+The project follows **Domain-Driven Design** principles with clear layer separation:
 
-- **Domain** — типы, сущности, state machine переходов задач
-- **Application** — оркестратор, сервисы задач/агентов/запусков, шина событий
-- **Infrastructure** — адаптеры агентов, файловое хранилище, управление процессами
+- **Domain** — types, entities, task transition state machine
+- **Application** — orchestrator, task/agent/run services, event bus
+- **Infrastructure** — agent adapters, file storage, process management
 
-Все данные хранятся в директории `.orchestry/` — без внешних баз данных.
+All data is stored in the `.orchestry/` directory — no external databases required.
 
-## Разработка
+## Development
 
 ```bash
-npm run dev            # Запуск через tsx
-npm run build          # Сборка в dist/
-npm run build:watch    # Сборка в watch-режиме
-npm run test           # Запуск тестов
-npm run test:watch     # Тесты в watch-режиме
-npm run typecheck      # Проверка типов
-npm run clean          # Очистить dist/
+npm run dev            # Run via tsx
+npm run build          # Build to dist/
+npm run build:watch    # Build in watch mode
+npm run test           # Run tests
+npm run test:watch     # Tests in watch mode
+npm run typecheck      # Type checking
+npm run clean          # Clean dist/
 ```
 
-## Документация
+## Documentation
 
-- [Техническая спецификация](docs/SPEC.md)
+- [Technical Specification](docs/SPEC.md)
 - [API Reference](docs/API.md)
-- [UI/UX дизайн](docs/CLI_UI_DESIGN.md)
-- [Пользовательские истории](docs/USER_STORIES.md)
+- [UI/UX Design](docs/CLI_UI_DESIGN.md)
+- [User Stories](docs/USER_STORIES.md)
 
-## Лицензия
+## License
 
 MIT
