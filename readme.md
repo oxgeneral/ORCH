@@ -5,7 +5,7 @@
     One CLI to run Claude, Codex, Cursor, and shell scripts as a team — in parallel, with retries, from your terminal.
   </p>
   <p align="center">
-    <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-30%20seconds-brightgreen" alt="30s setup" /></a>
+    <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-one%20command-brightgreen" alt="One command setup" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
     <a href="#development"><img src="https://img.shields.io/badge/tests-345%20passing-brightgreen" alt="Tests" /></a>
     <a href="#architecture"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
@@ -54,21 +54,12 @@ One command. Three agents. Zero tab-switching.
 git clone https://github.com/oxgeneral/ORCH.git && cd ORCH
 npm install && npm run build
 
-# Initialize in your project
+# Go to your project and launch
 cd ~/your-project
-orch init
-
-# Add your team
-orch agent add backend --adapter claude --role "Backend developer"
-orch agent add tester  --adapter shell  --command "npm test"
-
-# Give them work
-orch task add "Implement authentication" -p 1
-orch task add "Write API tests" -p 2
-
-# Let them loose
-orch run --all
+orch
 ```
+
+That's it. The TUI opens, you add agents and tasks right from the dashboard — no CLI memorization needed.
 
 **Requirements:** Node.js >= 20
 
