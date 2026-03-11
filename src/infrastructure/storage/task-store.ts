@@ -32,7 +32,10 @@ export class TaskStore implements ITaskStore {
     return tasks.sort((a, b) => {
       const statusOrder = statusPriority(a.status) - statusPriority(b.status);
       if (statusOrder !== 0) return statusOrder;
-      return a.priority - b.priority;
+      const priOrder = a.priority - b.priority;
+      if (priOrder !== 0) return priOrder;
+      // Most recently updated first
+      return (b.updated_at ?? '').localeCompare(a.updated_at ?? '');
     });
   }
 
