@@ -8,7 +8,7 @@
 
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
-import { readLines } from '../process/process-manager.js';
+import { extractTokens, createStreamingEvents } from './utils.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -58,40 +58,9 @@ export class CodexAdapter implements IAgentAdapter {
       proc.stdin.end();
     }
 
-    const signal = params.signal;
+    const events = createStreamingEvents(proc, parseCodexEvent, 'Codex', params.signal);
 
-    async function* generateEvents(): AsyncGenerator<AgentEvent> {
-      let gotDoneEvent = false;
-
-      let exitCode: number | null = null;
-      let exitError: Error | null = null;
-      const exitPromise = new Promise<void>((resolve) => {
-        proc.on('close', (code) => { exitCode = code; resolve(); });
-        proc.on('error', (err) => { exitError = err; resolve(); });
-      });
-
-      if (proc.stdout) {
-        for await (const line of readLines(proc.stdout)) {
-          if (signal?.aborted) break;
-          const event = parseCodexEvent(line);
-          if (event) {
-            if (event.type === 'done') gotDoneEvent = true;
-            yield event;
-          }
-        }
-      }
-
-      await exitPromise;
-
-      if (exitError && !signal?.aborted && !gotDoneEvent) {
-        throw exitError;
-      }
-      if (exitCode !== 0 && exitCode !== null && !signal?.aborted && !gotDoneEvent) {
-        throw new Error(`Codex process exited with code ${exitCode}`);
-      }
-    }
-
-    return { pid, events: generateEvents() };
+    return { pid, events };
   }
 
   async stop(pid: number): Promise<void> {
@@ -99,24 +68,14 @@ export class CodexAdapter implements IAgentAdapter {
   }
 }
 
-function extractTokens(parsed: any): { input: number; output: number; total: number } | undefined {
-  const usage = parsed.usage;
-  if (usage && typeof usage.input_tokens === 'number') {
-    const input = usage.input_tokens;
-    const output = usage.output_tokens ?? 0;
-    return { input, output, total: input + output };
-  }
-  return undefined;
-}
-
 function parseCodexEvent(line: string): AgentEvent | null {
   if (!line.trim()) return null;
 
   try {
-    const parsed = JSON.parse(line);
+    const parsed: Record<string, unknown> = JSON.parse(line);
     const timestamp = new Date().toISOString();
 
-    const type = parsed.type ?? '';
+    const type = (parsed.type as string) ?? '';
 
     // Codex JSONL event types
     switch (type) {
@@ -141,8 +100,8 @@ function parseCodexEvent(line: string): AgentEvent | null {
       // Item events
       case 'item.started':
       case 'item.completed': {
-        const item = parsed.item ?? {};
-        const itemType = item.type ?? '';
+        const item = (parsed.item as Record<string, unknown>) ?? {};
+        const itemType = (item.type as string) ?? '';
 
         if (itemType === 'agent_message') {
           return { type: 'output', timestamp, data: item };
@@ -154,10 +113,9 @@ function parseCodexEvent(line: string): AgentEvent | null {
           return { type: 'command', timestamp, data: item };
         }
         if (itemType === 'file_change') {
-          // Extract individual file paths from Codex's changes array
           const changes = Array.isArray(item.changes) ? item.changes : [];
-          const paths = changes
-            .map((c: any) => typeof c.path === 'string' ? c.path : '')
+          const paths = (changes as Record<string, unknown>[])
+            .map((c) => typeof c.path === 'string' ? c.path : '')
             .filter(Boolean);
           return { type: 'file_change', timestamp, data: { paths, raw: item } };
         }
@@ -174,7 +132,7 @@ function parseCodexEvent(line: string): AgentEvent | null {
       }
 
       case 'error':
-        return { type: 'error', timestamp, data: parsed.error ?? parsed };
+        return { type: 'error', timestamp, data: (parsed.error as unknown) ?? parsed };
 
       default:
         return { type: 'output', timestamp, data: parsed };

@@ -11,7 +11,7 @@
 
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
-import { readLines } from '../process/process-manager.js';
+import { extractTokens, createStreamingEvents } from './utils.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -74,40 +74,9 @@ export class CursorAdapter implements IAgentAdapter {
       proc.stdin.end();
     }
 
-    const signal = params.signal;
+    const events = createStreamingEvents(proc, parseCursorEvent, 'Cursor agent', params.signal);
 
-    async function* generateEvents(): AsyncGenerator<AgentEvent> {
-      let gotDoneEvent = false;
-
-      let exitCode: number | null = null;
-      let exitError: Error | null = null;
-      const exitPromise = new Promise<void>((resolve) => {
-        proc.on('close', (code) => { exitCode = code; resolve(); });
-        proc.on('error', (err) => { exitError = err; resolve(); });
-      });
-
-      if (proc.stdout) {
-        for await (const line of readLines(proc.stdout)) {
-          if (signal?.aborted) break;
-          const event = parseCursorEvent(line);
-          if (event) {
-            if (event.type === 'done') gotDoneEvent = true;
-            yield event;
-          }
-        }
-      }
-
-      await exitPromise;
-
-      if (exitError && !signal?.aborted && !gotDoneEvent) {
-        throw exitError;
-      }
-      if (exitCode !== 0 && exitCode !== null && !signal?.aborted && !gotDoneEvent) {
-        throw new Error(`Cursor agent exited with code ${exitCode}`);
-      }
-    }
-
-    return { pid, events: generateEvents() };
+    return { pid, events };
   }
 
   async stop(pid: number): Promise<void> {
@@ -115,33 +84,23 @@ export class CursorAdapter implements IAgentAdapter {
   }
 }
 
-function extractTokens(parsed: any): { input: number; output: number; total: number } | undefined {
-  const usage = parsed.usage;
-  if (usage && typeof usage.input_tokens === 'number') {
-    const input = usage.input_tokens;
-    const output = usage.output_tokens ?? 0;
-    return { input, output, total: input + output };
-  }
-  return undefined;
-}
-
 function parseCursorEvent(line: string): AgentEvent | null {
   if (!line.trim()) return null;
 
   try {
-    const parsed = JSON.parse(line);
+    const parsed: Record<string, unknown> = JSON.parse(line);
     const timestamp = new Date().toISOString();
 
     // Cursor stream-json uses the same format as Claude stream-json
     switch (parsed.type) {
       case 'assistant':
-        return { type: 'output', timestamp, data: parsed.message ?? parsed };
+        return { type: 'output', timestamp, data: (parsed.message as unknown) ?? parsed };
       case 'tool_use':
         return { type: 'tool_call', timestamp, data: parsed };
       case 'tool_result':
         return { type: 'output', timestamp, data: parsed };
       case 'error':
-        return { type: 'error', timestamp, data: parsed.error ?? parsed };
+        return { type: 'error', timestamp, data: (parsed.error as unknown) ?? parsed };
       case 'result': {
         const tokens = extractTokens(parsed);
         return { type: 'done', timestamp, data: parsed, tokens };

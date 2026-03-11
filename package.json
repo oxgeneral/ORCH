@@ -25,6 +25,7 @@
     "build:watch": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build"

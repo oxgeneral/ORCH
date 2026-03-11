@@ -51,6 +51,30 @@ const ADAPTERS = [
   { value: 'shell', label: 'Shell', hint: 'custom shell command' },
 ];
 
+// ── Priority options ──
+
+const PRIORITY_OPTIONS = [
+  { value: '1', label: 'P1 Critical', hint: 'urgent, do first' },
+  { value: '2', label: 'P2 High', hint: 'important' },
+  { value: '3', label: 'P3 Medium', hint: 'default priority' },
+  { value: '4', label: 'P4 Low', hint: 'nice to have' },
+];
+
+// ── Agent options builder ──
+
+function buildAgentOptions(agents: Agent[], emptyLabel = 'Auto-assign', emptyHint = 'orchestrator picks the best agent') {
+  return [
+    { value: '', label: emptyLabel, hint: emptyHint },
+    ...agents
+      .filter((a) => a.status !== 'disabled')
+      .map((a) => ({
+        value: a.id,
+        label: a.name,
+        hint: a.role ?? a.adapter,
+      })),
+  ];
+}
+
 // ── Role presets ──
 
 const ROLE_PRESETS = [
@@ -124,23 +148,7 @@ export function agentWizardToInput(vals: Record<string, string>) {
 // ── Task creation wizard ──
 
 export function getTaskWizardSteps(agents: Agent[]): WizardStep[] {
-  const agentOptions = [
-    { value: '', label: 'Auto-assign', hint: 'orchestrator picks the best agent' },
-    ...agents
-      .filter((a) => a.status !== 'disabled')
-      .map((a) => ({
-        value: a.id,
-        label: a.name,
-        hint: a.role ?? a.adapter,
-      })),
-  ];
-
-  const priorityOptions = [
-    { value: '1', label: 'P1 Critical', hint: 'urgent, do first' },
-    { value: '2', label: 'P2 High', hint: 'important' },
-    { value: '3', label: 'P3 Medium', hint: 'default priority' },
-    { value: '4', label: 'P4 Low', hint: 'nice to have' },
-  ];
+  const agentOptions = buildAgentOptions(agents);
 
   return [
     {
@@ -154,7 +162,7 @@ export function getTaskWizardSteps(agents: Agent[]): WizardStep[] {
       id: 'priority',
       label: 'Priority',
       type: 'select',
-      options: priorityOptions,
+      options: PRIORITY_OPTIONS,
       defaultValue: '3',
     },
     {
@@ -188,23 +196,7 @@ export function taskWizardToInput(vals: Record<string, string>) {
 import type { Task } from '../domain/task.js';
 
 export function getEditTaskWizardSteps(task: Task, agents: Agent[]): WizardStep[] {
-  const agentOptions = [
-    { value: '', label: 'None / Auto', hint: 'remove assignee' },
-    ...agents
-      .filter((a) => a.status !== 'disabled')
-      .map((a) => ({
-        value: a.id,
-        label: a.name,
-        hint: a.role ?? a.adapter,
-      })),
-  ];
-
-  const priorityOptions = [
-    { value: '1', label: 'P1 Critical', hint: 'urgent, do first' },
-    { value: '2', label: 'P2 High', hint: 'important' },
-    { value: '3', label: 'P3 Medium', hint: 'default priority' },
-    { value: '4', label: 'P4 Low', hint: 'nice to have' },
-  ];
+  const agentOptions = buildAgentOptions(agents, 'None / Auto', 'remove assignee');
 
   return [
     {
@@ -218,7 +210,7 @@ export function getEditTaskWizardSteps(task: Task, agents: Agent[]): WizardStep[
       id: 'priority',
       label: 'Priority',
       type: 'select',
-      options: priorityOptions,
+      options: PRIORITY_OPTIONS,
       defaultValue: String(task.priority),
     },
     {

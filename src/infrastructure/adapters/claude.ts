@@ -7,7 +7,7 @@
 
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
-import { readLines } from '../process/process-manager.js';
+import { extractTokens, createStreamingEvents } from './utils.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -55,43 +55,9 @@ export class ClaudeAdapter implements IAgentAdapter {
       signal: params.signal,
     });
 
-    const signal = params.signal;
+    const events = createStreamingEvents(proc, parseClaudeEvent, 'Claude', params.signal);
 
-    async function* generateEvents(): AsyncGenerator<AgentEvent> {
-      let gotDoneEvent = false;
-
-      // Capture exit code early (process may close before readline finishes)
-      let exitCode: number | null = null;
-      let exitError: Error | null = null;
-      const exitPromise = new Promise<void>((resolve) => {
-        proc.on('close', (code) => { exitCode = code; resolve(); });
-        proc.on('error', (err) => { exitError = err; resolve(); });
-      });
-
-      if (proc.stdout) {
-        for await (const line of readLines(proc.stdout)) {
-          if (signal?.aborted) break;
-          const event = parseClaudeEvent(line);
-          if (event) {
-            if (event.type === 'done') gotDoneEvent = true;
-            yield event;
-          }
-        }
-      }
-
-      // Wait for process to fully exit
-      await exitPromise;
-
-      // Check exit status AFTER all stdout is processed (so gotDoneEvent is accurate)
-      if (exitError && !signal?.aborted && !gotDoneEvent) {
-        throw exitError;
-      }
-      if (exitCode !== 0 && exitCode !== null && !signal?.aborted && !gotDoneEvent) {
-        throw new Error(`Claude process exited with code ${exitCode}`);
-      }
-    }
-
-    return { pid, events: generateEvents() };
+    return { pid, events };
   }
 
   async stop(pid: number): Promise<void> {
@@ -99,35 +65,24 @@ export class ClaudeAdapter implements IAgentAdapter {
   }
 }
 
-function extractTokens(parsed: any): { input: number; output: number; total: number } | undefined {
-  // Claude stream-json result may include usage info
-  const usage = parsed.usage ?? parsed.stats?.usage;
-  if (usage && typeof usage.input_tokens === 'number') {
-    const input = usage.input_tokens;
-    const output = usage.output_tokens ?? 0;
-    return { input, output, total: input + output };
-  }
-  return undefined;
-}
-
 function parseClaudeEvent(line: string): AgentEvent | null {
   if (!line.trim()) return null;
 
   try {
-    const parsed = JSON.parse(line);
+    const parsed: Record<string, unknown> = JSON.parse(line);
     const timestamp = new Date().toISOString();
 
     switch (parsed.type) {
       case 'assistant':
-        return { type: 'output', timestamp, data: parsed.message ?? parsed };
+        return { type: 'output', timestamp, data: (parsed.message as unknown) ?? parsed };
       case 'tool_use':
         return { type: 'tool_call', timestamp, data: parsed };
       case 'tool_result':
         return { type: 'output', timestamp, data: parsed };
       case 'error':
-        return { type: 'error', timestamp, data: parsed.error ?? parsed };
+        return { type: 'error', timestamp, data: (parsed.error as unknown) ?? parsed };
       case 'result': {
-        const tokens = extractTokens(parsed);
+        const tokens = extractTokens(parsed, { statsFallback: true });
         return { type: 'done', timestamp, data: parsed, tokens };
       }
       default:

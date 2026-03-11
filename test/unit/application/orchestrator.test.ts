@@ -445,10 +445,8 @@ describe('Orchestrator', () => {
       expect(lastSaved).toBeDefined();
     });
 
-    // NOTE: reconcile calls handleRunFailure which re-enters withStateLock (deadlock).
-    // This is a known bug (tsk for Backend). Testing dead PID cleanup via the catch path.
+    // Terminal task with stale running entry — reconcile cleans it up directly (no _handleRunFailure needed)
     it('reconcile detects dead PID — running entry cleaned up on terminal task', async () => {
-      // When task is already terminal, reconcile just cleans the stale entry (no handleRunFailure)
       const task = makeTask({ id: 'tsk_dead', status: 'failed' });
       const agent = makeAgent();
 
@@ -486,10 +484,8 @@ describe('Orchestrator', () => {
       expect(lastState.running['tsk_dead']).toBeUndefined();
     });
 
-    // NOTE: Full stall → handleRunFailure path deadlocks due to re-entrant withStateLock.
-    // Testing stall detection emission separately from run failure handling.
+    // Terminal task with stale running entry detected as stalled — cleaned up directly
     it('reconcile emits stall_detected and kills stalled process', async () => {
-      // Use a terminal task so reconcile cleans up without calling handleRunFailure
       const task = makeTask({ id: 'tsk_stall', status: 'done' });
       const agent = makeAgent();
 
@@ -527,6 +523,68 @@ describe('Orchestrator', () => {
       const lastState = writes[writes.length - 1]?.[0] as OrchestratorState;
       expect(lastState.running['tsk_stall']).toBeUndefined();
     });
+
+    it('reconcile handles dead PID via _handleRunFailure without deadlock', async () => {
+      // This test verifies the deadlock fix: reconcile() runs inside tick()'s
+      // withStateLock, so it must call _handleRunFailure (no mutex) instead of
+      // handleRunFailure (which re-enters the mutex and would deadlock).
+      // An in_progress task with a dead PID should be processed and cleaned up
+      // within a reasonable time (no hang).
+      const task = makeTask({ id: 'tsk_deadpid', status: 'in_progress', attempts: 1 });
+      const agent = makeAgent();
+      const run = makeRun({ id: 'run_deadpid', task_id: 'tsk_deadpid', agent_id: agent.id });
+      const runStore = createMockRunStore();
+      (runStore.get as ReturnType<typeof vi.fn>).mockResolvedValue(structuredClone(run));
+
+      const processManager = createMockProcessManager();
+      // PID is dead — isAlive returns false
+      (processManager.isAlive as ReturnType<typeof vi.fn>).mockReturnValue(false);
+
+      const now = new Date().toISOString();
+      const stateStore = createMockStateStore({
+        running: {
+          tsk_deadpid: {
+            run_id: 'run_deadpid',
+            agent_id: agent.id,
+            task_id: 'tsk_deadpid',
+            pid: 99999,
+            started_at: now,
+            last_event_at: now,
+          },
+        },
+      });
+
+      deps = buildDeps({
+        taskStore: createMockTaskStore([task]),
+        agentStore: createMockAgentStore([agent]),
+        runStore,
+        stateStore,
+        processManager,
+      });
+
+      orchestrator = new Orchestrator(deps);
+
+      // Use a timeout to detect deadlock — if reconcile hangs, the test fails
+      const result = await Promise.race([
+        (async () => {
+          await orchestrator.startWatch();
+          // Allow tick to run
+          await new Promise((r) => setTimeout(r, 200));
+          return 'completed';
+        })(),
+        new Promise<string>((r) => setTimeout(() => r('timeout'), 5_000)),
+      ]);
+
+      expect(result).toBe('completed');
+
+      // The running entry should be cleaned up
+      const writes = (stateStore.write as ReturnType<typeof vi.fn>).mock.calls;
+      const lastState = writes[writes.length - 1]?.[0] as OrchestratorState;
+      expect(lastState.running['tsk_deadpid']).toBeUndefined();
+
+      // Should have enqueued retry (attempts=1 < max_attempts=3)
+      expect(lastState.retry_queue.some((r: any) => r.task_id === 'tsk_deadpid')).toBe(true);
+    }, 10_000);
 
     it('handleRunFailure updates task status and enqueues retry (called directly)', async () => {
       const task = makeTask({ id: 'tsk_fail', status: 'in_progress', attempts: 1 });
