@@ -16,104 +16,16 @@ import { TaskService } from '../../../src/application/task-service.js';
 import { AgentService } from '../../../src/application/agent-service.js';
 import { EventBus } from '../../../src/application/event-bus.js';
 import { DEFAULT_CONFIG } from '../../../src/domain/config.js';
-import { DEFAULT_STATE } from '../../../src/domain/state.js';
 import { InvalidArgumentsError } from '../../../src/domain/errors.js';
-import type { Task } from '../../../src/domain/task.js';
-import type { Agent } from '../../../src/domain/agent.js';
-import type { ITaskStore, IStateStore, IAgentStore } from '../../../src/infrastructure/storage/interfaces.js';
 import { ContextStore } from '../../../src/infrastructure/storage/context-store.js';
 import { Paths } from '../../../src/infrastructure/storage/paths.js';
-
-// --- Helpers ---
-
-function makeTask(overrides: Partial<Task> = {}): Task {
-  return {
-    id: 'tsk_test1',
-    title: 'Test task',
-    description: '',
-    status: 'todo',
-    priority: 3,
-    labels: [],
-    depends_on: [],
-    created_at: '2025-01-01T00:00:00.000Z',
-    updated_at: '2025-01-01T00:00:00.000Z',
-    attempts: 0,
-    max_attempts: 3,
-    ...overrides,
-  };
-}
-
-function makeAgent(overrides: Partial<Agent> = {}): Agent {
-  return {
-    id: 'agt_test1',
-    name: 'test-agent',
-    adapter: 'claude',
-    config: {
-      approval_policy: 'suggest',
-      max_turns: 50,
-      timeout_ms: 3600000,
-      stall_timeout_ms: 300000,
-    },
-    status: 'idle',
-    stats: {
-      tasks_completed: 0,
-      tasks_failed: 0,
-      total_runs: 0,
-      total_runtime_ms: 0,
-    },
-    ...overrides,
-  };
-}
-
-function createMockTaskStore(tasks: Task[] = []): ITaskStore {
-  const store = new Map(tasks.map((t) => [t.id, structuredClone(t)]));
-  return {
-    list: vi.fn(async (filter?) => {
-      const all = [...store.values()];
-      if (filter?.status) return all.filter((t) => t.status === filter.status);
-      return all;
-    }),
-    get: vi.fn(async (id: string) => {
-      const t = store.get(id);
-      return t ? structuredClone(t) : null;
-    }),
-    save: vi.fn(async (task: Task) => {
-      store.set(task.id, structuredClone(task));
-    }),
-    delete: vi.fn(async (id: string) => {
-      store.delete(id);
-    }),
-  };
-}
-
-function createMockStateStore(): IStateStore {
-  let state = structuredClone(DEFAULT_STATE);
-  return {
-    read: vi.fn(async () => structuredClone(state)),
-    write: vi.fn(async (s) => { state = structuredClone(s); }),
-  };
-}
-
-function createMockAgentStore(agents: Agent[] = []): IAgentStore {
-  const store = new Map(agents.map((a) => [a.id, structuredClone(a)]));
-  return {
-    list: vi.fn(async () => [...store.values()]),
-    get: vi.fn(async (id: string) => {
-      const a = store.get(id);
-      return a ? structuredClone(a) : null;
-    }),
-    getByName: vi.fn(async (name: string) => {
-      const a = [...store.values()].find((a) => a.name === name);
-      return a ? structuredClone(a) : null;
-    }),
-    save: vi.fn(async (agent: Agent) => {
-      store.set(agent.id, structuredClone(agent));
-    }),
-    delete: vi.fn(async (id: string) => {
-      store.delete(id);
-    }),
-  };
-}
+import {
+  makeTask,
+  makeAgent,
+  createMockTaskStore,
+  createMockAgentStore,
+  createMockStateStore,
+} from './helpers.js';
 
 // ============================================================
 // Fix #1: task-service.ts — priority range [1-4]

@@ -1,31 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerRunCommand } from '../../../src/cli/commands/run.js';
-import type { Container } from '../../../src/container.js';
-
-function makeContainer(overrides: Partial<Container> = {}): Container {
-  return {
-    paths: { requireInit: vi.fn(async () => {}) } as any,
-    context: { json: false, quiet: false, noColor: false, ascii: false, projectRoot: '/tmp' },
-    config: { scheduling: { poll_interval_ms: 5000 } } as any,
-    taskService: {
-      get: vi.fn(async () => ({ id: 'tsk_1', title: 'Test task', status: 'todo' })),
-    },
-    agentService: {
-      list: vi.fn(async () => []),
-    },
-    orchestrator: {
-      runTask: vi.fn(async () => {}),
-      runAll: vi.fn(async () => {}),
-      startWatch: vi.fn(async () => {}),
-      stop: vi.fn(async () => {}),
-    },
-    eventBus: {
-      onAny: vi.fn(() => vi.fn()),
-    },
-    ...overrides,
-  } as any;
-}
+import { makeContainer } from './helpers.js';
 
 describe('run command', () => {
   let program: Command;

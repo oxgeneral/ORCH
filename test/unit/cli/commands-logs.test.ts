@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerLogsCommand } from '../../../src/cli/commands/logs.js';
-import type { Container } from '../../../src/container.js';
 import type { RunEvent } from '../../../src/domain/run.js';
+import { makeContainer } from './helpers.js';
 
 const NOW = new Date().toISOString();
 const PAST = new Date(Date.now() - 120_000).toISOString(); // 2 min ago
@@ -11,7 +11,7 @@ function makeEvent(type: string = 'agent_output', data: unknown = 'hello', ts?: 
   return { timestamp: ts ?? NOW, type: type as any, data };
 }
 
-function makeRun(id: string, taskId: string, agentId: string) {
+function makeLogRun(id: string, taskId: string, agentId: string) {
   return {
     id,
     task_id: taskId,
@@ -22,22 +22,6 @@ function makeRun(id: string, taskId: string, agentId: string) {
     workspace_path: '/tmp',
     prompt: 'test',
   };
-}
-
-function makeContainer(overrides: Partial<Container> = {}): Container {
-  return {
-    paths: { requireInit: vi.fn(async () => {}) } as any,
-    context: { json: false, quiet: false, noColor: false, ascii: false, projectRoot: '/tmp' },
-    runService: {
-      readEvents: vi.fn(async () => []),
-      listForTask: vi.fn(async () => []),
-      listForAgent: vi.fn(async () => []),
-    },
-    eventBus: {
-      onAny: vi.fn(() => vi.fn()),
-    },
-    ...overrides,
-  } as any;
 }
 
 describe('logs command', () => {
@@ -97,7 +81,7 @@ describe('logs command', () => {
   describe('logs --task', () => {
     it('lists runs for a task and shows events', async () => {
       (container.runService.listForTask as ReturnType<typeof vi.fn>).mockResolvedValue([
-        makeRun('run_1', 'tsk_1', 'agt_1'),
+        makeLogRun('run_1', 'tsk_1', 'agt_1'),
       ]);
       (container.runService.readEvents as ReturnType<typeof vi.fn>).mockResolvedValue([
         makeEvent('agent_output', 'output'),
@@ -121,7 +105,7 @@ describe('logs command', () => {
   describe('logs --agent', () => {
     it('lists runs for an agent and shows events', async () => {
       (container.runService.listForAgent as ReturnType<typeof vi.fn>).mockResolvedValue([
-        makeRun('run_2', 'tsk_1', 'agt_1'),
+        makeLogRun('run_2', 'tsk_1', 'agt_1'),
       ]);
       (container.runService.readEvents as ReturnType<typeof vi.fn>).mockResolvedValue([
         makeEvent('agent_output', 'data'),

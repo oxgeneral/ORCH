@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerContextCommand } from '../../../src/cli/commands/context.js';
-import type { Container } from '../../../src/container.js';
 import type { ContextEntry } from '../../../src/infrastructure/storage/interfaces.js';
+import { makeContainer } from './helpers.js';
 
 const NOW = '2025-06-01T00:00:00Z';
 
@@ -14,21 +14,6 @@ function makeEntry(key: string, value: string, opts: Partial<ContextEntry> = {})
     updated_at: NOW,
     ...opts,
   };
-}
-
-function makeContainer(overrides: Partial<Container> = {}): Container {
-  return {
-    paths: { requireInit: vi.fn(async () => {}) } as any,
-    context: { json: false, quiet: false, noColor: false, ascii: false, projectRoot: '/tmp' },
-    contextStore: {
-      get: vi.fn(async () => null),
-      set: vi.fn(async () => {}),
-      delete: vi.fn(async () => {}),
-      list: vi.fn(async () => []),
-      getAll: vi.fn(async () => ({})),
-    },
-    ...overrides,
-  } as any;
 }
 
 describe('context command', () => {

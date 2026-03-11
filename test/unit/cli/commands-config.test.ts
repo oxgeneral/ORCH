@@ -1,21 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerConfigCommand } from '../../../src/cli/commands/config.js';
-import type { Container } from '../../../src/container.js';
-
-function makeContainer(overrides: Partial<Container> = {}): Container {
-  return {
-    paths: { requireInit: vi.fn(async () => {}) } as any,
-    context: { json: false, quiet: false, noColor: false, ascii: false, projectRoot: '/tmp' },
-    configStore: {
-      get: vi.fn(async () => 'value'),
-      set: vi.fn(async () => {}),
-      read: vi.fn(async () => ({})),
-      write: vi.fn(async () => {}),
-    },
-    ...overrides,
-  } as any;
-}
+import { makeContainer } from './helpers.js';
 
 describe('config command', () => {
   let program: Command;

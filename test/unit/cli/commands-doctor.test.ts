@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerDoctorCommand } from '../../../src/cli/commands/doctor.js';
-import type { Container } from '../../../src/container.js';
 import type { DoctorReport } from '../../../src/application/doctor-service.js';
+import { makeContainer } from './helpers.js';
 
 const MOCK_REPORT: DoctorReport = {
   checks: [
@@ -15,26 +15,6 @@ const MOCK_REPORT: DoctorReport = {
   adaptersTotal: 2,
 };
 
-function makeContainer(overrides: Partial<Container> = {}): Container {
-  return {
-    paths: {
-      requireInit: vi.fn(async () => {}),
-      isInitialized: vi.fn(async () => true),
-    } as any,
-    context: { json: false, quiet: false, noColor: false, ascii: false, projectRoot: '/tmp' },
-    doctorService: {
-      runAll: vi.fn(async () => MOCK_REPORT),
-    },
-    agentService: {
-      list: vi.fn(async () => [{ id: 'agt_1', name: 'A1' }]),
-    },
-    taskService: {
-      list: vi.fn(async () => [{ id: 'tsk_1', title: 'T1' }]),
-    },
-    ...overrides,
-  } as any;
-}
-
 describe('doctor command', () => {
   let program: Command;
   let container: Container;
@@ -42,7 +22,9 @@ describe('doctor command', () => {
   beforeEach(() => {
     program = new Command();
     program.exitOverride();
-    container = makeContainer();
+    container = makeContainer({
+      doctorService: { runAll: vi.fn(async () => MOCK_REPORT) },
+    } as any);
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
     registerDoctorCommand(program, container);
