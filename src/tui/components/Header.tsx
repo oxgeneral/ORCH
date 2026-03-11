@@ -19,6 +19,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { tuiColors, HEAVY_RULE, DOT } from '../colors.js';
+import { TABS } from './TabBar.js';
 import type { ViewId } from './TabBar.js';
 
 /* ══════════════════════════════════════════════════════════
@@ -166,16 +167,7 @@ export interface HeaderProps {
   sparklineData?: number[];
 }
 
-/* ══════════════════════════════════════════════════════════
-   TAB CONFIG
-   ══════════════════════════════════════════════════════════ */
-
-const TABS: Array<{ key: string; id: ViewId; label: string }> = [
-  { key: 'T', id: 'tasks', label: 'TASKS' },
-  { key: 'A', id: 'agents', label: 'AGENTS' },
-  { key: 'O', id: 'office', label: 'OFFICE' },
-  { key: 'L', id: 'logs', label: 'ACTIONS' },
-];
+/* Tab config imported from TabBar.tsx — single source of truth */
 
 /* ══════════════════════════════════════════════════════════
    LINE 1: BRAND + TABS + MODE

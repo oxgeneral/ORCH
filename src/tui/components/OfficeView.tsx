@@ -21,6 +21,7 @@ import type { Agent } from '../../domain/agent.js';
 import type { OrchestratorState } from '../../domain/state.js';
 import type { Task } from '../../domain/task.js';
 import { tuiColors, HEAVY_RULE, DOT } from '../colors.js';
+import { formatDuration, formatTokens } from '../../cli/output.js';
 
 /* ══════════════════════════════════════════════════════════
    CONSTANTS & GLYPHS
@@ -61,6 +62,13 @@ function getStreak(a: Agent): number {
   if (a.stats.tasks_failed === 0) return a.stats.tasks_completed;
   const ratio = a.stats.tasks_completed / Math.max(1, a.stats.total_runs);
   return Math.floor(ratio * a.stats.tasks_completed);
+}
+
+/** Success rate as 0–100 integer */
+function calcSuccessRate(a: Agent): number {
+  return a.stats.total_runs > 0
+    ? Math.round((a.stats.tasks_completed / a.stats.total_runs) * 100)
+    : 0;
 }
 
 type RankDef = { min: number; title: string; icon: string };
@@ -104,13 +112,12 @@ function TypingIndicator({ color }: { color: string }) {
     const t = setInterval(() => setFrame((f) => (f + 1) % TYPING_FRAMES.length), 100);
     return () => clearInterval(t);
   }, []);
-  const f = frame;
   return (
     <Text color={color}>
-      {TYPING_FRAMES[f % TYPING_FRAMES.length]}
-      {TYPING_FRAMES[(f + 2) % TYPING_FRAMES.length]}
-      {TYPING_FRAMES[(f + 4) % TYPING_FRAMES.length]}
-      {TYPING_FRAMES[(f + 6) % TYPING_FRAMES.length]}
+      {TYPING_FRAMES[frame % TYPING_FRAMES.length]}
+      {TYPING_FRAMES[(frame + 2) % TYPING_FRAMES.length]}
+      {TYPING_FRAMES[(frame + 4) % TYPING_FRAMES.length]}
+      {TYPING_FRAMES[(frame + 6) % TYPING_FRAMES.length]}
     </Text>
   );
 }
@@ -171,33 +178,12 @@ function getAgentAccent(idx: number): string {
   return AGENT_PALETTE[idx % AGENT_PALETTE.length]!;
 }
 
-/** Status badge backgrounds */
-const statusBg: Record<string, string> = {
-  running: '#0f2d1f',
-  idle: '#1a1a22',
-  error: '#2d0f0f',
-  disabled: '#1a1a1a',
-};
-
-const statusFg: Record<string, string> = {
-  running: tuiColors.green,
-  idle: tuiColors.dim,
-  error: tuiColors.red,
-  disabled: tuiColors.ghost,
-};
-
-const statusLabel: Record<string, string> = {
-  running: 'WORKING',
-  idle: 'AVAILABLE',
-  error: 'ERROR',
-  disabled: 'OFF DUTY',
-};
-
-const statusIcon: Record<string, string> = {
-  running: '\u25B6',   // ▶
-  idle: '\u25CB',       // ○
-  error: '\u2715',      // ✕
-  disabled: '\u2014',   // —
+/** Status styling — single composite map instead of 4 parallel maps */
+const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string; icon: string }> = {
+  running:  { bg: '#0f2d1f', fg: tuiColors.green, label: 'WORKING',   icon: '\u25B6' },
+  idle:     { bg: '#1a1a22', fg: tuiColors.dim,   label: 'AVAILABLE', icon: '\u25CB' },
+  error:    { bg: '#2d0f0f', fg: tuiColors.red,   label: 'ERROR',     icon: '\u2715' },
+  disabled: { bg: '#1a1a1a', fg: tuiColors.ghost, label: 'OFF DUTY',  icon: '\u2014' },
 };
 
 interface AgentCardProps {
@@ -215,9 +201,8 @@ function AgentCard({ agent, index, width, currentTask, runDuration, isLeader }: 
   const xp = getXpProgress(agent.stats.tasks_completed);
   const streak = getStreak(agent);
   const earnedBadges = ACHIEVEMENTS.filter((a) => a.test(agent));
-  const successRate = agent.stats.total_runs > 0
-    ? Math.round((agent.stats.tasks_completed / agent.stats.total_runs) * 100)
-    : 0;
+  const successRate = calcSuccessRate(agent);
+  const style = STATUS_STYLE[agent.status] ?? STATUS_STYLE['idle']!;
 
   const cardW = Math.max(30, width);
   const innerW = cardW - 4; // padding 2 each side
@@ -251,8 +236,8 @@ function AgentCard({ agent, index, width, currentTask, runDuration, isLeader }: 
             <Text color={tuiColors.dim}>{agent.adapter}</Text>
           </Box>
           <Box>
-            <Text backgroundColor={statusBg[agent.status]} color={statusFg[agent.status]}>
-              {' '}{statusIcon[agent.status]} {statusLabel[agent.status]}{' '}
+            <Text backgroundColor={style.bg} color={style.fg}>
+              {' '}{style.icon} {style.label}{' '}
             </Text>
           </Box>
         </Box>
@@ -307,10 +292,7 @@ function AgentCard({ agent, index, width, currentTask, runDuration, isLeader }: 
             <>
               <Text color={tuiColors.ghost}> {DOT} </Text>
               <Text color={tuiColors.dim}>
-                {agent.stats.tokens_used >= 1000
-                  ? `${(agent.stats.tokens_used / 1000).toFixed(1)}k tok`
-                  : `${agent.stats.tokens_used} tok`
-                }
+                {formatTokens(agent.stats.tokens_used)} tok
               </Text>
             </>
           )}
@@ -384,15 +366,15 @@ function AgentCard({ agent, index, width, currentTask, runDuration, isLeader }: 
    ══════════════════════════════════════════════════════════ */
 
 function Leaderboard({ agents, width }: { agents: Agent[]; width: number }) {
+  // Build index map once to avoid O(N²) indexOf calls
+  const indexMap = new Map(agents.map((a, i) => [a.id, i]));
+
   const sorted = [...agents]
     .filter((a) => a.status !== 'disabled')
     .sort((a, b) => {
-      // Sort by completed tasks desc, then by success rate
       if (b.stats.tasks_completed !== a.stats.tasks_completed)
         return b.stats.tasks_completed - a.stats.tasks_completed;
-      const rateA = a.stats.total_runs > 0 ? a.stats.tasks_completed / a.stats.total_runs : 0;
-      const rateB = b.stats.total_runs > 0 ? b.stats.tasks_completed / b.stats.total_runs : 0;
-      return rateB - rateA;
+      return calcSuccessRate(b) - calcSuccessRate(a);
     });
 
   if (sorted.length === 0) return null;
@@ -410,10 +392,7 @@ function Leaderboard({ agents, width }: { agents: Agent[]; width: number }) {
       </Box>
       {sorted.map((agent, i) => {
         const rank = getRank(agent.stats.tasks_completed);
-        const accent = getAgentAccent(agents.indexOf(agent));
-        const successRate = agent.stats.total_runs > 0
-          ? Math.round((agent.stats.tasks_completed / agent.stats.total_runs) * 100)
-          : 0;
+        const accent = getAgentAccent(indexMap.get(agent.id) ?? 0);
         return (
           <Box key={agent.id} paddingX={1} gap={1}>
             <Text color={i < 3 ? medalColors[i] : tuiColors.dim} bold={i < 3}>
@@ -422,7 +401,7 @@ function Leaderboard({ agents, width }: { agents: Agent[]; width: number }) {
             <Text color={accent} bold={i === 0}>{agent.name}</Text>
             <Text color={tuiColors.dim}>{rank.icon} {rank.title}</Text>
             <Text color={tuiColors.green}>{'\u2713'}{agent.stats.tasks_completed}</Text>
-            <Text color={tuiColors.cyan}>{successRate}%</Text>
+            <Text color={tuiColors.cyan}>{calcSuccessRate(agent)}%</Text>
           </Box>
         );
       })}
@@ -437,14 +416,22 @@ function Leaderboard({ agents, width }: { agents: Agent[]; width: number }) {
 function OfficeSummary({ agents, state, width }: {
   agents: Agent[]; state: OrchestratorState; width: number;
 }) {
-  const working = agents.filter((a) => a.status === 'running').length;
-  const available = agents.filter((a) => a.status === 'idle').length;
-  const onError = agents.filter((a) => a.status === 'error').length;
-  const offDuty = agents.filter((a) => a.status === 'disabled').length;
+  // Single pass over agents instead of 6 separate iterations
+  const summary = agents.reduce(
+    (acc, a) => {
+      if (a.status === 'running') acc.working++;
+      else if (a.status === 'idle') acc.available++;
+      else if (a.status === 'error') acc.onError++;
+      else if (a.status === 'disabled') acc.offDuty++;
+      acc.completed += a.stats.tasks_completed;
+      acc.failed += a.stats.tasks_failed;
+      return acc;
+    },
+    { working: 0, available: 0, onError: 0, offDuty: 0, completed: 0, failed: 0 },
+  );
+  const { working, available, onError, offDuty, completed: totalCompleted, failed: totalFailed } = summary;
   const total = agents.length;
 
-  const totalCompleted = agents.reduce((s, a) => s + a.stats.tasks_completed, 0);
-  const totalFailed = agents.reduce((s, a) => s + a.stats.tasks_failed, 0);
   const teamSuccessRate = (totalCompleted + totalFailed) > 0
     ? Math.round((totalCompleted / (totalCompleted + totalFailed)) * 100)
     : 0;
@@ -520,10 +507,7 @@ export function OfficeView({ agents, tasks, state, height, width }: OfficeViewPr
   const runDurations = new Map<string, string>();
   for (const [, entry] of Object.entries(state.running)) {
     const elapsed = Date.now() - new Date(entry.started_at).getTime();
-    const secs = Math.floor(elapsed / 1000);
-    if (secs < 60) runDurations.set(entry.agent_id, `${secs}s`);
-    else if (secs < 3600) runDurations.set(entry.agent_id, `${Math.floor(secs / 60)}m ${secs % 60}s`);
-    else runDurations.set(entry.agent_id, `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`);
+    runDurations.set(entry.agent_id, formatDuration(elapsed));
   }
 
   // Layout: cards area + sidebar (leaderboard + summary)

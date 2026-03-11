@@ -20,6 +20,7 @@ import { AgentRow, AGENT_STATUS_ORDER } from './components/AgentList.js';
 import { DetailPanel } from './components/DetailPanel.js';
 import { Header } from './components/Header.js';
 import type { HeaderStats, HeaderTokens } from './components/Header.js';
+import { TABS } from './components/TabBar.js';
 import type { ViewId } from './components/TabBar.js';
 import { resolveCompletion, resolveSuggestions, CommandHistory, COMMAND_REGISTRY } from './commandBar.js';
 import type { Suggestion } from './commandBar.js';
@@ -37,6 +38,13 @@ import {
 
 /** Max tasks visible in collapsed mode; press S to show all */
 const TASK_LIST_LIMIT = 10;
+
+/** Max entries in runId→agentId/taskId resolution maps before LRU eviction */
+const MAX_RUN_MAP_SIZE = 500;
+/** Max characters for detail strings in status messages (prevents multi-MB objects) */
+const MAX_DETAIL_LEN = 2048;
+/** Max status messages kept in the activity feed */
+const MAX_MESSAGES = 200;
 
 /** Statuses that allow R (run) action */
 const RUNNABLE: Set<TaskStatus> = new Set(['todo', 'failed', 'cancelled']);
@@ -248,7 +256,6 @@ export function App({
   // Build runId → agentId and runId → taskId maps from state.running
   // Use refs so dynamic .set() calls from events persist across re-renders
   // Capped at MAX_RUN_MAP_SIZE to prevent unbounded growth in long sessions
-  const MAX_RUN_MAP_SIZE = 500;
   const runIdToAgentId = useRef(new Map<string, string>());
   const runIdToTaskId = useRef(new Map<string, string>());
   // Seed from liveState.running on every change; prune if maps grow too large
@@ -273,8 +280,6 @@ export function App({
   // to avoid creating a new React state array on every single event
   const pendingMessages = useRef<StatusMessage[]>([]);
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const MAX_DETAIL_LEN = 2048; // Cap detail strings to prevent multi-MB message objects
-  const MAX_MESSAGES = 200;
 
   const flushMessages = useCallback(() => {
     flushTimer.current = null;
@@ -282,8 +287,10 @@ export function App({
     const batch = pendingMessages.current;
     pendingMessages.current = [];
     setMessages((prev) => {
-      const combined = prev.concat(batch);
-      return combined.length > MAX_MESSAGES ? combined.slice(-MAX_MESSAGES) : combined;
+      if (batch.length >= MAX_MESSAGES) return batch.slice(-MAX_MESSAGES);
+      const keep = MAX_MESSAGES - batch.length;
+      const trimmed = prev.length > keep ? prev.slice(-keep) : prev;
+      return trimmed.concat(batch);
     });
   }, []);
 
@@ -1110,7 +1117,7 @@ export function App({
 
     // Tab / ←→: cycle views (when not in detail)
     if (!detailOpen) {
-      const viewOrder: ViewId[] = ['tasks', 'agents', 'office', 'logs'];
+      const viewOrder = TABS.map((t) => t.id);
       const idx = viewOrder.indexOf(activeView);
       if (key.tab || key.rightArrow) {
         setActiveView(viewOrder[(idx + 1) % viewOrder.length]!);
