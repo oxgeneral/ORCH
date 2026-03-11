@@ -1,0 +1,248 @@
+import { describe, it, expect, vi } from 'vitest';
+import { CursorAdapter } from '../../../src/infrastructure/adapters/cursor.js';
+import type { IProcessManager } from '../../../src/infrastructure/process/process-manager.js';
+import type { AgentEvent, ExecuteParams } from '../../../src/infrastructure/adapters/interface.js';
+import { PassThrough } from 'node:stream';
+import { EventEmitter } from 'node:events';
+
+function createMockProcess() {
+  const proc = new EventEmitter() as EventEmitter & {
+    stdout: PassThrough;
+    stderr: PassThrough;
+    stdin: PassThrough;
+    pid: number;
+    kill: () => void;
+  };
+  proc.stdout = new PassThrough();
+  proc.stderr = new PassThrough();
+  proc.stdin = new PassThrough();
+  proc.pid = 8888;
+  proc.kill = vi.fn();
+  return proc;
+}
+
+function createMockProcessManager(proc: ReturnType<typeof createMockProcess>): IProcessManager {
+  return {
+    isAlive: vi.fn(() => true),
+    kill: vi.fn(),
+    killWithGrace: vi.fn(async () => {}),
+    spawn: vi.fn(() => ({ process: proc as any, pid: proc.pid })),
+  };
+}
+
+function makeParams(overrides?: Partial<ExecuteParams>): ExecuteParams {
+  return {
+    prompt: 'cursor prompt',
+    workspace: '/tmp/cursor-ws',
+    config: { adapter: 'cursor' },
+    ...overrides,
+  };
+}
+
+describe('CursorAdapter', () => {
+  describe('execute', () => {
+    it('spawns cursor-agent with correct args', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+
+      adapter.execute(makeParams());
+
+      expect(pm.spawn).toHaveBeenCalledWith(
+        'cursor-agent',
+        expect.arrayContaining([
+          '-p',
+          '--output-format', 'stream-json',
+          '--workspace', '/tmp/cursor-ws',
+          '--yolo',
+        ]),
+        expect.objectContaining({
+          cwd: '/tmp/cursor-ws',
+          stdio: ['pipe', 'pipe', 'pipe'],
+        }),
+      );
+    });
+
+    it('writes prompt to stdin', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+
+      const writeSpy = vi.spyOn(proc.stdin, 'write');
+      adapter.execute(makeParams());
+
+      expect(writeSpy).toHaveBeenCalledWith('cursor prompt');
+    });
+
+    it('includes --model when config.model is set', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+
+      adapter.execute(makeParams({ config: { adapter: 'cursor', model: 'gpt-4o' } }));
+
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1];
+      expect(args).toContain('--model');
+      expect(args).toContain('gpt-4o');
+    });
+
+    it('returns pid', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+      expect(adapter.execute(makeParams()).pid).toBe(8888);
+    });
+
+    it('parses assistant event as output', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({ type: 'assistant', message: 'hi' }) + '\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 0), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events[0]!.type).toBe('output');
+      expect(events[0]!.data).toBe('hi');
+    });
+
+    it('parses tool_use as tool_call', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({ type: 'tool_use', name: 'edit' }) + '\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 0), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events[0]!.type).toBe('tool_call');
+    });
+
+    it('parses error event', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({ type: 'error', error: 'cursor error' }) + '\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 0), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events[0]!.type).toBe('error');
+      expect(events[0]!.data).toBe('cursor error');
+    });
+
+    it('parses result as done with tokens', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({
+        type: 'result',
+        usage: { input_tokens: 50, output_tokens: 25 },
+      }) + '\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 0), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events[0]!.type).toBe('done');
+      expect(events[0]!.tokens).toEqual({ input: 50, output: 25, total: 75 });
+    });
+
+    it('handles non-JSON gracefully', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write('bad line\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 0), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events[0]!.type).toBe('output');
+      expect(events[0]!.data).toBe('bad line');
+    });
+
+    it('throws on non-zero exit without done event', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 1), 20);
+
+      await expect(async () => {
+        for await (const ev of handle.events) { /* drain */ }
+      }).rejects.toThrow('exited with code 1');
+    });
+
+    it('does not throw on non-zero exit when done event received', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({ type: 'result' }) + '\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 1), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events[0]!.type).toBe('done');
+    });
+
+    it('parses tool_result as output', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({ type: 'tool_result', content: 'ok' }) + '\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 0), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events[0]!.type).toBe('output');
+    });
+  });
+
+  describe('stop', () => {
+    it('calls killWithGrace', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+
+      await adapter.stop(8888);
+      expect(pm.killWithGrace).toHaveBeenCalledWith(8888);
+    });
+  });
+
+  describe('kind', () => {
+    it('returns cursor', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      expect(new CursorAdapter(pm).kind).toBe('cursor');
+    });
+  });
+});
