@@ -1306,7 +1306,7 @@ export function App({
       ) : messages.length > 0 && activeView !== 'logs' ? (
         <>
           <SectionLabel label="ACTIVITY" width={ruleW} />
-          <ActivityFeed messages={messages} height={Math.max(1, feedH - 1)} width={ruleW} hasTasks={sortedTasks.length > 0}
+          <ActivityFeed messages={messages} height={Math.max(1, feedH - 1)} width={ruleW}
             agents={sortedAgents} agentNameMap={agentNameMap} />
         </>
       ) : null}
@@ -1611,6 +1611,7 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
   const highlightIdx = selectedIndex === -1 ? -1 : selectedIndex - scrollOffset;
 
   const agentColW = Math.min(10, Math.max(6, ...agents.map((a) => a.name.length)));
+  const prefixW = 11 + agentColW; // border(1)+sel(1)+ts(5)+agent(agentColW+1)+icon(3)
 
   // Detect session boundaries: gap > 30s between same-agent messages
   const isSessionStart = (i: number): boolean => {
@@ -1733,7 +1734,6 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
           const relTs = relativeTime(msg.ts, now);
 
           // Calculate available text width for manual truncation
-          const prefixW = 11 + agentColW; // border(1)+sel(1)+ts(5)+agent(agentColW+1)+icon(3)
           const badgeLabel = taskTitle && width > 80 ? `#${taskTitle.slice(0, 20)}` : '';
           const badgeW = badgeLabel ? badgeLabel.length + 3 : 0; // space + ` #title `
           const textW = Math.max(10, (width - 2) - prefixW - badgeW);
@@ -1805,11 +1805,10 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
 
 /* ── Activity Feed ────────────────────────────────────── */
 
-function ActivityFeed({ messages, height, width, hasTasks, agents, agentNameMap }: {
+function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
   messages: StatusMessage[];
   height: number;
   width: number;
-  hasTasks: boolean;
   agents: Agent[];
   agentNameMap: Map<string, string>;
 }) {
@@ -1818,9 +1817,12 @@ function ActivityFeed({ messages, height, width, hasTasks, agents, agentNameMap 
   const visible = messages.slice(-height);
   // Available text width: total - paddingX(2) - border(1) - ts(5) - agent(9) - icon(2)
   const textW = Math.max(10, width - 2 - 17);
+  // Pad with empty rows so the component always renders exactly `height` rows
+  const padRows = Math.max(0, height - visible.length);
 
   return (
-    <Box flexDirection="column" paddingX={1} height={height} justifyContent="flex-end">
+    <Box flexDirection="column" paddingX={1}>
+      {padRows > 0 && <Box height={padRows} />}
       {visible.map((msg, i) => {
         const agentName = msg.agentId ? (agentNameMap.get(msg.agentId) ?? msg.agentId.slice(0, 8)) : undefined;
         const agentColor = msg.agentId ? getAgentColor(msg.agentId, agents) : undefined;
