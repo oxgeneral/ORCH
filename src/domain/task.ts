@@ -51,6 +51,7 @@ export interface Task {
   review_criteria?: ReviewCriterion[];
   review_results?: ReviewResult[];
   scope?: string[];
+  feedback?: string;
 }
 
 export interface CreateTaskInput {

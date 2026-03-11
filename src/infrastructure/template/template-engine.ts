@@ -47,6 +47,7 @@ export interface PromptContext {
   attempt: number | null;
   workspace_path: string;
   retry?: RetryContext;
+  feedback?: string;
   shared_context?: Record<string, string>;
 }
 
@@ -77,6 +78,7 @@ export function buildPromptContext(
   allAgents?: Agent[],
   retryContext?: RetryContext,
   sharedContext?: Record<string, string>,
+  feedback?: string,
 ): PromptContext {
   return {
     project: {
@@ -104,6 +106,7 @@ export function buildPromptContext(
     attempt: attempt > 1 ? attempt : null,
     workspace_path: workspacePath,
     retry: attempt > 1 ? retryContext : undefined,
+    feedback,
     shared_context: sharedContext && Object.keys(sharedContext).length > 0 ? sharedContext : undefined,
   };
 }
@@ -136,6 +139,14 @@ Working directory: {{ workspace_path }}
 You are part of a multi-agent team. Available agents:
 {% for a in agents %}- **{{ a.name }}** ({{ a.adapter }}){% if a.role %} — {{ a.role }}{% endif %} · ID: \`{{ a.id }}\`
 {% endfor %}
+
+{% if feedback %}
+## Review Feedback
+This task was previously completed but **rejected** during review with the following feedback:
+> {{ feedback }}
+
+**Important:** Address the feedback above. Focus on what the reviewer asked to change. Do NOT redo work that was already accepted.
+{% endif %}
 
 {% if shared_context %}
 ## Shared Context

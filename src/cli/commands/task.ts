@@ -156,6 +156,7 @@ export function registerTaskCommand(program: Command, container: Container): voi
       if (t.workspace_mode) pairs.push(['Workspace', t.workspace_mode]);
       if (t.workspace) pairs.push(['Path', filePath(t.workspace)]);
       if (t.review_criteria?.length) pairs.push(['Review', t.review_criteria.join(', ')]);
+      if (t.feedback) pairs.push(['Feedback', t.feedback]);
       pairs.push(['Created', t.created_at]);
 
       printKeyValue(pairs);
@@ -259,6 +260,27 @@ export function registerTaskCommand(program: Command, container: Container): voi
       await container.paths.requireInit();
       await container.orchestrator.cancelTask(id);
       printSuccess(`Cancelled ${id}`);
+    });
+
+  // task approve
+  task
+    .command('approve <id>')
+    .description('Approve a task in review')
+    .action(async (id: string) => {
+      await container.paths.requireInit();
+      await container.taskService.updateStatus(id, 'done');
+      printSuccess(`Approved ${id}`);
+    });
+
+  // task reject
+  task
+    .command('reject <id>')
+    .description('Reject a task and send it back for rework')
+    .option('-r, --reason <reason>', 'Feedback for the agent explaining what to fix')
+    .action(async (id: string, opts) => {
+      await container.paths.requireInit();
+      await container.taskService.reject(id, opts.reason);
+      printSuccess(`Rejected ${id} → todo${opts.reason ? ` (reason: ${opts.reason})` : ''}`);
     });
 
   // task retry

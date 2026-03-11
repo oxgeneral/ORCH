@@ -378,7 +378,11 @@ export class Orchestrator {
           !state.running[t.id] &&
           !state.claimed.includes(t.id),
       )
-      .sort((a, b) => a.priority - b.priority)
+      .sort((a, b) => {
+        const bTime = b.updated_at ?? '';
+        const aTime = a.updated_at ?? '';
+        return bTime < aTime ? -1 : bTime > aTime ? 1 : 0;
+      })
       .slice(0, availableSlots);
 
     // Scope overlap warnings — soft check against in-progress tasks and batch peers
@@ -478,6 +482,7 @@ export class Orchestrator {
         allAgents,
         retryContext,
         sharedContext,
+        task.feedback,
       );
       const prompt = await this.deps.templateEngine.render(template, context);
 
@@ -690,12 +695,13 @@ export class Orchestrator {
     const task = await this.deps.taskStore.get(taskId);
     if (!task) return;
 
-    // Save proof of work (agent summary + files changed)
+    // Save proof of work (agent summary + files changed); clear stale feedback
     task.proof = {
       ...task.proof,
       agent_summary: resultText?.slice(0, 2000) ?? task.proof?.agent_summary,
       files_changed: filesChanged?.length ? filesChanged : (task.proof?.files_changed ?? []),
     };
+    task.feedback = undefined;
     await this.deps.taskStore.save(task);
 
     const agent = await this.deps.agentStore.get(agentId);

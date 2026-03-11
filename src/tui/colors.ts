@@ -25,6 +25,13 @@ export const tuiColors = {
   dim: '#585858',        // ansi256(240) — subtle text, deemphasized
   ghost: '#3a3a3a',      // ansi256(237) — rules, separators
   void: '#262626',       // ansi256(235) — deepest background elements
+
+  // Semantic backgrounds (for log highlights)
+  errorBg: '#3d1515',    // deep red background for errors
+  warnBg: '#3d2e0a',     // deep amber background for warnings
+  successBg: '#0f2d1f',  // deep green background for success
+  infoBg: '#1a1a22',     // subtle dark background for info chips
+  toolBg: '#0f1f2d',     // deep blue background for tool calls
 } as const;
 
 /** Heavy horizontal rule character (━) */

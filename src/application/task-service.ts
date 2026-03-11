@@ -146,6 +146,30 @@ export class TaskService {
     return task;
   }
 
+  async reject(id: string, feedback?: string): Promise<Task> {
+    const task = await this.get(id);
+
+    if (task.status !== 'review') {
+      throw new InvalidTransitionError(id, task.status, 'todo');
+    }
+
+    const oldStatus = task.status;
+    task.status = 'todo';
+    task.attempts = 0;
+    task.feedback = feedback;
+    task.updated_at = new Date().toISOString();
+    await this.taskStore.save(task);
+
+    this.eventBus.emit({
+      type: 'task:status_changed',
+      taskId: id,
+      from: oldStatus,
+      to: 'todo',
+    });
+
+    return task;
+  }
+
   async update(id: string, fields: { title?: string; description?: string; priority?: number; labels?: string[] }): Promise<Task> {
     const task = await this.get(id);
 

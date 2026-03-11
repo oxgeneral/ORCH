@@ -26,6 +26,7 @@ import type { Suggestion } from './commandBar.js';
 import { CommandBar } from './components/CommandBar.js';
 import { FormWizard } from './components/FormWizard.js';
 import type { WizardStep } from './components/FormWizard.js';
+import { Spinner } from './components/Spinner.js';
 import {
   getAgentWizardSteps, agentWizardToInput,
   getTaskWizardSteps, taskWizardToInput,
@@ -72,7 +73,7 @@ export interface AppProps {
   onAddAgent?: (name: string, adapter?: string, opts?: { model?: string; role?: string; approval_policy?: string }) => Promise<Agent>;
   onDeleteAgent?: (agentId: string) => Promise<void>;
   onApproveTask?: (taskId: string) => Promise<void>;
-  onRejectTask?: (taskId: string) => Promise<void>;
+  onRejectTask?: (taskId: string, feedback?: string) => Promise<void>;
   onDeleteTask?: (taskId: string) => Promise<void>;
   onUpdateTask?: (taskId: string, fields: { title?: string; description?: string; priority?: number }) => Promise<Task>;
   onUpdateAgent?: (agentId: string, fields: { name?: string; role?: string; model?: string; approval_policy?: string }) => Promise<Agent>;
@@ -100,6 +101,8 @@ interface StatusMessage {
   text: string;
   color: string;
   time: string;
+  /** Epoch ms for relative time display */
+  ts: number;
   agentId?: string;
   taskId?: string;
   /** Full untruncated data for detail view */
@@ -251,10 +254,11 @@ export function App({
   }, [liveState.running]);
 
   const addMessage = useCallback((text: string, color: string, opts?: { agentId?: string; taskId?: string; detail?: string; msgType?: MsgType }) => {
-    const time = new Date().toLocaleTimeString('en-US', {
+    const now = new Date();
+    const time = now.toLocaleTimeString('en-US', {
       hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
     });
-    setMessages((prev) => [...prev.slice(-200), { text, color, time, ...opts }]);
+    setMessages((prev) => [...prev.slice(-200), { text, color, time, ts: now.getTime(), ...opts }]);
   }, []);
 
   // Load history from disk on mount
@@ -299,7 +303,7 @@ export function App({
           else if (text.startsWith('\u23F3')) { msgType = 'info'; }
         }
 
-        return { text, color, time, agentId: entry.agentId, taskId: entry.taskId, msgType };
+        return { text, color, time, ts: new Date(entry.timestamp).getTime(), agentId: entry.agentId, taskId: entry.taskId, msgType };
       });
       setMessages((prev) => [...histMsgs.slice(-150), ...prev]);
     }).catch(() => {});
@@ -605,8 +609,9 @@ export function App({
           if (!t) { addMessage('No task selected or id given', tuiColors.yellow); return; }
           if (t.status !== 'review') { addMessage(`Cannot reject \u2014 status is ${t.status}`, tuiColors.yellow); return; }
           if (!onRejectTask) return;
-          addMessage(`Rejecting "${t.title}"...`, tuiColors.amber);
-          onRejectTask(t.id).then(
+          const feedback = parts.slice(parts[2] && sortedTasks.find((x) => x.id === parts[2]) ? 3 : 2).join(' ').trim() || undefined;
+          addMessage(`Rejecting "${t.title}"${feedback ? ' with feedback' : ''}...`, tuiColors.amber);
+          onRejectTask(t.id, feedback).then(
             () => { addMessage(`\u2713 Rejected "${t.title}" \u2192 todo`, tuiColors.green); refreshAll(); },
             (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
           );
@@ -1296,7 +1301,7 @@ export function App({
       ) : showLogDetail ? (
         <>
           <SectionLabel label="LOG" width={ruleW} />
-          <LogDetailPanel message={selectedLog} height={feedH} width={ruleW} />
+          <LogDetailPanel message={selectedLog} height={feedH} width={ruleW} agents={sortedAgents} agentNameMap={agentNameMap} taskTitleMap={taskTitleMap} />
         </>
       ) : messages.length > 0 && activeView !== 'logs' ? (
         <>
@@ -1496,6 +1501,41 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
   );
 }
 
+/* ── Log Helpers ──────────────────────────────────────── */
+
+/** Format epoch ms as relative time string: "now", "3s", "1m", "5m", "1h", "3h" */
+function relativeTime(ts: number, now: number): string {
+  const diff = Math.max(0, now - ts);
+  if (diff < 3_000) return 'now';
+  if (diff < 60_000) return `${Math.floor(diff / 1000)}s`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
+  return `${Math.floor(diff / 3_600_000)}h`;
+}
+
+/** Build a sparkline string from message timestamps (last N buckets) */
+const SPARK_CHARS = ' ▁▂▃▄▅▆▇█';
+function buildSparkline(messages: StatusMessage[], buckets: number, bucketMs: number, now: number): string {
+  const counts = new Array(buckets).fill(0) as number[];
+  const windowStart = now - buckets * bucketMs;
+  for (const m of messages) {
+    if (m.ts < windowStart) continue;
+    const idx = Math.min(buckets - 1, Math.floor((m.ts - windowStart) / bucketMs));
+    counts[idx]!++;
+  }
+  const max = Math.max(1, ...counts);
+  return counts.map((c) => SPARK_CHARS[Math.round((c / max) * 8)]!).join('');
+}
+
+/** Get background color for message type (for highlighted rows) */
+function getMsgBg(msgType: MsgType): string | undefined {
+  switch (msgType) {
+    case 'error': return tuiColors.errorBg;
+    case 'tool': return tuiColors.toolBg;
+    case 'lifecycle': return tuiColors.successBg;
+    default: return undefined;
+  }
+}
+
 /* ── Logs Content ────────────────────────────────────── */
 
 function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selectedIndex, scrollOffset, agentNameMap, taskTitleMap, width }: {
@@ -1510,21 +1550,47 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
   taskTitleMap: Map<string, string>;
   width: number;
 }) {
+  // Live clock for relative timestamps (ticks every 5s)
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Filter messages by agent and type
   const filteredMessages = useMemo(() => {
     return messages.filter((m) => {
-      // Agent filter
       if (logFilter !== 0) {
         const agent = agents[logFilter - 1];
         if (agent && m.agentId !== agent.id) return false;
       }
-      // Type filter
       const mt = (m.msgType ?? 'info') as MsgType;
       return logTypeFilter.has(mt);
     });
   }, [messages, agents, logFilter, logTypeFilter]);
 
-  // Derive active type filter label
+  // Count messages per type (for filter badges)
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const m of messages) {
+      const mt = m.msgType ?? 'info';
+      counts[mt] = (counts[mt] ?? 0) + 1;
+    }
+    return counts;
+  }, [messages]);
+
+  // Count messages per agent (for filter badges)
+  const agentMsgCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const m of messages) {
+      if (m.agentId) counts.set(m.agentId, (counts.get(m.agentId) ?? 0) + 1);
+    }
+    return counts;
+  }, [messages]);
+
+  // Sparkline data: 30 buckets × 10s each = last 5 minutes
+  const sparkline = useMemo(() => buildSparkline(filteredMessages, 30, 10_000, now), [filteredMessages, now]);
+
   const typeFilterLabel = logTypeFilter.size >= 8 ? 'all'
     : logTypeFilter.size === 1 && logTypeFilter.has('output') ? 'text'
     : logTypeFilter.size === 1 && logTypeFilter.has('error') ? 'errors'
@@ -1532,78 +1598,111 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
     : logTypeFilter.has('lifecycle') && !logTypeFilter.has('output') ? 'events'
     : `${logTypeFilter.size} types`;
 
-  const viewH = height - 2; // -2 for filter bars
+  const viewH = height - 3; // -3 for filter bar + sparkline bar + gap
   const visible = selectedIndex === -1
     ? filteredMessages.slice(-viewH)
     : filteredMessages.slice(scrollOffset, scrollOffset + viewH);
 
   const highlightIdx = selectedIndex === -1 ? -1 : selectedIndex - scrollOffset;
 
-  // Agent name width for alignment (min 6, max 10)
   const agentColW = Math.min(10, Math.max(6, ...agents.map((a) => a.name.length)));
+
+  // Detect session boundaries: gap > 30s between same-agent messages
+  const isSessionStart = (i: number): boolean => {
+    if (i === 0) return true;
+    const curr = visible[i]!;
+    const prev = visible[i - 1]!;
+    if (curr.agentId !== prev.agentId) return true;
+    if (!curr.agentId) return false;
+    return (curr.ts - prev.ts) > 30_000;
+  };
 
   return (
     <Box flexDirection="column" paddingX={1}>
-      {/* Filter bar: agent chips + type filter + mode indicator */}
+      {/* ── Filter bar: agent chips + type filter + mode + count ── */}
       <Box gap={1}>
         {/* ALL chip */}
         {logFilter === 0 ? (
-          <Text backgroundColor="#1a1a22" color={tuiColors.silver} bold>{' 0 ALL '}</Text>
+          <Text backgroundColor={tuiColors.infoBg} color={tuiColors.silver} bold>{' 0 ALL '}</Text>
         ) : (
-          <Text color={tuiColors.ghost}>{' 0\u00B7all'}</Text>
+          <Text color={tuiColors.ghost}>{' 0·all'}</Text>
         )}
-        {/* Per-agent chips */}
+        {/* Per-agent chips with message counts */}
         {agents.slice(0, 9).map((a, i) => {
           const ac = getAgentColor(a.id, agents);
           const active = logFilter === i + 1;
+          const count = agentMsgCounts.get(a.id) ?? 0;
           if (active) {
             return (
-              <Text key={a.id} backgroundColor="#0f2d1f" color={ac} bold>
-                {' '}{i + 1} {a.name.toUpperCase()}{' '}
+              <Text key={a.id} backgroundColor={tuiColors.successBg} color={ac} bold>
+                {' '}{i + 1} {a.name.toUpperCase()}{count > 0 ? ` ${count}` : ''}{' '}
               </Text>
             );
           }
           return (
             <Text key={a.id} color={tuiColors.ghost}>
-              {i + 1}{'\u00B7'}{a.name}
+              {i + 1}·{a.name}{count > 0 ? <Text color={tuiColors.dim}> {count}</Text> : ''}
             </Text>
           );
         })}
-        {/* Separator */}
-        <Text color={tuiColors.ghost}>{'\u2502'}</Text>
-        {/* Type filter chip */}
+        <Text color={tuiColors.ghost}>│</Text>
+        {/* Type filter chip with count */}
         {typeFilterLabel === 'all' ? (
-          <Text color={tuiColors.dim}><Text bold color={tuiColors.gray}>F</Text> {typeFilterLabel}</Text>
+          <Text color={tuiColors.dim}><Text bold color={tuiColors.gray}>F</Text> {typeFilterLabel} <Text color={tuiColors.ghost}>{filteredMessages.length}</Text></Text>
         ) : (
-          <Text backgroundColor="#2d1f0a" color={tuiColors.amber} bold>{' F '}{typeFilterLabel.toUpperCase()}{' '}</Text>
+          <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber} bold>{' F '}{typeFilterLabel.toUpperCase()} {filteredMessages.length}{' '}</Text>
         )}
-        {/* Separator */}
-        <Text color={tuiColors.ghost}>{'\u2502'}</Text>
-        {/* Live/browse mode */}
+        <Text color={tuiColors.ghost}>│</Text>
+        {/* Live/browse mode with animated indicator */}
         {selectedIndex === -1 ? (
-          <Text backgroundColor="#0f2d1f" color={tuiColors.green}>{' \u25CF LIVE '}</Text>
+          <Box>
+            <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}>{' '}</Text>
+            <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}><Spinner color={tuiColors.green} /></Text>
+            <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}>{' LIVE '}</Text>
+          </Box>
         ) : (
-          <Text backgroundColor="#2d1f0a" color={tuiColors.amber}>{' \u2191\u2193 BROWSE '}</Text>
+          <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber}>
+            {' ↑↓ '}{selectedIndex + 1}/{filteredMessages.length}{' '}
+          </Text>
         )}
       </Box>
 
+      {/* ── Sparkline activity bar ── */}
+      <Box>
+        <Text color={tuiColors.ghost}> activity </Text>
+        <Text color={tuiColors.amberDim}>{sparkline}</Text>
+        <Text color={tuiColors.ghost}> 5m</Text>
+      </Box>
+
+      {/* ── Messages ── */}
       {visible.length === 0 ? (
-        <Box paddingX={1} paddingTop={1}>
+        <Box flexDirection="column" paddingX={2} paddingTop={1}>
           <Text color={tuiColors.dim}>
             {messages.length === 0
-              ? 'Waiting for activity...'
-              : `No events for current filter.`}
+              ? '    ╭──────────────────────────╮'
+              : 'No events for current filter.'}
           </Text>
+          {messages.length === 0 && (
+            <>
+              <Text color={tuiColors.dim}>{'    │                          │'}</Text>
+              <Text color={tuiColors.dim}>{'    │  '}<Text color={tuiColors.ghost}>◇</Text><Text color={tuiColors.gray}> Waiting for activity  </Text>{'│'}</Text>
+              <Text color={tuiColors.dim}>{'    │  '}<Text color={tuiColors.ghost}>│</Text><Text color={tuiColors.dim}>  Run tasks or start   </Text>{'│'}</Text>
+              <Text color={tuiColors.dim}>{'    │  '}<Text color={tuiColors.ghost}>│</Text><Text color={tuiColors.dim}>  the orchestrator     </Text>{'│'}</Text>
+              <Text color={tuiColors.dim}>{'    │  '}<Text color={tuiColors.ghost}>◇</Text><Text color={tuiColors.dim}>                      </Text>{'│'}</Text>
+              <Text color={tuiColors.dim}>{'    ╰──────────────────────────╯'}</Text>
+            </>
+          )}
         </Box>
       ) : (
         visible.map((msg, i) => {
           const isSelected = i === highlightIdx;
           const msgType = msg.msgType ?? 'info';
-          const icon = MSG_ICONS[msgType] ?? '\u2502';
+          const icon = MSG_ICONS[msgType] ?? '│';
           const agentName = msg.agentId ? (agentNameMap.get(msg.agentId) ?? msg.agentId.slice(0, 8)) : undefined;
           const agentColor = msg.agentId ? getAgentColor(msg.agentId, agents) : undefined;
 
-          // Continuation indicator: same agent as previous message
+          // Session and continuation detection
+          const sessionStart = isSessionStart(i);
           const prevMsg = i > 0 ? visible[i - 1] : undefined;
           const isContinuation = prevMsg?.agentId === msg.agentId && !!msg.agentId;
           const showAgentBadge = !isContinuation && !!agentName;
@@ -1619,17 +1718,31 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
           else if (msgType === 'lifecycle') textColor = tuiColors.green;
           else if (msgType === 'system') textColor = tuiColors.dim;
 
+          // Background highlight for errors and selected items
+          const rowBg = isSelected ? tuiColors.infoBg : (msgType === 'error' ? tuiColors.errorBg : undefined);
+
+          // Task context
+          const taskTitle = msg.taskId ? taskTitleMap.get(msg.taskId) : undefined;
+
+          // Relative timestamp
+          const relTs = relativeTime(msg.ts, now);
+
           return (
-            <Box key={i}>
-              {/* Selection indicator */}
-              <Text color={isSelected ? tuiColors.amber : undefined}>
-                {isSelected ? '\u25B8' : ' '}
+            <Box key={i} backgroundColor={rowBg}>
+              {/* Left border — agent color accent for sessions */}
+              <Text color={agentColor ?? tuiColors.ghost}>
+                {sessionStart && showAgentBadge ? '┌' : showConnector ? '│' : ' '}
               </Text>
 
-              {/* Timestamp — compact */}
-              <Box width={10}>
-                <Text color={isSelected ? tuiColors.silver : tuiColors.ghost}>
-                  {' '}{msg.time.slice(0, 8)}
+              {/* Selection indicator */}
+              <Text color={isSelected ? tuiColors.amber : undefined}>
+                {isSelected ? '▸' : ' '}
+              </Text>
+
+              {/* Relative timestamp */}
+              <Box width={5}>
+                <Text color={relTs === 'now' ? tuiColors.green : isSelected ? tuiColors.silver : tuiColors.ghost}>
+                  {relTs.padStart(4)}
                 </Text>
               </Box>
 
@@ -1641,11 +1754,11 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
                   </Text>
                 ) : showConnector ? (
                   <Text color={agentColor ?? tuiColors.ghost}>
-                    {' '}{'\u2502'.padEnd(agentColW)}
+                    {' '}{'·'.padEnd(agentColW)}
                   </Text>
                 ) : (
                   <Text color={tuiColors.ghost}>
-                    {' '}{'\u00B7'.padEnd(agentColW)}
+                    {' '}{' '.padEnd(agentColW)}
                   </Text>
                 )}
               </Box>
@@ -1663,6 +1776,14 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
               >
                 {msg.text}
               </Text>
+
+              {/* Task context badge (if room) */}
+              {taskTitle && width > 80 && (
+                <Text color={tuiColors.ghost}>
+                  {' '}
+                  <Text color={tuiColors.dim} backgroundColor={tuiColors.void}>{` #${taskTitle.slice(0, 20)} `}</Text>
+                </Text>
+              )}
             </Box>
           );
         })
@@ -1680,6 +1801,13 @@ function ActivityFeed({ messages, height, hasTasks, agents, agentNameMap }: {
   agents: Agent[];
   agentNameMap: Map<string, string>;
 }) {
+  // Live clock for relative timestamps (ticks every 5s)
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(timer);
+  }, []);
+
   const visible = messages.slice(-height);
 
   return (
@@ -1688,7 +1816,7 @@ function ActivityFeed({ messages, height, hasTasks, agents, agentNameMap }: {
         const agentName = msg.agentId ? (agentNameMap.get(msg.agentId) ?? msg.agentId.slice(0, 8)) : undefined;
         const agentColor = msg.agentId ? getAgentColor(msg.agentId, agents) : undefined;
         const msgType = msg.msgType ?? 'info';
-        const icon = MSG_ICONS[msgType] ?? '\u2502';
+        const icon = MSG_ICONS[msgType] ?? '│';
 
         // Type-specific text colors
         let textColor = msg.color;
@@ -1704,18 +1832,29 @@ function ActivityFeed({ messages, height, hasTasks, agents, agentNameMap }: {
         const prevMsg = i > 0 ? visible[i - 1] : undefined;
         const isContinuation = prevMsg?.agentId === msg.agentId && !!msg.agentId;
 
+        // Background for errors
+        const rowBg = msgType === 'error' ? tuiColors.errorBg : undefined;
+        const relTs = relativeTime(msg.ts, now);
+
         return (
-          <Box key={i}>
-            <Box width={10}>
-              <Text color={tuiColors.ghost}>{' '}{msg.time.slice(0, 8)}</Text>
+          <Box key={i} backgroundColor={rowBg}>
+            {/* Left border accent */}
+            <Text color={agentColor ?? tuiColors.ghost}>
+              {!isContinuation && agentName ? '┌' : isContinuation ? '│' : ' '}
+            </Text>
+            {/* Relative timestamp */}
+            <Box width={5}>
+              <Text color={relTs === 'now' ? tuiColors.green : tuiColors.ghost}>
+                {relTs.padStart(4)}
+              </Text>
             </Box>
             <Box width={9}>
               {agentName && !isContinuation ? (
                 <Text color={agentColor} bold>{' '}{agentName.slice(0, 8)}</Text>
               ) : agentName && isContinuation ? (
-                <Text color={agentColor ?? tuiColors.ghost}>{' \u2502'}</Text>
+                <Text color={agentColor ?? tuiColors.ghost}>{' ·'}</Text>
               ) : (
-                <Text color={tuiColors.ghost}>{' \u00B7'}</Text>
+                <Text color={tuiColors.ghost}>{' '}</Text>
               )}
             </Box>
             <Text color={msgType === 'error' ? tuiColors.red : agentColor ?? tuiColors.dim}>{icon} </Text>
@@ -1729,34 +1868,88 @@ function ActivityFeed({ messages, height, hasTasks, agents, agentNameMap }: {
 
 /* ── Log Detail Panel ────────────────────────────────── */
 
-function LogDetailPanel({ message, height, width }: {
+function LogDetailPanel({ message, height, width, agents, agentNameMap, taskTitleMap }: {
   message: StatusMessage;
   height: number;
   width: number;
+  agents: Agent[];
+  agentNameMap: Map<string, string>;
+  taskTitleMap: Map<string, string>;
 }) {
   const content = message.detail ?? message.text;
+  const msgType = message.msgType ?? 'info';
+  const agentName = message.agentId ? (agentNameMap.get(message.agentId) ?? message.agentId.slice(0, 8)) : undefined;
+  const agentColor = message.agentId ? getAgentColor(message.agentId, agents) : tuiColors.dim;
+  const taskTitle = message.taskId ? taskTitleMap.get(message.taskId) : undefined;
+
   // Try to pretty-print JSON
   let display: string;
+  let isJson = false;
   try {
     const parsed = JSON.parse(content);
     display = JSON.stringify(parsed, null, 2);
+    isJson = true;
   } catch {
     display = content;
   }
-  const lines = display.split('\n').slice(0, height);
-  const maxW = Math.max(4, width - 4);
+  const maxW = Math.max(4, width - 6);
+  const bodyHeight = Math.max(1, height - 4); // reserve space for header
+  const lines = display.split('\n').slice(0, bodyHeight);
 
   return (
-    <Box flexDirection="column" paddingX={2}>
-      <Box marginBottom={0}>
-        <Text color={tuiColors.dim}>{message.time}  </Text>
-        <Text color={message.color} bold>{message.text.slice(0, maxW - 12)}</Text>
+    <Box flexDirection="column" paddingX={1}>
+      {/* Header with metadata badges */}
+      <Box>
+        <Text color={tuiColors.ghost}>╭{'─'.repeat(maxW + 2)}╮</Text>
       </Box>
-      {lines.map((line, i) => (
-        <Text key={i} wrap="truncate" color={tuiColors.white}>
-          {'  '}{line.slice(0, maxW)}
+      <Box>
+        <Text color={tuiColors.ghost}>│ </Text>
+        <Text color={tuiColors.dim}>{message.time}</Text>
+        <Text color={tuiColors.ghost}> │ </Text>
+        {agentName && <Text color={agentColor} bold>{agentName}</Text>}
+        {agentName && <Text color={tuiColors.ghost}> │ </Text>}
+        <Text color={MSG_ICONS[msgType] ? (msgType === 'error' ? tuiColors.red : tuiColors.dim) : tuiColors.dim}>
+          {MSG_ICONS[msgType] ?? '│'} {msgType}
         </Text>
+        {taskTitle && (
+          <>
+            <Text color={tuiColors.ghost}> │ </Text>
+            <Text color={tuiColors.dim}>#{taskTitle.slice(0, 30)}</Text>
+          </>
+        )}
+      </Box>
+      <Box>
+        <Text color={tuiColors.ghost}>│ </Text>
+        <Text color={message.color} bold wrap="truncate">{message.text.slice(0, maxW)}</Text>
+      </Box>
+      <Box>
+        <Text color={tuiColors.ghost}>├{'─'.repeat(maxW + 2)}┤</Text>
+      </Box>
+
+      {/* Body content with line numbers for JSON */}
+      {lines.map((line, i) => (
+        <Box key={i}>
+          <Text color={tuiColors.ghost}>│ </Text>
+          {isJson && (
+            <Text color={tuiColors.ghost}>{String(i + 1).padStart(3)} </Text>
+          )}
+          <Text
+            wrap="truncate"
+            color={
+              isJson && line.includes('"') ? tuiColors.cyan
+                : isJson && /^\s*[}\]]/.test(line) ? tuiColors.ghost
+                : line.startsWith('error') || line.startsWith('Error') ? tuiColors.red
+                : tuiColors.silver
+            }
+          >
+            {line.slice(0, isJson ? maxW - 4 : maxW)}
+          </Text>
+        </Box>
       ))}
+
+      <Box>
+        <Text color={tuiColors.ghost}>╰{'─'.repeat(maxW + 2)}╯</Text>
+      </Box>
     </Box>
   );
 }
