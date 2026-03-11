@@ -377,9 +377,9 @@ export class Orchestrator {
       if (!this.deps.processManager.isAlive(entry.pid)) {
         // Process crashed — wrap in try/catch to ensure running entry is always cleaned
         try {
-          await this.handleRunFailure(taskId, entry, 'Process crashed unexpectedly');
+          await this._handleRunFailure(taskId, entry, 'Process crashed unexpectedly');
         } catch {
-          // Cleanup even if handleRunFailure fails (e.g. invalid transition)
+          // Cleanup even if _handleRunFailure fails (e.g. invalid transition)
           delete state.running[taskId];
           await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch(() => {});
         }
@@ -399,7 +399,7 @@ export class Orchestrator {
         this.abortControllers.get(taskId)?.abort();
         await this.deps.processManager.killWithGrace(entry.pid, 5_000);
         try {
-          await this.handleRunFailure(taskId, entry, 'Agent stalled (no events)');
+          await this._handleRunFailure(taskId, entry, 'Agent stalled (no events)');
         } catch {
           delete state.running[taskId];
           await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch(() => {});

@@ -160,11 +160,13 @@ export function registerTuiCommand(program: Command, container: Container): void
 
       // Auto-start watch mode so the orchestrator is live
       let watchStarted = false;
+      let watchError: string | undefined;
       try {
         await container.orchestrator.startWatch();
         watchStarted = true;
-      } catch {
+      } catch (err) {
         // Watch mode may fail if lock is held by another process — continue without it
+        watchError = err instanceof Error ? err.message : String(err);
       }
 
       const { waitUntilExit } = render(
@@ -196,6 +198,8 @@ export function registerTuiCommand(program: Command, container: Container): void
           onForceStopAgent,
           onStartWatch,
           onStopWatch,
+          initialWatchActive: watchStarted,
+          watchError,
         }),
       );
 

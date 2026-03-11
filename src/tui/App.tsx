@@ -89,6 +89,10 @@ export interface AppProps {
   onForceStopAgent?: (agentId: string) => Promise<void>;
   onStartWatch?: () => Promise<void>;
   onStopWatch?: () => Promise<void>;
+  /** Whether watch mode was successfully started by the host. Overrides stale state.pid. */
+  initialWatchActive?: boolean;
+  /** Error message if watch mode failed to start. */
+  watchError?: string;
   /** Message batch flush interval in ms. 0 = immediate. Default: 80 (0 in test env). */
   messageBatchMs?: number;
 }
@@ -160,6 +164,8 @@ export function App({
   onAddAgent, onDeleteAgent, onApproveTask, onRejectTask, onDeleteTask,
   onUpdateTask, onUpdateAgent, onForceStopAgent,
   onStartWatch, onStopWatch,
+  initialWatchActive,
+  watchError,
   messageBatchMs = process.env.VITEST ? 0 : 80,
 }: AppProps) {
   const { exit } = useApp();
@@ -180,7 +186,7 @@ export function App({
   const [liveTasks, setLiveTasks] = useState<Task[]>(initialTasks);
   const [liveAgents, setLiveAgents] = useState<Agent[]>(initialAgents);
   const [liveState, setLiveState] = useState<OrchestratorState>(initialState);
-  const [watchActive, setWatchActive] = useState(!!initialState.pid);
+  const [watchActive, setWatchActive] = useState(initialWatchActive ?? !!initialState.pid);
 
   // View state
   const [activeView, setActiveView] = useState<ViewId>('tasks');
@@ -218,8 +224,12 @@ export function App({
     setLiveTasks(t);
     setLiveAgents(a);
     setLiveState(s);
-    setWatchActive(!!s.pid);
-  }, [onRefreshTasks, onRefreshAgents, onRefreshState]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Sync watchActive from state.pid only if we own the watch —
+    // otherwise state.pid may belong to another process (stale lock).
+    if (initialWatchActive) {
+      setWatchActive(!!s.pid);
+    }
+  }, [onRefreshTasks, onRefreshAgents, onRefreshState, initialWatchActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sorted data
   const sortedTasks = useMemo(
@@ -317,6 +327,14 @@ export function App({
       flushTimer.current = setTimeout(flushMessages, messageBatchMs);
     }
   }, [flushMessages]);
+
+  // Show watch mode error on mount
+  useEffect(() => {
+    if (watchError) {
+      addMessage(`Watch mode failed: ${watchError}. Tasks will not auto-dispatch.`, tuiColors.red);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load history from disk on mount
   useEffect(() => {
