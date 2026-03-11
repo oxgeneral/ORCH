@@ -48,6 +48,7 @@ export class TaskService {
       max_attempts: input.max_attempts ?? this.config.defaults.task.max_attempts,
       workspace_mode: input.workspace_mode,
       review_criteria: input.review_criteria,
+      scope: input.scope,
     };
 
     await this.taskStore.save(task);

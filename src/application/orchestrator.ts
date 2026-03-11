@@ -20,6 +20,7 @@ import {
   calculateRetryDelay,
 } from '../domain/transitions.js';
 import { NoAgentsError, TaskAlreadyRunningError, LockConflictError } from '../domain/errors.js';
+import { scopesOverlap } from '../domain/scope.js';
 import { acquireLock, releaseLock } from '../infrastructure/storage/lock.js';
 import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IContextStore } from '../infrastructure/storage/interfaces.js';
 import { CachedTaskStore, CachedAgentStore } from '../infrastructure/storage/cached-stores.js';
@@ -380,6 +381,36 @@ export class Orchestrator {
       .sort((a, b) => a.priority - b.priority)
       .slice(0, availableSlots);
 
+    // Scope overlap warnings — soft check against in-progress tasks and batch peers
+    const inProgressTasks = allTasks.filter((t) => t.status === 'in_progress');
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i]!;
+      if (!candidate.scope?.length) continue;
+      // Check against already running tasks
+      for (const running of inProgressTasks) {
+        if (scopesOverlap(candidate.scope, running.scope)) {
+          this.deps.eventBus.emit({
+            type: 'task:scope_overlap',
+            taskId: candidate.id,
+            overlappingTaskId: running.id,
+            patterns: candidate.scope,
+          });
+        }
+      }
+      // Check against earlier candidates in this batch
+      for (let j = 0; j < i; j++) {
+        const peer = candidates[j]!;
+        if (scopesOverlap(candidate.scope, peer.scope)) {
+          this.deps.eventBus.emit({
+            type: 'task:scope_overlap',
+            taskId: candidate.id,
+            overlappingTaskId: peer.id,
+            patterns: candidate.scope,
+          });
+        }
+      }
+    }
+
     for (const task of candidates) {
       try {
         await this.dispatchTask(task.id);
@@ -423,7 +454,7 @@ export class Orchestrator {
       }
 
       // Prepare workspace
-      const workspacePath = await this.deps.workspaceManager.prepare(
+      const { path: workspacePath, branch: worktreeBranch } = await this.deps.workspaceManager.prepare(
         task,
         agent,
         this.deps.config,
@@ -481,6 +512,16 @@ export class Orchestrator {
       await this.deps.taskService.updateStatus(taskId, 'in_progress');
       await this.deps.taskService.assign(taskId, agent.id);
       await this.deps.taskService.incrementAttempts(taskId);
+
+      // Save worktree branch on proof immediately (survives any later failure)
+      if (worktreeBranch) {
+        const freshTask = await this.deps.taskStore.get(taskId);
+        if (freshTask) {
+          freshTask.proof = { ...(freshTask.proof ?? { files_changed: [] }), branch: worktreeBranch };
+          freshTask.workspace = workspacePath;
+          await this.deps.taskStore.save(freshTask);
+        }
+      }
 
       // Update agent status
       await this.deps.agentService.setStatus(agent.id, 'running');
@@ -690,23 +731,7 @@ export class Orchestrator {
     // Clean up running entry early — prevents handleRunFailure from being called on catch
     delete state.running[taskId];
 
-    // Update task status — force-write via store if service validation fails
-    try {
-      await this.deps.taskService.updateStatus(taskId, newStatus);
-    } catch {
-      // Bypass state machine validation and force-write directly
-      task.status = newStatus;
-      task.updated_at = new Date().toISOString();
-      await this.deps.taskStore.save(task).catch(() => {});
-    }
-    await this.deps.agentService.setStatus(agentId, 'idle').catch(() => {});
-
-    // Auto-review: if task landed in 'review' and has review_criteria, run them
-    if (newStatus === 'review' && task.review_criteria?.length) {
-      await this.runAutoReview(taskId, task.review_criteria, task.workspace ?? this.deps.projectRoot);
-    }
-
-    // Update agent stats
+    // Update agent stats (always — agent completed its work regardless of merge outcome)
     const statsUpdate: Partial<import('../domain/agent.js').AgentStats> = {
       tasks_completed: (agent?.stats.tasks_completed ?? 0) + 1,
       total_runs: (agent?.stats.total_runs ?? 0) + 1,
@@ -723,6 +748,69 @@ export class Orchestrator {
       state.stats.total_tokens.input += tokens.input;
       state.stats.total_tokens.output += tokens.output;
       state.stats.total_tokens.total += tokens.total;
+    }
+
+    // Auto merge-back: if task used a worktree branch, merge into current branch
+    if (task.proof?.branch) {
+      try {
+        const mergeResult = await this.deps.workspaceManager.mergeBack(task.proof.branch);
+        if (mergeResult.success) {
+          this.deps.eventBus.emit({
+            type: 'workspace:merge_succeeded',
+            taskId,
+            branch: task.proof.branch,
+          });
+          // Clean up worktree after successful merge
+          await this.deps.workspaceManager.cleanup(taskId).catch(() => {});
+        } else {
+          // Merge conflict: force task to review regardless of auto-approve
+          this.deps.eventBus.emit({
+            type: 'workspace:merge_conflict',
+            taskId,
+            branch: task.proof.branch,
+            conflictInfo: mergeResult.conflictInfo,
+          });
+          task.proof = {
+            ...task.proof,
+            agent_summary: `MERGE CONFLICT: ${mergeResult.conflictInfo}\n\n${task.proof?.agent_summary ?? ''}`.slice(0, 2000),
+          };
+          task.status = 'review';
+          task.updated_at = new Date().toISOString();
+          await this.deps.taskStore.save(task);
+          await this.deps.agentService.setStatus(agentId, 'idle').catch(() => {});
+          await this.saveState();
+          return;
+        }
+      } catch (err) {
+        // Merge infrastructure failure — send to review with error info
+        const error = err instanceof Error ? err.message : String(err);
+        task.proof = {
+          ...task.proof,
+          agent_summary: `MERGE ERROR: ${error}\n\n${task.proof?.agent_summary ?? ''}`.slice(0, 2000),
+        };
+        task.status = 'review';
+        task.updated_at = new Date().toISOString();
+        await this.deps.taskStore.save(task);
+        await this.deps.agentService.setStatus(agentId, 'idle').catch(() => {});
+        await this.saveState();
+        return;
+      }
+    }
+
+    // Update task status — force-write via store if service validation fails
+    try {
+      await this.deps.taskService.updateStatus(taskId, newStatus);
+    } catch {
+      // Bypass state machine validation and force-write directly
+      task.status = newStatus;
+      task.updated_at = new Date().toISOString();
+      await this.deps.taskStore.save(task).catch(() => {});
+    }
+    await this.deps.agentService.setStatus(agentId, 'idle').catch(() => {});
+
+    // Auto-review: if task landed in 'review' and has review_criteria, run them
+    if (newStatus === 'review' && task.review_criteria?.length) {
+      await this.runAutoReview(taskId, task.review_criteria, task.workspace ?? this.deps.projectRoot);
     }
 
     await this.saveState();

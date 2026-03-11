@@ -2,7 +2,7 @@
  * Workspace manager implementation.
  *
  * Resolves workspace path based on mode priority chain:
- * task.workspace_mode → agent.config.workspace_mode → defaults.agent.workspace_mode → 'shared'
+ * task.workspace_mode → agent.config.workspace_mode → defaults.agent.workspace_mode → 'worktree'
  */
 
 import path from 'node:path';
@@ -13,31 +13,40 @@ import type { Task, WorkspaceMode } from '../../domain/task.js';
 import type { IProcessManager } from '../process/process-manager.js';
 import { validateWorkspacePath, sanitizeId } from '../storage/paths.js';
 import { ensureDir } from '../storage/fs-utils.js';
-import type { IWorkspaceManager } from './interface.js';
+import type { IWorkspaceManager, PrepareResult } from './interface.js';
+import { MergeStrategy, type MergeResult } from './merge-strategy.js';
 
 export class WorkspaceManager implements IWorkspaceManager {
+  private readonly mergeStrategy: MergeStrategy;
+
   constructor(
     private readonly projectRoot: string,
     private readonly orchestryDir: string,
     private readonly processManager: IProcessManager,
-  ) {}
+  ) {
+    this.mergeStrategy = new MergeStrategy(projectRoot, processManager);
+  }
 
-  async prepare(task: Task, agent: Agent, config: OrchestratorConfig): Promise<string> {
+  async prepare(task: Task, agent: Agent, config: OrchestratorConfig): Promise<PrepareResult> {
     const mode = this.resolveMode(task, agent, config);
 
     switch (mode) {
       case 'shared':
-        return this.projectRoot;
+        return { path: this.projectRoot };
 
       case 'worktree':
         return this.prepareWorktree(task);
 
       case 'isolated':
-        return this.prepareIsolated(task);
+        return { path: await this.prepareIsolated(task) };
 
       default:
-        return this.projectRoot;
+        return { path: this.projectRoot };
     }
+  }
+
+  async mergeBack(branch: string): Promise<MergeResult> {
+    return this.mergeStrategy.mergeBack(branch);
   }
 
   async cleanup(taskId: string): Promise<void> {
@@ -75,11 +84,11 @@ export class WorkspaceManager implements IWorkspaceManager {
       task.workspace_mode ??
       agent.config.workspace_mode ??
       config.defaults.agent.workspace_mode ??
-      'shared'
+      'worktree'
     );
   }
 
-  private async prepareWorktree(task: Task): Promise<string> {
+  private async prepareWorktree(task: Task): Promise<PrepareResult> {
     const workspacePath = path.join(
       this.orchestryDir,
       'workspaces',
@@ -103,7 +112,7 @@ export class WorkspaceManager implements IWorkspaceManager {
       proc.on('error', reject);
     });
 
-    return workspacePath;
+    return { path: workspacePath, branch: branchName };
   }
 
   private async prepareIsolated(task: Task): Promise<string> {

@@ -38,6 +38,7 @@ export function registerTaskCommand(program: Command, container: Container): voi
     .option('--workspace-mode <mode>', 'Workspace mode: shared|worktree|isolated')
     .option('--assignee <agent-id>', 'Assign to agent')
     .option('--review-criteria <criteria>', 'Comma-separated auto-review criteria: test_pass,typecheck,lint')
+    .option('--scope <patterns>', 'Comma-separated glob patterns for file scope (e.g. src/auth/**,src/session/**)')
     .option('-e, --edit', 'Open $EDITOR to write the description')
     .action(async (title: string, opts) => {
       await container.paths.requireInit();
@@ -61,6 +62,7 @@ export function registerTaskCommand(program: Command, container: Container): voi
         workspace_mode: opts.workspaceMode,
         assignee: opts.assignee,
         review_criteria: opts.reviewCriteria?.split(',').map((s: string) => s.trim()),
+        scope: opts.scope?.split(',').map((s: string) => s.trim()),
       });
 
       if (container.context.json) {
@@ -150,6 +152,7 @@ export function registerTaskCommand(program: Command, container: Container): voi
       ];
       if (t.assignee) pairs.push(['Agent', agentName(t.assignee)]);
       if (t.labels.length) pairs.push(['Labels', t.labels.join(', ')]);
+      if (t.scope?.length) pairs.push(['Scope', t.scope.join(', ')]);
       if (t.workspace_mode) pairs.push(['Workspace', t.workspace_mode]);
       if (t.workspace) pairs.push(['Path', filePath(t.workspace)]);
       if (t.review_criteria?.length) pairs.push(['Review', t.review_criteria.join(', ')]);

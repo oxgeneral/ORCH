@@ -56,7 +56,7 @@ export const DEFAULT_CONFIG: OrchestratorConfig = {
       max_turns: 50,
       timeout_ms: 3_600_000,
       stall_timeout_ms: 300_000,
-      workspace_mode: 'shared',
+      workspace_mode: 'worktree',
     },
     task: {
       max_attempts: 3,

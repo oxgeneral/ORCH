@@ -37,6 +37,7 @@ export interface PromptContext {
     description: string;
     priority: number;
     labels: string[];
+    scope?: string[];
   };
   agent: {
     name: string;
@@ -88,6 +89,7 @@ export function buildPromptContext(
       description: task.description,
       priority: task.priority,
       labels: task.labels,
+      scope: task.scope,
     },
     agent: {
       name: agent.name,
@@ -151,6 +153,7 @@ You can manage tasks and coordinate with other agents using the \`orch\` CLI:
 **Task commands:**
 - \`orch task add "<title>" -d "<description>" -p <1-4> --assignee <agent-id>\` — create and assign a new task
 - \`orch task add "<title>" -d "<description>" -p <1-4>\` — create a task in the pool (auto-assigned)
+- \`orch task add "<title>" -d "<description>" --scope "src/auth/**" --depends-on <task-id>\` — create a scoped task with dependency
 - \`orch task list\` — list all tasks and their statuses
 - \`orch task list --status todo\` — filter by status (todo, in_progress, done, failed)
 
@@ -169,4 +172,5 @@ Use these commands to decompose complex work into subtasks and delegate to speci
 - Make reasonable assumptions and proceed with the best approach.
 - If critical information is missing, document your assumptions and continue.
 - When a task is too large or spans multiple domains, break it into subtasks using \`orch task add\`.
+- When creating subtasks, use \`--scope\` to declare which files each task will touch, and \`--depends-on\` to order dependent work.
 `;

@@ -20,7 +20,10 @@ export type OrchestratorEvent =
   | { type: 'agent:error'; runId: string; agentId: string; error: string }
   | { type: 'run:retry'; runId: string; attempt: number; delay_ms: number }
   | { type: 'orchestrator:tick'; running: number; queued: number }
-  | { type: 'orchestrator:stall_detected'; runId: string };
+  | { type: 'orchestrator:stall_detected'; runId: string }
+  | { type: 'task:scope_overlap'; taskId: string; overlappingTaskId: string; patterns: string[] }
+  | { type: 'workspace:merge_succeeded'; taskId: string; branch: string }
+  | { type: 'workspace:merge_conflict'; taskId: string; branch: string; conflictInfo: string };
 
 export type OrchestratorEventType = OrchestratorEvent['type'];
 

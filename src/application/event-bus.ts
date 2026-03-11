@@ -83,6 +83,7 @@ export class EventBus {
       'task:created',
       'task:assigned',
       'task:status_changed',
+      'task:auto_reviewed',
       'agent:started',
       'agent:output',
       'agent:file_changed',
@@ -91,6 +92,9 @@ export class EventBus {
       'run:retry',
       'orchestrator:tick',
       'orchestrator:stall_detected',
+      'task:scope_overlap',
+      'workspace:merge_succeeded',
+      'workspace:merge_conflict',
     ];
 
     for (const type of allTypes) {

@@ -50,6 +50,7 @@ export interface Task {
   proof?: TaskProof;
   review_criteria?: ReviewCriterion[];
   review_results?: ReviewResult[];
+  scope?: string[];
 }
 
 export interface CreateTaskInput {
@@ -62,4 +63,5 @@ export interface CreateTaskInput {
   max_attempts?: number;
   workspace_mode?: WorkspaceMode;
   review_criteria?: ReviewCriterion[];
+  scope?: string[];
 }
