@@ -382,30 +382,18 @@ export class Orchestrator {
       .slice(0, availableSlots);
 
     // Scope overlap warnings — soft check against in-progress tasks and batch peers
-    const inProgressTasks = allTasks.filter((t) => t.status === 'in_progress');
+    const inProgressScoped = allTasks.filter((t) => t.status === 'in_progress' && t.scope?.length);
     for (let i = 0; i < candidates.length; i++) {
       const candidate = candidates[i]!;
       if (!candidate.scope?.length) continue;
-      // Check against already running tasks
-      for (const running of inProgressTasks) {
-        if (scopesOverlap(candidate.scope, running.scope)) {
+      const compareTo = [...inProgressScoped, ...candidates.slice(0, i)];
+      for (const other of compareTo) {
+        if (scopesOverlap(candidate.scope, other.scope)) {
           this.deps.eventBus.emit({
             type: 'task:scope_overlap',
             taskId: candidate.id,
-            overlappingTaskId: running.id,
-            patterns: candidate.scope,
-          });
-        }
-      }
-      // Check against earlier candidates in this batch
-      for (let j = 0; j < i; j++) {
-        const peer = candidates[j]!;
-        if (scopesOverlap(candidate.scope, peer.scope)) {
-          this.deps.eventBus.emit({
-            type: 'task:scope_overlap',
-            taskId: candidate.id,
-            overlappingTaskId: peer.id,
-            patterns: candidate.scope,
+            overlappingTaskId: other.id,
+            patterns: candidate.scope!,
           });
         }
       }
@@ -515,12 +503,9 @@ export class Orchestrator {
 
       // Save worktree branch on proof immediately (survives any later failure)
       if (worktreeBranch) {
-        const freshTask = await this.deps.taskStore.get(taskId);
-        if (freshTask) {
-          freshTask.proof = { ...(freshTask.proof ?? { files_changed: [] }), branch: worktreeBranch };
-          freshTask.workspace = workspacePath;
-          await this.deps.taskStore.save(freshTask);
-        }
+        task.proof = { ...(task.proof ?? { files_changed: [] }), branch: worktreeBranch };
+        task.workspace = workspacePath;
+        await this.deps.taskStore.save(task);
       }
 
       // Update agent status
@@ -587,7 +572,7 @@ export class Orchestrator {
     let collectedTokens: import('../domain/run.js').TokenUsage | undefined;
     let resultText: string | undefined;
     let lastAgentMessage: string | undefined;
-    const filesChanged: string[] = [];
+    const filesChangedSet = new Set<string>();
 
     try {
       for await (const event of generator) {
@@ -621,12 +606,12 @@ export class Orchestrator {
           // Codex sends { paths: string[], raw: ... }
           if (data && Array.isArray(data.paths)) {
             for (const p of data.paths) {
-              if (typeof p === 'string' && !filesChanged.includes(p)) filesChanged.push(p);
+              if (typeof p === 'string') filesChangedSet.add(p);
             }
           } else {
             const filePath = data && typeof data.path === 'string' ? data.path :
                              typeof event.data === 'string' ? event.data : String(event.data);
-            if (!filesChanged.includes(filePath)) filesChanged.push(filePath);
+            filesChangedSet.add(filePath);
           }
         }
 
@@ -676,7 +661,7 @@ export class Orchestrator {
       // Adapter finished successfully — runService.finish emits agent:completed
       // Use resultText from done event, or fall back to last agent message
       const finalResult = resultText ?? lastAgentMessage;
-      await this.handleRunSuccess(taskId, runId, agentId, collectedTokens, finalResult, filesChanged);
+      await this.handleRunSuccess(taskId, runId, agentId, collectedTokens, finalResult, [...filesChangedSet]);
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       const entry = this.state?.running[taskId];
@@ -770,29 +755,12 @@ export class Orchestrator {
             branch: task.proof.branch,
             conflictInfo: mergeResult.conflictInfo,
           });
-          task.proof = {
-            ...task.proof,
-            agent_summary: `MERGE CONFLICT: ${mergeResult.conflictInfo}\n\n${task.proof?.agent_summary ?? ''}`.slice(0, 2000),
-          };
-          task.status = 'review';
-          task.updated_at = new Date().toISOString();
-          await this.deps.taskStore.save(task);
-          await this.deps.agentService.setStatus(agentId, 'idle').catch(() => {});
-          await this.saveState();
+          await this.forceTaskToReview(task, agentId, `MERGE CONFLICT: ${mergeResult.conflictInfo}`);
           return;
         }
       } catch (err) {
-        // Merge infrastructure failure — send to review with error info
         const error = err instanceof Error ? err.message : String(err);
-        task.proof = {
-          ...task.proof,
-          agent_summary: `MERGE ERROR: ${error}\n\n${task.proof?.agent_summary ?? ''}`.slice(0, 2000),
-        };
-        task.status = 'review';
-        task.updated_at = new Date().toISOString();
-        await this.deps.taskStore.save(task);
-        await this.deps.agentService.setStatus(agentId, 'idle').catch(() => {});
-        await this.saveState();
+        await this.forceTaskToReview(task, agentId, `MERGE ERROR: ${error}`);
         return;
       }
     }
@@ -919,6 +887,27 @@ export class Orchestrator {
         await this.deps.taskStore.save(task).catch(() => {});
       }
     }
+  }
+
+  /**
+   * Force a task to 'review' status with a summary prefix.
+   * Used when merge-back fails (conflict or infrastructure error).
+   */
+  private async forceTaskToReview(
+    task: import('../domain/task.js').Task,
+    agentId: string,
+    summaryPrefix: string,
+  ): Promise<void> {
+    task.proof = {
+      ...task.proof,
+      agent_summary: `${summaryPrefix}\n\n${task.proof?.agent_summary ?? ''}`.slice(0, 2000),
+      files_changed: task.proof?.files_changed ?? [],
+    };
+    task.status = 'review';
+    task.updated_at = new Date().toISOString();
+    await this.deps.taskStore.save(task);
+    await this.deps.agentService.setStatus(agentId, 'idle').catch(() => {});
+    await this.saveState();
   }
 
   private unclaim(taskId: string): void {

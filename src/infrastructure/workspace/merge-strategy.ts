@@ -28,10 +28,13 @@ export class MergeStrategy {
         { cwd: this.projectRoot },
       );
 
-      const stdout: string[] = [];
-      const stderr: string[] = [];
-      proc.stdout?.on('data', (chunk: Buffer) => stdout.push(chunk.toString()));
-      proc.stderr?.on('data', (chunk: Buffer) => stderr.push(chunk.toString()));
+      let output = '';
+      const maxOutputLen = 2000;
+      const appendOutput = (chunk: Buffer) => {
+        if (output.length < maxOutputLen) output += chunk.toString();
+      };
+      proc.stdout?.on('data', appendOutput);
+      proc.stderr?.on('data', appendOutput);
 
       proc.on('close', (code) => {
         if (code === 0) {
@@ -39,12 +42,12 @@ export class MergeStrategy {
           return;
         }
 
-        const output = [stdout.join(''), stderr.join('')].filter(Boolean).join('\n').slice(0, 1000);
-        const isConflict = output.includes('CONFLICT') || output.includes('Merge conflict');
+        const trimmedOutput = output.slice(0, 1000);
+        const isConflict = trimmedOutput.includes('CONFLICT') || trimmedOutput.includes('Merge conflict');
 
         if (!isConflict) {
           // Non-conflict failure (branch not found, hook failure, etc.) — no merge to abort
-          resolve({ success: false, conflictInfo: output });
+          resolve({ success: false, conflictInfo: trimmedOutput });
           return;
         }
 
@@ -56,13 +59,13 @@ export class MergeStrategy {
             { cwd: this.projectRoot },
           );
           abortProc.on('close', () => {
-            resolve({ success: false, conflictInfo: output });
+            resolve({ success: false, conflictInfo: trimmedOutput });
           });
           abortProc.on('error', () => {
-            resolve({ success: false, conflictInfo: output });
+            resolve({ success: false, conflictInfo: trimmedOutput });
           });
         } catch {
-          resolve({ success: false, conflictInfo: output });
+          resolve({ success: false, conflictInfo: trimmedOutput });
         }
       });
 
