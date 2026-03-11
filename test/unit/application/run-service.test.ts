@@ -38,6 +38,7 @@ function createMockRunStore(runs: Run[] = [], events: Map<string, RunEvent[]> = 
       events.set(runId, list);
     }),
     readEvents: vi.fn(async (runId: string) => events.get(runId) ?? []),
+    readEventsTail: vi.fn(async (runId: string, count: number) => (events.get(runId) ?? []).slice(-count)),
     streamEvents: vi.fn(async function* () {}),
   };
 }
@@ -159,8 +160,8 @@ describe('RunService.getLastFailedRunContext', () => {
         finished_at: '2025-01-01T00:00:00Z',
       }),
     ]);
-    // Make readEvents throw
-    (runStore.readEvents as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('ENOENT'));
+    // Make readEventsTail throw (used by getLastFailedRunContext)
+    (runStore.readEventsTail as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('ENOENT'));
 
     const service = new RunService(runStore, eventBus);
     const result = await service.getLastFailedRunContext('tsk_1');

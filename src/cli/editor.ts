@@ -5,7 +5,7 @@
  * waits for it to close, and returns the edited text.
  */
 
-import { writeFile, readFile, unlink, mkdtemp } from 'node:fs/promises';
+import { writeFile, readFile, unlink, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -49,6 +49,7 @@ export async function openInEditor(
     return await readFile(filePath, 'utf8');
   } finally {
     await unlink(filePath).catch(() => {});
+    await rm(dir, { recursive: true }).catch(() => {});
   }
 }
 
@@ -99,7 +100,7 @@ export function fromEditorContent(content: string): {
   const result: { title?: string; priority?: number; description?: string } = {};
 
   for (const line of frontmatter.split('\n')) {
-    const kv = line.match(/^(\w+):\s*(.*)$/);
+    const kv = line.match(/^([\w]+):\s*(.*)$/);
     if (!kv) continue;
     const key = kv[1];
     const value = kv[2] ?? '';
@@ -186,7 +187,7 @@ export function agentFromEditorContent(content: string): AgentEditorFields {
   const result: AgentEditorFields = {};
 
   for (const line of frontmatter.split('\n')) {
-    const kv = line.match(/^(\w+):\s*(.*)$/);
+    const kv = line.match(/^([\w]+):\s*(.*)$/);
     if (!kv) continue;
     const key = kv[1];
     const value = kv[2] ?? '';

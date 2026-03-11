@@ -27,6 +27,7 @@ import { CommandBar } from './components/CommandBar.js';
 import { FormWizard } from './components/FormWizard.js';
 import type { WizardStep } from './components/FormWizard.js';
 import { Spinner } from './components/Spinner.js';
+import { OfficeView } from './components/OfficeView.js';
 import {
   getAgentWizardSteps, agentWizardToInput,
   getTaskWizardSteps, taskWizardToInput,
@@ -80,6 +81,8 @@ export interface AppProps {
   onForceStopAgent?: (agentId: string) => Promise<void>;
   onStartWatch?: () => Promise<void>;
   onStopWatch?: () => Promise<void>;
+  /** Message batch flush interval in ms. 0 = immediate. Default: 80 (0 in test env). */
+  messageBatchMs?: number;
 }
 
 type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
@@ -149,6 +152,7 @@ export function App({
   onAddAgent, onDeleteAgent, onApproveTask, onRejectTask, onDeleteTask,
   onUpdateTask, onUpdateAgent, onForceStopAgent,
   onStartWatch, onStopWatch,
+  messageBatchMs = process.env.VITEST ? 0 : 80,
 }: AppProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -243,23 +247,69 @@ export function App({
 
   // Build runId → agentId and runId → taskId maps from state.running
   // Use refs so dynamic .set() calls from events persist across re-renders
+  // Capped at MAX_RUN_MAP_SIZE to prevent unbounded growth in long sessions
+  const MAX_RUN_MAP_SIZE = 500;
   const runIdToAgentId = useRef(new Map<string, string>());
   const runIdToTaskId = useRef(new Map<string, string>());
-  // Seed from liveState.running on every change (additive — don't clear old entries)
+  // Seed from liveState.running on every change; prune if maps grow too large
   useEffect(() => {
     for (const [taskId, entry] of Object.entries(liveState.running)) {
       runIdToAgentId.current.set(entry.run_id, entry.agent_id);
       runIdToTaskId.current.set(entry.run_id, taskId);
     }
+    // Evict oldest entries if maps exceed cap (Map preserves insertion order)
+    if (runIdToAgentId.current.size > MAX_RUN_MAP_SIZE) {
+      const excess = runIdToAgentId.current.size - MAX_RUN_MAP_SIZE;
+      let i = 0;
+      for (const key of runIdToAgentId.current.keys()) {
+        if (i++ >= excess) break;
+        runIdToAgentId.current.delete(key);
+        runIdToTaskId.current.delete(key);
+      }
+    }
   }, [liveState.running]);
+
+  // Batched message queue — accumulate messages and flush at most every 80ms
+  // to avoid creating a new React state array on every single event
+  const pendingMessages = useRef<StatusMessage[]>([]);
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const MAX_DETAIL_LEN = 2048; // Cap detail strings to prevent multi-MB message objects
+  const MAX_MESSAGES = 200;
+
+  const flushMessages = useCallback(() => {
+    flushTimer.current = null;
+    if (pendingMessages.current.length === 0) return;
+    const batch = pendingMessages.current;
+    pendingMessages.current = [];
+    setMessages((prev) => {
+      const combined = prev.concat(batch);
+      return combined.length > MAX_MESSAGES ? combined.slice(-MAX_MESSAGES) : combined;
+    });
+  }, []);
+
+  // Cleanup flush timer on unmount
+  useEffect(() => {
+    return () => { if (flushTimer.current) clearTimeout(flushTimer.current); };
+  }, []);
 
   const addMessage = useCallback((text: string, color: string, opts?: { agentId?: string; taskId?: string; detail?: string; msgType?: MsgType }) => {
     const now = new Date();
     const time = now.toLocaleTimeString('en-US', {
       hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
     });
-    setMessages((prev) => [...prev.slice(-200), { text, color, time, ts: now.getTime(), ...opts }]);
-  }, []);
+    // Truncate detail to cap memory usage
+    const detail = opts?.detail && opts.detail.length > MAX_DETAIL_LEN
+      ? opts.detail.slice(0, MAX_DETAIL_LEN) + '…[truncated]'
+      : opts?.detail;
+    pendingMessages.current.push({ text, color, time, ts: now.getTime(), ...opts, detail });
+    // Schedule flush if not already pending
+    if (messageBatchMs === 0) {
+      // Immediate mode (tests) — flush synchronously
+      flushMessages();
+    } else if (!flushTimer.current) {
+      flushTimer.current = setTimeout(flushMessages, messageBatchMs);
+    }
+  }, [flushMessages]);
 
   // Load history from disk on mount
   useEffect(() => {
@@ -305,7 +355,10 @@ export function App({
 
         return { text, color, time, ts: new Date(entry.timestamp).getTime(), agentId: entry.agentId, taskId: entry.taskId, msgType };
       });
-      setMessages((prev) => [...histMsgs.slice(-150), ...prev]);
+      setMessages((prev) => {
+        const combined = [...histMsgs.slice(-150), ...prev];
+        return combined.length > MAX_MESSAGES ? combined.slice(-MAX_MESSAGES) : combined;
+      });
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -482,7 +535,7 @@ export function App({
   const listItemCount = activeView === 'tasks' ? visibleTasks.length + 1 + (hiddenTaskCount > 0 ? 1 : 0) : // +1 for "+ add" row, +1 for "show all" row
     activeView === 'agents' ? liveAgents.length + 1 : 0;
   const minListH = Math.min(listItemCount + 1, Math.ceil(contentH * 0.5)); // cap at 50%
-  const mainH = activeView === 'logs' ? contentH : Math.max(2, Math.min(minListH, contentH - 4));
+  const mainH = (activeView === 'logs' || activeView === 'office') ? contentH : Math.max(2, Math.min(minListH, contentH - 4));
   const feedH = Math.max(1, contentH - mainH);
   const ruleW = Math.max(10, W - 2);
 
@@ -1051,12 +1104,13 @@ export function App({
     if (!detailOpen) {
       if (input === 't' || input === 'T') { setActiveView('tasks'); return; }
       if (input === 'a' || input === 'A') { setActiveView('agents'); return; }
+      if (input === 'o' || input === 'O') { setActiveView('office'); return; }
       if (input === 'l' || input === 'L') { setActiveView('logs'); return; }
     }
 
     // Tab / ←→: cycle views (when not in detail)
     if (!detailOpen) {
-      const viewOrder: ViewId[] = ['tasks', 'agents', 'logs'];
+      const viewOrder: ViewId[] = ['tasks', 'agents', 'office', 'logs'];
       const idx = viewOrder.indexOf(activeView);
       if (key.tab || key.rightArrow) {
         setActiveView(viewOrder[(idx + 1) % viewOrder.length]!);
@@ -1241,6 +1295,15 @@ export function App({
           state={liveState}
           taskTitleMap={taskTitleMap}
           showAddRow={!!onAddAgent}
+        />
+      )}
+      {activeView === 'office' && (
+        <OfficeView
+          agents={sortedAgents}
+          tasks={liveTasks}
+          state={liveState}
+          height={mainH}
+          width={ruleW}
         />
       )}
       {activeView === 'logs' && (
@@ -2274,7 +2337,8 @@ function summarizeToolResult(content: unknown): string {
 
 /** Extract human-readable text from agent output data (which may be raw JSON from Claude CLI) */
 function formatAgentOutput(raw: string): { summary: string; detail: string } {
-  const detail = raw;
+  // Truncate detail early — raw can be 100KB+ for tool results with file contents
+  const detail = raw.length > 2048 ? raw.slice(0, 2048) + '…' : raw;
 
   // Skip bracket-tags like [init], [hook_started], [hook_response]
   if (/^\[[\w_]+\]$/.test(raw.trim())) {

@@ -146,6 +146,28 @@ describe('EventBus', () => {
     });
   });
 
+  describe('task:orphaned event', () => {
+    it('delivers task:orphaned event to subscribers', () => {
+      const handler = vi.fn();
+      bus.on('task:orphaned', handler);
+
+      bus.emit({ type: 'task:orphaned', taskId: 'tsk_orphan1' });
+
+      expect(handler).toHaveBeenCalledOnce();
+      expect(handler).toHaveBeenCalledWith({ type: 'task:orphaned', taskId: 'tsk_orphan1' });
+    });
+
+    it('task:orphaned is included in onAny subscription', () => {
+      const handler = vi.fn();
+      bus.onAny(handler);
+
+      bus.emit({ type: 'task:orphaned', taskId: 'tsk_orphan2' });
+
+      expect(handler).toHaveBeenCalledOnce();
+      expect(handler).toHaveBeenCalledWith({ type: 'task:orphaned', taskId: 'tsk_orphan2' });
+    });
+  });
+
   describe('clear', () => {
     it('removes all handlers', () => {
       const handler = vi.fn();
@@ -156,6 +178,80 @@ describe('EventBus', () => {
       bus.emit({ type: 'task:created', task: makeTask() });
 
       expect(handler).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('maxListeners', () => {
+    it('defaults to 10', () => {
+      expect(bus.getMaxListeners()).toBe(10);
+    });
+
+    it('can be changed via setMaxListeners', () => {
+      bus.setMaxListeners(20);
+      expect(bus.getMaxListeners()).toBe(20);
+    });
+
+    it('warns when listener count exceeds maxListeners', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      bus.setMaxListeners(3);
+
+      for (let i = 0; i < 4; i++) {
+        bus.on('task:created', vi.fn());
+      }
+
+      expect(warnSpy).toHaveBeenCalledOnce();
+      expect(warnSpy.mock.calls[0]![0]).toContain('possible memory leak');
+      expect(warnSpy.mock.calls[0]![0]).toContain('task:created');
+
+      warnSpy.mockRestore();
+    });
+
+    it('warns only once per event type', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      bus.setMaxListeners(2);
+
+      for (let i = 0; i < 5; i++) {
+        bus.on('task:created', vi.fn());
+      }
+
+      expect(warnSpy).toHaveBeenCalledOnce();
+      warnSpy.mockRestore();
+    });
+
+    it('does not warn when maxListeners is 0 (unlimited)', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      bus.setMaxListeners(0);
+
+      for (let i = 0; i < 50; i++) {
+        bus.on('task:created', vi.fn());
+      }
+
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it('listenerCount returns current count', () => {
+      expect(bus.listenerCount('task:created')).toBe(0);
+
+      bus.on('task:created', vi.fn());
+      bus.on('task:created', vi.fn());
+      expect(bus.listenerCount('task:created')).toBe(2);
+    });
+
+    it('clear resets warned types so warnings fire again', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      bus.setMaxListeners(1);
+
+      bus.on('task:created', vi.fn());
+      bus.on('task:created', vi.fn());
+      expect(warnSpy).toHaveBeenCalledOnce();
+
+      bus.clear();
+      bus.on('task:created', vi.fn());
+      bus.on('task:created', vi.fn());
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+
+      warnSpy.mockRestore();
     });
   });
 });

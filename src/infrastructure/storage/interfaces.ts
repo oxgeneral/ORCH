@@ -34,6 +34,7 @@ export interface IRunStore {
   listForAgent(agentId: string): Promise<Run[]>;
   appendEvent(runId: string, event: RunEvent): Promise<void>;
   readEvents(runId: string): Promise<RunEvent[]>;
+  readEventsTail(runId: string, count: number): Promise<RunEvent[]>;
   streamEvents(runId: string, signal?: AbortSignal): AsyncGenerator<RunEvent>;
 }
 

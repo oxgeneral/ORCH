@@ -65,6 +65,13 @@ export class Orchestrator {
   private saveStateTimer: ReturnType<typeof setTimeout> | null = null;
   private saveStateDirty = false;
   private lockAcquired = false;
+  private consecutiveTickFailures = 0;
+  private readonly maxConsecutiveTickFailures = 5;
+  private readonly maxRetryQueueSize = 100;
+  private signalHandlers: Array<[string, (...args: any[]) => void]> = [];
+
+  /** Promise-chain mutex to serialize critical state mutations. */
+  private stateMutex: Promise<void> = Promise.resolve();
 
   constructor(private readonly deps: OrchestratorDeps) {
     this.cachedTaskStore = new CachedTaskStore(deps.taskStore);
@@ -76,6 +83,24 @@ export class Orchestrator {
    */
   get isOwner(): boolean {
     return this.lockAcquired;
+  }
+
+  /**
+   * Serialize access to state mutations via a Promise-chain mutex.
+   * Prevents concurrent tick/stop/reconcile from reading stale state.
+   */
+  private withStateLock<T>(fn: () => Promise<T>): Promise<T> {
+    let release: () => void;
+    const next = new Promise<void>((resolve) => { release = resolve; });
+    const prev = this.stateMutex;
+    this.stateMutex = next;
+    return prev.then(async () => {
+      try {
+        return await fn();
+      } finally {
+        release!();
+      }
+    });
   }
 
   /**
@@ -114,14 +139,65 @@ export class Orchestrator {
     this.state!.started_at = new Date().toISOString();
     await this.saveState();
 
+    // Register signal handlers for graceful shutdown
+    this.registerSignalHandlers();
+
     // Initial tick
     await this.tick();
 
     // Start polling
     this.intervalId = setInterval(
-      () => this.tick().catch(console.error),
+      () => this.tick().then(
+        () => { this.consecutiveTickFailures = 0; },
+        (err) => {
+          this.consecutiveTickFailures++;
+          const error = err instanceof Error ? err.message : String(err);
+          this.deps.eventBus.emit({
+            type: 'orchestrator:error',
+            error,
+            context: 'tick',
+            fatal: this.consecutiveTickFailures >= this.maxConsecutiveTickFailures,
+          });
+          if (this.consecutiveTickFailures >= this.maxConsecutiveTickFailures) {
+            this.deps.eventBus.emit({
+              type: 'orchestrator:shutdown',
+              reason: `${this.consecutiveTickFailures} consecutive tick failures`,
+            });
+            this.stop().catch(() => {});
+          }
+        },
+      ),
       this.deps.config.scheduling.poll_interval_ms,
     );
+  }
+
+  /**
+   * Register SIGINT/SIGTERM handlers for graceful shutdown.
+   */
+  private registerSignalHandlers(): void {
+    const handler = (signal: string) => {
+      this.deps.eventBus.emit({
+        type: 'orchestrator:shutdown',
+        reason: `Received ${signal}`,
+      });
+      this.stop().catch(() => {});
+    };
+
+    for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+      const bound = () => handler(sig);
+      this.signalHandlers.push([sig, bound]);
+      process.on(sig, bound);
+    }
+  }
+
+  /**
+   * Remove signal handlers to avoid listener leaks.
+   */
+  private removeSignalHandlers(): void {
+    for (const [sig, handler] of this.signalHandlers) {
+      process.removeListener(sig, handler);
+    }
+    this.signalHandlers = [];
   }
 
   /**
@@ -140,38 +216,43 @@ export class Orchestrator {
     // Flush any pending debounced writes before shutdown
     await this.flushStateLazy();
 
-    // Graceful shutdown of running agents
-    if (this.state) {
-      for (const [taskId, entry] of Object.entries(this.state.running)) {
-        this.abortControllers.get(taskId)?.abort();
-        this.abortControllers.delete(taskId);
-        await this.deps.processManager.killWithGrace(entry.pid);
+    // Graceful shutdown of running agents — serialized via mutex
+    await this.withStateLock(async () => {
+      if (this.state) {
+        for (const [taskId, entry] of Object.entries(this.state.running)) {
+          this.abortControllers.get(taskId)?.abort();
+          this.abortControllers.delete(taskId);
+          await this.deps.processManager.killWithGrace(entry.pid);
 
-        // Mark run as cancelled
-        await this.deps.runService.finish(entry.run_id, 'cancelled');
+          // Mark run as cancelled
+          await this.deps.runService.finish(entry.run_id, 'cancelled');
 
-        // Mark task for retry if possible
-        const task = await this.deps.taskStore.get(taskId);
-        if (task && task.attempts < task.max_attempts) {
-          await this.deps.taskService.updateStatus(taskId, 'retrying');
+          // Mark task for retry if possible
+          const task = await this.deps.taskStore.get(taskId);
+          if (task && task.attempts < task.max_attempts) {
+            await this.deps.taskService.updateStatus(taskId, 'retrying');
+          }
+
+          // Release agent
+          await this.deps.agentService.setStatus(entry.agent_id, 'idle');
         }
 
-        // Release agent
-        await this.deps.agentService.setStatus(entry.agent_id, 'idle');
+        this.state.running = {};
+        this.state.claimed = [];
+        this.state.pid = undefined;
+        this.state.started_at = undefined;
+        await this.saveState();
       }
-
-      this.state.running = {};
-      this.state.claimed = [];
-      this.state.pid = undefined;
-      this.state.started_at = undefined;
-      await this.saveState();
-    }
+    });
 
     // Release lock
     if (this.lockAcquired) {
       await releaseLock(this.deps.lockPath);
       this.lockAcquired = false;
     }
+
+    // Remove signal handlers
+    this.removeSignalHandlers();
   }
 
   /**
@@ -180,38 +261,36 @@ export class Orchestrator {
    */
   async cancelTask(taskId: string): Promise<void> {
     this.requireOwnership();
-    await this.loadState();
-    const state = this.state!;
-    const entry = state.running[taskId];
 
-    if (entry) {
-      // Kill the running process via SIGTERM/SIGKILL (don't use abort — it throws unhandled AbortError)
-      this.abortControllers.delete(taskId);
-      await this.deps.processManager.killWithGrace(entry.pid, 3_000).catch(() => {});
-      await this.deps.runService.finish(entry.run_id, 'cancelled').catch(() => {});
-      await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch(() => {});
+    await this.withStateLock(async () => {
+      await this.loadState();
+      const state = this.state!;
+      const entry = state.running[taskId];
 
-      // Clean up running entry BEFORE status transition (so TaskService.cancel won't throw)
-      delete state.running[taskId];
-      await this.saveState();
-    }
+      if (entry) {
+        this.abortControllers.delete(taskId);
+        await this.deps.processManager.killWithGrace(entry.pid, 3_000).catch(() => {});
+        await this.deps.runService.finish(entry.run_id, 'cancelled').catch(() => {});
+        await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch(() => {});
 
-    // Also remove from retry queue
-    state.retry_queue = state.retry_queue.filter((r) => r.task_id !== taskId);
-
-    // Now transition status to cancelled
-    try {
-      await this.deps.taskService.cancel(taskId);
-    } catch {
-      // Force the transition if normal cancel fails
-      try {
-        await this.deps.taskService.updateStatus(taskId, 'cancelled');
-      } catch {
-        // Already terminal — ignore
+        delete state.running[taskId];
+        await this.saveState();
       }
-    }
 
-    await this.saveState();
+      state.retry_queue = state.retry_queue.filter((r) => r.task_id !== taskId);
+
+      try {
+        await this.deps.taskService.cancel(taskId);
+      } catch {
+        try {
+          await this.deps.taskService.updateStatus(taskId, 'cancelled');
+        } catch {
+          // Already terminal — ignore
+        }
+      }
+
+      await this.saveState();
+    });
   }
 
   /**
@@ -220,54 +299,59 @@ export class Orchestrator {
    */
   async forceStopAgent(agentId: string): Promise<void> {
     this.requireOwnership();
-    await this.loadState();
-    const state = this.state!;
 
-    // Find running entry for this agent
-    for (const [taskId, entry] of Object.entries(state.running)) {
-      if (entry.agent_id === agentId) {
-        this.abortControllers.get(taskId)?.abort();
-        this.abortControllers.delete(taskId);
-        await this.deps.processManager.killWithGrace(entry.pid, 3_000);
-        await this.deps.runService.finish(entry.run_id, 'cancelled');
+    await this.withStateLock(async () => {
+      await this.loadState();
+      const state = this.state!;
 
-        // Mark task as failed
-        try {
-          await this.deps.taskService.updateStatus(taskId, 'failed');
-        } catch {
-          // Transition may not be valid — ignore
+      for (const [taskId, entry] of Object.entries(state.running)) {
+        if (entry.agent_id === agentId) {
+          this.abortControllers.get(taskId)?.abort();
+          this.abortControllers.delete(taskId);
+          await this.deps.processManager.killWithGrace(entry.pid, 3_000);
+          await this.deps.runService.finish(entry.run_id, 'cancelled');
+
+          try {
+            await this.deps.taskService.updateStatus(taskId, 'failed');
+          } catch {
+            // Transition may not be valid — ignore
+          }
+
+          delete state.running[taskId];
         }
-
-        delete state.running[taskId];
       }
-    }
 
-    // Reset agent status
-    await this.deps.agentService.setStatus(agentId, 'idle');
-    await this.saveState();
+      await this.deps.agentService.setStatus(agentId, 'idle');
+      await this.saveState();
+    });
   }
 
   /**
    * Single tick: Reconcile → Dispatch → Collect
+   * Serialized via mutex to prevent concurrent ticks from racing on state.
    */
   private async tick(): Promise<void> {
     if (this.shuttingDown) return;
 
-    this.cachedTaskStore.invalidate();
-    this.cachedAgentStore.invalidate();
+    await this.withStateLock(async () => {
+      if (this.shuttingDown) return;
 
-    await this.loadState();
-    await this.reconcile();
-    await this.dispatchAll();
+      this.cachedTaskStore.invalidate();
+      this.cachedAgentStore.invalidate();
 
-    const tasks = await this.cachedTaskStore.list();
-    const running = Object.keys(this.state!.running).length;
-    const queued = tasks.filter((t) => isDispatchable(t.status)).length;
+      await this.loadState();
+      await this.reconcile();
+      await this.dispatchAll();
 
-    this.deps.eventBus.emit({
-      type: 'orchestrator:tick',
-      running,
-      queued,
+      const tasks = await this.cachedTaskStore.list();
+      const running = Object.keys(this.state!.running).length;
+      const queued = tasks.filter((t) => isDispatchable(t.status)).length;
+
+      this.deps.eventBus.emit({
+        type: 'orchestrator:tick',
+        running,
+        queued,
+      });
     });
   }
 
@@ -337,12 +421,24 @@ export class Orchestrator {
     for (const task of allTasks) {
       if (task.status === 'in_progress' && !state.running[task.id]) {
         try {
-          await this.deps.taskService.updateStatus(task.id, 'done');
+          await this.deps.taskService.updateStatus(task.id, 'failed');
         } catch {
-          task.status = 'done';
+          // If 'failed' transition is invalid, force-write via store
+          task.status = 'failed';
           task.updated_at = new Date().toISOString();
-          await this.deps.taskStore.save(task).catch(() => {});
+          await this.deps.taskStore.save(task).catch((err) => {
+            this.deps.eventBus.emit({
+              type: 'orchestrator:error',
+              error: err instanceof Error ? err.message : String(err),
+              context: `force-write orphaned task ${task.id}`,
+              fatal: false,
+            });
+          });
         }
+        this.deps.eventBus.emit({
+          type: 'task:orphaned',
+          taskId: task.id,
+        });
       }
     }
 
@@ -408,7 +504,12 @@ export class Orchestrator {
         await this.dispatchTask(task.id);
       } catch (err) {
         // Log but don't stop dispatching other tasks
-        console.error(`Failed to dispatch ${task.id}:`, err);
+        this.deps.eventBus.emit({
+          type: 'orchestrator:error',
+          error: err instanceof Error ? err.message : String(err),
+          context: `dispatch task ${task.id}`,
+          fatal: false,
+        });
       }
     }
   }
@@ -551,9 +652,14 @@ export class Orchestrator {
         run.id,
         taskId,
         agent.id,
-      ).catch((err) =>
-        console.error(`Adapter execution error for ${taskId}:`, err),
-      );
+      ).catch((err) => {
+        this.deps.eventBus.emit({
+          type: 'orchestrator:error',
+          error: err instanceof Error ? err.message : String(err),
+          context: `adapter execution for ${taskId}`,
+          fatal: false,
+        });
+      });
     } catch (err) {
       // Rollback claim
       this.unclaim(taskId);
@@ -617,9 +723,14 @@ export class Orchestrator {
           }
         }
 
+        // Validate and normalize event timestamp
+        const eventTimestamp = isValidISOTimestamp(event.timestamp)
+          ? event.timestamp
+          : new Date().toISOString();
+
         // Record event
         const runEvent: RunEvent = {
-          timestamp: event.timestamp,
+          timestamp: eventTimestamp,
           type: event.type === 'output' ? 'agent_output' :
                 event.type === 'file_change' ? 'file_changed' :
                 event.type === 'command' ? 'command_run' :
@@ -631,7 +742,7 @@ export class Orchestrator {
 
         // Update last_event_at for stall detection (debounced write — non-critical)
         if (this.state?.running[taskId]) {
-          this.state.running[taskId]!.last_event_at = event.timestamp;
+          this.state.running[taskId]!.last_event_at = eventTimestamp;
           this.saveStateLazy();
         }
 
@@ -675,6 +786,17 @@ export class Orchestrator {
   }
 
   private async handleRunSuccess(
+    taskId: string,
+    runId: string,
+    agentId: string,
+    tokens?: import('../domain/run.js').TokenUsage,
+    resultText?: string,
+    filesChanged?: string[],
+  ): Promise<void> {
+    return this.withStateLock(() => this._handleRunSuccess(taskId, runId, agentId, tokens, resultText, filesChanged));
+  }
+
+  private async _handleRunSuccess(
     taskId: string,
     runId: string,
     agentId: string,
@@ -727,7 +849,14 @@ export class Orchestrator {
     if (tokens) {
       statsUpdate.tokens_used = (agent?.stats.tokens_used ?? 0) + tokens.total;
     }
-    await this.deps.agentService.updateStats(agentId, statsUpdate).catch(() => {});
+    await this.deps.agentService.updateStats(agentId, statsUpdate).catch((err) => {
+      this.deps.eventBus.emit({
+        type: 'orchestrator:error',
+        error: err instanceof Error ? err.message : String(err),
+        context: `agent stats update for ${agentId}`,
+        fatal: false,
+      });
+    });
 
     // Update global stats
     state.stats.total_tasks_completed++;
@@ -749,7 +878,14 @@ export class Orchestrator {
             branch: task.proof.branch,
           });
           // Clean up worktree after successful merge
-          await this.deps.workspaceManager.cleanup(taskId).catch(() => {});
+          await this.deps.workspaceManager.cleanup(taskId).catch((err) => {
+            this.deps.eventBus.emit({
+              type: 'orchestrator:error',
+              error: err instanceof Error ? err.message : String(err),
+              context: `workspace cleanup for ${taskId}`,
+              fatal: false,
+            });
+          });
         } else {
           // Merge conflict: force task to review regardless of auto-approve
           this.deps.eventBus.emit({
@@ -771,11 +907,25 @@ export class Orchestrator {
     // Update task status — force-write via store if service validation fails
     try {
       await this.deps.taskService.updateStatus(taskId, newStatus);
-    } catch {
+    } catch (validationErr) {
       // Bypass state machine validation and force-write directly
+      const error = validationErr instanceof Error ? validationErr.message : String(validationErr);
+      this.deps.eventBus.emit({
+        type: 'orchestrator:error',
+        error,
+        context: `state machine validation failed for task ${taskId} -> ${newStatus}, force-writing`,
+        fatal: false,
+      });
       task.status = newStatus;
       task.updated_at = new Date().toISOString();
-      await this.deps.taskStore.save(task).catch(() => {});
+      await this.deps.taskStore.save(task).catch((saveErr) => {
+        this.deps.eventBus.emit({
+          type: 'orchestrator:error',
+          error: saveErr instanceof Error ? saveErr.message : String(saveErr),
+          context: `force-write task ${taskId} to store failed`,
+          fatal: false,
+        });
+      });
     }
     await this.deps.agentService.setStatus(agentId, 'idle').catch(() => {});
 
@@ -788,6 +938,14 @@ export class Orchestrator {
   }
 
   private async handleRunFailure(
+    taskId: string,
+    entry: RunningEntry,
+    error: string,
+  ): Promise<void> {
+    return this.withStateLock(() => this._handleRunFailure(taskId, entry, error));
+  }
+
+  private async _handleRunFailure(
     taskId: string,
     entry: RunningEntry,
     error: string,
@@ -818,12 +976,20 @@ export class Orchestrator {
         this.deps.config.scheduling.retry_max_delay_ms,
       );
 
-      state.retry_queue.push({
-        task_id: taskId,
-        attempt: task.attempts + 1,
-        due_at: new Date(Date.now() + delay).toISOString(),
-        error,
-      });
+      // Dedup: don't add if task_id already in retry queue
+      const alreadyQueued = state.retry_queue.some((r) => r.task_id === taskId);
+      if (!alreadyQueued) {
+        // Bounds: drop oldest entry if queue is at capacity
+        if (state.retry_queue.length >= this.maxRetryQueueSize) {
+          state.retry_queue.shift();
+        }
+        state.retry_queue.push({
+          task_id: taskId,
+          attempt: task.attempts + 1,
+          due_at: new Date(Date.now() + delay).toISOString(),
+          error,
+        });
+      }
 
       this.deps.eventBus.emit({
         type: 'run:retry',
@@ -884,10 +1050,24 @@ export class Orchestrator {
     if (allPassed) {
       try {
         await this.deps.taskService.updateStatus(taskId, 'done');
-      } catch {
+      } catch (validationErr) {
+        const error = validationErr instanceof Error ? validationErr.message : String(validationErr);
+        this.deps.eventBus.emit({
+          type: 'orchestrator:error',
+          error,
+          context: `auto-review transition failed for task ${taskId} -> done, force-writing`,
+          fatal: false,
+        });
         task.status = 'done';
         task.updated_at = new Date().toISOString();
-        await this.deps.taskStore.save(task).catch(() => {});
+        await this.deps.taskStore.save(task).catch((saveErr) => {
+          this.deps.eventBus.emit({
+            type: 'orchestrator:error',
+            error: saveErr instanceof Error ? saveErr.message : String(saveErr),
+            context: `force-write task ${taskId} to store failed (auto-review)`,
+            fatal: false,
+          });
+        });
       }
     }
   }
@@ -948,7 +1128,14 @@ export class Orchestrator {
       this.saveStateTimer = null;
       if (this.saveStateDirty) {
         this.saveStateDirty = false;
-        this.saveState().catch(console.error);
+        this.saveState().catch((err) => {
+          this.deps.eventBus.emit({
+            type: 'orchestrator:error',
+            error: err instanceof Error ? err.message : String(err),
+            context: 'debounced state save',
+            fatal: false,
+          });
+        });
       }
     }, 500);
   }
@@ -967,4 +1154,11 @@ export class Orchestrator {
       await this.saveState();
     }
   }
+}
+
+/** Check if a string is a valid ISO 8601 timestamp. */
+function isValidISOTimestamp(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const d = new Date(value);
+  return !isNaN(d.getTime()) && d.toISOString() === value;
 }

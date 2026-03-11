@@ -26,7 +26,16 @@ export class ContextStore implements IContextStore {
     return entry;
   }
 
+  /** Max TTL: 30 days in milliseconds */
+  private static readonly MAX_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
   async set(key: string, value: string, ttlMs?: number): Promise<void> {
+    if (ttlMs !== undefined) {
+      if (!Number.isFinite(ttlMs) || ttlMs <= 0 || ttlMs > ContextStore.MAX_TTL_MS) {
+        throw new Error(`TTL must be a positive number up to ${ContextStore.MAX_TTL_MS}ms (30 days)`);
+      }
+    }
+
     await ensureDir(this.paths.contextDir);
 
     const now = new Date().toISOString();

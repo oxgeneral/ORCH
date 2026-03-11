@@ -98,6 +98,10 @@ export class RunService {
     return this.runStore.readEvents(runId);
   }
 
+  async readEventsTail(runId: string, count: number): Promise<RunEvent[]> {
+    return this.runStore.readEventsTail(runId, count);
+  }
+
   /**
    * Get error and last N lines of output from the most recent failed run for a task.
    * Used to provide retry context so agents can learn from previous failures.
@@ -119,7 +123,8 @@ export class RunService {
     // Read events and extract last N output lines
     let output = '';
     try {
-      const events = await this.runStore.readEvents(failedRun.id);
+      // Read only tail of events to avoid loading multi-MB JSONL files
+      const events = await this.runStore.readEventsTail(failedRun.id, maxOutputLines * 2);
       const outputLines = events
         .filter((e) => e.type === 'agent_output' || e.type === 'error')
         .map((e) => (typeof e.data === 'string' ? e.data : JSON.stringify(e.data)))

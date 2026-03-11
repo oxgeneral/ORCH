@@ -79,12 +79,22 @@ export async function writeJson<T>(filePath: string, data: T): Promise<void> {
 
 /**
  * Append a JSON record to a .jsonl file (newline-delimited JSON).
+ *
+ * Uses a file handle opened with 'a' (O_APPEND) to ensure atomic writes.
+ * On POSIX, O_APPEND guarantees that each write() call appends atomically
+ * when the data fits within PIPE_BUF (typically 4096 bytes), preventing
+ * interleaving from concurrent writers.
  */
 export async function appendJsonl(filePath: string, record: unknown): Promise<void> {
   const dir = path.dirname(filePath);
   await ensureDir(dir);
   const line = JSON.stringify(record) + '\n';
-  await fs.appendFile(filePath, line, 'utf-8');
+  const fd = await fs.open(filePath, 'a');
+  try {
+    await fd.write(line, null, 'utf-8');
+  } finally {
+    await fd.close();
+  }
 }
 
 /**
@@ -97,6 +107,58 @@ export async function readJsonl<T>(filePath: string): Promise<T[]> {
       .split('\n')
       .filter((line) => line.trim().length > 0)
       .map((line) => JSON.parse(line) as T);
+  } catch (err) {
+    if (isENOENT(err)) return [];
+    throw err;
+  }
+}
+
+/**
+ * Read the last N records from a .jsonl file.
+ *
+ * Reads the file in reverse chunks to avoid loading multi-MB files into memory.
+ * Falls back to full read for small files (< 32KB).
+ */
+export async function readJsonlTail<T>(filePath: string, count: number): Promise<T[]> {
+  try {
+    const stat = await fs.stat(filePath);
+    // For small files, just read the whole thing and slice
+    if (stat.size < 32768) {
+      const all = await readJsonl<T>(filePath);
+      return all.slice(-count);
+    }
+
+    // Read from end in chunks to find enough lines
+    const fd = await fs.open(filePath, 'r');
+    try {
+      const chunkSize = Math.min(stat.size, 16384);
+      let position = Math.max(0, stat.size - chunkSize);
+      let tail = '';
+
+      // Read up to 3 chunks from the end
+      for (let attempt = 0; attempt < 3 && position >= 0; attempt++) {
+        const readSize = Math.min(chunkSize, stat.size - position);
+        const buf = Buffer.alloc(readSize);
+        await fd.read(buf, 0, readSize, position);
+        tail = buf.toString('utf-8') + tail;
+
+        const lines = tail.split('\n').filter((l) => l.trim().length > 0);
+        if (lines.length >= count + 1) {
+          // +1 because first line might be partial
+          return lines.slice(-count).map((l) => JSON.parse(l) as T);
+        }
+        if (position === 0) break;
+        position = Math.max(0, position - chunkSize);
+      }
+
+      // Parse whatever we got
+      const lines = tail.split('\n').filter((l) => l.trim().length > 0);
+      // Skip first line if we didn't read from start (could be partial)
+      const safeLines = position > 0 ? lines.slice(1) : lines;
+      return safeLines.slice(-count).map((l) => JSON.parse(l) as T);
+    } finally {
+      await fd.close();
+    }
   } catch (err) {
     if (isENOENT(err)) return [];
     throw err;

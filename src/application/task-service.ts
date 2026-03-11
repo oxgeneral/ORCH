@@ -32,13 +32,18 @@ export class TaskService {
       throw new InvalidArgumentsError('Task title is required');
     }
 
+    const priority = input.priority ?? this.config.defaults.task.priority;
+    if (!Number.isInteger(priority) || priority < 1 || priority > 4) {
+      throw new InvalidArgumentsError('Priority must be an integer between 1 and 4');
+    }
+
     const now = new Date().toISOString();
     const task: Task = {
       id: `tsk_${nanoid(7)}`,
       title: input.title.trim(),
       description: input.description?.trim() ?? '',
       status: 'todo',
-      priority: input.priority ?? this.config.defaults.task.priority,
+      priority,
       assignee: input.assignee,
       labels: input.labels ?? [],
       depends_on: input.depends_on ?? [],
@@ -178,7 +183,12 @@ export class TaskService {
       task.title = fields.title.trim();
     }
     if (fields.description !== undefined) task.description = fields.description.trim();
-    if (fields.priority !== undefined) task.priority = fields.priority;
+    if (fields.priority !== undefined) {
+      if (!Number.isInteger(fields.priority) || fields.priority < 1 || fields.priority > 4) {
+        throw new InvalidArgumentsError('Priority must be an integer between 1 and 4');
+      }
+      task.priority = fields.priority;
+    }
     if (fields.labels !== undefined) task.labels = fields.labels;
 
     task.updated_at = new Date().toISOString();

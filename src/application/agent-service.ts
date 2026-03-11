@@ -162,7 +162,7 @@ export class AgentService {
       let score = 0;
 
       // Skill match with task labels: 50 per matching skill
-      if (task.labels.length > 0 && agent.config.skills?.length) {
+      if (task.labels?.length > 0 && agent.config.skills?.length) {
         for (const label of task.labels) {
           const lowerLabel = label.toLowerCase();
           if (agent.config.skills.some((s) => s.toLowerCase() === lowerLabel)) {
@@ -172,7 +172,7 @@ export class AgentService {
       }
 
       // Role match with task labels: 30
-      if (task.labels.length > 0 && agent.role) {
+      if (task.labels?.length > 0 && agent.role) {
         const lowerRole = agent.role.toLowerCase();
         if (task.labels.some((l) => lowerRole.includes(l.toLowerCase()))) {
           score += 30;

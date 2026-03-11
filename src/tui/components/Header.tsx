@@ -173,6 +173,7 @@ export interface HeaderProps {
 const TABS: Array<{ key: string; id: ViewId; label: string }> = [
   { key: 'T', id: 'tasks', label: 'TASKS' },
   { key: 'A', id: 'agents', label: 'AGENTS' },
+  { key: 'O', id: 'office', label: 'OFFICE' },
   { key: 'L', id: 'logs', label: 'ACTIONS' },
 ];
 

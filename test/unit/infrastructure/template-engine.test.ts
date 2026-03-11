@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   LiquidTemplateEngine,
   buildPromptContext,
@@ -112,6 +112,39 @@ describe('buildPromptContext', () => {
 
     expect(ctx.attempt).toBeNull();
     expect(ctx.retry).toBeUndefined();
+  });
+});
+
+describe('LiquidTemplateEngine timeout', () => {
+  it('renders normally within timeout', async () => {
+    const engine = new LiquidTemplateEngine({ renderTimeoutMs: 5000 });
+    const ctx = buildPromptContext(
+      makeTask(),
+      makeAgent(),
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+    );
+    const result = await engine.render('Hello {{ agent.name }}', ctx);
+    expect(result).toBe('Hello test-agent');
+  });
+
+  it('accepts default constructor (no options)', () => {
+    const engine = new LiquidTemplateEngine();
+    expect(engine).toBeDefined();
+  });
+
+  it('disables timeout when renderTimeoutMs is 0', async () => {
+    const engine = new LiquidTemplateEngine({ renderTimeoutMs: 0 });
+    const ctx = buildPromptContext(
+      makeTask(),
+      makeAgent(),
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+    );
+    const result = await engine.render('Hello {{ agent.name }}', ctx);
+    expect(result).toBe('Hello test-agent');
   });
 });
 

@@ -55,10 +55,23 @@ export class ShellAdapter implements IAgentAdapter {
     });
 
     const signal = params.signal;
+    const processManager = this.processManager;
 
     async function* generateEvents(): AsyncGenerator<AgentEvent> {
       // Ring buffer with backpressure replaces Array.shift() polling
       const buffer = new EventBuffer();
+
+      // Ensure process is reaped on abort — SIGTERM + grace period + SIGKILL
+      const onAbort = () => {
+        processManager.killWithGrace(pid, 5_000).catch(() => {});
+      };
+      if (signal) {
+        if (signal.aborted) {
+          onAbort();
+        } else {
+          signal.addEventListener('abort', onAbort, { once: true });
+        }
+      }
 
       const stdoutPromise = (async () => {
         if (!proc.stdout) return;
@@ -84,14 +97,27 @@ export class ShellAdapter implements IAgentAdapter {
         }
       })();
 
-      // Close the buffer once both streams are drained
-      void Promise.all([stdoutPromise, stderrPromise]).then(() => buffer.close());
+      // Close the buffer once both streams are drained (or on error)
+      void Promise.all([stdoutPromise, stderrPromise]).then(
+        () => buffer.close(),
+        () => buffer.close(),
+      );
 
       // Yield events as they arrive — no polling, no busy-wait
       yield* buffer;
 
+      // Clean up abort listener
+      if (signal && !signal.aborted) {
+        signal.removeEventListener('abort', onAbort);
+      }
+
       // Wait for process to exit
       await new Promise<void>((resolve, reject) => {
+        // If process already exited, resolve immediately
+        if (proc.exitCode !== null || proc.killed) {
+          resolve();
+          return;
+        }
         proc.on('close', (code) => {
           if (code === 0 || signal?.aborted) {
             resolve();

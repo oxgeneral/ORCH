@@ -53,16 +53,36 @@ export interface PromptContext {
 
 export class LiquidTemplateEngine implements ITemplateEngine {
   private readonly engine: Liquid;
+  private readonly renderTimeoutMs: number;
 
-  constructor() {
+  constructor(options?: { renderTimeoutMs?: number }) {
     this.engine = new Liquid({
       strictFilters: false,
       strictVariables: false,
     });
+    this.renderTimeoutMs = options?.renderTimeoutMs ?? 5_000;
   }
 
   async render(template: string, context: PromptContext): Promise<string> {
-    return this.engine.parseAndRender(template, context);
+    const renderPromise = this.engine.parseAndRender(template, context);
+
+    if (this.renderTimeoutMs <= 0) {
+      return renderPromise;
+    }
+
+    let timer: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`Template render timed out after ${this.renderTimeoutMs}ms`)),
+        this.renderTimeoutMs,
+      );
+    });
+
+    try {
+      return await Promise.race([renderPromise, timeoutPromise]);
+    } finally {
+      clearTimeout(timer!);
+    }
   }
 }
 

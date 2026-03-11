@@ -16,6 +16,27 @@ type Handler<T> = (event: T) => void;
 
 export class EventBus {
   private handlers = new Map<string, Set<Handler<any>>>();
+  private maxListeners: number = 10;
+  private warnedTypes = new Set<string>();
+
+  /**
+   * Set the maximum number of listeners per event type before a warning is emitted.
+   * Helps detect memory leaks from repeated subscriptions in watch mode.
+   */
+  setMaxListeners(n: number): void {
+    this.maxListeners = n;
+  }
+
+  getMaxListeners(): number {
+    return this.maxListeners;
+  }
+
+  /**
+   * Get the number of listeners for a specific event type.
+   */
+  listenerCount(type: OrchestratorEventType): number {
+    return this.handlers.get(type)?.size ?? 0;
+  }
 
   /**
    * Subscribe to events of a specific type.
@@ -28,7 +49,17 @@ export class EventBus {
     if (!this.handlers.has(type)) {
       this.handlers.set(type, new Set());
     }
-    this.handlers.get(type)!.add(handler);
+    const set = this.handlers.get(type)!;
+    set.add(handler);
+
+    // Warn once per type when listener count exceeds maxListeners
+    if (this.maxListeners > 0 && set.size > this.maxListeners && !this.warnedTypes.has(type)) {
+      this.warnedTypes.add(type);
+      console.warn(
+        `EventBus: possible memory leak detected. ${set.size} listeners added for "${type}". ` +
+        `Use setMaxListeners() to increase limit if this is intentional.`,
+      );
+    }
 
     return () => this.off(type, handler);
   }
@@ -95,6 +126,9 @@ export class EventBus {
       'task:scope_overlap',
       'workspace:merge_succeeded',
       'workspace:merge_conflict',
+      'task:orphaned',
+      'orchestrator:error',
+      'orchestrator:shutdown',
     ];
 
     for (const type of allTypes) {
@@ -109,5 +143,6 @@ export class EventBus {
    */
   clear(): void {
     this.handlers.clear();
+    this.warnedTypes.clear();
   }
 }

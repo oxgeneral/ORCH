@@ -13,6 +13,7 @@ import {
   writeJson,
   appendJsonl,
   readJsonl,
+  readJsonlTail,
   ensureDir,
   listFiles,
 } from './fs-utils.js';
@@ -49,6 +50,13 @@ export class RunStore implements IRunStore {
     return readJsonl<RunEvent>(this.paths.runEventsPath(runId));
   }
 
+  /**
+   * Read the last N events for a run without loading the entire JSONL file.
+   */
+  async readEventsTail(runId: string, count: number): Promise<RunEvent[]> {
+    return readJsonlTail<RunEvent>(this.paths.runEventsPath(runId), count);
+  }
+
   async *streamEvents(runId: string, signal?: AbortSignal): AsyncGenerator<RunEvent> {
     const filePath = this.paths.runEventsPath(runId);
 
@@ -71,7 +79,11 @@ export class RunStore implements IRunStore {
       for await (const line of rl) {
         if (signal?.aborted) break;
         if (line.trim()) {
-          yield JSON.parse(line) as RunEvent;
+          try {
+            yield JSON.parse(line) as RunEvent;
+          } catch {
+            process.stderr.write(`[RunStore] skipping corrupt JSONL line: ${line}\n`);
+          }
         }
       }
     } finally {

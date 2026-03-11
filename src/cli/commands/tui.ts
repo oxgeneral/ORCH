@@ -133,9 +133,9 @@ export function registerTuiCommand(program: Command, container: Container): void
 
         const entries: import('../../tui/App.js').HistoryEntry[] = [];
         for (const run of recentRuns) {
-          const events = await container.runService.readEvents(run.id);
-          // Take last 30 events per run to keep it manageable
-          for (const evt of events.slice(-30)) {
+          // Read only last 30 events per run — avoids loading multi-MB JSONL files
+          const events = await container.runService.readEventsTail(run.id, 30);
+          for (const evt of events) {
             entries.push({
               timestamp: evt.timestamp,
               agentId: run.agent_id,

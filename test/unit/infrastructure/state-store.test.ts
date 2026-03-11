@@ -55,4 +55,39 @@ describe('StateStore', () => {
 
     expect(loaded).toEqual(state);
   });
+
+  it('validates corrupted state with null running field', async () => {
+    await fs.writeFile(
+      path.join(tmpDir, '.orchestry', 'state.json'),
+      JSON.stringify({ version: 1, running: null, claimed: null, retry_queue: 'bad', stats: null }),
+    );
+
+    const state = await store.read();
+    expect(state.running).toEqual({});
+    expect(state.claimed).toEqual([]);
+    expect(state.retry_queue).toEqual([]);
+    expect(state.stats).toEqual(DEFAULT_STATE.stats);
+  });
+
+  it('preserves valid fields while fixing corrupted ones', async () => {
+    await fs.writeFile(
+      path.join(tmpDir, '.orchestry', 'state.json'),
+      JSON.stringify({
+        version: 1,
+        pid: 42,
+        running: { r1: { run_id: 'r1', agent_id: 'a1', task_id: 't1', pid: 1, started_at: '', last_event_at: '' } },
+        claimed: ['t1'],
+        retry_queue: null,
+        stats: { total_runs: 10 },
+      }),
+    );
+
+    const state = await store.read();
+    expect(state.pid).toBe(42);
+    expect(state.running).toHaveProperty('r1');
+    expect(state.claimed).toEqual(['t1']);
+    expect(state.retry_queue).toEqual([]);
+    expect(state.stats.total_runs).toBe(10);
+    expect(state.stats.total_tasks_completed).toBe(0);
+  });
 });

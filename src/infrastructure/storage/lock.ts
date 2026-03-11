@@ -17,25 +17,37 @@ export interface LockResult {
  * Try to acquire the lock file. Checks for stale locks (dead PIDs).
  */
 export async function acquireLock(lockPath: string): Promise<LockResult> {
+  const bakPath = lockPath + '.bak';
+
   // Check for stale lock first
   const existing = await readLockPid(lockPath);
   if (existing !== null) {
     if (isProcessAlive(existing)) {
       return { acquired: false, pid: existing };
     }
-    // Stale lock — previous process died
-    await fs.unlink(lockPath).catch(() => {});
+    // Stale lock — atomically rename to .bak instead of unlink to close TOCTOU window.
+    // If rename succeeds, we hold the .bak and can safely try open('wx').
+    // If rename fails (another process already renamed it), fall through to open('wx').
+    try {
+      await fs.rename(lockPath, bakPath);
+    } catch {
+      // Another process already removed/renamed the stale lock — proceed to open('wx')
+    }
   }
 
-  // Atomic create: 'wx' flag fails if file already exists (prevents TOCTOU race)
+  // Atomic create: 'wx' flag fails if file already exists
   try {
     const fd = await fs.open(lockPath, 'wx');
     await fd.writeFile(String(process.pid), 'utf-8');
     await fd.close();
+    // Clean up .bak file (best effort)
+    await fs.unlink(bakPath).catch(() => {});
     return { acquired: true, pid: process.pid };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
-      // Another process created the lock between our check and create
+      // Another process created the lock between our rename and open.
+      // Restore .bak so the stale lock isn't lost (best effort).
+      await fs.rename(bakPath, lockPath).catch(() => {});
       const pid = await readLockPid(lockPath);
       return { acquired: false, pid: pid ?? undefined };
     }
