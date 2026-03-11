@@ -34,8 +34,9 @@ export class TaskStore implements ITaskStore {
       if (statusOrder !== 0) return statusOrder;
       const priOrder = a.priority - b.priority;
       if (priOrder !== 0) return priOrder;
-      // Most recently updated first
-      return (b.updated_at ?? '').localeCompare(a.updated_at ?? '');
+      const bTime = b.updated_at ?? '';
+      const aTime = a.updated_at ?? '';
+      return bTime < aTime ? -1 : bTime > aTime ? 1 : 0;
     });
   }
 
