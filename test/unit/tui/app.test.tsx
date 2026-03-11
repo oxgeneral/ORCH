@@ -1331,7 +1331,7 @@ describe('Command bar — /task list', () => {
 /* ── View switching: Tab and ←→ ──────────────────────── */
 
 describe('View switching — Tab and arrows', () => {
-  it('Tab cycles views forward: tasks → agents → office → logs → tasks', async () => {
+  it('Tab cycles views forward: tasks → agents → logs → tasks', async () => {
     const state: OrchestratorState = { ...DEFAULT_STATE };
     const agents = [makeAgent({ id: 'a1', name: 'bot' })];
     const { stdin, lastFrame } = render(
@@ -1347,12 +1347,6 @@ describe('View switching — Tab and arrows', () => {
     await delay(50);
     output = lastFrame()!;
     expect(output).toContain('AGENTS');
-
-    // Tab → office
-    stdin.write('\t');
-    await delay(50);
-    output = lastFrame()!;
-    expect(output).toContain('OFFICE');
 
     // Tab → logs
     stdin.write('\t');

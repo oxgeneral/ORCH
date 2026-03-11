@@ -28,7 +28,6 @@ import { CommandBar } from './components/CommandBar.js';
 import { FormWizard } from './components/FormWizard.js';
 import type { WizardStep } from './components/FormWizard.js';
 import { Spinner } from './components/Spinner.js';
-import { OfficeView } from './components/OfficeView.js';
 import {
   getAgentWizardSteps, agentWizardToInput,
   getTaskWizardSteps, taskWizardToInput,
@@ -560,7 +559,7 @@ export function App({
   const listItemCount = activeView === 'tasks' ? visibleTasks.length + 1 + (hiddenTaskCount > 0 ? 1 : 0) : // +1 for "+ add" row, +1 for "show all" row
     activeView === 'agents' ? liveAgents.length + 1 : 0;
   const minListH = Math.min(listItemCount + 1, Math.ceil(contentH * 0.5)); // cap at 50%
-  const mainH = (activeView === 'logs' || activeView === 'office') ? contentH : Math.max(2, Math.min(minListH, contentH - 4));
+  const mainH = activeView === 'logs' ? contentH : Math.max(2, Math.min(minListH, contentH - 4));
   const feedH = Math.max(1, contentH - mainH);
   const ruleW = Math.max(10, W - 2);
 
@@ -1129,7 +1128,6 @@ export function App({
     if (!detailOpen) {
       if (input === 't' || input === 'T') { setActiveView('tasks'); return; }
       if (input === 'a' || input === 'A') { setActiveView('agents'); return; }
-      if (input === 'o' || input === 'O') { setActiveView('office'); return; }
       if (input === 'l' || input === 'L') { setActiveView('logs'); return; }
     }
 
@@ -1322,16 +1320,7 @@ export function App({
           showAddRow={!!onAddAgent}
         />
       )}
-      {activeView === 'office' && (
-        <OfficeView
-          agents={sortedAgents}
-          tasks={liveTasks}
-          state={liveState}
-          height={mainH}
-          width={ruleW}
-        />
-      )}
-      {activeView === 'logs' && (
+{activeView === 'logs' && (
         <LogsContent
           messages={messages}
           height={mainH}
