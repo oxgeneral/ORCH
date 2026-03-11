@@ -479,7 +479,7 @@ export function App({
   const fixedRows = 9;
   const contentH = Math.max(4, H - fixedRows);
   // Adaptive split: task/agent list takes only what it needs, rest goes to feed/logs
-  const listItemCount = activeView === 'tasks' ? liveTasks.length + 1 : // +1 for "+ add" row
+  const listItemCount = activeView === 'tasks' ? visibleTasks.length + 1 + (hiddenTaskCount > 0 ? 1 : 0) : // +1 for "+ add" row, +1 for "show all" row
     activeView === 'agents' ? liveAgents.length + 1 : 0;
   const minListH = Math.min(listItemCount + 1, Math.ceil(contentH * 0.5)); // cap at 50%
   const mainH = activeView === 'logs' ? contentH : Math.max(2, Math.min(minListH, contentH - 4));
@@ -1306,7 +1306,7 @@ export function App({
       ) : messages.length > 0 && activeView !== 'logs' ? (
         <>
           <SectionLabel label="ACTIVITY" width={ruleW} />
-          <ActivityFeed messages={messages} height={Math.max(1, feedH - 1)} hasTasks={sortedTasks.length > 0}
+          <ActivityFeed messages={messages} height={Math.max(1, feedH - 1)} width={ruleW} hasTasks={sortedTasks.length > 0}
             agents={sortedAgents} agentNameMap={agentNameMap} />
         </>
       ) : null}
@@ -1331,7 +1331,7 @@ export function App({
         canToggleShowAll={activeView === 'tasks' && sortedTasks.length > TASK_LIST_LIMIT}
         showAllActive={showAllTasks}
         hasDetail={!!(showTaskDetail || showAgentDetail)}
-        itemCount={activeView === 'tasks' ? liveTasks.length : activeView === 'agents' ? liveAgents.length : messages.length}
+        itemCount={activeView === 'tasks' ? sortedTasks.length : activeView === 'agents' ? liveAgents.length : messages.length}
         itemLabel={activeView === 'tasks' ? 'tasks' : activeView === 'agents' ? 'agents' : 'events'}
         width={W}
         hasSuggestions={showSuggestions}
@@ -1417,7 +1417,7 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
   }
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" height={height}>
       {visible.map((task, i) => (
         <Box key={task.id} paddingX={2}>
           <TaskRow task={task} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} />
@@ -1477,7 +1477,7 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
   }
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" height={height}>
       {visible.map((agent, i) => (
         <Box key={agent.id} paddingX={2}>
           <AgentRow
@@ -1502,6 +1502,16 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
 }
 
 /* ── Log Helpers ──────────────────────────────────────── */
+
+/** Hook: live clock that ticks every `interval` ms for relative timestamps */
+function useNow(interval = 5_000): number {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), interval);
+    return () => clearInterval(timer);
+  }, [interval]);
+  return now;
+}
 
 /** Format epoch ms as relative time string: "now", "3s", "1m", "5m", "1h", "3h" */
 function relativeTime(ts: number, now: number): string {
@@ -1550,12 +1560,7 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
   taskTitleMap: Map<string, string>;
   width: number;
 }) {
-  // Live clock for relative timestamps (ticks every 5s)
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 5_000);
-    return () => clearInterval(timer);
-  }, []);
+  const now = useNow();
 
   // Filter messages by agent and type
   const filteredMessages = useMemo(() => {
@@ -1727,6 +1732,13 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
           // Relative timestamp
           const relTs = relativeTime(msg.ts, now);
 
+          // Calculate available text width for manual truncation
+          const prefixW = 11 + agentColW; // border(1)+sel(1)+ts(5)+agent(agentColW+1)+icon(3)
+          const badgeLabel = taskTitle && width > 80 ? `#${taskTitle.slice(0, 20)}` : '';
+          const badgeW = badgeLabel ? badgeLabel.length + 3 : 0; // space + ` #title `
+          const textW = Math.max(10, (width - 2) - prefixW - badgeW);
+          const displayText = msg.text.length > textW ? msg.text.slice(0, textW - 1) + '…' : msg.text;
+
           return (
             <Box key={i} backgroundColor={rowBg}>
               {/* Left border — agent color accent for sessions */}
@@ -1768,20 +1780,19 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
                 {' '}{icon}{' '}
               </Text>
 
-              {/* Message text */}
+              {/* Message text (manually truncated to fit) */}
               <Text
                 color={isSelected ? tuiColors.white : textColor}
                 bold={isSelected || msgType === 'lifecycle'}
-                wrap="truncate"
               >
-                {msg.text}
+                {displayText}
               </Text>
 
-              {/* Task context badge (if room) */}
-              {taskTitle && width > 80 && (
+              {/* Task context badge */}
+              {badgeLabel && (
                 <Text color={tuiColors.ghost}>
                   {' '}
-                  <Text color={tuiColors.dim} backgroundColor={tuiColors.void}>{` #${taskTitle.slice(0, 20)} `}</Text>
+                  <Text color={tuiColors.dim} backgroundColor={tuiColors.void}>{` ${badgeLabel} `}</Text>
                 </Text>
               )}
             </Box>
@@ -1794,24 +1805,22 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
 
 /* ── Activity Feed ────────────────────────────────────── */
 
-function ActivityFeed({ messages, height, hasTasks, agents, agentNameMap }: {
+function ActivityFeed({ messages, height, width, hasTasks, agents, agentNameMap }: {
   messages: StatusMessage[];
   height: number;
+  width: number;
   hasTasks: boolean;
   agents: Agent[];
   agentNameMap: Map<string, string>;
 }) {
-  // Live clock for relative timestamps (ticks every 5s)
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 5_000);
-    return () => clearInterval(timer);
-  }, []);
+  const now = useNow();
 
   const visible = messages.slice(-height);
+  // Available text width: total - paddingX(2) - border(1) - ts(5) - agent(9) - icon(2)
+  const textW = Math.max(10, width - 2 - 17);
 
   return (
-    <Box flexDirection="column" paddingX={1}>
+    <Box flexDirection="column" paddingX={1} height={height} justifyContent="flex-end">
       {visible.map((msg, i) => {
         const agentName = msg.agentId ? (agentNameMap.get(msg.agentId) ?? msg.agentId.slice(0, 8)) : undefined;
         const agentColor = msg.agentId ? getAgentColor(msg.agentId, agents) : undefined;
@@ -1835,6 +1844,7 @@ function ActivityFeed({ messages, height, hasTasks, agents, agentNameMap }: {
         // Background for errors
         const rowBg = msgType === 'error' ? tuiColors.errorBg : undefined;
         const relTs = relativeTime(msg.ts, now);
+        const displayText = msg.text.length > textW ? msg.text.slice(0, textW - 1) + '…' : msg.text;
 
         return (
           <Box key={i} backgroundColor={rowBg}>
@@ -1858,7 +1868,7 @@ function ActivityFeed({ messages, height, hasTasks, agents, agentNameMap }: {
               )}
             </Box>
             <Text color={msgType === 'error' ? tuiColors.red : agentColor ?? tuiColors.dim}>{icon} </Text>
-            <Text color={textColor} bold={msgType === 'lifecycle'} wrap="truncate">{msg.text}</Text>
+            <Text color={textColor} bold={msgType === 'lifecycle'}>{displayText}</Text>
           </Box>
         );
       })}

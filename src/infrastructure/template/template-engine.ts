@@ -69,17 +69,22 @@ export class LiquidTemplateEngine implements ITemplateEngine {
 /**
  * Build prompt context from domain objects.
  */
+export interface BuildPromptOptions {
+  allAgents?: Agent[];
+  retryContext?: RetryContext;
+  sharedContext?: Record<string, string>;
+  feedback?: string;
+}
+
 export function buildPromptContext(
   task: Task,
   agent: Agent,
   attempt: number,
   workspacePath: string,
   config: OrchestratorConfig,
-  allAgents?: Agent[],
-  retryContext?: RetryContext,
-  sharedContext?: Record<string, string>,
-  feedback?: string,
+  options?: BuildPromptOptions,
 ): PromptContext {
+  const { allAgents, retryContext, sharedContext, feedback } = options ?? {};
   return {
     project: {
       name: config.project.name,

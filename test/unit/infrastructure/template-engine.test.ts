@@ -74,8 +74,7 @@ describe('buildPromptContext', () => {
       2,
       '/workspace',
       DEFAULT_CONFIG,
-      [],
-      retryContext,
+      { allAgents: [], retryContext },
     );
 
     expect(ctx.attempt).toBe(2);
@@ -89,8 +88,7 @@ describe('buildPromptContext', () => {
       2,
       '/workspace',
       DEFAULT_CONFIG,
-      [],
-      undefined,
+      { allAgents: [] },
     );
 
     expect(ctx.attempt).toBe(2);
@@ -109,8 +107,7 @@ describe('buildPromptContext', () => {
       1,
       '/workspace',
       DEFAULT_CONFIG,
-      [],
-      retryContext,
+      { allAgents: [], retryContext },
     );
 
     expect(ctx.attempt).toBeNull();
@@ -128,10 +125,12 @@ describe('LiquidTemplateEngine with retry context', () => {
       2,
       '/workspace',
       DEFAULT_CONFIG,
-      [],
       {
-        previous_error: 'npm test failed with exit code 1',
-        previous_output: 'FAIL src/app.test.ts\nError: assertion failed',
+        allAgents: [],
+        retryContext: {
+          previous_error: 'npm test failed with exit code 1',
+          previous_output: 'FAIL src/app.test.ts\nError: assertion failed',
+        },
       },
     );
 
@@ -166,10 +165,12 @@ describe('LiquidTemplateEngine with retry context', () => {
       3,
       '/workspace',
       DEFAULT_CONFIG,
-      [],
       {
-        previous_error: 'Agent stalled',
-        previous_output: '',
+        allAgents: [],
+        retryContext: {
+          previous_error: 'Agent stalled',
+          previous_output: '',
+        },
       },
     );
 

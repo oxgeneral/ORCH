@@ -230,12 +230,16 @@ export function DetailPanel({ task, height, width, taskLogs, agentNameMap }: Det
             else if (msgType === 'lifecycle') textColor = tuiColors.green;
             else if (msgType === 'system') textColor = tuiColors.dim;
 
+            // prefix: indent(2) + time(~5) + space(1) + icon(1) + space(1) = ~10
+            const logTextW = Math.max(10, width - 12);
+            const logDisplay = log.text.length > logTextW ? log.text.slice(0, logTextW - 1) + '…' : log.text;
+
             return (
               <Box key={i}>
                 <Text color={tuiColors.ghost}>{'  '}{log.time} </Text>
                 <Text color={msgType === 'error' ? tuiColors.red : tuiColors.dim}>{icon} </Text>
-                <Text color={textColor} bold={msgType === 'lifecycle'} wrap="truncate">
-                  {log.text}
+                <Text color={textColor} bold={msgType === 'lifecycle'}>
+                  {logDisplay}
                 </Text>
               </Box>
             );

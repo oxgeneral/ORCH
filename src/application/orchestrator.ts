@@ -479,10 +479,7 @@ export class Orchestrator {
         attempt,
         workspacePath,
         this.deps.config,
-        allAgents,
-        retryContext,
-        sharedContext,
-        task.feedback,
+        { allAgents, retryContext, sharedContext, feedback: task.feedback },
       );
       const prompt = await this.deps.templateEngine.render(template, context);
 
@@ -701,7 +698,7 @@ export class Orchestrator {
       agent_summary: resultText?.slice(0, 2000) ?? task.proof?.agent_summary,
       files_changed: filesChanged?.length ? filesChanged : (task.proof?.files_changed ?? []),
     };
-    task.feedback = undefined;
+    delete task.feedback;
     await this.deps.taskStore.save(task);
 
     const agent = await this.deps.agentStore.get(agentId);
