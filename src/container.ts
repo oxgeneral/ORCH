@@ -22,6 +22,8 @@ import { ContextStore } from './infrastructure/storage/context-store.js';
 import { ProcessManager } from './infrastructure/process/process-manager.js';
 import { AdapterRegistry } from './infrastructure/adapters/registry.js';
 import { ClaudeAdapter } from './infrastructure/adapters/claude.js';
+import { CodexAdapter } from './infrastructure/adapters/codex.js';
+import { CursorAdapter } from './infrastructure/adapters/cursor.js';
 import { ShellAdapter } from './infrastructure/adapters/shell.js';
 import { WorkspaceManager } from './infrastructure/workspace/workspace-manager.js';
 import { LiquidTemplateEngine } from './infrastructure/template/template-engine.js';
@@ -85,6 +87,8 @@ export async function buildContainer(context: CliContext): Promise<Container> {
   // Adapter registry
   const adapterRegistry = new AdapterRegistry();
   adapterRegistry.register(new ClaudeAdapter(processManager));
+  adapterRegistry.register(new CodexAdapter(processManager));
+  adapterRegistry.register(new CursorAdapter(processManager));
   adapterRegistry.register(new ShellAdapter(processManager));
 
   // Application

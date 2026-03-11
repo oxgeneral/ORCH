@@ -11,10 +11,31 @@ import type { Agent } from '../domain/agent.js';
 // ── Model catalogs per adapter ──
 
 const CLAUDE_MODELS = [
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', hint: 'fast, balanced' },
   { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', hint: 'most capable' },
-  { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', hint: 'fastest, cheapest' },
-  { value: 'claude-sonnet-4-5-20250514', label: 'Claude Sonnet 4.5', hint: 'extended thinking' },
+  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', hint: 'fast, balanced' },
+  { value: 'claude-haiku-4-6', label: 'Claude Haiku 4.6', hint: 'fastest, cheapest' },
+  { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', hint: 'extended thinking' },
+  { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', hint: 'legacy' },
+];
+
+const CODEX_MODELS = [
+  { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', hint: 'default, balanced' },
+  { value: 'gpt-5.4', label: 'GPT-5.4', hint: 'latest' },
+  { value: 'gpt-5', label: 'GPT-5', hint: 'capable' },
+  { value: 'gpt-5.3-codex-spark', label: 'GPT-5.3 Codex Spark', hint: 'fast' },
+  { value: 'o3', label: 'o3', hint: 'reasoning' },
+  { value: 'o4-mini', label: 'o4-mini', hint: 'fast reasoning' },
+  { value: 'gpt-5-mini', label: 'GPT-5 Mini', hint: 'light' },
+  { value: 'gpt-5-nano', label: 'GPT-5 Nano', hint: 'cheapest' },
+  { value: 'codex-mini-latest', label: 'Codex Mini', hint: 'legacy' },
+];
+
+const CURSOR_MODELS = [
+  { value: 'auto', label: 'Auto', hint: 'let Cursor decide' },
+  { value: 'composer-1.5', label: 'Composer 1.5', hint: 'latest agent' },
+  { value: 'composer-1', label: 'Composer 1', hint: 'stable agent' },
+  { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', hint: 'OpenAI' },
+  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', hint: 'Anthropic' },
 ];
 
 const SHELL_MODELS = [
@@ -25,6 +46,8 @@ const SHELL_MODELS = [
 
 const ADAPTERS = [
   { value: 'claude', label: 'Claude', hint: 'Claude Code CLI' },
+  { value: 'codex', label: 'Codex', hint: 'OpenAI Codex CLI' },
+  { value: 'cursor', label: 'Cursor', hint: 'Cursor Agent CLI' },
   { value: 'shell', label: 'Shell', hint: 'custom shell command' },
 ];
 
@@ -64,6 +87,8 @@ export function getAgentWizardSteps(): WizardStep[] {
       label: 'Model',
       type: 'select',
       getOptions: (vals) => {
+        if (vals.adapter === 'codex') return CODEX_MODELS;
+        if (vals.adapter === 'cursor') return CURSOR_MODELS;
         if (vals.adapter === 'shell') return SHELL_MODELS;
         return CLAUDE_MODELS;
       },
@@ -228,7 +253,11 @@ export function getEditAgentWizardSteps(agent: Agent): WizardStep[] {
   const currentRoleInPresets = ROLE_PRESETS.find((r) => r.value === agent.role);
   const roleDefault = currentRoleInPresets ? agent.role! : (agent.role ? '__custom__' : '');
 
-  const modelOptions = agent.adapter === 'shell' ? SHELL_MODELS : CLAUDE_MODELS;
+  const modelOptions =
+    agent.adapter === 'codex' ? CODEX_MODELS :
+    agent.adapter === 'cursor' ? CURSOR_MODELS :
+    agent.adapter === 'shell' ? SHELL_MODELS :
+    CLAUDE_MODELS;
 
   return [
     {

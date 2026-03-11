@@ -26,7 +26,7 @@ export class TaskStore implements ITaskStore {
     );
 
     const tasks = tasksResults.filter(
-      task => task && (!filter?.status || task.status === filter.status)
+      (task): task is Task => task !== null && (!filter?.status || task.status === filter.status)
     );
 
     return tasks.sort((a, b) => {

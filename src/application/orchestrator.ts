@@ -545,6 +545,7 @@ export class Orchestrator {
   ): Promise<void> {
     let collectedTokens: import('../domain/run.js').TokenUsage | undefined;
     let resultText: string | undefined;
+    let lastAgentMessage: string | undefined;
     const filesChanged: string[] = [];
 
     try {
@@ -554,17 +555,38 @@ export class Orchestrator {
         // Capture token usage and result text from done events
         if (event.type === 'done') {
           if (event.tokens) collectedTokens = event.tokens;
-          // Extract result text from Claude CLI result event
           const data = event.data as Record<string, unknown> | undefined;
+          // Claude: { type: 'result', result: '...' }
+          // Codex: { type: 'turn.completed', result: '...' }
           if (data && typeof data.result === 'string') {
             resultText = data.result;
           }
         }
 
+        // Collect last agent message text as fallback for result
+        // (Codex agent_message items, Claude assistant messages, etc.)
+        if (event.type === 'output') {
+          const data = event.data as Record<string, unknown> | undefined;
+          if (data) {
+            const text = typeof data.text === 'string' ? data.text :
+                         typeof data.message === 'string' ? data.message : undefined;
+            if (text?.trim()) lastAgentMessage = text;
+          }
+        }
+
         // Track file changes
         if (event.type === 'file_change') {
-          const path = typeof event.data === 'string' ? event.data : String(event.data);
-          if (!filesChanged.includes(path)) filesChanged.push(path);
+          const data = event.data as Record<string, unknown> | undefined;
+          // Codex sends { paths: string[], raw: ... }
+          if (data && Array.isArray(data.paths)) {
+            for (const p of data.paths) {
+              if (typeof p === 'string' && !filesChanged.includes(p)) filesChanged.push(p);
+            }
+          } else {
+            const filePath = data && typeof data.path === 'string' ? data.path :
+                             typeof event.data === 'string' ? event.data : String(event.data);
+            if (!filesChanged.includes(filePath)) filesChanged.push(filePath);
+          }
         }
 
         // Record event
@@ -611,7 +633,9 @@ export class Orchestrator {
       }
 
       // Adapter finished successfully — runService.finish emits agent:completed
-      await this.handleRunSuccess(taskId, runId, agentId, collectedTokens, resultText, filesChanged);
+      // Use resultText from done event, or fall back to last agent message
+      const finalResult = resultText ?? lastAgentMessage;
+      await this.handleRunSuccess(taskId, runId, agentId, collectedTokens, finalResult, filesChanged);
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       const entry = this.state?.running[taskId];

@@ -96,8 +96,9 @@ All state lives in `.orchestry/` — YAML configs, JSON state, JSONL event logs.
 | Adapter | What it runs |
 |---------|-------------|
 | `claude` | Claude Code CLI (`claude --print`) |
+| `codex` | OpenAI Codex CLI (`codex exec --json`) |
+| `cursor` | Cursor Agent CLI (headless mode) |
 | `shell` | Any command: `npm test`, `python bot.py`, custom scripts |
-| *coming soon* | Codex, Cursor, custom adapters |
 
 ## Full CLI reference
 
