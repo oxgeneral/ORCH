@@ -9,7 +9,16 @@
  *                active ↔ paused
  */
 
-export type GoalStatus = 'active' | 'paused' | 'achieved' | 'abandoned';
+export const GOAL_STATUSES = ['active', 'paused', 'achieved', 'abandoned'] as const;
+export type GoalStatus = (typeof GOAL_STATUSES)[number];
+
+/** Canonical sort order for goal statuses. */
+export const GOAL_STATUS_ORDER: Record<GoalStatus, number> = {
+  active: 0,
+  paused: 1,
+  achieved: 2,
+  abandoned: 3,
+};
 
 export interface Goal {
   id: string;

@@ -5,7 +5,7 @@
  * All writes are atomic (temp → rename).
  */
 
-import type { Goal, GoalStatus } from '../../domain/goal.js';
+import { GOAL_STATUS_ORDER, type Goal, type GoalStatus } from '../../domain/goal.js';
 import type { IGoalStore } from './interfaces.js';
 import type { Paths } from './paths.js';
 import { listFiles, readYaml, writeYaml } from './fs-utils.js';
@@ -29,7 +29,7 @@ export class GoalStore implements IGoalStore {
     );
 
     return goals.sort((a, b) => {
-      const statusOrder = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
+      const statusOrder = GOAL_STATUS_ORDER[a.status] - GOAL_STATUS_ORDER[b.status];
       if (statusOrder !== 0) return statusOrder;
       const bTime = b.updated_at ?? '';
       const aTime = a.updated_at ?? '';
@@ -54,9 +54,3 @@ export class GoalStore implements IGoalStore {
   }
 }
 
-const STATUS_PRIORITY: Record<GoalStatus, number> = {
-  active: 0,
-  paused: 1,
-  achieved: 2,
-  abandoned: 3,
-};

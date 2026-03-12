@@ -6,8 +6,8 @@
 
 import type { Command } from 'commander';
 import type { Container } from '../../container.js';
-import type { GoalStatus } from '../../domain/goal.js';
-import { printSuccess, printTable, printKeyValue, dim } from '../output.js';
+import { GOAL_STATUSES, type GoalStatus } from '../../domain/goal.js';
+import { printSuccess, printError, printTable, printKeyValue, dim } from '../output.js';
 
 const STATUS_ICON: Record<GoalStatus, string> = {
   active: '\u25CF',     // ●
@@ -106,9 +106,8 @@ export function registerGoalCommand(program: Command, container: Container): voi
     .description('Change goal status (active, paused, achieved, abandoned)')
     .action(async (id: string, status: string) => {
       await container.paths.requireInit();
-      const valid: GoalStatus[] = ['active', 'paused', 'achieved', 'abandoned'];
-      if (!valid.includes(status as GoalStatus)) {
-        console.error(`Invalid status "${status}". Valid: ${valid.join(', ')}`);
+      if (!(GOAL_STATUSES as readonly string[]).includes(status)) {
+        printError(`Invalid status "${status}". Valid: ${GOAL_STATUSES.join(', ')}`);
         process.exitCode = 1;
         return;
       }

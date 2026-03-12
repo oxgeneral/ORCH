@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { Goal, GoalStatus } from '../../domain/goal.js';
+import { GOAL_STATUS_ORDER, type Goal, type GoalStatus } from '../../domain/goal.js';
 import { tuiColors, DOT } from '../colors.js';
 
 /* ── Glyphs ───────────────────────────────────────── */
@@ -47,13 +47,8 @@ const STATUS_CHIP: Record<GoalStatus, StatusChipConfig> = {
   abandoned: { icon: CROSS,        label: 'DROP',    fg: tuiColors.ghost,  bg: chipBg.neutral },
 };
 
-/** Sort order: active → paused → achieved → abandoned */
-export const GOAL_STATUS_ORDER: Record<GoalStatus, number> = {
-  active: 0,
-  paused: 1,
-  achieved: 2,
-  abandoned: 3,
-};
+// Re-export for consumers that import from this module
+export { GOAL_STATUS_ORDER } from '../../domain/goal.js';
 
 /* ── GoalRow ──────────────────────────────────────── */
 
