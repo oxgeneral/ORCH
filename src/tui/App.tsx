@@ -636,8 +636,14 @@ export function App({
   const fixedRows = 9;
   const contentH = Math.max(4, H - fixedRows);
   // Adaptive split: task/agent list takes only what it needs, rest goes to feed/logs
+  // Team section headers add extra rows: one per team + one for unassigned (if teams exist)
+  const teamAgentCount = agentTeamMap.size;
+  const hasUnassigned = liveAgents.length > teamAgentCount;
+  const agentSectionRows = activeTeamCount > 0
+    ? activeTeamCount + (hasUnassigned ? 1 : 0)
+    : 0;
   const listItemCount = activeView === 'tasks' ? visibleTasks.length + 1 + (hiddenTaskCount > 0 ? 1 : 0) : // +1 for "+ add" row, +1 for "show all" row
-    activeView === 'agents' ? liveAgents.length + 1 : 0;
+    activeView === 'agents' ? liveAgents.length + 1 + agentSectionRows : 0;
   const minListH = Math.min(listItemCount + 1, Math.ceil(contentH * 0.5)); // cap at 50%
   const mainH = activeView === 'logs' ? contentH : Math.max(2, Math.min(minListH, contentH - 4));
   const feedH = Math.max(1, contentH - mainH);
