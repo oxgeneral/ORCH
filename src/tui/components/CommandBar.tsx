@@ -38,7 +38,7 @@ export interface CommandBarProps {
   hasSuggestions?: boolean;
 }
 
-export function CommandBar({
+export const CommandBar = React.memo(function CommandBar({
   mode, value, completion, activeView, canRun, canNew, canApprove, canReject, canCancel, canDelete, canEdit, canForceStop, canToggleAuto, autoActive, canPause, isPaused, canToggleShowAll, showAllActive, hasDetail,
   itemCount, itemLabel, width, hasSuggestions,
 }: CommandBarProps) {
@@ -172,4 +172,4 @@ export function CommandBar({
       {itemCount > 0 && <Text color={tuiColors.dim}>{itemCount} {itemLabel}</Text>}
     </Box>
   );
-}
+});

@@ -4,9 +4,10 @@
  * Uses ink-testing-library to render components without a real TTY.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import React from 'react';
 import { render } from 'ink-testing-library';
+import { _resetAnimTick } from '../../../src/tui/components/useAnimTick.js';
 import { App } from '../../../src/tui/App.js';
 import { Header } from '../../../src/tui/components/Header.js';
 import { TaskList } from '../../../src/tui/components/TaskList.js';
@@ -17,6 +18,9 @@ import type { OrchestratorState } from '../../../src/domain/state.js';
 import { DEFAULT_STATE } from '../../../src/domain/state.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Clean up global animation timer between tests to prevent leaks
+afterEach(() => { _resetAnimTick(); });
 
 function makeTask(overrides: Partial<Task> & { id: string; title: string }): Task {
   return {

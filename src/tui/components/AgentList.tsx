@@ -76,7 +76,7 @@ export interface AgentRowProps {
   isLead?: boolean;
 }
 
-export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitle, teamName, isLead }: AgentRowProps) {
+export const AgentRow = React.memo(function AgentRow({ agent, selected, width, runningEntry, currentTaskTitle, teamName, isLead }: AgentRowProps) {
   const chip = STATUS_CHIP[agent.status];
   const isRunning = agent.status === 'running';
 
@@ -190,7 +190,7 @@ export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitl
       </Box>
     </Box>
   );
-}
+});
 
 /* ── Team Section Header ────────────────────────────── */
 

@@ -719,17 +719,20 @@ export function App({
   const uptime = liveState.started_at ? formatDurationSince(liveState.started_at) : undefined;
   const totalTokens = liveState.stats.total_tokens.total;
 
-  // Header stats aggregate
-  const headerStats: HeaderStats = {
-    running: liveTasks.filter((t) => t.status === 'in_progress').length,
-    retrying: liveTasks.filter((t) => t.status === 'retrying').length,
-    review: liveTasks.filter((t) => t.status === 'review').length,
-    todo: liveTasks.filter((t) => t.status === 'todo').length,
-    done: liveTasks.filter((t) => t.status === 'done').length,
-    failed: liveTasks.filter((t) => t.status === 'failed').length,
-    cancelled: liveTasks.filter((t) => t.status === 'cancelled').length,
-    teams: activeTeamCount,
-  };
+  // Header stats aggregate — single pass over tasks, memoized
+  const headerStats: HeaderStats = useMemo(() => {
+    const counts = { running: 0, retrying: 0, review: 0, todo: 0, done: 0, failed: 0, cancelled: 0 };
+    for (const t of liveTasks) {
+      if (t.status === 'in_progress') counts.running++;
+      else if (t.status === 'retrying') counts.retrying++;
+      else if (t.status === 'review') counts.review++;
+      else if (t.status === 'todo') counts.todo++;
+      else if (t.status === 'done') counts.done++;
+      else if (t.status === 'failed') counts.failed++;
+      else if (t.status === 'cancelled') counts.cancelled++;
+    }
+    return { ...counts, teams: activeTeamCount };
+  }, [liveTasks, activeTeamCount]);
   const runningCount = headerStats.running;
   const headerTokens: HeaderTokens = {
     input: liveState.stats.total_tokens.input ?? 0,

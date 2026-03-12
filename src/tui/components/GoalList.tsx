@@ -59,7 +59,7 @@ export interface GoalRowProps {
   agentNameMap?: Map<string, string>;
 }
 
-export function GoalRow({ goal, selected, width, agentNameMap }: GoalRowProps) {
+export const GoalRow = React.memo(function GoalRow({ goal, selected, width, agentNameMap }: GoalRowProps) {
   const chip = STATUS_CHIP[goal.status];
 
   const cursor = selected ? '\u25B8' : ' '; // ▸ or space
@@ -133,7 +133,7 @@ export function GoalRow({ goal, selected, width, agentNameMap }: GoalRowProps) {
       </Box>
     </Box>
   );
-}
+});
 
 /* ── GoalList ─────────────────────────────────────── */
 

@@ -114,7 +114,7 @@ export interface TaskRowProps {
   agentNameMap?: Map<string, string>;
 }
 
-export function TaskRow({ task, selected, width, agentNameMap }: TaskRowProps) {
+export const TaskRow = React.memo(function TaskRow({ task, selected, width, agentNameMap }: TaskRowProps) {
   const chip = STATUS_CHIP[task.status];
   const isRunning = task.status === 'in_progress' || task.status === 'retrying';
   const priConf = PRIORITY_CONFIG[task.priority] ?? { color: tuiColors.ghost, label: DOT };
@@ -203,7 +203,7 @@ export function TaskRow({ task, selected, width, agentNameMap }: TaskRowProps) {
       </Box>
     </Box>
   );
-}
+});
 
 // Attach Row as static property for use in App's custom layout
 TaskList.Row = TaskRow;

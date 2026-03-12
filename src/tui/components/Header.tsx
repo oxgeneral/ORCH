@@ -16,11 +16,12 @@
  *   - Unicode sparkline for token throughput
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Box, Text } from 'ink';
 import { tuiColors, HEAVY_RULE, DOT, LOZENGE } from '../colors.js';
 import { TABS } from './TabBar.js';
 import type { ViewId } from './TabBar.js';
+import { useAnimTick } from './useAnimTick.js';
 
 /* ══════════════════════════════════════════════════════════
    CONSTANTS & GLYPHS
@@ -56,44 +57,30 @@ const chipBg = {
    ANIMATED PRIMITIVES
    ══════════════════════════════════════════════════════════ */
 
-/** Braille spinner — cycles at 120ms (Ink-friendly rate to avoid flicker) */
+/** Braille spinner — driven by global animation tick */
 function MiniSpinner({ color }: { color: string }) {
-  const [frame, setFrame] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setFrame((f) => (f + 1) % BRAILLE_FRAMES.length), 120);
-    return () => clearInterval(t);
-  }, []);
-  return <Text color={color}>{BRAILLE_FRAMES[frame]}</Text>;
+  const tick = useAnimTick();
+  return <Text color={color}>{BRAILLE_FRAMES[tick % BRAILLE_FRAMES.length]}</Text>;
 }
 
-/** Pulsing logo diamond — alternates between bright and dim amber */
+/** Pulsing logo diamond — alternates every ~1.2s via global tick */
 function PulsingDiamond() {
-  const [bright, setBright] = useState(true);
-  useEffect(() => {
-    const t = setInterval(() => setBright((b) => !b), 1200);
-    return () => clearInterval(t);
-  }, []);
+  const tick = useAnimTick();
+  const bright = Math.floor(tick / 10) % 2 === 0; // toggle every 10 ticks ≈ 1.2s
   return <Text color={bright ? tuiColors.amber : tuiColors.amberDim} bold>{DIAMOND}</Text>;
 }
 
 /**
  * Scanner progress bar — bright segment sweeps across when active.
  *
- * Uses a single pre-built string to minimize React re-render overhead.
- * Interval is 120ms (~8 FPS) to avoid terminal flicker — Ink redraws
- * the entire stdout on each state change, so fast timers cause tearing.
+ * Driven by global animation tick — no independent timer.
  */
 function ScannerBar({ width, active }: { width: number; active: boolean }) {
   const segLen = Math.max(4, Math.floor(width * 0.08));
   const step = 2; // move 2 chars per tick for smooth-looking speed at lower FPS
-  const [pos, setPos] = useState(0);
+  const tick = useAnimTick();
   const totalFrames = Math.ceil((width + segLen) / step);
-
-  useEffect(() => {
-    if (!active) { setPos(0); return; }
-    const t = setInterval(() => setPos((p) => (p + 1) % (totalFrames * 2)), 120);
-    return () => clearInterval(t);
-  }, [active, totalFrames]);
+  const pos = active ? tick % (totalFrames * 2) : 0;
 
   if (!active) {
     return (
@@ -315,7 +302,7 @@ function StatsBar({
    HEADER — Combined 3-line Export
    ══════════════════════════════════════════════════════════ */
 
-export function Header(props: HeaderProps) {
+export const Header = React.memo(function Header(props: HeaderProps) {
   const barWidth = Math.max(10, props.width - 2);
   const isActive = props.stats.running > 0;
 
@@ -342,4 +329,4 @@ export function Header(props: HeaderProps) {
       <ScannerBar width={barWidth} active={isActive} />
     </Box>
   );
-}
+});
