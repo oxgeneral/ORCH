@@ -1,4 +1,4 @@
-# Contributing to Agents Organizations CLI
+# Contributing to ORCH
 
 Thank you for your interest in contributing! This guide will help you get started.
 
@@ -11,8 +11,8 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ```bash
 # Clone the repository
-git clone https://github.com/anthropics/agents-organizations-cli.git
-cd agents-organizations-cli
+git clone https://github.com/oxgeneral/ORCH.git
+cd ORCH
 
 # Install dependencies
 npm install
@@ -38,6 +38,7 @@ We use [Vitest](https://vitest.dev/) for testing.
 ```bash
 npm test               # Run all tests once
 npm run test:watch     # Watch mode
+npm run coverage       # Run tests with coverage
 ```
 
 ### Type Checking
@@ -51,9 +52,27 @@ npm run typecheck      # Run tsc --noEmit
 ```
 src/
 ├── domain/            # Core models and state transitions
-├── application/       # Services (task, agent, run)
-├── infrastructure/    # Storage adapters (YAML/JSON), templates
-├── cli/               # Commander CLI commands
+│   ├── task.ts        # Task model
+│   ├── agent.ts       # Agent model
+│   ├── run.ts         # Run model
+│   ├── goal.ts        # Goal model
+│   ├── team.ts        # Team model
+│   ├── message.ts     # Message model
+│   ├── config.ts      # Project config
+│   ├── global-config.ts   # Global CLI config
+│   ├── default-agents.ts  # Default agents (e.g. Agent Creator)
+│   ├── state.ts       # Orchestrator state
+│   ├── scope.ts       # File scope matching
+│   ├── transitions.ts # State machine transitions
+│   ├── events.ts      # Event type definitions
+│   └── errors.ts      # Domain error types
+├── application/       # Services (task, agent, run, orchestrator)
+├── infrastructure/    # Storage adapters (YAML/JSON/JSONL), templates
+│   ├── adapters/      # Claude, Codex, Cursor, Shell (pluggable)
+│   ├── storage/       # File-based persistence
+│   ├── process/       # PID management, graceful kill
+│   └── workspace/     # Isolation modes (shared/worktree/isolated)
+├── cli/               # Commander.js commands
 └── tui/               # Ink/React terminal UI
 test/
 ├── unit/              # Unit tests

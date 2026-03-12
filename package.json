@@ -43,11 +43,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/anthropics/agents-organizations-cli.git"
+    "url": "git+https://github.com/oxgeneral/ORCH.git"
   },
-  "homepage": "https://github.com/anthropics/agents-organizations-cli#readme",
+  "homepage": "https://github.com/oxgeneral/ORCH#readme",
   "bugs": {
-    "url": "https://github.com/anthropics/agents-organizations-cli/issues"
+    "url": "https://github.com/oxgeneral/ORCH/issues"
   },
   "dependencies": {
     "chalk": "^5.4.1",
