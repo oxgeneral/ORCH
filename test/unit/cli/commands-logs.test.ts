@@ -38,19 +38,20 @@ describe('logs command', () => {
   });
 
   describe('logs <run-id>', () => {
-    it('shows events for a specific run', async () => {
-      (container.runService.readEvents as ReturnType<typeof vi.fn>).mockResolvedValue([
+    it('shows events for a specific run (uses readEventsTail without --since)', async () => {
+      (container.runService.readEventsTail as ReturnType<typeof vi.fn>).mockResolvedValue([
         makeEvent('agent_output', 'line1'),
         makeEvent('error', 'oops'),
       ]);
 
       await program.parseAsync(['logs', 'run_abc'], { from: 'user' });
 
-      expect(container.runService.readEvents).toHaveBeenCalledWith('run_abc');
+      expect(container.runService.readEventsTail).toHaveBeenCalledWith('run_abc', 50);
       expect(console.log).toHaveBeenCalled();
     });
 
     it('shows "no events" when run has no events', async () => {
+      (container.runService.readEventsTail as ReturnType<typeof vi.fn>).mockResolvedValue([]);
       await program.parseAsync(['logs', 'run_empty'], { from: 'user' });
 
       const calls = (console.log as ReturnType<typeof vi.fn>).mock.calls;
@@ -63,6 +64,7 @@ describe('logs command', () => {
         context: { json: true, quiet: false, noColor: false, ascii: false, projectRoot: '/tmp' },
         runService: {
           readEvents: vi.fn(async () => [makeEvent()]),
+          readEventsTail: vi.fn(async () => [makeEvent()]),
           listForTask: vi.fn(async () => []),
           listForAgent: vi.fn(async () => []),
         },
@@ -103,17 +105,18 @@ describe('logs command', () => {
   });
 
   describe('logs --agent', () => {
-    it('lists runs for an agent and shows events', async () => {
+    it('lists runs for an agent and shows events (uses readEventsTail)', async () => {
       (container.runService.listForAgent as ReturnType<typeof vi.fn>).mockResolvedValue([
         makeLogRun('run_2', 'tsk_1', 'agt_1'),
       ]);
-      (container.runService.readEvents as ReturnType<typeof vi.fn>).mockResolvedValue([
+      (container.runService.readEventsTail as ReturnType<typeof vi.fn>).mockResolvedValue([
         makeEvent('agent_output', 'data'),
       ]);
 
       await program.parseAsync(['logs', '--agent', 'agt_1'], { from: 'user' });
 
       expect(container.runService.listForAgent).toHaveBeenCalledWith('agt_1');
+      expect(container.runService.readEventsTail).toHaveBeenCalledWith('run_2', 5);
     });
 
     it('shows "no runs" when agent has no runs', async () => {

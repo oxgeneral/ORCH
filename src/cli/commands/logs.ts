@@ -65,8 +65,10 @@ function filterBySince(events: RunEvent[], sinceMs: number | undefined): RunEven
 }
 
 async function showRunLogs(container: Container, runId: string, sinceMs?: number): Promise<void> {
-  let events = await container.runService.readEvents(runId);
-  events = filterBySince(events, sinceMs);
+  let events = sinceMs
+    ? filterBySince(await container.runService.readEvents(runId), sinceMs)
+    : await container.runService.readEventsTail(runId, 50);
+
 
   if (container.context.json) {
     console.log(JSON.stringify(events, null, 2));
@@ -98,11 +100,19 @@ async function showTaskLogs(container: Container, taskId: string, sinceMs?: numb
     return;
   }
 
-  for (const run of runs) {
+  const recentRuns = sinceMs ? runs.slice(-20) : runs;
+  const eventsPerRun = await Promise.all(
+    recentRuns.map((run) =>
+      sinceMs
+        ? container.runService.readEvents(run.id).then((e) => filterBySince(e, sinceMs))
+        : container.runService.readEventsTail(run.id, 10),
+    ),
+  );
+
+  for (let i = 0; i < recentRuns.length; i++) {
+    const run = recentRuns[i]!;
+    const events = eventsPerRun[i]!;
     console.log(`\n  Run ${run.id} · attempt ${run.attempt} · ${run.status}`);
-    const events = sinceMs
-      ? filterBySince(await container.runService.readEvents(run.id), sinceMs)
-      : await container.runService.readEventsTail(run.id, 10);
     for (const event of events.slice(-10)) {
       console.log(formatEvent(event));
     }
@@ -123,11 +133,19 @@ async function showAgentLogs(container: Container, agentId: string, sinceMs?: nu
     return;
   }
 
-  for (const run of runs.slice(-5)) {
+  const recentRuns = runs.slice(-5);
+  const eventsPerRun = await Promise.all(
+    recentRuns.map((run) =>
+      sinceMs
+        ? container.runService.readEvents(run.id).then((e) => filterBySince(e, sinceMs))
+        : container.runService.readEventsTail(run.id, 5),
+    ),
+  );
+
+  for (let i = 0; i < recentRuns.length; i++) {
+    const run = recentRuns[i]!;
+    const events = eventsPerRun[i]!;
     console.log(`\n  Run ${run.id} · task ${run.task_id} · ${run.status}`);
-    const events = sinceMs
-      ? filterBySince(await container.runService.readEvents(run.id), sinceMs)
-      : await container.runService.readEventsTail(run.id, 5);
     for (const event of events.slice(-5)) {
       console.log(formatEvent(event));
     }
