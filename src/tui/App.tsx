@@ -1720,7 +1720,10 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
   }
 
   const rows: React.ReactNode[] = [];
-  let prevTeam: string | undefined;
+  // Initialize prevTeam from agent before scroll window to avoid duplicate headers mid-team
+  let prevTeam: string | undefined = scrollOffset > 0
+    ? agentTeamMap?.get(agents[scrollOffset - 1]?.id ?? '')
+    : undefined;
 
   for (let i = 0; i < visible.length && rows.length < height; i++) {
     const agent = visible[i]!;
