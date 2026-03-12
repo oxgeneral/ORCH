@@ -7,6 +7,7 @@
 
 import type { WizardStep } from './components/FormWizard.js';
 import type { Agent } from '../domain/agent.js';
+import type { Team } from '../domain/team.js';
 import type { CreateTeamInput } from '../domain/team.js';
 
 // ── Model catalogs per adapter ──
@@ -99,7 +100,14 @@ const ROLE_PRESETS = [
 
 // ── Agent creation wizard ──
 
-export function getAgentWizardSteps(): WizardStep[] {
+export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
+  const teamOptions = [
+    { value: '', label: 'None', hint: 'no team' },
+    ...(teams ?? [])
+      .filter((t) => t.status === 'active')
+      .map((t) => ({ value: t.id, label: t.name, hint: `${t.members.length} members` })),
+  ];
+
   return [
     {
       id: 'name',
@@ -138,6 +146,13 @@ export function getAgentWizardSteps(): WizardStep[] {
       placeholder: 'e.g. Specialist in React and TypeScript',
       skip: (vals) => vals.role !== '__custom__',
     },
+    {
+      id: 'team',
+      label: 'Join team',
+      type: 'select',
+      options: teamOptions,
+      skip: () => teamOptions.length <= 1, // Skip if no teams exist
+    },
   ];
 }
 
@@ -150,6 +165,7 @@ export function agentWizardToInput(vals: Record<string, string>) {
     role,
     model: vals.model || undefined,
     approval_policy: 'auto' as const,
+    team_id: vals.team || undefined,
   };
 }
 

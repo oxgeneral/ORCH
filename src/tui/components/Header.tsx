@@ -148,6 +148,7 @@ export interface HeaderStats {
   done: number;
   failed: number;
   cancelled: number;
+  teams?: number;
 }
 
 export interface HeaderTokens {
@@ -264,6 +265,7 @@ function StatsBar({
     { icon: EMPTY_CIRCLE, label: 'TODO', count: stats.todo, fg: tuiColors.dim, bg: chipBg.neutral, show: stats.todo > 0 },
     { icon: CHECK, label: 'DONE', count: stats.done, fg: tuiColors.green, bg: chipBg.green, show: stats.done > 0 },
     { icon: CROSS, label: 'FAIL', count: stats.failed, fg: tuiColors.red, bg: chipBg.red, bold: true, show: stats.failed > 0 },
+    { icon: DIAMOND, label: 'TEAMS', count: stats.teams ?? 0, fg: tuiColors.amber, bg: chipBg.amber, show: (stats.teams ?? 0) > 0 },
   ];
   const chips = allChips.filter((c) => c.show);
 

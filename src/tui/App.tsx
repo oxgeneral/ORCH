@@ -90,6 +90,10 @@ export interface AppProps {
   onForceStopAgent?: (agentId: string) => Promise<void>;
   onCreateTeam?: (input: CreateTeamInput) => Promise<Team>;
   onListTeams?: () => Promise<Team[]>;
+  onJoinTeam?: (teamId: string, agentId: string) => Promise<Team>;
+  onLeaveTeam?: (teamId: string, agentId: string) => Promise<Team>;
+  onDisbandTeam?: (teamId: string) => Promise<void>;
+  onSetTeamLead?: (teamId: string, agentId: string) => Promise<Team>;
   onStartWatch?: () => Promise<void>;
   onStopWatch?: () => Promise<void>;
   /** Whether watch mode was successfully started by the host. Overrides stale state.pid. */
@@ -166,7 +170,7 @@ export function App({
   onRefreshTasks, onRefreshAgents, onRefreshState, onLoadHistory,
   onAddAgent, onDeleteAgent, onApproveTask, onRejectTask, onDeleteTask,
   onUpdateTask, onUpdateAgent, onForceStopAgent,
-  onCreateTeam, onListTeams,
+  onCreateTeam, onListTeams, onJoinTeam, onLeaveTeam, onDisbandTeam, onSetTeamLead,
   onStartWatch, onStopWatch,
   initialWatchActive,
   watchError,
@@ -278,6 +282,18 @@ export function App({
     for (const a of liveAgents) map.set(a.id, a.name);
     return map;
   }, [liveAgents]);
+
+  // Build agent ID → team name map from liveTeams
+  const agentTeamMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const team of liveTeams) {
+      if (team.status !== 'active') continue;
+      for (const member of team.members) {
+        map.set(member.agent_id, team.name);
+      }
+    }
+    return map;
+  }, [liveTeams]);
 
   // Build runId → agentId and runId → taskId maps from state.running
   // Use refs so dynamic .set() calls from events persist across re-renders
@@ -414,11 +430,11 @@ export function App({
   const launchAgentWizard = useCallback(() => {
     setWizardConfig({
       title: 'NEW AGENT',
-      steps: getAgentWizardSteps(),
+      steps: getAgentWizardSteps(liveTeams),
       kind: 'agent',
     });
     setInputMode('wizard');
-  }, []);
+  }, [liveTeams]);
 
   const launchTaskWizard = useCallback(() => {
     setWizardConfig({
@@ -474,7 +490,15 @@ export function App({
       }).then(
         (agent) => {
           addMessage(`\u2713 Created agent "${agent.name}" (${agent.id}, ${agent.adapter})`, tuiColors.green);
-          refreshAll();
+          // Auto-join team if selected in wizard
+          if (input.team_id && onJoinTeam) {
+            onJoinTeam(input.team_id, agent.id).then(
+              (t) => { addMessage(`\u2713 Joined team "${t.name}"`, tuiColors.green); refreshAll({ includeTeams: true }); },
+              (err) => addMessage(`Failed to join team: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+            );
+          } else {
+            refreshAll();
+          }
         },
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
@@ -529,7 +553,7 @@ export function App({
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
     }
-  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onAssignTask, onUpdateTask, onUpdateAgent, addMessage, refreshAll]);
+  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onAssignTask, onUpdateTask, onUpdateAgent, addMessage, refreshAll]);
 
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');
@@ -586,6 +610,7 @@ export function App({
     done: liveTasks.filter((t) => t.status === 'done').length,
     failed: liveTasks.filter((t) => t.status === 'failed').length,
     cancelled: liveTasks.filter((t) => t.status === 'cancelled').length,
+    teams: liveTeams.filter((t) => t.status === 'active').length,
   };
   const runningCount = headerStats.running;
   const headerTokens: HeaderTokens = {
@@ -812,8 +837,47 @@ export function App({
           else for (const t of teams) {
             addMessage(`  ${t.id}  ${t.status.padEnd(8)} ${t.name} (${t.members.length} members)`, tuiColors.cyan);
           }
+        } else if (sub === 'join') {
+          if (!onJoinTeam) { addMessage('Join not available', tuiColors.yellow); return; }
+          const teamArg = parts[2];
+          const agentArg = parts[3] ?? selectedAgent?.id;
+          if (!teamArg || !agentArg) { addMessage('Usage: /team join <teamId> [agentId]', tuiColors.yellow); return; }
+          addMessage(`Joining team ${teamArg}...`, tuiColors.amber);
+          onJoinTeam(teamArg, agentArg).then(
+            (t) => { addMessage(`\u2713 Agent joined team "${t.name}"`, tuiColors.green); refreshAll({ includeTeams: true }); },
+            (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
+          );
+        } else if (sub === 'leave') {
+          if (!onLeaveTeam) { addMessage('Leave not available', tuiColors.yellow); return; }
+          const teamArg = parts[2];
+          const agentArg = parts[3] ?? selectedAgent?.id;
+          if (!teamArg || !agentArg) { addMessage('Usage: /team leave <teamId> [agentId]', tuiColors.yellow); return; }
+          addMessage(`Leaving team ${teamArg}...`, tuiColors.amber);
+          onLeaveTeam(teamArg, agentArg).then(
+            (t) => { addMessage(`\u2713 Agent left team "${t.name}"`, tuiColors.green); refreshAll({ includeTeams: true }); },
+            (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
+          );
+        } else if (sub === 'disband') {
+          if (!onDisbandTeam) { addMessage('Disband not available', tuiColors.yellow); return; }
+          const teamArg = parts[2];
+          if (!teamArg) { addMessage('Usage: /team disband <teamId>', tuiColors.yellow); return; }
+          addMessage(`Disbanding team ${teamArg}...`, tuiColors.amber);
+          onDisbandTeam(teamArg).then(
+            () => { addMessage(`\u2713 Team disbanded`, tuiColors.green); refreshAll({ includeTeams: true }); },
+            (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
+          );
+        } else if (sub === 'set-lead') {
+          if (!onSetTeamLead) { addMessage('Set-lead not available', tuiColors.yellow); return; }
+          const teamArg = parts[2];
+          const agentArg = parts[3];
+          if (!teamArg || !agentArg) { addMessage('Usage: /team set-lead <teamId> <agentId>', tuiColors.yellow); return; }
+          addMessage(`Setting lead for team ${teamArg}...`, tuiColors.amber);
+          onSetTeamLead(teamArg, agentArg).then(
+            (t) => { addMessage(`\u2713 New lead for team "${t.name}"`, tuiColors.green); refreshAll({ includeTeams: true }); },
+            (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
+          );
         } else {
-          addMessage('Usage: /team create|list', tuiColors.yellow);
+          addMessage('Usage: /team create|list|join|leave|disband|set-lead', tuiColors.yellow);
         }
         return;
       }
@@ -914,6 +978,7 @@ export function App({
   }, [selectedTask, selectedAgent, sortedTasks, sortedAgents, liveTasks, mode, watchActive,
       onCancelTask, onRetryTask, onAssignTask, onRunAll, onRunTask, onCreateTask,
       onDisableAgent, onEnableAgent, onAddAgent, onApproveTask, onRejectTask, onDeleteTask,
+      onJoinTeam, onLeaveTeam, onDisbandTeam, onSetTeamLead,
       onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard]);
 
   useInput((input, key) => {
@@ -1377,6 +1442,7 @@ export function App({
           state={liveState}
           taskTitleMap={taskTitleMap}
           showAddRow={!!onAddAgent}
+          agentTeamMap={agentTeamMap}
         />
       )}
 {activeView === 'logs' && (
@@ -1432,7 +1498,7 @@ export function App({
       ) : showAgentDetail ? (
         <>
           <AgentDetailSectionLabel agent={selectedAgent} width={ruleW} />
-          <AgentDetailPanel agent={selectedAgent} height={feedH} state={liveState} taskTitleMap={taskTitleMap} />
+          <AgentDetailPanel agent={selectedAgent} height={feedH} state={liveState} taskTitleMap={taskTitleMap} teamName={agentTeamMap.get(selectedAgent.id)} />
         </>
       ) : showLogDetail ? (
         <>
@@ -1583,7 +1649,7 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
 
 /* ── Agents Content ──────────────────────────────────── */
 
-function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width, state, taskTitleMap, showAddRow }: {
+function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width, state, taskTitleMap, showAddRow, agentTeamMap }: {
   agents: Agent[];
   selectedIndex: number;
   scrollOffset?: number;
@@ -1592,6 +1658,7 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
   state: OrchestratorState;
   taskTitleMap: Map<string, string>;
   showAddRow?: boolean;
+  agentTeamMap?: Map<string, string>;
 }) {
   // Build running entry lookup by agent ID
   const runningByAgent = new Map<string, typeof state.running[string]>();
@@ -1622,6 +1689,7 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
             width={width - 2}
             runningEntry={runningByAgent.get(agent.id)}
             currentTaskTitle={agent.current_task ? taskTitleMap.get(agent.current_task) : undefined}
+            teamName={agentTeamMap?.get(agent.id)}
           />
         </Box>
       ))}
@@ -2156,11 +2224,12 @@ function AgentDetailSectionLabel({ agent, width }: { agent: Agent; width: number
 
 /* ── Agent Detail Panel ──────────────────────────────── */
 
-function AgentDetailPanel({ agent, height, state, taskTitleMap }: {
+function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
   agent: Agent;
   height: number;
   state: OrchestratorState;
   taskTitleMap: Map<string, string>;
+  teamName?: string;
 }) {
   const statusColor = STATUS_DETAIL_COLOR[agent.status] ?? tuiColors.dim;
   const runningEntry = Object.values(state.running).find((e) => e.agent_id === agent.id);
@@ -2196,17 +2265,22 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap }: {
         </Box>
       </Box>
 
-      {/* Row 3: stats */}
+      {/* Row 3: stats + team */}
       <Box>
         <Box width={col1Width}>
           <Text color={tuiColors.dim}>  runs      </Text>
           <Text>{agent.stats.total_runs}</Text>
-        </Box>
-        <Box>
-          <Text color={tuiColors.dim}>  done/fail </Text>
+          <Text color={tuiColors.dim}> (</Text>
           <Text color={tuiColors.green}>{agent.stats.tasks_completed}</Text>
           <Text color={tuiColors.dim}>/</Text>
           <Text color={agent.stats.tasks_failed > 0 ? tuiColors.red : tuiColors.dim}>{agent.stats.tasks_failed}</Text>
+          <Text color={tuiColors.dim}>)</Text>
+        </Box>
+        <Box>
+          <Text color={tuiColors.dim}>  team      </Text>
+          <Text color={teamName ? tuiColors.amber : tuiColors.dim}>
+            {teamName ?? '\u2014'}
+          </Text>
         </Box>
       </Box>
 

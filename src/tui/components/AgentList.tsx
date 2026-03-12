@@ -70,9 +70,11 @@ export interface AgentRowProps {
   runningEntry?: RunningEntry;
   /** Title of the current task (resolved from task ID) */
   currentTaskTitle?: string;
+  /** Team name this agent belongs to (resolved externally) */
+  teamName?: string;
 }
 
-export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitle }: AgentRowProps) {
+export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitle, teamName }: AgentRowProps) {
   const chip = STATUS_CHIP[agent.status];
   const isRunning = agent.status === 'running';
 
@@ -96,9 +98,10 @@ export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitl
   // Column widths
   const chipWidth = 11;     // " ▶ ACTIVE " = ~11 chars
   const adapterWidth = 10;
-  const roleWidth = 22;
+  const teamColWidth = teamName ? Math.min(teamName.length + 2, 14) : 0;
+  const roleWidth = 22 - teamColWidth; // shrink role to fit team badge
   const timeWidth = 7;
-  const fixedCols = 2 + chipWidth + adapterWidth + roleWidth + timeWidth;
+  const fixedCols = 2 + chipWidth + adapterWidth + teamColWidth + roleWidth + timeWidth;
   const nameWidth = width ? Math.max(8, width - fixedCols) : 20;
 
   // Role / current task display
@@ -156,6 +159,15 @@ export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitl
           {' '}{agent.adapter}{' '}
         </Text>
       </Box>
+
+      {/* Team badge */}
+      {teamName && (
+        <Box width={teamColWidth}>
+          <Text backgroundColor={chipBg.amber} color={tuiColors.amber} wrap="truncate">
+            {' '}{teamName}{' '}
+          </Text>
+        </Box>
+      )}
 
       {/* Role / current task */}
       <Box width={roleWidth}>

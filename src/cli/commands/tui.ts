@@ -158,6 +158,22 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.teamService.list();
       };
 
+      const onJoinTeam = async (teamId: string, agentId: string) => {
+        return container.teamService.join(teamId, agentId);
+      };
+
+      const onLeaveTeam = async (teamId: string, agentId: string) => {
+        return container.teamService.leave(teamId, agentId);
+      };
+
+      const onDisbandTeam = async (teamId: string) => {
+        await container.teamService.disband(teamId);
+      };
+
+      const onSetTeamLead = async (teamId: string, agentId: string) => {
+        return container.teamService.setLead(teamId, agentId);
+      };
+
       const onStartWatch = async () => {
         await container.orchestrator.startWatch();
       };
@@ -206,6 +222,10 @@ export function registerTuiCommand(program: Command, container: Container): void
           onForceStopAgent,
           onCreateTeam,
           onListTeams,
+          onJoinTeam,
+          onLeaveTeam,
+          onDisbandTeam,
+          onSetTeamLead,
           onStartWatch,
           onStopWatch,
           initialWatchActive: watchStarted,
