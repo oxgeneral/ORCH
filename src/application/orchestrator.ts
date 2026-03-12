@@ -196,7 +196,9 @@ export class Orchestrator {
               type: 'orchestrator:shutdown',
               reason: `${this.consecutiveTickFailures} consecutive tick failures`,
             });
-            this.stop().catch(() => {});
+            this.stop().catch((err) => {
+              this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: 'stop after consecutive tick failures', fatal: false });
+            });
           }
         },
       ),
@@ -213,7 +215,9 @@ export class Orchestrator {
         type: 'orchestrator:shutdown',
         reason: `Received ${signal}`,
       });
-      this.stop().catch(() => {});
+      this.stop().catch((err) => {
+        this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `stop after ${signal} signal`, fatal: false });
+      });
     };
 
     for (const sig of ['SIGINT', 'SIGTERM'] as const) {
@@ -312,9 +316,15 @@ export class Orchestrator {
 
       if (entry) {
         this.abortControllers.delete(taskId);
-        await this.deps.processManager.killWithGrace(entry.pid, 3_000).catch(() => {});
-        await this.deps.runService.finish(entry.run_id, 'cancelled').catch(() => {});
-        await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch(() => {});
+        await this.deps.processManager.killWithGrace(entry.pid, 3_000).catch((err) => {
+          this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `cancelTask kill process ${entry.pid} for task ${taskId}`, fatal: false });
+        });
+        await this.deps.runService.finish(entry.run_id, 'cancelled').catch((err) => {
+          this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `cancelTask finish run ${entry.run_id}`, fatal: false });
+        });
+        await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch((err) => {
+          this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `cancelTask setStatus idle for agent ${entry.agent_id}`, fatal: false });
+        });
 
         delete state.running[taskId];
         await this.saveState();
@@ -460,7 +470,9 @@ export class Orchestrator {
       if (!taskData || isTerminal(taskData.status)) {
         this.abortControllers.delete(taskId);
         delete state.running[taskId];
-        await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch(() => {});
+        await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch((err) => {
+          this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `reconcile setStatus idle for stale agent ${entry.agent_id} (task ${taskId})`, fatal: false });
+        });
         continue;
       }
 
@@ -472,7 +484,9 @@ export class Orchestrator {
         } catch {
           // Cleanup even if _handleRunFailure fails (e.g. invalid transition)
           delete state.running[taskId];
-          await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch(() => {});
+          await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch((err) => {
+            this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `reconcile crash fallback setStatus idle for agent ${entry.agent_id} (task ${taskId})`, fatal: false });
+          });
         }
         continue;
       }
@@ -493,7 +507,9 @@ export class Orchestrator {
           await this._handleRunFailure(taskId, entry, 'Agent stalled (no events)');
         } catch {
           delete state.running[taskId];
-          await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch(() => {});
+          await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch((err) => {
+            this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `reconcile stall fallback setStatus idle for agent ${entry.agent_id} (task ${taskId})`, fatal: false });
+          });
         }
       }
     }
@@ -1096,7 +1112,9 @@ export class Orchestrator {
         });
       });
     }
-    await this.deps.agentService.setStatus(agentId, 'idle').catch(() => {});
+    await this.deps.agentService.setStatus(agentId, 'idle').catch((err) => {
+      this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `_handleRunSuccess setStatus idle for agent ${agentId}`, fatal: false });
+    });
 
     // Clear current_task — agent is now idle
     const agentAfter = await this.deps.agentStore.get(agentId);
@@ -1274,7 +1292,9 @@ export class Orchestrator {
     task.status = 'review';
     task.updated_at = new Date().toISOString();
     await this.deps.taskStore.save(task);
-    await this.deps.agentService.setStatus(agentId, 'idle').catch(() => {});
+    await this.deps.agentService.setStatus(agentId, 'idle').catch((err) => {
+      this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `runAutoReview setStatus idle for agent ${agentId}`, fatal: false });
+    });
     await this.saveState();
   }
 
