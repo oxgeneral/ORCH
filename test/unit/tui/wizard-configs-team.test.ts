@@ -142,12 +142,11 @@ describe('editAgentWizardToFields — team_id field', () => {
     expect(fields.team_id).toBe('team_1');
   });
 
-  it('returns empty string when team is empty string (None selected)', () => {
-    // Note: uses ?? undefined so empty string passes through as '' (not undefined).
-    // App.tsx normalises via `fields.team_id ?? ''` and guards with `&&`, so functionally correct.
-    // Contrast with agentWizardToInput which uses `|| undefined` — minor inconsistency (see Fix task).
+  it('returns undefined when team is empty string (None selected)', () => {
+    // Uses `|| undefined` — empty string is falsy so maps to undefined.
+    // App.tsx handles this via `fields.team_id ?? ''` which normalises undefined → ''.
     const fields = editAgentWizardToFields({ name: 'Agent', role: '', model: '', team: '' });
-    expect(fields.team_id).toBe('');
+    expect(fields.team_id).toBeUndefined();
   });
 
   it('returns undefined when team key is absent', () => {
