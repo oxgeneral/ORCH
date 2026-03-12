@@ -119,7 +119,7 @@ export async function buildContainer(context: CliContext): Promise<Container> {
   const runService = new RunService(runStore, eventBus);
   const doctorService = new DoctorService(adapterRegistry, processManager);
   const messageService = new MessageService(messageStore, agentStore, teamStore, eventBus);
-  const goalService = new GoalService(goalStore, eventBus, agentService, taskService, taskStore);
+  const goalService = new GoalService(goalStore, eventBus, agentService, taskService);
   const teamService = new TeamService(teamStore, agentStore, taskStore, eventBus);
   const orchestrator = new Orchestrator({
     taskStore,

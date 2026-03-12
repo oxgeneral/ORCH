@@ -13,9 +13,9 @@ import { nanoid } from 'nanoid';
 import type { Goal, GoalStatus, CreateGoalInput } from '../domain/goal.js';
 import { isGoalTerminal } from '../domain/goal.js';
 import { AUTONOMOUS_LABEL } from '../domain/task.js';
-import { isTerminal } from '../domain/transitions.js';
+import { isDispatchable } from '../domain/transitions.js';
 import { GoalNotFoundError, InvalidArgumentsError } from '../domain/errors.js';
-import type { IGoalStore, ITaskStore } from '../infrastructure/storage/interfaces.js';
+import type { IGoalStore } from '../infrastructure/storage/interfaces.js';
 import type { EventBus } from './event-bus.js';
 import type { AgentService } from './agent-service.js';
 import type { TaskService } from './task-service.js';
@@ -33,7 +33,6 @@ export class GoalService {
     private readonly eventBus: EventBus,
     private readonly agentService?: AgentService,
     private readonly taskService?: TaskService,
-    private readonly taskStore?: ITaskStore,
   ) {}
 
   async create(input: CreateGoalInput): Promise<Goal> {
@@ -159,21 +158,18 @@ export class GoalService {
     return activeGoals.some((g) => g.assignee === agentId);
   }
 
-  /** Cancel pending (todo/retrying) autonomous tasks assigned to the agent. */
+  /** Cancel dispatchable (todo/retrying) autonomous tasks assigned to the agent. */
   private async cancelPendingAutonomousTasks(agentId: string): Promise<void> {
-    if (!this.taskService || !this.taskStore) return;
+    if (!this.taskService) return;
     try {
-      const allTasks = await this.taskStore.list();
+      const allTasks = await this.taskService.list();
       const pending = allTasks.filter(
         (t) =>
           t.assignee === agentId &&
           t.labels?.includes(AUTONOMOUS_LABEL) &&
-          !isTerminal(t.status) &&
-          t.status !== 'in_progress',
+          isDispatchable(t.status),
       );
-      for (const t of pending) {
-        await this.taskService.cancel(t.id).catch(() => {});
-      }
+      await Promise.all(pending.map((t) => this.taskService!.cancel(t.id).catch(() => {})));
     } catch {
       // Best-effort cleanup
     }
