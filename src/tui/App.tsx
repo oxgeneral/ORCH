@@ -549,12 +549,12 @@ export function App({
   const launchEditAgentWizard = useCallback((agent: Agent) => {
     setWizardConfig({
       title: 'EDIT AGENT',
-      steps: getEditAgentWizardSteps(agent),
+      steps: getEditAgentWizardSteps(agent, liveTeams),
       kind: 'edit_agent',
       targetId: agent.id,
     });
     setInputMode('wizard');
-  }, []);
+  }, [liveTeams]);
 
   const launchConfigWizard = useCallback(() => {
     setWizardConfig({
@@ -635,11 +635,31 @@ export function App({
       );
     } else if (kind === 'edit_agent' && targetId && onUpdateAgent) {
       const fields = editAgentWizardToFields(values);
+      const newTeamId = fields.team_id ?? '';
+      const oldTeamId = liveTeams.find(t => t.members.some(m => m.agent_id === targetId))?.id ?? '';
       addMessage(`Updating agent...`, tuiColors.amber);
-      onUpdateAgent(targetId, fields).then(
+      onUpdateAgent(targetId, { name: fields.name, role: fields.role, model: fields.model }).then(
         (agent) => {
           addMessage(`\u2713 Updated agent "${agent.name}"`, tuiColors.green);
-          refreshAll();
+          // Handle team change
+          const teamOps: Promise<unknown>[] = [];
+          if (oldTeamId && oldTeamId !== newTeamId && onLeaveTeam) {
+            teamOps.push(
+              onLeaveTeam(oldTeamId, targetId).then(
+                (t) => addMessage(`\u2713 Left team "${t.name}"`, tuiColors.green),
+                (err) => addMessage(`Failed to leave team: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+              ),
+            );
+          }
+          if (newTeamId && newTeamId !== oldTeamId && onJoinTeam) {
+            teamOps.push(
+              onJoinTeam(newTeamId, targetId).then(
+                (t) => addMessage(`\u2713 Joined team "${t.name}"`, tuiColors.green),
+                (err) => addMessage(`Failed to join team: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+              ),
+            );
+          }
+          Promise.all(teamOps).then(() => refreshAll({ includeTeams: teamOps.length > 0 }));
         },
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
@@ -667,7 +687,7 @@ export function App({
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
     }
-  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter]);
+  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onLeaveTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter, liveTeams]);
 
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');

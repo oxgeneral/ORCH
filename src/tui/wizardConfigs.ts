@@ -100,15 +100,19 @@ const ROLE_PRESETS = [
   { value: '__custom__', label: 'Custom...', hint: 'type your own' },
 ];
 
-// ── Agent creation wizard ──
-
-export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
-  const teamOptions = [
+function buildTeamOptions(teams?: Team[]) {
+  return [
     { value: '', label: 'None', hint: 'no team' },
     ...(teams ?? [])
       .filter((t) => t.status === 'active')
       .map((t) => ({ value: t.id, label: t.name, hint: `${t.members.length} members` })),
   ];
+}
+
+// ── Agent creation wizard ──
+
+export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
+  const teamOptions = buildTeamOptions(teams);
 
   return [
     {
@@ -313,7 +317,7 @@ export function editTaskWizardToFields(vals: Record<string, string>) {
   };
 }
 
-export function getEditAgentWizardSteps(agent: Agent, teams?: Team[], currentTeamId?: string): WizardStep[] {
+export function getEditAgentWizardSteps(agent: Agent, teams?: Team[]): WizardStep[] {
   // Find current role in presets or mark as custom
   const currentRoleInPresets = ROLE_PRESETS.find((r) => r.value === agent.role);
   const roleDefault = currentRoleInPresets ? agent.role! : (agent.role ? '__custom__' : '');
@@ -324,12 +328,8 @@ export function getEditAgentWizardSteps(agent: Agent, teams?: Team[], currentTea
     agent.adapter === 'shell' ? SHELL_MODELS :
     CLAUDE_MODELS;
 
-  const teamOptions = [
-    { value: '', label: 'None', hint: 'no team' },
-    ...(teams ?? [])
-      .filter((t) => t.status === 'active')
-      .map((t) => ({ value: t.id, label: t.name, hint: `${t.members.length} members` })),
-  ];
+  const teamOptions = buildTeamOptions(teams);
+  const currentTeamId = teams?.find(t => t.members.some(m => m.agent_id === agent.id))?.id;
 
   return [
     {
