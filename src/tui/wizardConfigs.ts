@@ -355,6 +355,37 @@ export function getEditAgentWizardSteps(agent: Agent): WizardStep[] {
   ];
 }
 
+// ── Config wizard ──
+
+const ACTIVITY_FILTER_OPTIONS = [
+  { value: 'all', label: 'All', hint: 'show everything' },
+  { value: 'text', label: 'Text', hint: 'agent output only' },
+  { value: 'tools', label: 'Tools', hint: 'tool calls, results, files' },
+  { value: 'errors', label: 'Errors', hint: 'errors only' },
+  { value: 'events', label: 'Events', hint: 'lifecycle, system events' },
+];
+
+export function getConfigWizardSteps(currentFilter: string): WizardStep[] {
+  return [
+    {
+      id: 'setting',
+      label: 'Setting',
+      type: 'select',
+      options: [
+        { value: 'activity_filter', label: 'Activity filter', hint: `current: ${currentFilter}` },
+      ],
+    },
+    {
+      id: 'activity_filter',
+      label: 'Activity filter preset',
+      type: 'select',
+      options: ACTIVITY_FILTER_OPTIONS,
+      defaultValue: currentFilter,
+      skip: (vals) => vals.setting !== 'activity_filter',
+    },
+  ];
+}
+
 export function editAgentWizardToFields(vals: Record<string, string>) {
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
   return {

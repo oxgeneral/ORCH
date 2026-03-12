@@ -12,12 +12,14 @@ import type { IWorkspaceManager } from './infrastructure/workspace/interface.js'
 import type { ITemplateEngine } from './infrastructure/template/template-engine.js';
 import type { IProcessManager } from './infrastructure/process/process-manager.js';
 
+import type { GlobalConfig } from './domain/global-config.js';
 import { Paths } from './infrastructure/storage/paths.js';
 import { TaskStore } from './infrastructure/storage/task-store.js';
 import { AgentStore } from './infrastructure/storage/agent-store.js';
 import { RunStore } from './infrastructure/storage/run-store.js';
 import { StateStore } from './infrastructure/storage/state-store.js';
 import { ConfigStore } from './infrastructure/storage/config-store.js';
+import { GlobalConfigStore } from './infrastructure/storage/global-config-store.js';
 import { ContextStore } from './infrastructure/storage/context-store.js';
 import { MessageStore } from './infrastructure/storage/message-store.js';
 import { TeamStore } from './infrastructure/storage/team-store.js';
@@ -51,6 +53,8 @@ export interface Container {
   runStore: IRunStore;
   stateStore: IStateStore;
   configStore: IConfigStore;
+  globalConfigStore: GlobalConfigStore;
+  globalConfig: GlobalConfig;
   contextStore: IContextStore;
   messageStore: IMessageStore;
   teamStore: ITeamStore;
@@ -79,6 +83,8 @@ export async function buildContainer(context: CliContext): Promise<Container> {
   // Infrastructure
   const configStore = new ConfigStore(paths);
   const config = await configStore.read();
+  const globalConfigStore = new GlobalConfigStore();
+  const globalConfig = await globalConfigStore.read();
   const taskStore = new TaskStore(paths);
   const agentStore = new AgentStore(paths);
   const runStore = new RunStore(paths);
@@ -138,6 +144,8 @@ export async function buildContainer(context: CliContext): Promise<Container> {
     runStore,
     stateStore,
     configStore,
+    globalConfigStore,
+    globalConfig,
     contextStore,
     messageStore,
     teamStore,

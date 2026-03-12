@@ -34,6 +34,7 @@ import {
   getEditTaskWizardSteps, editTaskWizardToFields,
   getEditAgentWizardSteps, editAgentWizardToFields,
   getTeamWizardSteps, teamWizardToInput,
+  getConfigWizardSteps,
 } from './wizardConfigs.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
 
@@ -102,6 +103,10 @@ export interface AppProps {
   watchError?: string;
   /** Message batch flush interval in ms. 0 = immediate. Default: 80 (0 in test env). */
   messageBatchMs?: number;
+  /** Initial activity feed filter preset from global config */
+  initialActivityFilter?: import('../domain/global-config.js').ActivityFilterPreset;
+  /** Save activity filter to global config */
+  onSaveActivityFilter?: (preset: import('../domain/global-config.js').ActivityFilterPreset) => Promise<void>;
 }
 
 type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
@@ -110,7 +115,7 @@ type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
 interface WizardConfig {
   title: string;
   steps: WizardStep[];
-  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team';
+  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team' | 'config';
   /** Target ID for edit wizards */
   targetId?: string;
 }
@@ -175,6 +180,8 @@ export function App({
   initialWatchActive,
   watchError,
   messageBatchMs = process.env.VITEST ? 0 : 80,
+  initialActivityFilter = 'all',
+  onSaveActivityFilter,
 }: AppProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -214,6 +221,23 @@ export function App({
   const [logTypeFilter, setLogTypeFilter] = useState<Set<MsgType>>(() => new Set(ALL_MSG_TYPES));
   const [logSelectedIndex, setLogSelectedIndex] = useState(-1); // -1 = follow tail (no selection)
   const [logScrollOffset, setLogScrollOffset] = useState(0);
+
+  // Activity feed filter (tasks/agents tabs bottom panel)
+  const ACTIVITY_PRESETS: Array<{ label: string; types: MsgType[] }> = [
+    { label: 'all', types: ALL_MSG_TYPES },
+    { label: 'text', types: ['output'] },
+    { label: 'tools', types: ['tool', 'result', 'file'] },
+    { label: 'errors', types: ['error'] },
+    { label: 'events', types: ['lifecycle', 'system'] },
+  ];
+  const [activityFilter, setActivityFilter] = useState<Set<MsgType>>(() => {
+    const preset = ACTIVITY_PRESETS.find((p) => p.label === initialActivityFilter);
+    return new Set(preset?.types ?? ALL_MSG_TYPES);
+  });
+  const activityFilterLabel = useMemo(() => {
+    const preset = ACTIVITY_PRESETS.find((p) => p.types.length === activityFilter.size && p.types.every((t) => activityFilter.has(t)));
+    return preset?.label ?? 'custom';
+  }, [activityFilter]);
 
   // Command bar: history, scroll offsets, suggestion selection
   const cmdHistory = React.useRef(new CommandHistory()).current;
@@ -487,6 +511,15 @@ export function App({
     setInputMode('wizard');
   }, []);
 
+  const launchConfigWizard = useCallback(() => {
+    setWizardConfig({
+      title: 'SETTINGS',
+      steps: getConfigWizardSteps(activityFilterLabel),
+      kind: 'config',
+    });
+    setInputMode('wizard');
+  }, [activityFilterLabel]);
+
   const handleWizardComplete = useCallback((values: Record<string, string>) => {
     setInputMode('none');
     const kind = wizardConfig?.kind;
@@ -565,8 +598,17 @@ export function App({
         },
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
+    } else if (kind === 'config') {
+      if (values.setting === 'activity_filter' && values.activity_filter) {
+        const preset = ACTIVITY_PRESETS.find((p) => p.label === values.activity_filter);
+        if (preset) {
+          setActivityFilter(new Set(preset.types));
+          onSaveActivityFilter?.(values.activity_filter as import('../domain/global-config.js').ActivityFilterPreset);
+          addMessage(`Activity filter: ${preset.label}`, tuiColors.amber);
+        }
+      }
     }
-  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onAssignTask, onUpdateTask, onUpdateAgent, addMessage, refreshAll]);
+  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onAssignTask, onUpdateTask, onUpdateAgent, addMessage, refreshAll, onSaveActivityFilter]);
 
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');
@@ -947,6 +989,26 @@ export function App({
         return;
       }
 
+      // ── /config ──
+      case 'config': {
+        const sub = parts[1]?.toLowerCase();
+        if (sub === 'activity-filter') {
+          // Quick cycle through presets
+          setActivityFilter((prev) => {
+            const curIdx = ACTIVITY_PRESETS.findIndex((p) => p.types.length === prev.size && p.types.every((t) => prev.has(t)));
+            const nextIdx = (curIdx + 1) % ACTIVITY_PRESETS.length;
+            const next = ACTIVITY_PRESETS[nextIdx]!;
+            onSaveActivityFilter?.(next.label as import('../domain/global-config.js').ActivityFilterPreset);
+            addMessage(`Activity filter: ${next.label}`, tuiColors.amber);
+            return new Set(next.types);
+          });
+        } else {
+          // No subcommand → open interactive settings wizard
+          launchConfigWizard();
+        }
+        return;
+      }
+
       // ── /status ──
       case 'status': {
         const running = liveTasks.filter((t) => t.status === 'in_progress').length;
@@ -998,7 +1060,7 @@ export function App({
       onCancelTask, onRetryTask, onAssignTask, onRunAll, onRunTask, onCreateTask,
       onDisableAgent, onEnableAgent, onAddAgent, onApproveTask, onRejectTask, onDeleteTask,
       onJoinTeam, onLeaveTeam, onDisbandTeam, onSetTeamLead,
-      onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard]);
+      onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard, launchConfigWizard]);
 
   useInput((input, key) => {
     // ── Input mode: all keys go to the text buffer ──
@@ -1150,6 +1212,19 @@ export function App({
         const curIdx = presets.findIndex((p) => p.types.length === prev.size && p.types.every((t) => prev.has(t)));
         const nextIdx = (curIdx + 1) % presets.length;
         return new Set(presets[nextIdx]!.types);
+      });
+      return;
+    }
+
+    // F: cycle activity feed filter on tasks/agents views
+    if ((input === 'f' || input === 'F') && (activeView === 'tasks' || activeView === 'agents') && !detailOpen) {
+      setActivityFilter((prev) => {
+        const curIdx = ACTIVITY_PRESETS.findIndex((p) => p.types.length === prev.size && p.types.every((t) => prev.has(t)));
+        const nextIdx = (curIdx + 1) % ACTIVITY_PRESETS.length;
+        const next = ACTIVITY_PRESETS[nextIdx]!;
+        // Persist to global config
+        onSaveActivityFilter?.(next.label as import('../domain/global-config.js').ActivityFilterPreset);
+        return new Set(next.types);
       });
       return;
     }
@@ -1530,7 +1605,8 @@ export function App({
         <>
           <SectionLabel label="ACTIVITY" width={ruleW} />
           <ActivityFeed messages={messages} height={Math.max(1, feedH - 1)} width={ruleW}
-            agents={sortedAgents} agentNameMap={agentNameMap} />
+            agents={sortedAgents} agentNameMap={agentNameMap}
+            typeFilter={activityFilter} filterLabel={activityFilterLabel} />
         </>
       ) : null}
 
@@ -2102,23 +2178,40 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
 
 /* ── Activity Feed ────────────────────────────────────── */
 
-function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
+function ActivityFeed({ messages, height, width, agents, agentNameMap, typeFilter, filterLabel }: {
   messages: StatusMessage[];
   height: number;
   width: number;
   agents: Agent[];
   agentNameMap: Map<string, string>;
+  typeFilter?: Set<MsgType>;
+  filterLabel?: string;
 }) {
   const now = useNow();
 
-  const visible = messages.slice(-height);
+  // Apply type filter if provided
+  const filtered = typeFilter && typeFilter.size < 8
+    ? messages.filter((m) => typeFilter.has(m.msgType ?? 'info'))
+    : messages;
+
+  // Reserve 1 line for filter indicator when filter is active
+  const showFilterBar = !!filterLabel && filterLabel !== 'all';
+  const contentH = showFilterBar ? height - 1 : height;
+  const visible = filtered.slice(-contentH);
   // Available text width: total - paddingX(2) - border(1) - ts(5) - agent(9) - icon(2)
   const textW = Math.max(10, width - 2 - 17);
   // Pad with empty rows so the component always renders exactly `height` rows
-  const padRows = Math.max(0, height - visible.length);
+  const padRows = Math.max(0, contentH - visible.length);
 
   return (
     <Box flexDirection="column" paddingX={1}>
+      {showFilterBar && (
+        <Box gap={0}>
+          <Text color={tuiColors.dim}> F:</Text>
+          <Text color={tuiColors.amber}>{filterLabel!.toUpperCase()}</Text>
+          <Text color={tuiColors.ghost}> {'\u2502'} {filtered.length}/{messages.length} events</Text>
+        </Box>
+      )}
       {padRows > 0 && <Box height={padRows} />}
       {visible.map((msg, i) => {
         const agentName = msg.agentId ? (agentNameMap.get(msg.agentId) ?? msg.agentId.slice(0, 8)) : undefined;

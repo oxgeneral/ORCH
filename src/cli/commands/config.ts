@@ -68,4 +68,52 @@ export function registerConfigCommand(program: Command, container: Container): v
         child.on('error', reject);
       });
     });
+
+  // ── Global config (cross-project, ~/.orchestry/global.yml) ──
+
+  const global = config
+    .command('global')
+    .description('Manage global settings (~/.orchestry/global.yml)');
+
+  global
+    .command('get <key>')
+    .description('Get a global config value')
+    .action(async (key: string) => {
+      const gc = await container.globalConfigStore.read();
+      const value = key === 'activity_filter' ? gc.tui.activity_filter : undefined;
+      if (container.context.json) {
+        console.log(JSON.stringify({ key, value }));
+      } else {
+        console.log(`  ${dim(key)} = ${JSON.stringify(value)}`);
+      }
+    });
+
+  global
+    .command('set <key> <value>')
+    .description('Set a global config value')
+    .action(async (key: string, value: string) => {
+      if (key === 'activity_filter') {
+        const valid = ['all', 'text', 'tools', 'errors', 'events'];
+        if (!valid.includes(value)) {
+          printError(`Invalid value "${value}". Valid: ${valid.join(', ')}`);
+          return;
+        }
+        await container.globalConfigStore.set('activity_filter', value as 'all' | 'text' | 'tools' | 'errors' | 'events');
+        printSuccess(`${key} = ${value}`);
+      } else {
+        printError(`Unknown global config key: ${key}`);
+      }
+    });
+
+  global
+    .command('show')
+    .description('Show all global settings')
+    .action(async () => {
+      const gc = await container.globalConfigStore.read();
+      if (container.context.json) {
+        console.log(JSON.stringify(gc));
+      } else {
+        console.log(`  ${dim('tui.activity_filter')} = ${gc.tui.activity_filter}`);
+      }
+    });
 }

@@ -230,6 +230,10 @@ export function registerTuiCommand(program: Command, container: Container): void
           onStopWatch,
           initialWatchActive: watchStarted,
           watchError,
+          initialActivityFilter: container.globalConfig.tui.activity_filter,
+          onSaveActivityFilter: async (preset) => {
+            await container.globalConfigStore.set('activity_filter', preset);
+          },
         }),
         { kittyKeyboard: { mode: 'auto', flags: ['disambiguateEscapeCodes'] } },
       );
