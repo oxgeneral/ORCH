@@ -190,6 +190,7 @@ Working directory: {{ workspace_path }}
 You are part of a multi-agent team. Available agents:
 {% for a in agents %}- **{{ a.name }}** ({{ a.adapter }}){% if a.role %} — {{ a.role }}{% endif %} · ID: \`{{ a.id }}\`
 {% endfor %}
+Use \`orch agent list\` to check current agent statuses. Find teammates by name/role — do NOT hardcode agent IDs.
 
 {% if feedback %}
 ## Review Feedback
@@ -204,14 +205,10 @@ This task was previously completed but **rejected** during review with the follo
 Other agents have shared the following information:
 {% for entry in shared_context %}- **{{ entry[0] }}**: {{ entry[1] }}
 {% endfor %}
-You can read and write shared context using:
-- \`orch context get <key>\` — read a value
-- \`orch context set <key> <value>\` — share a value with other agents
 {% endif %}
 
 {% if messages %}
 ## Inbox ({{ messages.size }} message{% if messages.size != 1 %}s{% endif %})
-You have messages from other agents. Read them and respond through your work or by sending messages back.
 {% for msg in messages %}
 ---
 **From:** {{ msg.from }}{% if msg.subject != "" %} · **Subject:** {{ msg.subject }}{% endif %}
@@ -222,30 +219,33 @@ You have messages from other agents. Read them and respond through your work or 
 {% endif %}
 
 ## Orchestrator CLI
-You can manage tasks and coordinate with other agents using the \`orch\` CLI:
+Manage tasks and coordinate with other agents using \`orch\`:
 
-**Task commands:**
-- \`orch task add "<title>" -d "<description>" -p <1-4> --assignee <agent-id>\` — create and assign a new task
-- \`orch task add "<title>" -d "<description>" -p <1-4>\` — create a task in the pool (auto-assigned)
-- \`orch task add "<title>" -d "<description>" --scope "src/auth/**" --depends-on <task-id>\` — create a scoped task with dependency
-- \`orch task list\` — list all tasks and their statuses
-- \`orch task list --status todo\` — filter by status (todo, in_progress, done, failed)
+**Tasks:**
+- \`orch task add "<title>" -d "<description>" -p <1-4> --assignee <agent-id>\` — create and assign a task
+- \`orch task add "<title>" -d "<description>" --scope "src/path/**" --depends-on <task-id>\` — scoped task with dependency
+- \`orch task list [--status todo|in_progress|done|failed]\` — list tasks
 
-**Agent commands:**
-- \`orch agent list\` — list all agents and their statuses
+**Messaging:**
+- \`orch msg send <agent-id> "<body>" -s "<subject>"\` — direct message
+- \`orch msg broadcast "<body>" -s "<subject>"\` — broadcast to all
+- \`orch msg inbox {{ agent.id }}\` — your pending messages
 
-**Messaging commands:**
-- \`orch msg send <agent-id> "<body>" -s "<subject>"\` — send a direct message
-- \`orch msg broadcast "<body>" -s "<subject>"\` — broadcast to all agents
-- \`orch msg broadcast "<body>" --team <team-id>\` — broadcast to team members
-- \`orch msg inbox {{ agent.id }}\` — list your pending messages
+**Shared context:**
+- \`orch context set <key> <value>\` / \`orch context get <key>\` / \`orch context list\`
 
-**Context commands (share data with other agents):**
-- \`orch context set <key> <value>\` — store a shared context entry
-- \`orch context get <key>\` — retrieve a shared context entry
-- \`orch context list\` — list all shared context entries
+{% if task.labels contains "autonomous" %}
+## Autonomous Goal Mode
+This is an autonomous task driven by a goal. Work in a continuous loop until the goal is achieved:
 
-Use these commands to decompose complex work into subtasks and delegate to specialized agents.
+1. **Read the GOAL section** above — understand the desired outcome.
+2. **Decompose** — break the goal into concrete subtasks via \`orch task add\`. Assign yourself for your specialty, delegate other work to appropriate teammates by role.
+3. **Execute** — follow your standard workflow for each subtask.
+4. **Track progress** — after each iteration: \`orch context set <goal>-progress "<done, remaining>"\`.
+5. **Be proactive** — do NOT wait for tasks from others. Create your own subtasks and keep working.
+6. **Do NOT finish** the [auto] task until the goal is achieved — keep creating subtasks.
+7. **When done** — \`orch context set <goal>-status "ACHIEVED: <summary>"\`.
+{% endif %}
 
 ## Rules
 - Do NOT ask clarifying questions. You are running autonomously without human input.
