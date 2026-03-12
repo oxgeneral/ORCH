@@ -119,6 +119,44 @@ describe('logs command', () => {
       expect(container.runService.readEventsTail).toHaveBeenCalledWith('run_2', 5);
     });
 
+    it('slices to last 5 runs when agent has more', async () => {
+      const manyRuns = Array.from({ length: 8 }, (_, i) =>
+        makeLogRun(`run_${i}`, 'tsk_1', 'agt_1'),
+      );
+      (container.runService.listForAgent as ReturnType<typeof vi.fn>).mockResolvedValue(manyRuns);
+      (container.runService.readEventsTail as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      await program.parseAsync(['logs', '--agent', 'agt_1'], { from: 'user' });
+
+      // Only last 5 runs → readEventsTail called 5 times (runs 3..7)
+      expect(container.runService.readEventsTail).toHaveBeenCalledTimes(5);
+      expect(container.runService.readEventsTail).not.toHaveBeenCalledWith('run_0', 5);
+      expect(container.runService.readEventsTail).toHaveBeenCalledWith('run_7', 5);
+    });
+
+    it('reads all runs in parallel via Promise.all', async () => {
+      const callOrder: string[] = [];
+      (container.runService.listForAgent as ReturnType<typeof vi.fn>).mockResolvedValue([
+        makeLogRun('run_p1', 'tsk_1', 'agt_1'),
+        makeLogRun('run_p2', 'tsk_1', 'agt_1'),
+        makeLogRun('run_p3', 'tsk_1', 'agt_1'),
+      ]);
+      (container.runService.readEventsTail as ReturnType<typeof vi.fn>).mockImplementation(
+        (runId: string) => {
+          callOrder.push(runId);
+          return Promise.resolve([]);
+        },
+      );
+
+      await program.parseAsync(['logs', '--agent', 'agt_1'], { from: 'user' });
+
+      // All 3 runs were fetched (order may vary, but all called)
+      expect(callOrder).toHaveLength(3);
+      expect(callOrder).toContain('run_p1');
+      expect(callOrder).toContain('run_p2');
+      expect(callOrder).toContain('run_p3');
+    });
+
     it('shows "no runs" when agent has no runs', async () => {
       await program.parseAsync(['logs', '--agent', 'agt_none'], { from: 'user' });
 
@@ -139,6 +177,58 @@ describe('logs command', () => {
 
       // Both events fetched, but old one should be filtered
       expect(container.runService.readEvents).toHaveBeenCalled();
+    });
+
+    it('uses readEvents (not readEventsTail) for showRunLogs with --since', async () => {
+      (container.runService.readEvents as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      await program.parseAsync(['logs', 'run_1', '--since', '5m'], { from: 'user' });
+
+      expect(container.runService.readEvents).toHaveBeenCalledWith('run_1');
+      expect(container.runService.readEventsTail).not.toHaveBeenCalled();
+    });
+
+    it('showTaskLogs with --since uses readEvents via Promise.all for each run', async () => {
+      (container.runService.listForTask as ReturnType<typeof vi.fn>).mockResolvedValue([
+        makeLogRun('run_a', 'tsk_1', 'agt_1'),
+        makeLogRun('run_b', 'tsk_1', 'agt_1'),
+      ]);
+      (container.runService.readEvents as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      await program.parseAsync(['logs', '--task', 'tsk_1', '--since', '5m'], { from: 'user' });
+
+      expect(container.runService.readEvents).toHaveBeenCalledWith('run_a');
+      expect(container.runService.readEvents).toHaveBeenCalledWith('run_b');
+      expect(container.runService.readEventsTail).not.toHaveBeenCalled();
+    });
+
+    it('showTaskLogs with --since limits to last 20 runs', async () => {
+      const manyRuns = Array.from({ length: 25 }, (_, i) =>
+        makeLogRun(`run_${i}`, 'tsk_1', 'agt_1'),
+      );
+      (container.runService.listForTask as ReturnType<typeof vi.fn>).mockResolvedValue(manyRuns);
+      (container.runService.readEvents as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      await program.parseAsync(['logs', '--task', 'tsk_1', '--since', '1h'], { from: 'user' });
+
+      // Only last 20 runs → readEvents called 20 times (runs 5..24)
+      expect(container.runService.readEvents).toHaveBeenCalledTimes(20);
+      expect(container.runService.readEvents).not.toHaveBeenCalledWith('run_0');
+      expect(container.runService.readEvents).toHaveBeenCalledWith('run_24');
+    });
+
+    it('showAgentLogs with --since uses readEvents via Promise.all', async () => {
+      (container.runService.listForAgent as ReturnType<typeof vi.fn>).mockResolvedValue([
+        makeLogRun('run_x', 'tsk_1', 'agt_1'),
+        makeLogRun('run_y', 'tsk_1', 'agt_1'),
+      ]);
+      (container.runService.readEvents as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      await program.parseAsync(['logs', '--agent', 'agt_1', '--since', '10m'], { from: 'user' });
+
+      expect(container.runService.readEvents).toHaveBeenCalledWith('run_x');
+      expect(container.runService.readEvents).toHaveBeenCalledWith('run_y');
+      expect(container.runService.readEventsTail).not.toHaveBeenCalled();
     });
   });
 
