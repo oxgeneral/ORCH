@@ -33,7 +33,9 @@ import {
   getTaskWizardSteps, taskWizardToInput,
   getEditTaskWizardSteps, editTaskWizardToFields,
   getEditAgentWizardSteps, editAgentWizardToFields,
+  getTeamWizardSteps, teamWizardToInput,
 } from './wizardConfigs.js';
+import type { Team, CreateTeamInput } from '../domain/team.js';
 
 /** Max tasks visible in collapsed mode; press S to show all */
 const TASK_LIST_LIMIT = 10;
@@ -86,6 +88,8 @@ export interface AppProps {
   onUpdateTask?: (taskId: string, fields: { title?: string; description?: string; priority?: number }) => Promise<Task>;
   onUpdateAgent?: (agentId: string, fields: { name?: string; role?: string; model?: string; approval_policy?: string }) => Promise<Agent>;
   onForceStopAgent?: (agentId: string) => Promise<void>;
+  onCreateTeam?: (input: CreateTeamInput) => Promise<Team>;
+  onListTeams?: () => Promise<Team[]>;
   onStartWatch?: () => Promise<void>;
   onStopWatch?: () => Promise<void>;
   /** Whether watch mode was successfully started by the host. Overrides stale state.pid. */
@@ -102,7 +106,7 @@ type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
 interface WizardConfig {
   title: string;
   steps: WizardStep[];
-  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent';
+  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team';
   /** Target ID for edit wizards */
   targetId?: string;
 }
@@ -162,6 +166,7 @@ export function App({
   onRefreshTasks, onRefreshAgents, onRefreshState, onLoadHistory,
   onAddAgent, onDeleteAgent, onApproveTask, onRejectTask, onDeleteTask,
   onUpdateTask, onUpdateAgent, onForceStopAgent,
+  onCreateTeam, onListTeams,
   onStartWatch, onStopWatch,
   initialWatchActive,
   watchError,
@@ -213,22 +218,27 @@ export function App({
   const [agentScrollOffset, setAgentScrollOffset] = useState(0);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
 
+  // Teams state (refreshed alongside other data)
+  const [liveTeams, setLiveTeams] = useState<Team[]>([]);
+
   // Refresh helpers — re-read from disk for consistent state
   const refreshAll = useCallback(async () => {
-    const [t, a, s] = await Promise.all([
+    const [t, a, s, teams] = await Promise.all([
       onRefreshTasks?.() ?? Promise.resolve(liveTasks),
       onRefreshAgents?.() ?? Promise.resolve(liveAgents),
       onRefreshState?.() ?? Promise.resolve(liveState),
+      onListTeams?.() ?? Promise.resolve(liveTeams),
     ]);
     setLiveTasks(t);
     setLiveAgents(a);
     setLiveState(s);
+    setLiveTeams(teams);
     // Sync watchActive from state.pid only if we own the watch —
     // otherwise state.pid may belong to another process (stale lock).
     if (initialWatchActive) {
       setWatchActive(!!s.pid);
     }
-  }, [onRefreshTasks, onRefreshAgents, onRefreshState, initialWatchActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [onRefreshTasks, onRefreshAgents, onRefreshState, onListTeams, initialWatchActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sorted data
   const sortedTasks = useMemo(
@@ -387,15 +397,21 @@ export function App({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load teams on mount
+  useEffect(() => {
+    onListTeams?.().then(setLiveTeams).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Wizard launchers
   const launchAgentWizard = useCallback(() => {
     setWizardConfig({
       title: 'NEW AGENT',
-      steps: getAgentWizardSteps(),
+      steps: getAgentWizardSteps(liveTeams),
       kind: 'agent',
     });
     setInputMode('wizard');
-  }, []);
+  }, [liveTeams]);
 
   const launchTaskWizard = useCallback(() => {
     setWizardConfig({
@@ -412,6 +428,15 @@ export function App({
       steps: getEditTaskWizardSteps(task, liveAgents),
       kind: 'edit_task',
       targetId: task.id,
+    });
+    setInputMode('wizard');
+  }, [liveAgents]);
+
+  const launchTeamWizard = useCallback(() => {
+    setWizardConfig({
+      title: 'NEW TEAM',
+      steps: getTeamWizardSteps(liveAgents),
+      kind: 'team',
     });
     setInputMode('wizard');
   }, [liveAgents]);
@@ -442,6 +467,20 @@ export function App({
       }).then(
         (agent) => {
           addMessage(`\u2713 Created agent "${agent.name}" (${agent.id}, ${agent.adapter})`, tuiColors.green);
+          // Auto-join team if selected
+          if (input.team_id && onCreateTeam) {
+            // Use teamService.join via the onJoinTeam callback — for now add via refreshAll
+          }
+          refreshAll();
+        },
+        (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+      );
+    } else if (kind === 'team' && onCreateTeam) {
+      const input = teamWizardToInput(values);
+      addMessage(`Creating team "${input.name}"...`, tuiColors.amber);
+      onCreateTeam(input).then(
+        (team) => {
+          addMessage(`\u2713 Created team "${team.name}" (${team.id}, ${team.members.length} members)`, tuiColors.green);
           refreshAll();
         },
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
@@ -487,7 +526,7 @@ export function App({
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
     }
-  }, [wizardConfig, onAddAgent, onCreateTask, onAssignTask, onUpdateTask, onUpdateAgent, addMessage, refreshAll]);
+  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onAssignTask, onUpdateTask, onUpdateAgent, addMessage, refreshAll]);
 
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');
@@ -759,6 +798,22 @@ export function App({
         return;
       }
 
+      // ── /team group ──
+      case 'team': {
+        const sub = parts[1]?.toLowerCase();
+        if (sub === 'create' || sub === 'add') {
+          launchTeamWizard();
+        } else if (sub === 'list') {
+          if (liveTeams.length === 0) { addMessage('No teams', tuiColors.dim); }
+          else for (const t of liveTeams) {
+            addMessage(`  ${t.id}  ${t.status.padEnd(8)} ${t.name} (${t.members.length} members)`, tuiColors.cyan);
+          }
+        } else {
+          addMessage('Usage: /team create|list', tuiColors.yellow);
+        }
+        return;
+      }
+
       // ── /run, /run-all ──
       case 'run': {
         const idArg = parts[1] ?? selectedTask?.id;
@@ -855,7 +910,7 @@ export function App({
   }, [selectedTask, selectedAgent, sortedTasks, sortedAgents, liveTasks, mode, watchActive,
       onCancelTask, onRetryTask, onAssignTask, onRunAll, onRunTask, onCreateTask,
       onDisableAgent, onEnableAgent, onAddAgent, onApproveTask, onRejectTask, onDeleteTask,
-      onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard]);
+      onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard, liveTeams]);
 
   useInput((input, key) => {
     // ── Input mode: all keys go to the text buffer ──

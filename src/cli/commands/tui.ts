@@ -150,6 +150,14 @@ export function registerTuiCommand(program: Command, container: Container): void
         return entries.slice(-200);
       };
 
+      const onCreateTeam = async (input: import('../../domain/team.js').CreateTeamInput) => {
+        return container.teamService.create(input);
+      };
+
+      const onListTeams = async () => {
+        return container.teamService.list();
+      };
+
       const onStartWatch = async () => {
         await container.orchestrator.startWatch();
       };
@@ -196,11 +204,14 @@ export function registerTuiCommand(program: Command, container: Container): void
           onUpdateTask,
           onUpdateAgent,
           onForceStopAgent,
+          onCreateTeam,
+          onListTeams,
           onStartWatch,
           onStopWatch,
           initialWatchActive: watchStarted,
           watchError,
         }),
+        { kittyKeyboard: { mode: 'auto', flags: ['disambiguateEscapeCodes'] } },
       );
 
       await waitUntilExit();

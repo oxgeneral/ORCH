@@ -18,6 +18,7 @@ export interface CommandSpec {
 export const COMMAND_REGISTRY: Record<string, CommandSpec> = {
   task:      { sub: ['add', 'list', 'show', 'cancel', 'retry', 'assign', 'approve', 'reject', 'delete'], help: 'Manage tasks' },
   agent:     { sub: ['add', 'list', 'disable', 'enable', 'delete'], help: 'Manage agents' },
+  team:      { sub: ['create', 'list'], help: 'Manage teams' },
   run:       { args: '[id]', help: 'Run task (or selected)' },
   'run-all': { help: 'Run all todo tasks' },
   watch:     { help: 'Start watch mode (auto-dispatch)' },

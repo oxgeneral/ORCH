@@ -22,7 +22,7 @@ export interface SelectOption {
 export interface WizardStep {
   id: string;
   label: string;
-  type: 'text' | 'select' | 'textarea';
+  type: 'text' | 'select' | 'textarea' | 'multiselect';
   /** Static options for select type */
   options?: SelectOption[];
   /** Dynamic options based on already-collected values */
@@ -88,9 +88,12 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
   const totalSteps = activeSteps.length;
   const isLastStep = currentStep >= totalSteps - 1;
 
-  // Resolve options for current select step
+  // Multiselect toggled values (set of selected option values)
+  const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
+
+  // Resolve options for current select/multiselect step
   const options = useMemo(() => {
-    if (!step || step.type !== 'select') return [];
+    if (!step || (step.type !== 'select' && step.type !== 'multiselect')) return [];
     return step.getOptions?.(values) ?? step.options ?? [];
   }, [step, values]);
 
@@ -106,6 +109,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
     setTaCursorRow(0);
     setTaCursorCol(0);
     setSelectIndex(0);
+    setMultiSelected(new Set());
 
     // Find next non-skipped step from FULL steps array using newValues
     // (activeSteps is stale — it was memoized with old values)
@@ -145,6 +149,14 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
           setSelectIndex(idx >= 0 ? idx : 0);
         } else {
           setSelectIndex(0);
+        }
+      } else if (nextStep.type === 'multiselect') {
+        setSelectIndex(0);
+        // Pre-select from comma-separated defaultValue
+        if (nextStep.defaultValue) {
+          setMultiSelected(new Set(nextStep.defaultValue.split(',')));
+        } else {
+          setMultiSelected(new Set());
         }
       }
     }
@@ -240,15 +252,15 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
     }
 
     if (step.type === 'textarea') {
-      // Ctrl+Enter or Tab: confirm textarea
-      if (key.tab || (key.return && key.ctrl)) {
+      // Enter (without shift): confirm textarea
+      if (key.return && !key.shift) {
         const val = taLines.join('\n').trim();
         if (step.required && !val) return;
         goToNextStep(val);
         return;
       }
-      // Enter: new line
-      if (key.return) {
+      // Shift+Enter: new line
+      if (key.return && key.shift) {
         setTaLines((lines) => {
           const line = lines[taCursorRow] ?? '';
           const before = line.slice(0, taCursorCol);
@@ -367,6 +379,43 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
           const selected = options[idx];
           if (selected) goToNextStep(selected.value);
         }
+        return;
+      }
+    }
+
+    if (step.type === 'multiselect') {
+      if (key.upArrow || input === 'k') {
+        setSelectIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+      if (key.downArrow || input === 'j') {
+        setSelectIndex((i) => Math.min(options.length - 1, i + 1));
+        return;
+      }
+      // Space: toggle selection
+      if (input === ' ') {
+        const opt = options[clampedSelectIndex];
+        if (opt) {
+          setMultiSelected((prev) => {
+            const next = new Set(prev);
+            if (next.has(opt.value)) {
+              next.delete(opt.value);
+            } else {
+              next.add(opt.value);
+            }
+            return next;
+          });
+        }
+        return;
+      }
+      // Enter: confirm selection
+      if (key.return) {
+        const selected = Array.from(multiSelected).join(',');
+        goToNextStep(selected);
+        return;
+      }
+      if (key.backspace || key.delete) {
+        goToPrevStep();
         return;
       }
     }
@@ -497,15 +546,49 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
         </Box>
       )}
 
+      {/* Multiselect list */}
+      {step.type === 'multiselect' && (
+        <Box flexDirection="column">
+          {visibleOptions.map((opt, i) => {
+            const realIdx = i + optScrollStart;
+            const isSelected = realIdx === clampedSelectIndex;
+            const isChecked = multiSelected.has(opt.value);
+            return (
+              <Box key={opt.value}>
+                <Text color={isSelected ? tuiColors.amber : tuiColors.ghost}>
+                  {isSelected ? '  \u25B8 ' : '    '}
+                </Text>
+                <Text color={isChecked ? tuiColors.green : tuiColors.dim}>
+                  {isChecked ? '[\u2713]' : '[ ]'}
+                </Text>
+                <Text color={isSelected ? tuiColors.white : tuiColors.silver} bold={isSelected}>
+                  {' '}{opt.label}
+                </Text>
+                {opt.hint && (
+                  <Text color={tuiColors.dim} wrap="truncate">{' '}{LIGHT_RULE} {opt.hint.replace(/\n/g, ' ')}</Text>
+                )}
+              </Box>
+            );
+          })}
+          {multiSelected.size > 0 && (
+            <Box>
+              <Text color={tuiColors.dim}>  {'\u2514'} {multiSelected.size} selected</Text>
+            </Box>
+          )}
+        </Box>
+      )}
+
       {/* Hint bar */}
       <Box marginTop={0}>
         <Text color={tuiColors.ghost}>
           {'  '}
           {step.type === 'select'
             ? '\u2191\u2193 select  Enter confirm'
-            : step.type === 'textarea'
-              ? 'Enter newline  Tab confirm  \u2190\u2191\u2192\u2193 navigate'
-              : '\u2190\u2192 move  Enter confirm'}
+            : step.type === 'multiselect'
+              ? '\u2191\u2193 move  Space toggle  Enter confirm'
+              : step.type === 'textarea'
+                ? 'Shift+Enter newline  Enter confirm  \u2190\u2191\u2192\u2193 navigate'
+                : '\u2190\u2192 move  Enter confirm'}
           {'  Esc '}
           {currentStep > 0 ? 'back' : 'cancel'}
         </Text>

@@ -7,6 +7,7 @@
 
 import type { WizardStep } from './components/FormWizard.js';
 import type { Agent } from '../domain/agent.js';
+import type { Team, CreateTeamInput } from '../domain/team.js';
 
 // ── Model catalogs per adapter ──
 
@@ -93,7 +94,17 @@ const ROLE_PRESETS = [
 
 // ── Agent creation wizard ──
 
-export function getAgentWizardSteps(): WizardStep[] {
+export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
+  const teamOptions = [
+    { value: '', label: 'None', hint: 'no team' },
+    ...(teams ?? [])
+      .filter((t) => t.status === 'active')
+      .map((t) => {
+        const hint = `${t.members.length} members`;
+        return { value: t.id, label: t.name, hint };
+      }),
+  ];
+
   return [
     {
       id: 'name',
@@ -132,10 +143,17 @@ export function getAgentWizardSteps(): WizardStep[] {
       placeholder: 'e.g. Specialist in React and TypeScript',
       skip: (vals) => vals.role !== '__custom__',
     },
+    {
+      id: 'team',
+      label: 'Team',
+      type: 'select',
+      options: teamOptions,
+      skip: () => teamOptions.length <= 1, // Skip if no teams exist
+    },
   ];
 }
 
-/** Convert wizard values → CreateAgentInput-compatible object */
+/** Convert wizard values → CreateAgentInput-compatible object + optional team_id */
 export function agentWizardToInput(vals: Record<string, string>) {
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
   return {
@@ -144,6 +162,60 @@ export function agentWizardToInput(vals: Record<string, string>) {
     role,
     model: vals.model || undefined,
     approval_policy: 'auto' as const,
+    team_id: vals.team || undefined,
+  };
+}
+
+// ── Team creation wizard ──
+
+export function getTeamWizardSteps(agents: Agent[]): WizardStep[] {
+  const agentOptions = agents
+    .filter((a) => a.status !== 'disabled')
+    .map((a) => {
+      const raw = a.role ?? a.adapter;
+      const hint = raw.length > AGENT_HINT_MAX_LEN ? raw.slice(0, AGENT_HINT_MAX_LEN - 1) + '\u2026' : raw;
+      return { value: a.id, label: a.name, hint };
+    });
+
+  return [
+    {
+      id: 'name',
+      label: 'Team name',
+      type: 'text',
+      placeholder: 'e.g. frontend, backend, qa',
+      required: true,
+    },
+    {
+      id: 'lead',
+      label: 'Team lead',
+      type: 'select',
+      options: agentOptions,
+    },
+    {
+      id: 'members',
+      label: 'Team members',
+      type: 'multiselect',
+      getOptions: (vals) =>
+        agentOptions.filter((a) => a.value !== vals.lead),
+      skip: (vals) => agentOptions.filter((a) => a.value !== vals.lead).length === 0,
+    },
+    {
+      id: 'description',
+      label: 'Description',
+      type: 'textarea',
+      placeholder: 'Optional team purpose...',
+    },
+  ];
+}
+
+/** Convert wizard values → CreateTeamInput */
+export function teamWizardToInput(vals: Record<string, string>): CreateTeamInput {
+  const memberIds = vals.members ? vals.members.split(',').filter(Boolean) : [];
+  return {
+    name: vals.name!,
+    lead_agent_id: vals.lead!,
+    member_agent_ids: memberIds.length > 0 ? memberIds : undefined,
+    description: vals.description || undefined,
   };
 }
 

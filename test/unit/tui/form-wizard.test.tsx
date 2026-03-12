@@ -1,7 +1,7 @@
 /**
  * FormWizard textarea tests.
  *
- * Tests multiline textarea input: Enter adds line, Tab confirms,
+ * Tests multiline textarea input: Shift+Enter adds line, Enter confirms,
  * cursor navigation, backspace behavior, hint bar, and visual elements.
  */
 
@@ -11,6 +11,9 @@ import { render } from 'ink-testing-library';
 import { FormWizard, type WizardStep } from '../../../src/tui/components/FormWizard.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Kitty keyboard protocol CSI u sequence for Shift+Enter (codepoint 13, modifier 2=shift+1)
+const SHIFT_ENTER = '\x1b[13;2u';
 
 // Minimal textarea-only wizard for isolated testing
 function makeTextareaSteps(overrides?: Partial<WizardStep>): WizardStep[] {
@@ -103,8 +106,8 @@ describe('FormWizard textarea', () => {
     );
     await delay(50);
     const output = lastFrame()!;
-    expect(output).toContain('Enter newline');
-    expect(output).toContain('Tab confirm');
+    expect(output).toContain('Shift+Enter newline');
+    expect(output).toContain('Enter confirm');
     expect(output).toContain('navigate');
   });
 
@@ -127,9 +130,9 @@ describe('FormWizard textarea', () => {
     expect(output).toContain('Enter confirm');
   });
 
-  /* ── Enter adds new line ── */
+  /* ── Shift+Enter adds new line ── */
 
-  it('Enter adds a new line in textarea', async () => {
+  it('Shift+Enter adds a new line in textarea', async () => {
     const onComplete = vi.fn();
     const onCancel = vi.fn();
     const { stdin, lastFrame } = render(
@@ -149,8 +152,8 @@ describe('FormWizard textarea', () => {
     await delay(50);
     expect(lastFrame()!).toContain('line one');
 
-    // Press Enter → new line
-    stdin.write('\r');
+    // Press Shift+Enter → new line
+    stdin.write(SHIFT_ENTER);
     await delay(50);
 
     // Type second line
@@ -163,9 +166,9 @@ describe('FormWizard textarea', () => {
     expect(output).toContain('2');
   });
 
-  /* ── Tab confirms textarea ── */
+  /* ── Enter confirms textarea ── */
 
-  it('Tab confirms textarea and calls onComplete', async () => {
+  it('Enter confirms textarea and calls onComplete', async () => {
     const onComplete = vi.fn();
     const onCancel = vi.fn();
     const { stdin } = render(
@@ -182,14 +185,14 @@ describe('FormWizard textarea', () => {
 
     stdin.write('Hello world');
     await delay(50);
-    // Tab to confirm
-    stdin.write('\t');
+    // Enter to confirm
+    stdin.write('\r');
     await delay(50);
 
     expect(onComplete).toHaveBeenCalledWith({ body: 'Hello world' });
   });
 
-  it('Tab confirms multiline textarea with newlines joined', async () => {
+  it('Enter confirms multiline textarea with newlines joined', async () => {
     const onComplete = vi.fn();
     const onCancel = vi.fn();
     const { stdin } = render(
@@ -206,17 +209,17 @@ describe('FormWizard textarea', () => {
 
     stdin.write('first');
     await delay(50);
-    stdin.write('\r'); // Enter → new line
+    stdin.write(SHIFT_ENTER); // Shift+Enter → new line
     await delay(50);
     stdin.write('second');
     await delay(50);
-    stdin.write('\t'); // Tab → confirm
+    stdin.write('\r'); // Enter → confirm
     await delay(50);
 
     expect(onComplete).toHaveBeenCalledWith({ body: 'first\nsecond' });
   });
 
-  it('Tab on empty required textarea does not confirm', async () => {
+  it('Enter on empty required textarea does not confirm', async () => {
     const onComplete = vi.fn();
     const onCancel = vi.fn();
     const { stdin } = render(
@@ -231,8 +234,8 @@ describe('FormWizard textarea', () => {
     );
     await delay(50);
 
-    // Tab on empty required field
-    stdin.write('\t');
+    // Enter on empty required field
+    stdin.write('\r');
     await delay(50);
 
     expect(onComplete).not.toHaveBeenCalled();
@@ -291,7 +294,7 @@ describe('FormWizard textarea', () => {
     // Create two lines
     stdin.write('AAAA');
     await delay(50);
-    stdin.write('\r'); // Enter → new line
+    stdin.write(SHIFT_ENTER); // Shift+Enter → new line
     await delay(50);
     stdin.write('BBBB');
     await delay(50);
@@ -304,8 +307,8 @@ describe('FormWizard textarea', () => {
     stdin.write('X');
     await delay(50);
 
-    // Confirm with Tab
-    stdin.write('\t');
+    // Confirm with Enter
+    stdin.write('\r');
     await delay(50);
 
     // The result should have X on the first line
@@ -331,7 +334,7 @@ describe('FormWizard textarea', () => {
 
     stdin.write('AB');
     await delay(50);
-    stdin.write('\r'); // new line
+    stdin.write(SHIFT_ENTER); // Shift+Enter → new line
     await delay(50);
     // Cursor is at line 2, col 0
 
@@ -343,7 +346,7 @@ describe('FormWizard textarea', () => {
     stdin.write('X');
     await delay(50);
 
-    stdin.write('\t'); // confirm
+    stdin.write('\r'); // Enter → confirm
     await delay(50);
 
     // .trim() in goToNextStep removes trailing newline
@@ -367,7 +370,7 @@ describe('FormWizard textarea', () => {
 
     stdin.write('AB');
     await delay(50);
-    stdin.write('\r'); // new line
+    stdin.write(SHIFT_ENTER); // Shift+Enter → new line
     await delay(50);
     stdin.write('CD');
     await delay(50);
@@ -383,7 +386,7 @@ describe('FormWizard textarea', () => {
     stdin.write('X');
     await delay(50);
 
-    stdin.write('\t');
+    stdin.write('\r'); // Enter → confirm
     await delay(50);
 
     expect(onComplete).toHaveBeenCalledWith({ body: 'AB\nXCD' });
@@ -438,7 +441,7 @@ describe('FormWizard textarea', () => {
 
     stdin.write('Hello');
     await delay(50);
-    stdin.write('\r'); // new line
+    stdin.write(SHIFT_ENTER); // Shift+Enter → new line
     await delay(50);
     stdin.write('World');
     await delay(50);
@@ -454,7 +457,7 @@ describe('FormWizard textarea', () => {
     await delay(100);
 
     // Confirm
-    stdin.write('\t');
+    stdin.write('\r'); // Enter → confirm
     await delay(50);
 
     expect(onComplete).toHaveBeenCalledWith({ body: 'HelloWorld' });
@@ -593,18 +596,18 @@ describe('FormWizard textarea', () => {
     // Step 2: textarea
     const output = lastFrame()!;
     expect(output).toContain('Description');
-    expect(output).toContain('Enter newline'); // textarea hint
+    expect(output).toContain('Shift+Enter newline'); // textarea hint
 
     // Type multiline
     stdin.write('Line A');
     await delay(50);
-    stdin.write('\r');
+    stdin.write(SHIFT_ENTER); // Shift+Enter → new line
     await delay(50);
     stdin.write('Line B');
     await delay(50);
 
-    // Confirm with Tab
-    stdin.write('\t');
+    // Confirm with Enter
+    stdin.write('\r');
     await delay(50);
 
     expect(onComplete).toHaveBeenCalledWith({
