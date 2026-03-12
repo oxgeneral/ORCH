@@ -24,7 +24,6 @@ export class MessageStore implements IMessageStore {
   }
 
   async list(): Promise<Message[]> {
-    await ensureDir(this.paths.messagesDir);
     const files = await listFiles(this.paths.messagesDir, '.json');
     const results = await Promise.all(
       files.map((f) => readJson<Message>(this.paths.messagePath(f.replace('.json', '')))),
@@ -42,11 +41,6 @@ export class MessageStore implements IMessageStore {
       if (m.expires_at && new Date(m.expires_at).getTime() < now) return false;
       return m.to_agent_id === agentId;
     });
-  }
-
-  async listForTeam(teamId: string): Promise<Message[]> {
-    const all = await this.list();
-    return all.filter((m) => m.team_id === teamId);
   }
 
   async markDelivered(id: string): Promise<void> {
@@ -68,15 +62,12 @@ export class MessageStore implements IMessageStore {
   async purgeExpired(): Promise<number> {
     const all = await this.list();
     const now = Date.now();
-    let count = 0;
-    for (const m of all) {
+    const toDelete = all.filter((m) => {
       const isExpired = m.expires_at && new Date(m.expires_at).getTime() < now;
-      const isOldDelivered = m.delivered_at && Date.now() - new Date(m.delivered_at).getTime() > 3600_000;
-      if (isExpired || isOldDelivered) {
-        await this.delete(m.id);
-        count++;
-      }
-    }
-    return count;
+      const isOldDelivered = m.delivered_at && now - new Date(m.delivered_at).getTime() > 3600_000;
+      return isExpired || isOldDelivered;
+    });
+    await Promise.all(toDelete.map((m) => this.delete(m.id)));
+    return toDelete.length;
   }
 }

@@ -32,8 +32,6 @@ export function registerRunCommand(program: Command, container: Container): void
 
 async function runSingle(container: Container, taskId: string): Promise<void> {
   const task = await container.taskService.get(taskId);
-  const agents = await container.agentService.list();
-
   console.log();
   console.log(`  ${amber('orch')} · running ${taskId} "${task.title}"`);
 
@@ -120,8 +118,8 @@ async function runWatch(container: Container): Promise<void> {
     process.exit(0);
   };
 
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
 
   await container.orchestrator.startWatch();
 }

@@ -74,7 +74,6 @@ export interface IMessageStore {
   get(id: string): Promise<Message | null>;
   list(): Promise<Message[]>;
   listPending(agentId: string): Promise<Message[]>;
-  listForTeam(teamId: string): Promise<Message[]>;
   markDelivered(id: string): Promise<void>;
   delete(id: string): Promise<void>;
   purgeExpired(): Promise<number>;

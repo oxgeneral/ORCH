@@ -19,6 +19,7 @@ export function registerTeamCommand(program: Command, container: Container): voi
     .option('-d, --description <desc>', 'Team description')
     .option('--no-auto-claim', 'Disable auto-claiming')
     .action(async (name: string, opts) => {
+      await container.paths.requireInit();
       const t = await container.teamService.create({
         name,
         description: opts.description,
@@ -39,6 +40,7 @@ export function registerTeamCommand(program: Command, container: Container): voi
     .command('list')
     .description('List all teams')
     .action(async () => {
+      await container.paths.requireInit();
       const teams = await container.teamService.list();
       if (container.context.json) {
         console.log(JSON.stringify(teams, null, 2));
@@ -66,6 +68,7 @@ export function registerTeamCommand(program: Command, container: Container): voi
     .command('show <id>')
     .description('Show team details')
     .action(async (id: string) => {
+      await container.paths.requireInit();
       const t = await container.teamService.get(id);
       if (container.context.json) {
         console.log(JSON.stringify(t, null, 2));
@@ -89,6 +92,7 @@ export function registerTeamCommand(program: Command, container: Container): voi
     .command('join <team-id> <agent-id>')
     .description('Add an agent to a team')
     .action(async (teamId: string, agentId: string) => {
+      await container.paths.requireInit();
       await container.teamService.join(teamId, agentId);
       printSuccess(`Agent ${agentId} joined team ${teamId}`);
     });
@@ -97,6 +101,7 @@ export function registerTeamCommand(program: Command, container: Container): voi
     .command('leave <team-id> <agent-id>')
     .description('Remove an agent from a team')
     .action(async (teamId: string, agentId: string) => {
+      await container.paths.requireInit();
       await container.teamService.leave(teamId, agentId);
       printSuccess(`Agent ${agentId} left team ${teamId}`);
     });
@@ -105,6 +110,7 @@ export function registerTeamCommand(program: Command, container: Container): voi
     .command('add-task <team-id> <task-id>')
     .description('Add a task to the team pool')
     .action(async (teamId: string, taskId: string) => {
+      await container.paths.requireInit();
       await container.teamService.addTask(teamId, taskId);
       printSuccess(`Task ${taskId} added to team ${teamId} pool`);
     });
@@ -113,6 +119,7 @@ export function registerTeamCommand(program: Command, container: Container): voi
     .command('set-lead <team-id> <agent-id>')
     .description('Transfer team lead to another member')
     .action(async (teamId: string, agentId: string) => {
+      await container.paths.requireInit();
       await container.teamService.setLead(teamId, agentId);
       printSuccess(`${agentId} is now lead of team ${teamId}`);
     });
@@ -121,6 +128,7 @@ export function registerTeamCommand(program: Command, container: Container): voi
     .command('disband <id>')
     .description('Disband a team')
     .action(async (id: string) => {
+      await container.paths.requireInit();
       await container.teamService.disband(id);
       printSuccess(`Team ${id} disbanded`);
     });

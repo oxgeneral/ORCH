@@ -4,7 +4,7 @@
 
 import type { Command } from 'commander';
 import type { Container } from '../../container.js';
-import { printSuccess, printError, printTable, dim, formatDurationSince } from '../output.js';
+import { printSuccess, printTable, dim, formatDurationSince } from '../output.js';
 
 export function registerMsgCommand(program: Command, container: Container): void {
   const msg = program
@@ -19,6 +19,7 @@ export function registerMsgCommand(program: Command, container: Container): void
     .option('--ttl <ms>', 'TTL in milliseconds')
     .option('--reply-to <msg-id>', 'Reply to a message')
     .action(async (toAgentId: string, body: string, opts) => {
+      await container.paths.requireInit();
       const messages = await container.messageService.send({
         channel: 'direct',
         from_agent_id: opts.from ?? 'cli',
@@ -45,6 +46,7 @@ export function registerMsgCommand(program: Command, container: Container): void
     .option('--team <team-id>', 'Limit broadcast to team members')
     .option('--ttl <ms>', 'TTL in milliseconds')
     .action(async (body: string, opts) => {
+      await container.paths.requireInit();
       const messages = await container.messageService.send({
         channel: 'broadcast',
         from_agent_id: opts.from ?? 'cli',
@@ -66,17 +68,19 @@ export function registerMsgCommand(program: Command, container: Container): void
     .command('inbox <agent-id>')
     .description('Show pending messages for an agent')
     .action(async (agentId: string) => {
-      const messages = await container.messageStore.listPending(agentId);
+      await container.paths.requireInit();
+      const messages = await container.messageService.listForAgent(agentId);
+      const pending = messages.filter((m) => m.to_agent_id === agentId && m.status === 'pending');
       if (container.context.json) {
-        console.log(JSON.stringify(messages, null, 2));
+        console.log(JSON.stringify(pending, null, 2));
         return;
       }
-      if (messages.length === 0) {
+      if (pending.length === 0) {
         console.log(dim('\n  No pending messages.\n'));
         return;
       }
       console.log();
-      for (const m of messages) {
+      for (const m of pending) {
         console.log(`  ${dim(m.id)} from ${m.from_agent_id}${m.subject ? ` — ${m.subject}` : ''}`);
         console.log(`  ${m.body}`);
         console.log();
@@ -88,6 +92,7 @@ export function registerMsgCommand(program: Command, container: Container): void
     .description('List all messages')
     .option('--agent <agent-id>', 'Filter by agent (sent or received)')
     .action(async (opts) => {
+      await container.paths.requireInit();
       let messages;
       if (opts.agent) {
         messages = await container.messageService.listForAgent(opts.agent);

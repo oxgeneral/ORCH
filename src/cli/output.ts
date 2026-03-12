@@ -22,7 +22,6 @@ export const icons = {
   error: '✕',
   disabled: '─',
   agentAction: '▸',
-  orchEvent: '→',
   orchestratorEvent: '→',
   warning: '⚠',
 } as const;
@@ -40,7 +39,6 @@ const asciiIcons: Record<keyof typeof icons, string> = {
   error: 'x',
   disabled: '-',
   agentAction: '>',
-  orchEvent: '->',
   orchestratorEvent: '->',
   warning: '!!',
 };
@@ -207,13 +205,3 @@ export function dim(text: string): string {
 function stripAnsi(str: string): string {
   return str.replace(/\x1b\[[0-9;]*m/g, '');
 }
-
-// Exit codes from spec
-export const ExitCode = {
-  OK: 0,
-  ERROR: 1,
-  INVALID_ARGS: 2,
-  NOT_INIT: 3,
-  LOCK_CONFLICT: 4,
-  AGENT_ERROR: 5,
-} as const;

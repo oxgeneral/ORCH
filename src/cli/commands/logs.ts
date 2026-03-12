@@ -9,7 +9,9 @@
 import type { Command } from 'commander';
 import type { Container } from '../../container.js';
 import type { RunEvent } from '../../domain/run.js';
+import type { OrchestratorEvent } from '../../domain/events.js';
 import { printError, dim, getIcon } from '../output.js';
+import { InvalidArgumentsError } from '../../domain/errors.js';
 
 export function registerLogsCommand(program: Command, container: Container): void {
   program
@@ -98,9 +100,9 @@ async function showTaskLogs(container: Container, taskId: string, sinceMs?: numb
 
   for (const run of runs) {
     console.log(`\n  Run ${run.id} · attempt ${run.attempt} · ${run.status}`);
-    let events = await container.runService.readEvents(run.id);
+    let events = await container.runService.readEventsTail(run.id, 10);
     events = filterBySince(events, sinceMs);
-    for (const event of events.slice(-10)) {
+    for (const event of events) {
       console.log(formatEvent(event));
     }
   }
@@ -122,9 +124,9 @@ async function showAgentLogs(container: Container, agentId: string, sinceMs?: nu
 
   for (const run of runs.slice(-5)) {
     console.log(`\n  Run ${run.id} · task ${run.task_id} · ${run.status}`);
-    let events = await container.runService.readEvents(run.id);
+    let events = await container.runService.readEventsTail(run.id, 5);
     events = filterBySince(events, sinceMs);
-    for (const event of events.slice(-5)) {
+    for (const event of events) {
       console.log(formatEvent(event));
     }
   }
@@ -169,7 +171,10 @@ async function followLive(
     // Apply filters
     if (hasFilter) {
       if ('runId' in event && runIds.size > 0 && !runIds.has(event.runId)) return;
-      if ('agentId' in event && agentIds.size > 0 && !agentIds.has((event as any).agentId)) return;
+      if ('agentId' in event && agentIds.size > 0) {
+        const evt = event as Extract<OrchestratorEvent, { agentId: string }>;
+        if (!agentIds.has(evt.agentId)) return;
+      }
     }
 
     switch (event.type) {
@@ -209,8 +214,8 @@ async function followLive(
       unsub();
       resolve();
     };
-    process.on('SIGINT', cleanup);
-    process.on('SIGTERM', cleanup);
+    process.once('SIGINT', cleanup);
+    process.once('SIGTERM', cleanup);
   });
 }
 
@@ -220,8 +225,7 @@ async function followLive(
 function parseDuration(input: string): number {
   const match = input.match(/^(\d+)(s|m|h|d)$/);
   if (!match) {
-    printError(`Invalid duration: "${input}". Use format: 5m, 1h, 30s, 1d`);
-    process.exit(2);
+    throw new InvalidArgumentsError(`Invalid duration: "${input}". Use format: 5m, 1h, 30s, 1d`);
   }
 
   const value = parseInt(match[1]!, 10);

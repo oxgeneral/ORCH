@@ -59,6 +59,11 @@ export function isBlocked(task: Task, allTasks: Task[]): boolean {
 
 /**
  * Determine the next status after an agent completes or fails.
+ *
+ * Note: The `success=false` branch (retrying/failed) is reserved for future use.
+ * Currently, failures are routed through `Orchestrator._handleRunFailure()` which
+ * manages retry logic independently. This branch is kept for direct callers that
+ * need to resolve completion status without orchestrator context.
  */
 export function resolveCompletionStatus(
   task: Task,

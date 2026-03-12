@@ -99,20 +99,6 @@ describe('MessageStore', () => {
     expect(result[0].id).toBe('msg_pending');
   });
 
-  it('listForTeam returns messages for a team', async () => {
-    const teamMsg = makeMessage({ id: 'msg_team', team_id: 'team_alpha' });
-    const noTeamMsg = makeMessage({ id: 'msg_noteam' });
-    const otherTeamMsg = makeMessage({ id: 'msg_other', team_id: 'team_beta' });
-
-    await store.save(teamMsg);
-    await store.save(noTeamMsg);
-    await store.save(otherTeamMsg);
-
-    const result = await store.listForTeam('team_alpha');
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('msg_team');
-  });
-
   it('markDelivered updates status and delivered_at', async () => {
     const msg = makeMessage({ id: 'msg_deliver' });
     await store.save(msg);

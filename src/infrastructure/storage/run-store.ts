@@ -95,18 +95,18 @@ export class RunStore implements IRunStore {
   private async listFiltered(predicate: (run: Run) => boolean): Promise<Run[]> {
     await ensureDir(this.paths.runsDir);
     const files = await listFiles(this.paths.runsDir, '.json');
-    const runs: Run[] = [];
 
-    for (const file of files) {
-      const id = file.replace('.json', '');
-      const run = await readJson<Run>(this.paths.runPath(id));
-      if (run && predicate(run)) {
-        runs.push(run);
-      }
-    }
-
-    return runs.sort(
-      (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+    const results = await Promise.all(
+      files.map(file => {
+        const id = file.replace('.json', '');
+        return readJson<Run>(this.paths.runPath(id));
+      })
     );
+
+    return results
+      .filter((run): run is Run => run !== null && predicate(run))
+      .sort(
+        (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+      );
   }
 }

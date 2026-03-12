@@ -7,7 +7,7 @@
 import type { Command } from 'commander';
 import type { Container } from '../../container.js';
 import { printSuccess, printError, dim } from '../output.js';
-import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 
 export function registerConfigCommand(program: Command, container: Container): void {
   const config = program
@@ -56,9 +56,9 @@ export function registerConfigCommand(program: Command, container: Container): v
       await container.paths.requireInit();
 
       const editor = process.env['EDITOR'] || process.env['VISUAL'] || 'vi';
-      const child = execFile(editor, [container.paths.configPath], {
+      const child = spawn(editor, [container.paths.configPath], {
         stdio: 'inherit',
-      } as any);
+      });
 
       await new Promise<void>((resolve, reject) => {
         child.on('close', (code) => {

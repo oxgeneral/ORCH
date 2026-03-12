@@ -17,15 +17,15 @@ export class AgentStore implements IAgentStore {
   async list(): Promise<Agent[]> {
     await ensureDir(this.paths.agentsDir);
     const files = await listFiles(this.paths.agentsDir, '.yml');
-    const agents: Agent[] = [];
 
-    for (const file of files) {
-      const id = file.replace('.yml', '');
-      const agent = await readYaml<Agent>(this.paths.agentPath(id));
-      if (agent) agents.push(agent);
-    }
+    const results = await Promise.all(
+      files.map(file => {
+        const id = file.replace('.yml', '');
+        return readYaml<Agent>(this.paths.agentPath(id));
+      })
+    );
 
-    return agents;
+    return results.filter((agent): agent is Agent => agent !== null);
   }
 
   async get(id: string): Promise<Agent | null> {

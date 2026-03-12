@@ -198,7 +198,6 @@ export function createMockMessageStore(): IMessageStore {
     get: vi.fn(async () => null),
     list: vi.fn(async () => []),
     listPending: vi.fn(async () => []),
-    listForTeam: vi.fn(async () => []),
     markDelivered: vi.fn(async () => {}),
     delete: vi.fn(async () => {}),
     purgeExpired: vi.fn(async () => 0),

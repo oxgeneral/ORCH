@@ -83,14 +83,14 @@ describe('logs command', () => {
       (container.runService.listForTask as ReturnType<typeof vi.fn>).mockResolvedValue([
         makeLogRun('run_1', 'tsk_1', 'agt_1'),
       ]);
-      (container.runService.readEvents as ReturnType<typeof vi.fn>).mockResolvedValue([
+      (container.runService.readEventsTail as ReturnType<typeof vi.fn>).mockResolvedValue([
         makeEvent('agent_output', 'output'),
       ]);
 
       await program.parseAsync(['logs', '--task', 'tsk_1'], { from: 'user' });
 
       expect(container.runService.listForTask).toHaveBeenCalledWith('tsk_1');
-      expect(container.runService.readEvents).toHaveBeenCalledWith('run_1');
+      expect(container.runService.readEventsTail).toHaveBeenCalledWith('run_1', 10);
     });
 
     it('shows "no runs" when task has no runs', async () => {

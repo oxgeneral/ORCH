@@ -40,6 +40,7 @@ export interface PromptContext {
     scope?: string[];
   };
   agent: {
+    id: string;
     name: string;
     role?: string;
   };
@@ -142,6 +143,7 @@ export function buildPromptContext(
       scope: task.scope,
     },
     agent: {
+      id: agent.id,
       name: agent.name,
       role: agent.role,
     },
@@ -236,7 +238,7 @@ You can manage tasks and coordinate with other agents using the \`orch\` CLI:
 - \`orch msg send <agent-id> "<body>" -s "<subject>"\` — send a direct message
 - \`orch msg broadcast "<body>" -s "<subject>"\` — broadcast to all agents
 - \`orch msg broadcast "<body>" --team <team-id>\` — broadcast to team members
-- \`orch msg inbox\` — list your pending messages
+- \`orch msg inbox {{ agent.id }}\` — list your pending messages
 
 **Context commands (share data with other agents):**
 - \`orch context set <key> <value>\` — store a shared context entry

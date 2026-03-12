@@ -67,13 +67,13 @@ export class MessageService {
       }
 
       const recipients = agents.filter((a) => a.id !== input.from_agent_id && a.status !== 'disabled');
-      for (const agent of recipients) {
-        const msg: Message = {
-          ...baseMessage,
-          id: `msg_${nanoid(7)}`,
-          to_agent_id: agent.id,
-        };
-        await this.messageStore.save(msg);
+      const broadcastMsgs = recipients.map((agent) => ({
+        ...baseMessage,
+        id: `msg_${nanoid(7)}`,
+        to_agent_id: agent.id,
+      } as Message));
+      await Promise.all(broadcastMsgs.map((msg) => this.messageStore.save(msg)));
+      for (const msg of broadcastMsgs) {
         messages.push(msg);
         this.emitSent(msg);
       }
@@ -116,8 +116,8 @@ export class MessageService {
    */
   async drainMailbox(agentId: string, taskId: string): Promise<Message[]> {
     const pending = await this.messageStore.listPending(agentId);
+    await Promise.all(pending.map((msg) => this.messageStore.markDelivered(msg.id)));
     for (const msg of pending) {
-      await this.messageStore.markDelivered(msg.id);
       this.eventBus.emit({
         type: 'message:delivered',
         messageId: msg.id,
