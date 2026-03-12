@@ -214,4 +214,26 @@ export function registerAgentCommand(program: Command, container: Container): vo
       await container.agentService.enable(id);
       printSuccess(`Enabled agent ${id}`);
     });
+
+  // agent autonomous
+  agent
+    .command('autonomous <id>')
+    .description('Toggle autonomous mode for an agent')
+    .option('--on', 'Enable autonomous mode')
+    .option('--off', 'Disable autonomous mode')
+    .option('--goal <goal>', 'Set the goal for autonomous work')
+    .action(async (id: string, opts: { on?: boolean; off?: boolean; goal?: string }) => {
+      await container.paths.requireInit();
+      const current = await container.agentService.get(id);
+      const enable = opts.on ? true : opts.off ? false : !current.autonomous;
+      const a = await container.agentService.setAutonomous(id, enable, opts.goal);
+
+      if (container.context.json) {
+        console.log(JSON.stringify(a, null, 2));
+      } else if (container.context.quiet) {
+        console.log(a.id);
+      } else {
+        printSuccess(`Autonomous mode ${enable ? 'enabled' : 'disabled'} for agent ${agentName(a.name)} (${a.id})`);
+      }
+    });
 }

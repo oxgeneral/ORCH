@@ -120,6 +120,10 @@ export function registerTuiCommand(program: Command, container: Container): void
         await container.orchestrator.forceStopAgent(agentId);
       };
 
+      const onToggleAutonomous = async (agentId: string, enabled: boolean, goal?: string) => {
+        return container.agentService.setAutonomous(agentId, enabled, goal);
+      };
+
       const onLoadHistory = async (): Promise<import('../../tui/App.js').HistoryEntry[]> => {
         const allRuns: import('../../domain/run.js').Run[] = [];
         // Collect recent runs from all tasks
@@ -220,6 +224,7 @@ export function registerTuiCommand(program: Command, container: Container): void
           onUpdateTask,
           onUpdateAgent,
           onForceStopAgent,
+          onToggleAutonomous,
           onCreateTeam,
           onListTeams,
           onJoinTeam,

@@ -382,6 +382,7 @@ export class Orchestrator {
 
         await this.loadState();
         await this.reconcile();
+        await this.seedAutonomousTasks();
         await this.dispatchAll();
 
         const tasks = await this.cachedTaskStore.list();
@@ -537,6 +538,55 @@ export class Orchestrator {
     }
 
     await this.saveState();
+  }
+
+  /**
+   * Create tasks for autonomous agents that have no active work.
+   */
+  private async seedAutonomousTasks(): Promise<void> {
+    const agents = await this.cachedAgentStore.list();
+    const autonomousAgents = agents.filter(
+      (a) => a.autonomous && a.status === 'idle',
+    );
+    if (autonomousAgents.length === 0) return;
+
+    const allTasks = await this.cachedTaskStore.list();
+    const nonTerminalStatuses = new Set(['todo', 'in_progress', 'retrying', 'review']);
+
+    for (const agent of autonomousAgents) {
+      // Skip if agent already has a non-terminal task assigned
+      const hasActiveTask = allTasks.some(
+        (t) => t.assignee === agent.id && nonTerminalStatuses.has(t.status),
+      );
+      if (hasActiveTask) continue;
+
+      const goal = agent.autonomous_goal;
+      const role = agent.role ?? 'general assistant';
+      const title = goal
+        ? `[auto] ${agent.name}: ${goal.slice(0, 60)}`
+        : `[auto] ${agent.name}: ${role.slice(0, 60)}`;
+      const description = goal
+        ? `## GOAL (highest priority)\n\n${goal}\n\n---\nAgent role: ${role}`
+        : `Autonomous work cycle. Agent role: ${role}`;
+
+      try {
+        await this.deps.taskService.create({
+          title,
+          description,
+          assignee: agent.id,
+          labels: ['autonomous'],
+          priority: 3,
+        });
+        this.cachedTaskStore.invalidate();
+      } catch (err) {
+        this.deps.eventBus.emit({
+          type: 'orchestrator:error',
+          error: err instanceof Error ? err.message : String(err),
+          context: `autonomous task for agent ${agent.id}`,
+          fatal: false,
+        });
+      }
+    }
   }
 
   /**

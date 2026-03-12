@@ -35,7 +35,8 @@ export type OrchestratorEvent =
   | { type: 'team:member_left'; teamId: string; agentId: string }
   | { type: 'team:task_claimed'; teamId: string; taskId: string; agentId: string }
   | { type: 'team:disbanded'; teamId: string }
-  | { type: 'team:task_added'; teamId: string; taskId: string };
+  | { type: 'team:task_added'; teamId: string; taskId: string }
+  | { type: 'agent:autonomous_toggled'; agentId: string; autonomous: boolean };
 
 export type OrchestratorEventType = OrchestratorEvent['type'];
 

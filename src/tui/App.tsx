@@ -108,6 +108,8 @@ export interface AppProps {
   initialActivityFilter?: ActivityFilterPreset;
   /** Save activity filter to global config */
   onSaveActivityFilter?: (preset: ActivityFilterPreset) => Promise<void>;
+  /** Toggle autonomous mode on an agent (with optional goal for autonomous work) */
+  onToggleAutonomous?: (agentId: string, enabled: boolean, goal?: string) => Promise<Agent>;
 }
 
 type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
@@ -116,7 +118,7 @@ type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
 interface WizardConfig {
   title: string;
   steps: WizardStep[];
-  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team' | 'config';
+  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team' | 'config' | 'autonomous';
   /** Target ID for edit wizards */
   targetId?: string;
 }
@@ -197,6 +199,7 @@ export function App({
   onUpdateTask, onUpdateAgent, onForceStopAgent,
   onCreateTeam, onListTeams, onJoinTeam, onLeaveTeam, onDisbandTeam, onSetTeamLead,
   onStartWatch, onStopWatch,
+  onToggleAutonomous,
   initialWatchActive,
   watchError,
   messageBatchMs = process.env.VITEST ? 0 : 80,
@@ -623,8 +626,15 @@ export function App({
           addMessage(`Activity filter: ${preset.label}`, tuiColors.amber);
         }
       }
+    } else if (kind === 'autonomous' && targetId && onToggleAutonomous) {
+      const goal = values.goal?.trim() || undefined;
+      addMessage(`Enabling autonomous mode for agent...`, tuiColors.amber);
+      onToggleAutonomous(targetId, true, goal).then(
+        (agent) => { addMessage(`\u27F3 ${agent.name} autonomous ON${goal ? ` \u2014 goal: ${goal.slice(0, 60)}` : ''}`, tuiColors.cyan); refreshAll(); },
+        (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+      );
     }
-  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onAssignTask, onUpdateTask, onUpdateAgent, addMessage, refreshAll, onSaveActivityFilter]);
+  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, addMessage, refreshAll, onSaveActivityFilter]);
 
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');
@@ -897,8 +907,27 @@ export function App({
             () => { addMessage(`\u2713 Deleted agent "${a.name}"`, tuiColors.green); refreshAll(); },
             (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
           );
+        } else if (sub === 'autonomous' || sub === 'auto') {
+          const a = parts[2] ? sortedAgents.find((x) => x.id === parts[2] || x.name === parts[2]) : selectedAgent;
+          if (!a) { addMessage('No agent selected or id given', tuiColors.yellow); return; }
+          if (!onToggleAutonomous) { addMessage('Autonomous toggle not available', tuiColors.yellow); return; }
+          if (a.autonomous) {
+            addMessage(`Disabling autonomous mode for "${a.name}"...`, tuiColors.amber);
+            onToggleAutonomous(a.id, false).then(
+              () => { addMessage(`\u27F3 ${a.name} autonomous OFF`, tuiColors.cyan); refreshAll(); },
+              (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
+            );
+          } else {
+            // Goal from remaining args: /agent auto <name> <goal text...>
+            const goal = parts.slice(3).join(' ').trim() || undefined;
+            addMessage(`Enabling autonomous mode for "${a.name}"${goal ? ` with goal` : ''}...`, tuiColors.amber);
+            onToggleAutonomous(a.id, true, goal).then(
+              () => { addMessage(`\u27F3 ${a.name} autonomous ON${goal ? ` \u2014 ${goal.slice(0, 60)}` : ''}`, tuiColors.cyan); refreshAll(); },
+              (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
+            );
+          }
         } else {
-          addMessage('Usage: /agent add|list|disable|enable|delete', tuiColors.yellow);
+          addMessage('Usage: /agent add|list|disable|enable|delete|autonomous', tuiColors.yellow);
         }
         return;
       }
@@ -1340,6 +1369,32 @@ export function App({
       return;
     }
 
+    // U: toggle autonomous mode on selected agent (agents view)
+    if ((input === 'u' || input === 'U') && activeView === 'agents' && selectedAgent && onToggleAutonomous) {
+      if (selectedAgent.autonomous) {
+        // Disable — direct toggle, keep goal for resume
+        addMessage(`Disabling autonomous mode for "${selectedAgent.name}"...`, tuiColors.amber);
+        onToggleAutonomous(selectedAgent.id, false).then(
+          () => { addMessage(`\u27F3 ${selectedAgent.name} autonomous OFF`, tuiColors.cyan); refreshAll(); },
+          (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+        );
+      } else {
+        // Enable — launch goal wizard
+        const steps: WizardStep[] = [
+          {
+            id: 'goal',
+            label: 'Goal for autonomous work',
+            type: 'textarea' as const,
+            defaultValue: selectedAgent.autonomous_goal ?? '',
+            placeholder: 'Describe the goal: what should the agent achieve?',
+          },
+        ];
+        setWizardConfig({ title: `\u27F3 Autonomous: ${selectedAgent.name}`, steps, kind: 'autonomous', targetId: selectedAgent.id });
+        setInputMode('wizard');
+      }
+      return;
+    }
+
     // View switching: T/A/L keys (only when detail panel is closed)
     if (!detailOpen) {
       if (input === 't' || input === 'T') { setActiveView('tasks'); return; }
@@ -1492,6 +1547,7 @@ export function App({
   );
   const canForceStop = !inInput && activeView === 'agents' && selectedAgent &&
     (agentActuallyRunning || selectedAgent.status === 'running') && !!onForceStopAgent;
+  const canToggleAuto = !inInput && activeView === 'agents' && !!selectedAgent && !!onToggleAutonomous;
 
   const showSuggestions = inputMode === 'command' && suggestions.length > 0;
 
@@ -1633,6 +1689,8 @@ export function App({
         canDelete={!!canDelete}
         canEdit={!!canEdit}
         canForceStop={!!canForceStop}
+        canToggleAuto={!!canToggleAuto}
+        autoActive={selectedAgent?.autonomous}
         canToggleShowAll={activeView === 'tasks' && sortedTasks.length > TASK_LIST_LIMIT}
         showAllActive={showAllTasks}
         hasDetail={!!(showTaskDetail || showAgentDetail)}
@@ -1855,6 +1913,7 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
           currentTaskTitle={agent.current_task ? taskTitleMap.get(agent.current_task) : undefined}
           teamName={team}
           isLead={teamLeadSet?.has(agent.id)}
+          autonomous={agent.autonomous}
         />
       </Box>,
     );
@@ -2473,12 +2532,38 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
         </Box>
       </Box>
 
+      {/* Row 4: autonomous mode */}
+      {agent.autonomous && (
+        <Box>
+          <Box width={col1Width}>
+            <Text color={tuiColors.dim}>  auto      </Text>
+            <Text color={tuiColors.cyan}>{'\u27F3'} ON</Text>
+          </Box>
+          {agent.autonomous_goal && (
+            <Box>
+              <Text color={tuiColors.dim}>  goal      </Text>
+              <Text color={tuiColors.amber} wrap="truncate">{agent.autonomous_goal.split('\n')[0]}</Text>
+            </Box>
+          )}
+        </Box>
+      )}
+
       {/* Blank separator */}
       <Text> </Text>
 
+      {/* Goal description (full) if autonomous */}
+      {agent.autonomous_goal && agent.autonomous ? (
+        <>
+          {agent.autonomous_goal.split('\n').slice(0, Math.max(1, height - (agent.role ? 6 : 5))).map((line, i) => (
+            <Text key={`g${i}`} color={tuiColors.amber} wrap="truncate">{'  '}{line}</Text>
+          ))}
+          {agent.role && <Text> </Text>}
+        </>
+      ) : null}
+
       {/* Role description — split into lines to fill available height */}
-      {/* Header uses 4 rows: status/adapter, model/task, runs/team, blank separator */}
-      {agent.role ? agent.role.split('\n').slice(0, Math.max(1, height - 4)).map((line, i) => (
+      {/* Header uses 4-5 rows depending on autonomous */}
+      {agent.role ? agent.role.split('\n').slice(0, Math.max(1, height - (agent.autonomous ? 6 : 4))).map((line, i) => (
         <Text key={i} color={tuiColors.silver} wrap="truncate">{'  '}{line}</Text>
       )) : (
         <Text color={tuiColors.dim}>  No role description.</Text>

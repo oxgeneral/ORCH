@@ -44,3 +44,5 @@ export const DOT = '\u00B7';
 export const LOZENGE = '\u25C8';
 /** Star (★) — team leads */
 export const STAR = '\u2605';
+/** Loop arrow (⟳) — autonomous mode */
+export const LOOP = '\u27F3';

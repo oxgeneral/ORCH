@@ -25,6 +25,8 @@ export interface CommandBarProps {
   canDelete?: boolean;
   canEdit?: boolean;
   canForceStop?: boolean;
+  canToggleAuto?: boolean;
+  autoActive?: boolean;
   canToggleShowAll?: boolean;
   showAllActive?: boolean;
   hasDetail: boolean;
@@ -35,7 +37,7 @@ export interface CommandBarProps {
 }
 
 export function CommandBar({
-  mode, value, completion, activeView, canRun, canNew, canApprove, canReject, canCancel, canDelete, canEdit, canForceStop, canToggleShowAll, showAllActive, hasDetail,
+  mode, value, completion, activeView, canRun, canNew, canApprove, canReject, canCancel, canDelete, canEdit, canForceStop, canToggleAuto, autoActive, canToggleShowAll, showAllActive, hasDetail,
   itemCount, itemLabel, width, hasSuggestions,
 }: CommandBarProps) {
   if (mode === 'command') {
@@ -117,6 +119,13 @@ export function CommandBar({
             {'  '}
             <Text bold color={tuiColors.red}>S</Text>
             {' stop'}
+          </>
+        )}
+        {canToggleAuto && (
+          <>
+            {'  '}
+            <Text bold color={tuiColors.cyan}>U</Text>
+            {autoActive ? ' auto off' : ' auto on'}
           </>
         )}
         {canToggleShowAll && (
