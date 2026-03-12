@@ -133,7 +133,7 @@ describe('GoalService autonomous mode side effects', () => {
       expect(agentService.setAutonomous).toHaveBeenCalledWith('agt_004', false);
     });
 
-    it('does not call setAutonomous when transitioning to paused (non-terminal)', async () => {
+    it('calls maybeDisableAutonomous when transitioning to paused', async () => {
       const goal = makeGoal({ id: 'goal_s3', status: 'active', assignee: 'agt_005' });
       const goalStore = createMockGoalStore([goal]);
       const agentService = createMockAgentService();
@@ -141,7 +141,7 @@ describe('GoalService autonomous mode side effects', () => {
 
       await svc.updateStatus('goal_s3', 'paused');
 
-      expect(agentService.setAutonomous).not.toHaveBeenCalled();
+      expect(agentService.setAutonomous).toHaveBeenCalledWith('agt_005', false);
     });
 
     it('does not call setAutonomous on terminal status if goal has no assignee', async () => {

@@ -1136,6 +1136,9 @@ export class Orchestrator {
     }
 
     await this.saveState();
+
+    // Reactive dispatch — agent is idle, try to assign next task immediately
+    this.scheduleImmediateDispatch();
   }
 
   private async handleRunFailure(
@@ -1220,6 +1223,9 @@ export class Orchestrator {
     delete state.running[taskId];
     state.stats.total_runs++;
     await this.saveState();
+
+    // Reactive dispatch — agent is idle, try to assign next task immediately
+    this.scheduleImmediateDispatch();
   }
 
   /**

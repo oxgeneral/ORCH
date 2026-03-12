@@ -12,10 +12,13 @@
 import { nanoid } from 'nanoid';
 import type { Goal, GoalStatus, CreateGoalInput } from '../domain/goal.js';
 import { isGoalTerminal } from '../domain/goal.js';
+import { AUTONOMOUS_LABEL } from '../domain/task.js';
+import { isTerminal } from '../domain/transitions.js';
 import { GoalNotFoundError, InvalidArgumentsError } from '../domain/errors.js';
-import type { IGoalStore } from '../infrastructure/storage/interfaces.js';
+import type { IGoalStore, ITaskStore } from '../infrastructure/storage/interfaces.js';
 import type { EventBus } from './event-bus.js';
 import type { AgentService } from './agent-service.js';
+import type { TaskService } from './task-service.js';
 
 const VALID_TRANSITIONS: Record<GoalStatus, GoalStatus[]> = {
   active: ['paused', 'achieved', 'abandoned'],
@@ -29,6 +32,8 @@ export class GoalService {
     private readonly goalStore: IGoalStore,
     private readonly eventBus: EventBus,
     private readonly agentService?: AgentService,
+    private readonly taskService?: TaskService,
+    private readonly taskStore?: ITaskStore,
   ) {}
 
   async create(input: CreateGoalInput): Promise<Goal> {
@@ -83,9 +88,18 @@ export class GoalService {
 
     this.eventBus.emit({ type: 'goal:status_changed', goalId: id, from: oldStatus, to: newStatus });
 
-    // Terminal status — check if agent still has other active goals
-    if (isGoalTerminal(newStatus) && goal.assignee) {
-      await this.maybeDisableAutonomous(goal.assignee);
+    if (goal.assignee) {
+      if (newStatus === 'paused') {
+        // Pause: disable autonomous + cancel pending autonomous tasks
+        await this.maybeDisableAutonomous(goal.assignee);
+        await this.cancelPendingAutonomousTasks(goal.assignee);
+      } else if (newStatus === 'active' && oldStatus === 'paused') {
+        // Resume: re-enable autonomous mode
+        await this.enableAutonomous(goal.assignee);
+      } else if (isGoalTerminal(newStatus)) {
+        // Terminal: check if agent still has other active goals
+        await this.maybeDisableAutonomous(goal.assignee);
+      }
     }
 
     return goal;
@@ -143,6 +157,26 @@ export class GoalService {
   private async hasActiveGoalsForAgent(agentId: string): Promise<boolean> {
     const activeGoals = await this.goalStore.list({ status: 'active' });
     return activeGoals.some((g) => g.assignee === agentId);
+  }
+
+  /** Cancel pending (todo/retrying) autonomous tasks assigned to the agent. */
+  private async cancelPendingAutonomousTasks(agentId: string): Promise<void> {
+    if (!this.taskService || !this.taskStore) return;
+    try {
+      const allTasks = await this.taskStore.list();
+      const pending = allTasks.filter(
+        (t) =>
+          t.assignee === agentId &&
+          t.labels?.includes(AUTONOMOUS_LABEL) &&
+          !isTerminal(t.status) &&
+          t.status !== 'in_progress',
+      );
+      for (const t of pending) {
+        await this.taskService.cancel(t.id).catch(() => {});
+      }
+    } catch {
+      // Best-effort cleanup
+    }
   }
 
   /** Disable autonomous if agent has no other active goals. */
