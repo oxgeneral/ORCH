@@ -150,31 +150,32 @@ describe('logs command', () => {
   });
 
   describe('logs --follow', () => {
-    it('uses process.once (not process.on) for SIGINT and SIGTERM', async () => {
-      const onceSpy = vi.spyOn(process, 'once');
-      const onSpy = vi.spyOn(process, 'on');
+    /** Mock process.once to auto-fire the given signal via setImmediate. */
+    function mockSignalOnce(signal: string) {
+      return vi.spyOn(process, 'once').mockImplementation(
+        (event: string | symbol, handler: (...args: any[]) => void) => {
+          if (event === signal) setImmediate(() => handler());
+          return process;
+        },
+      );
+    }
 
-      // Trigger SIGINT immediately after process.once registers
-      onceSpy.mockImplementation((event: string | symbol, handler: (...args: any[]) => void) => {
-        if (event === 'SIGINT') {
-          // Fire immediately to unblock the promise
-          setImmediate(() => handler());
-        }
-        return process;
-      });
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('uses process.once (not process.on) for SIGINT and SIGTERM', async () => {
+      const onceSpy = mockSignalOnce('SIGINT');
+      const onSpy = vi.spyOn(process, 'on');
 
       await program.parseAsync(['logs', '--follow'], { from: 'user' });
 
       expect(onceSpy).toHaveBeenCalledWith('SIGINT', expect.any(Function));
       expect(onceSpy).toHaveBeenCalledWith('SIGTERM', expect.any(Function));
-      // process.on should NOT be called for signal handlers in followLive
       const signalOnCalls = onSpy.mock.calls.filter(
         ([event]) => event === 'SIGINT' || event === 'SIGTERM',
       );
       expect(signalOnCalls).toHaveLength(0);
-
-      onceSpy.mockRestore();
-      onSpy.mockRestore();
     });
 
     it('calls unsub when SIGINT fires', async () => {
@@ -186,36 +187,18 @@ describe('logs command', () => {
       program.exitOverride();
       registerLogsCommand(program, container);
 
-      const onceSpy = vi.spyOn(process, 'once').mockImplementation(
-        (event: string | symbol, handler: (...args: any[]) => void) => {
-          if (event === 'SIGINT') {
-            setImmediate(() => handler());
-          }
-          return process;
-        },
-      );
-
+      mockSignalOnce('SIGINT');
       await program.parseAsync(['logs', '--follow'], { from: 'user' });
 
       expect(unsubFn).toHaveBeenCalledOnce();
-      onceSpy.mockRestore();
     });
 
     it('resolves cleanly after SIGTERM fires', async () => {
-      const onceSpy = vi.spyOn(process, 'once').mockImplementation(
-        (event: string | symbol, handler: (...args: any[]) => void) => {
-          if (event === 'SIGTERM') {
-            setImmediate(() => handler());
-          }
-          return process;
-        },
-      );
+      mockSignalOnce('SIGTERM');
 
       await expect(
         program.parseAsync(['logs', '--follow'], { from: 'user' }),
       ).resolves.not.toThrow();
-
-      onceSpy.mockRestore();
     });
   });
 });
