@@ -103,16 +103,8 @@ export async function appendJsonl(filePath: string, record: unknown): Promise<vo
 export async function readJsonl<T>(filePath: string): Promise<T[]> {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
-    const results: T[] = [];
-    for (const line of content.split('\n')) {
-      if (line.trim().length === 0) continue;
-      try {
-        results.push(JSON.parse(line) as T);
-      } catch {
-        process.stderr.write(`[readJsonl] skipping corrupt JSONL line: ${line.slice(0, 200)}\n`);
-      }
-    }
-    return results;
+    const lines = content.split('\n').filter((l) => l.trim().length > 0);
+    return parseJsonlLines<T>(lines);
   } catch (err) {
     if (isENOENT(err)) return [];
     throw err;
@@ -178,11 +170,13 @@ export async function readJsonlTail<T>(filePath: string, count: number): Promise
  */
 function parseJsonlLines<T>(lines: string[]): T[] {
   const results: T[] = [];
-  for (const line of lines) {
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
     try {
       results.push(JSON.parse(line) as T);
     } catch {
-      process.stderr.write(`[readJsonlTail] skipping corrupt JSONL line: ${line.slice(0, 200)}\n`);
+      process.stderr.write(`[readJsonl] skipping corrupt line: ${line.slice(0, 200)}\n`);
     }
   }
   return results;

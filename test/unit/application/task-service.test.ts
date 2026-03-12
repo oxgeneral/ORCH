@@ -98,6 +98,70 @@ describe('TaskService', () => {
       expect(task.title).toBe('hello');
       expect(task.description).toBe('desc');
     });
+
+    describe('depends_on validation', () => {
+      it('throws InvalidArgumentsError for unknown single task ID', async () => {
+        await expect(
+          service.create({ title: 'Task', depends_on: ['tsk_nonexistent'] }),
+        ).rejects.toThrow(InvalidArgumentsError);
+      });
+
+      it('error message contains the unknown task ID', async () => {
+        await expect(
+          service.create({ title: 'Task', depends_on: ['tsk_missing1'] }),
+        ).rejects.toThrow('tsk_missing1');
+      });
+
+      it('throws with all unknown IDs listed in error message', async () => {
+        await expect(
+          service.create({ title: 'Task', depends_on: ['tsk_bad1', 'tsk_bad2'] }),
+        ).rejects.toThrow('tsk_bad1, tsk_bad2');
+      });
+
+      it('accepts valid existing task IDs', async () => {
+        const existing = makeTask({ id: 'tsk_dep1' });
+        taskStore = createMockTaskStore([existing]);
+        service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+        const task = await service.create({ title: 'Dependent', depends_on: ['tsk_dep1'] });
+        expect(task.depends_on).toEqual(['tsk_dep1']);
+      });
+
+      it('accepts empty depends_on array without validation', async () => {
+        const task = await service.create({ title: 'No deps', depends_on: [] });
+        expect(task.depends_on).toEqual([]);
+        expect(taskStore.get).not.toHaveBeenCalled();
+      });
+
+      it('accepts undefined depends_on without validation', async () => {
+        const task = await service.create({ title: 'No deps' });
+        expect(task.depends_on).toEqual([]);
+        expect(taskStore.get).not.toHaveBeenCalled();
+      });
+
+      it('rejects when only some IDs are missing', async () => {
+        const existing = makeTask({ id: 'tsk_real' });
+        taskStore = createMockTaskStore([existing]);
+        service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+        await expect(
+          service.create({ title: 'Task', depends_on: ['tsk_real', 'tsk_fake'] }),
+        ).rejects.toThrow('tsk_fake');
+      });
+
+      it('accepts multiple valid task IDs', async () => {
+        const dep1 = makeTask({ id: 'tsk_dep1' });
+        const dep2 = makeTask({ id: 'tsk_dep2' });
+        taskStore = createMockTaskStore([dep1, dep2]);
+        service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+        const task = await service.create({
+          title: 'Multi-dep',
+          depends_on: ['tsk_dep1', 'tsk_dep2'],
+        });
+        expect(task.depends_on).toEqual(['tsk_dep1', 'tsk_dep2']);
+      });
+    });
   });
 
   describe('get', () => {

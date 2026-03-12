@@ -93,23 +93,17 @@ export class EventBus {
    * Emit an event synchronously to all subscribed handlers.
    */
   emit(event: OrchestratorEvent): void {
-    const handlers = this.handlers.get(event.type);
-    if (handlers) {
-      for (const handler of handlers) {
-        try {
-          handler(event);
-        } catch (err) {
-          // Don't let a failing handler break the event chain
-          console.error(`EventBus handler error for "${event.type}":`, err);
-        }
-      }
-    }
+    const typed = this.handlers.get(event.type);
+    if (typed) this.dispatchToSet(typed, event, 'handler');
+    this.dispatchToSet(this.wildcardHandlers, event, 'wildcard handler');
+  }
 
-    for (const handler of this.wildcardHandlers) {
+  private dispatchToSet(handlers: Iterable<Handler<any>>, event: OrchestratorEvent, label: string): void {
+    for (const handler of handlers) {
       try {
         handler(event);
       } catch (err) {
-        console.error(`EventBus wildcard handler error for "${event.type}":`, err);
+        console.error(`EventBus ${label} error for "${event.type}":`, err);
       }
     }
   }
@@ -119,6 +113,19 @@ export class EventBus {
    */
   onAny(handler: Handler<OrchestratorEvent>): () => void {
     this.wildcardHandlers.add(handler);
+
+    if (
+      this.maxListeners > 0 &&
+      this.wildcardHandlers.size > this.maxListeners &&
+      !this.warnedTypes.has('*')
+    ) {
+      this.warnedTypes.add('*');
+      console.warn(
+        `EventBus: possible memory leak detected. ${this.wildcardHandlers.size} wildcard listeners added. ` +
+        `Use setMaxListeners() to increase limit if this is intentional.`,
+      );
+    }
+
     return () => { this.wildcardHandlers.delete(handler); };
   }
 

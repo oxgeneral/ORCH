@@ -138,7 +138,7 @@ export class Orchestrator {
       await fn();
     } finally {
       this.lockAcquired = false;
-      await releaseLock(this.deps.lockPath).catch(() => {});
+      await releaseLock(this.deps.lockPath);
     }
   }
 

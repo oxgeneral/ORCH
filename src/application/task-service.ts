@@ -38,11 +38,10 @@ export class TaskService {
     }
 
     if (input.depends_on?.length) {
-      const missing: string[] = [];
-      for (const depId of input.depends_on) {
-        const dep = await this.taskStore.get(depId);
-        if (!dep) missing.push(depId);
-      }
+      const results = await Promise.all(
+        input.depends_on.map(async (depId) => ({ depId, exists: !!(await this.taskStore.get(depId)) })),
+      );
+      const missing = results.filter((r) => !r.exists).map((r) => r.depId);
       if (missing.length > 0) {
         throw new InvalidArgumentsError(
           `Unknown depends_on task ID(s): ${missing.join(', ')}`,
