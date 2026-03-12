@@ -96,7 +96,7 @@ export function registerConfigCommand(program: Command, container: Container): v
     .description('Set a global config value')
     .action(async (key: string, value: string) => {
       if (key === 'activity_filter') {
-        if (!VALID_FILTER_PRESETS.includes(value as ActivityFilterPreset)) {
+        if (!(VALID_FILTER_PRESETS as readonly string[]).includes(value)) {
           printError(`Invalid value "${value}". Valid: ${VALID_FILTER_PRESETS.join(', ')}`);
           return;
         }

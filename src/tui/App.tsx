@@ -250,6 +250,10 @@ export function App({
     const preset = ACTIVITY_PRESETS.find((p) => p.types.length === activityFilter.size && p.types.every((t) => activityFilter.has(t)));
     return preset?.label ?? 'all';
   }, [activityFilter]);
+  const activityFilteredCount = useMemo(() => {
+    if (activityFilter.size >= ALL_MSG_TYPES.length) return messages.length;
+    return messages.filter((m) => activityFilter.has(m.msgType ?? 'info')).length;
+  }, [messages, activityFilter]);
 
   // Command bar: history, scroll offsets, suggestion selection
   const cmdHistory = React.useRef(new CommandHistory()).current;
@@ -615,7 +619,7 @@ export function App({
         const preset = ACTIVITY_PRESETS.find((p) => p.label === values.activity_filter);
         if (preset) {
           setActivityFilter(new Set(preset.types));
-          onSaveActivityFilter?.(values.activity_filter as ActivityFilterPreset);
+          onSaveActivityFilter?.(preset.label);
           addMessage(`Activity filter: ${preset.label}`, tuiColors.amber);
         }
       }
@@ -1597,10 +1601,18 @@ export function App({
         </>
       ) : messages.length > 0 && activeView !== 'logs' ? (
         <>
-          <SectionLabel label="ACTIVITY" width={ruleW} />
+          <SectionLabel label="ACTIVITY" width={ruleW}
+            suffixLen={` F:${activityFilterLabel.toUpperCase()} \u2502 ${activityFilteredCount}/${messages.length}`.length}
+            suffix={
+              <Text>
+                <Text color={tuiColors.dim}> F:</Text>
+                <Text color={tuiColors.amber}>{activityFilterLabel.toUpperCase()}</Text>
+                <Text color={tuiColors.ghost}> {'\u2502'} {activityFilteredCount}/{messages.length}</Text>
+              </Text>
+            } />
           <ActivityFeed messages={messages} height={Math.max(1, feedH - 1)} width={ruleW}
             agents={sortedAgents} agentNameMap={agentNameMap}
-            typeFilter={activityFilter} filterLabel={activityFilterLabel} />
+            typeFilter={activityFilter} />
         </>
       ) : null}
 
@@ -2172,14 +2184,13 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
 
 /* ── Activity Feed ────────────────────────────────────── */
 
-function ActivityFeed({ messages, height, width, agents, agentNameMap, typeFilter, filterLabel }: {
+function ActivityFeed({ messages, height, width, agents, agentNameMap, typeFilter }: {
   messages: StatusMessage[];
   height: number;
   width: number;
   agents: Agent[];
   agentNameMap: Map<string, string>;
   typeFilter: Set<MsgType>;
-  filterLabel: string;
 }) {
   const now = useNow();
 
@@ -2188,24 +2199,14 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap, typeFilte
     ? messages.filter((m) => typeFilter.has(m.msgType ?? 'info'))
     : messages;
 
-  // Reserve 1 line for filter indicator when filter is active
-  const showFilterBar = filterLabel !== 'all';
-  const contentH = showFilterBar ? height - 1 : height;
-  const visible = filtered.slice(-contentH);
+  const visible = filtered.slice(-height);
   // Available text width: total - paddingX(2) - border(1) - ts(5) - agent(9) - icon(2)
   const textW = Math.max(10, width - 2 - 17);
   // Pad with empty rows so the component always renders exactly `height` rows
-  const padRows = Math.max(0, contentH - visible.length);
+  const padRows = Math.max(0, height - visible.length);
 
   return (
     <Box flexDirection="column" paddingX={1}>
-      {showFilterBar && (
-        <Box gap={0}>
-          <Text color={tuiColors.dim}> F:</Text>
-          <Text color={tuiColors.amber}>{filterLabel.toUpperCase()}</Text>
-          <Text color={tuiColors.ghost}> {'\u2502'} {filtered.length}/{messages.length} events</Text>
-        </Box>
-      )}
       {padRows > 0 && <Box height={padRows} />}
       {visible.map((msg, i) => {
         const agentName = msg.agentId ? (agentNameMap.get(msg.agentId) ?? msg.agentId.slice(0, 8)) : undefined;
@@ -2352,16 +2353,30 @@ function LogDetailPanel({ message, height, width, agents, agentNameMap, taskTitl
 
 /* ── Section Labels ───────────────────────────────────── */
 
-function SectionLabel({ label, width }: { label: string; width: number }) {
-  // Chip-style section label: ━━━━[ LABEL ]━━━━━━━━━━━━━━━━━━━━━━━
+function SectionLabel({ label, width, suffix, suffixLen = 0 }: { label: string; width: number; suffix?: React.ReactNode; suffixLen?: number }) {
+  // Chip-style section label: ━━━━[ LABEL ]━━ suffix ━━━━━━━━━━━━
   const chipText = ` ${label} `;
   const leftRuleLen = 3;
-  const rightRuleLen = Math.max(0, width - leftRuleLen - chipText.length - 2);
+  const usedLen = leftRuleLen + chipText.length + 2;
+  if (!suffix) {
+    const rightRuleLen = Math.max(0, width - usedLen);
+    return (
+      <Box paddingX={1}>
+        <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(leftRuleLen)}</Text>
+        <Text backgroundColor="#1a1a22" color={tuiColors.dim} bold>{chipText}</Text>
+        <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(rightRuleLen)}</Text>
+      </Box>
+    );
+  }
+  const gapLen = 2;
+  const trailLen = Math.max(0, width - usedLen - gapLen - suffixLen);
   return (
     <Box paddingX={1}>
       <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(leftRuleLen)}</Text>
       <Text backgroundColor="#1a1a22" color={tuiColors.dim} bold>{chipText}</Text>
-      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(rightRuleLen)}</Text>
+      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(gapLen)}</Text>
+      {suffix}
+      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(trailLen)}</Text>
     </Box>
   );
 }
@@ -2467,10 +2482,10 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
       {/* Blank separator */}
       <Text> </Text>
 
-      {/* Role description */}
-      {agent.role ? (
-        <Text color={tuiColors.silver} wrap="truncate">{'  '}{agent.role}</Text>
-      ) : (
+      {/* Role description — split into lines to fill available height */}
+      {agent.role ? agent.role.split('\n').slice(0, Math.max(1, height - 5)).map((line, i) => (
+        <Text key={i} color={tuiColors.silver} wrap="truncate">{'  '}{line}</Text>
+      )) : (
         <Text color={tuiColors.dim}>  No role description.</Text>
       )}
 
