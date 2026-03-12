@@ -5,10 +5,11 @@
     One CLI to run Claude, Codex, Cursor, and shell scripts as a team — in parallel, with retries, from your terminal.
   </p>
   <p align="center">
+    <a href="https://github.com/oxgeneral/ORCH/stargazers"><img src="https://img.shields.io/github/stars/oxgeneral/ORCH?style=social" alt="GitHub Stars" /></a>
     <a href="https://landing-xi-murex.vercel.app/"><img src="https://img.shields.io/badge/website-landing-amber" alt="Website" /></a>
     <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-one%20command-brightgreen" alt="One command setup" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
-    <a href="#development"><img src="https://img.shields.io/badge/tests-712%20passing-brightgreen" alt="Tests" /></a>
+    <a href="#development"><img src="https://img.shields.io/badge/tests-737%20passing-brightgreen" alt="Tests" /></a>
     <a href="#architecture"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
   </p>
 </p>
@@ -222,13 +223,19 @@ src/
 ```bash
 npm run dev            # Run via tsx
 npm run build          # Build ESM + DTS
-npm test               # 712 tests via Vitest
+npm test               # 737 tests via Vitest
 npm run typecheck      # Strict TypeScript
 ```
 
-## Contributing
+## Community
 
-PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+We just hit **10 stars** — small number, real users. Every star so far came from someone who actually runs multi-agent workflows and needed something better than tab-switching.
+
+If ORCH saves you time, let others find it too:
+
+- **⭐ Star the repo** — helps with discoverability: [github.com/oxgeneral/ORCH](https://github.com/oxgeneral/ORCH)
+- **Open an issue** if something breaks or could be better
+- **Submit a PR** — see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
 
