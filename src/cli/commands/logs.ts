@@ -69,7 +69,6 @@ async function showRunLogs(container: Container, runId: string, sinceMs?: number
     ? filterBySince(await container.runService.readEvents(runId), sinceMs)
     : await container.runService.readEventsTail(runId, 50);
 
-
   if (container.context.json) {
     console.log(JSON.stringify(events, null, 2));
     return;

@@ -4,8 +4,7 @@ import { registerLogsCommand } from '../../../src/cli/commands/logs.js';
 import type { RunEvent } from '../../../src/domain/run.js';
 import { makeContainer } from './helpers.js';
 
-const NOW = new Date().toISOString();
-const PAST = new Date(Date.now() - 120_000).toISOString(); // 2 min ago
+const NOW = '2026-01-15T12:00:00.000Z';
 
 function makeEvent(type: string = 'agent_output', data: unknown = 'hello', ts?: string): RunEvent {
   return { timestamp: ts ?? NOW, type: type as any, data };
