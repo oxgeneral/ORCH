@@ -250,9 +250,9 @@ export function App({
     const preset = ACTIVITY_PRESETS.find((p) => p.types.length === activityFilter.size && p.types.every((t) => activityFilter.has(t)));
     return preset?.label ?? 'all';
   }, [activityFilter]);
-  const activityFilteredCount = useMemo(() => {
-    if (activityFilter.size >= ALL_MSG_TYPES.length) return messages.length;
-    return messages.filter((m) => activityFilter.has(m.msgType ?? 'info')).length;
+  const activityFilteredMessages = useMemo(() => {
+    if (activityFilter.size >= ALL_MSG_TYPES.length) return messages;
+    return messages.filter((m) => activityFilter.has(m.msgType ?? 'info'));
   }, [messages, activityFilter]);
 
   // Command bar: history, scroll offsets, suggestion selection
@@ -1601,18 +1601,18 @@ export function App({
         </>
       ) : messages.length > 0 && activeView !== 'logs' ? (
         <>
-          <SectionLabel label="ACTIVITY" width={ruleW}
-            suffixLen={` F:${activityFilterLabel.toUpperCase()} \u2502 ${activityFilteredCount}/${messages.length}`.length}
-            suffix={
-              <Text>
+          {(() => {
+            const suffixText = ` F:${activityFilterLabel.toUpperCase()} \u2502 ${activityFilteredMessages.length}/${messages.length}`;
+            return <SectionLabel label="ACTIVITY" width={ruleW} suffixLen={suffixText.length} suffix={
+              <>
                 <Text color={tuiColors.dim}> F:</Text>
                 <Text color={tuiColors.amber}>{activityFilterLabel.toUpperCase()}</Text>
-                <Text color={tuiColors.ghost}> {'\u2502'} {activityFilteredCount}/{messages.length}</Text>
-              </Text>
-            } />
-          <ActivityFeed messages={messages} height={Math.max(1, feedH - 1)} width={ruleW}
-            agents={sortedAgents} agentNameMap={agentNameMap}
-            typeFilter={activityFilter} />
+                <Text color={tuiColors.ghost}> {'\u2502'} {activityFilteredMessages.length}/{messages.length}</Text>
+              </>
+            } />;
+          })()}
+          <ActivityFeed messages={activityFilteredMessages} height={Math.max(1, feedH - 1)} width={ruleW}
+            agents={sortedAgents} agentNameMap={agentNameMap} />
         </>
       ) : null}
 
@@ -2184,22 +2184,16 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
 
 /* ── Activity Feed ────────────────────────────────────── */
 
-function ActivityFeed({ messages, height, width, agents, agentNameMap, typeFilter }: {
+function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
   messages: StatusMessage[];
   height: number;
   width: number;
   agents: Agent[];
   agentNameMap: Map<string, string>;
-  typeFilter: Set<MsgType>;
 }) {
   const now = useNow();
 
-  // Apply type filter
-  const filtered = typeFilter.size < ALL_MSG_TYPES.length
-    ? messages.filter((m) => typeFilter.has(m.msgType ?? 'info'))
-    : messages;
-
-  const visible = filtered.slice(-height);
+  const visible = messages.slice(-height);
   // Available text width: total - paddingX(2) - border(1) - ts(5) - agent(9) - icon(2)
   const textW = Math.max(10, width - 2 - 17);
   // Pad with empty rows so the component always renders exactly `height` rows
@@ -2483,7 +2477,8 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
       <Text> </Text>
 
       {/* Role description — split into lines to fill available height */}
-      {agent.role ? agent.role.split('\n').slice(0, Math.max(1, height - 5)).map((line, i) => (
+      {/* Header uses 5 rows: status/adapter, model/task, runs/team, blank separator, and one for padding */}
+      {agent.role ? agent.role.split('\n').slice(0, Math.max(1, height - 4)).map((line, i) => (
         <Text key={i} color={tuiColors.silver} wrap="truncate">{'  '}{line}</Text>
       )) : (
         <Text color={tuiColors.dim}>  No role description.</Text>
