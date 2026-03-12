@@ -1719,6 +1719,11 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
     }
   }
 
+  // Pre-compute unassigned count outside the render loop
+  let teamMemberTotal = 0;
+  for (const c of teamMemberCounts.values()) teamMemberTotal += c;
+  const unassignedCount = agents.length - teamMemberTotal;
+
   const rows: React.ReactNode[] = [];
   // Initialize prevTeam from agent before scroll window to avoid duplicate headers mid-team
   let prevTeam: string | undefined = scrollOffset > 0
@@ -1745,7 +1750,6 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
 
     // Insert unassigned divider when transitioning from team agents to unassigned
     if (hasTeams && !team && prevTeam) {
-      const unassignedCount = agents.length - Array.from(teamMemberCounts.values()).reduce((s, n) => s + n, 0);
       rows.push(
         <UnassignedSectionRow key="ts-unassigned" memberCount={unassignedCount} width={width} />,
       );
