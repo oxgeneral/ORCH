@@ -233,7 +233,7 @@ export function App({
       onRefreshAgents?.() ?? Promise.resolve(liveAgents),
       onRefreshState?.() ?? Promise.resolve(liveState),
       opts?.includeTeams
-        ? (onListTeams?.() ?? Promise.resolve(liveTeams))
+        ? (onListTeams?.() ?? Promise.resolve(liveTeamsRef.current))
         : Promise.resolve(null),
     ]);
     setLiveTasks(t);
