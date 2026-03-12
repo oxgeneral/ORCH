@@ -26,6 +26,8 @@ const CROSS = '\u2715';          // ✕
 const EMPTY_CIRCLE = '\u25CB';   // ○
 const TRIANGLE = '\u25B6';       // ▶
 const CHECK = '\u2713';          // ✓
+const LOZENGE = '\u25C8';        // ◈
+const STAR = '\u2605';           // ★
 
 /* ── Chip backgrounds ─────────────────────────────── */
 
@@ -72,9 +74,11 @@ export interface AgentRowProps {
   currentTaskTitle?: string;
   /** Team name this agent belongs to (resolved externally) */
   teamName?: string;
+  /** Whether this agent is a team lead */
+  isLead?: boolean;
 }
 
-export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitle, teamName }: AgentRowProps) {
+export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitle, teamName, isLead }: AgentRowProps) {
   const chip = STATUS_CHIP[agent.status];
   const isRunning = agent.status === 'running';
 
@@ -142,13 +146,14 @@ export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitl
         </Text>
       </Box>
 
-      {/* Agent name */}
+      {/* Agent name (★ prefix for team leads) */}
       <Box width={nameWidth}>
         <Text
           wrap="truncate"
           bold={selected || isRunning}
           color={selected ? tuiColors.white : isRunning ? tuiColors.green : tuiColors.silver}
         >
+          {isLead && <Text color={tuiColors.amber}>{STAR} </Text>}
           {agent.name}
         </Text>
       </Box>
@@ -184,6 +189,36 @@ export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitl
           <Text color={timeColor} dimColor={!timeColor}>{timeStr}</Text>
         )}
       </Box>
+    </Box>
+  );
+}
+
+/* ── Team Section Header ────────────────────────────── */
+
+export interface TeamSectionProps {
+  teamName: string;
+  memberCount: number;
+  leadName?: string;
+  width: number;
+}
+
+/**
+ * Amber-tinted section divider for agent team groups.
+ *
+ *   ─── ◈ FRONTEND · 2 agents · ★ gamma ──────────────────
+ */
+export function TeamSectionRow({ teamName, memberCount, leadName, width }: TeamSectionProps) {
+  const count = `${memberCount} agent${memberCount !== 1 ? 's' : ''}`;
+  const leadStr = leadName ? ` ${DOT} ${STAR} ${leadName}` : '';
+  const label = ` ${LOZENGE} ${teamName.toUpperCase()} ${DOT} ${count}${leadStr} `;
+  const leftLen = 3;
+  const rightLen = Math.max(0, width - leftLen - label.length - 4); // -4 for paddingX=2
+
+  return (
+    <Box paddingX={2}>
+      <Text color={tuiColors.ghost}>{'─'.repeat(leftLen)}</Text>
+      <Text backgroundColor={chipBg.amber} color={tuiColors.amber} bold>{label}</Text>
+      <Text color={tuiColors.ghost}>{'─'.repeat(rightLen)}</Text>
     </Box>
   );
 }

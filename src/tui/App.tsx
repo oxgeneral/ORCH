@@ -16,7 +16,7 @@ import type { OrchestratorEvent } from '../domain/events.js';
 import { formatDurationSince, formatTokens } from '../cli/output.js';
 import { tuiColors, HEAVY_RULE, LIGHT_RULE } from './colors.js';
 import { TaskRow, STATUS_ORDER } from './components/TaskList.js';
-import { AgentRow, AGENT_STATUS_ORDER } from './components/AgentList.js';
+import { AgentRow, AGENT_STATUS_ORDER, TeamSectionRow } from './components/AgentList.js';
 import { DetailPanel } from './components/DetailPanel.js';
 import { Header } from './components/Header.js';
 import type { HeaderStats, HeaderTokens } from './components/Header.js';
@@ -257,17 +257,11 @@ export function App({
     [liveTasks],
   );
 
-  const sortedAgents = useMemo(
-    () => [...liveAgents].sort((a, b) => (AGENT_STATUS_ORDER[a.status] ?? 9) - (AGENT_STATUS_ORDER[b.status] ?? 9)),
-    [liveAgents],
-  );
-
   // Limit visible tasks to TASK_LIST_LIMIT unless "Show All" is toggled
   const visibleTasks = showAllTasks ? sortedTasks : sortedTasks.slice(0, TASK_LIST_LIMIT);
   const hiddenTaskCount = sortedTasks.length - visibleTasks.length;
 
   const selectedTask = sortedTasks[taskSelectedIndex] as Task | undefined;
-  const selectedAgent = sortedAgents[agentSelectedIndex] as Agent | undefined;
 
   // Build task ID → title map for agent view
   const taskTitleMap = useMemo(() => {
@@ -283,19 +277,36 @@ export function App({
     return map;
   }, [liveAgents]);
 
-  // Build agent ID → team name map from liveTeams + count active teams in one pass
-  const { agentTeamMap, activeTeamCount } = useMemo(() => {
+  // Build agent ID → team name map, lead set, and active team count in one pass
+  const { agentTeamMap, activeTeamCount, teamLeadSet } = useMemo(() => {
     const map = new Map<string, string>();
+    const leads = new Set<string>();
     let count = 0;
     for (const team of liveTeams) {
       if (team.status !== 'active') continue;
       count++;
+      leads.add(team.lead_agent_id);
       for (const member of team.members) {
         map.set(member.agent_id, team.name);
       }
     }
-    return { agentTeamMap: map, activeTeamCount: count };
+    return { agentTeamMap: map, activeTeamCount: count, teamLeadSet: leads };
   }, [liveTeams]);
+
+  const sortedAgents = useMemo(() => {
+    const agents = [...liveAgents];
+    agents.sort((a, b) => {
+      const teamA = agentTeamMap.get(a.id);
+      const teamB = agentTeamMap.get(b.id);
+      if (teamA && !teamB) return -1;
+      if (!teamA && teamB) return 1;
+      if (teamA && teamB && teamA !== teamB) return teamA.localeCompare(teamB);
+      return (AGENT_STATUS_ORDER[a.status] ?? 9) - (AGENT_STATUS_ORDER[b.status] ?? 9);
+    });
+    return agents;
+  }, [liveAgents, agentTeamMap]);
+
+  const selectedAgent = sortedAgents[agentSelectedIndex] as Agent | undefined;
 
   // Build runId → agentId and runId → taskId maps from state.running
   // Use refs so dynamic .set() calls from events persist across re-renders
@@ -1445,6 +1456,8 @@ export function App({
           taskTitleMap={taskTitleMap}
           showAddRow={!!onAddAgent}
           agentTeamMap={agentTeamMap}
+          teamLeadSet={teamLeadSet}
+          activeTeamCount={activeTeamCount}
         />
       )}
 {activeView === 'logs' && (
@@ -1651,7 +1664,7 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
 
 /* ── Agents Content ──────────────────────────────────── */
 
-function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width, state, taskTitleMap, showAddRow, agentTeamMap }: {
+function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width, state, taskTitleMap, showAddRow, agentTeamMap, teamLeadSet, activeTeamCount }: {
   agents: Agent[];
   selectedIndex: number;
   scrollOffset?: number;
@@ -1661,11 +1674,22 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
   taskTitleMap: Map<string, string>;
   showAddRow?: boolean;
   agentTeamMap?: Map<string, string>;
+  teamLeadSet?: Set<string>;
+  activeTeamCount?: number;
 }) {
   // Build running entry lookup by agent ID
   const runningByAgent = new Map<string, typeof state.running[string]>();
   for (const entry of Object.values(state.running)) {
     runningByAgent.set(entry.agent_id, entry);
+  }
+
+  // Pre-compute team member counts for section headers
+  const teamMemberCounts = new Map<string, number>();
+  if (activeTeamCount && activeTeamCount > 0) {
+    for (const a of agents) {
+      const t = agentTeamMap?.get(a.id);
+      if (t) teamMemberCounts.set(t, (teamMemberCounts.get(t) ?? 0) + 1);
+    }
   }
 
   const addRowIndex = agents.length;
@@ -1681,28 +1705,62 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
     );
   }
 
+  // Build display rows — insert team section headers on team transitions
+  const hasTeams = activeTeamCount != null && activeTeamCount > 0;
+  const rows: React.ReactNode[] = [];
+  let prevTeam: string | undefined = scrollOffset > 0
+    ? agentTeamMap?.get(agents[scrollOffset - 1]?.id ?? '')
+    : undefined;
+
+  for (let i = 0; i < visible.length && rows.length < height; i++) {
+    const agent = visible[i]!;
+    const team = agentTeamMap?.get(agent.id);
+
+    // Insert team section header when entering a new team
+    if (hasTeams && team && team !== prevTeam) {
+      const leadAgent = agents.find((a) => teamLeadSet?.has(a.id) && agentTeamMap?.get(a.id) === team);
+      rows.push(
+        <TeamSectionRow
+          key={`ts-${team}`}
+          teamName={team}
+          memberCount={teamMemberCounts.get(team) ?? 0}
+          leadName={leadAgent?.name}
+          width={width}
+        />,
+      );
+      if (rows.length >= height) break;
+    }
+    prevTeam = team;
+
+    rows.push(
+      <Box key={agent.id} paddingX={2}>
+        <AgentRow
+          agent={agent}
+          selected={i + scrollOffset === selectedIndex}
+          width={width - 2}
+          runningEntry={runningByAgent.get(agent.id)}
+          currentTaskTitle={agent.current_task ? taskTitleMap.get(agent.current_task) : undefined}
+          teamName={agentTeamMap?.get(agent.id)}
+          isLead={teamLeadSet?.has(agent.id)}
+        />
+      </Box>,
+    );
+  }
+
+  if (addRowVisible && rows.length < height) {
+    rows.push(
+      <Box key="__add__" paddingX={2}>
+        <Text color={selectedIndex === addRowIndex ? tuiColors.amber : tuiColors.ghost}>
+          {selectedIndex === addRowIndex ? '  \u25B8 ' : '    '}
+          <Text color={selectedIndex === addRowIndex ? tuiColors.amber : tuiColors.dim}>+ add agent...</Text>
+        </Text>
+      </Box>,
+    );
+  }
+
   return (
     <Box flexDirection="column" height={height}>
-      {visible.map((agent, i) => (
-        <Box key={agent.id} paddingX={2}>
-          <AgentRow
-            agent={agent}
-            selected={i + scrollOffset === selectedIndex}
-            width={width - 2}
-            runningEntry={runningByAgent.get(agent.id)}
-            currentTaskTitle={agent.current_task ? taskTitleMap.get(agent.current_task) : undefined}
-            teamName={agentTeamMap?.get(agent.id)}
-          />
-        </Box>
-      ))}
-      {addRowVisible && (
-        <Box key="__add__" paddingX={2}>
-          <Text color={selectedIndex === addRowIndex ? tuiColors.amber : tuiColors.ghost}>
-            {selectedIndex === addRowIndex ? '  \u25B8 ' : '    '}
-            <Text color={selectedIndex === addRowIndex ? tuiColors.amber : tuiColors.dim}>+ add agent...</Text>
-          </Text>
-        </Box>
-      )}
+      {rows}
     </Box>
   );
 }
