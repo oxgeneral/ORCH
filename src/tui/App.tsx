@@ -11,12 +11,14 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import type { Task, TaskStatus } from '../domain/task.js';
 import type { Agent, AgentStatus } from '../domain/agent.js';
+import type { Goal, GoalStatus } from '../domain/goal.js';
 import type { OrchestratorState } from '../domain/state.js';
 import type { OrchestratorEvent } from '../domain/events.js';
 import { formatDurationSince, formatTokens } from '../cli/output.js';
-import { tuiColors, HEAVY_RULE, LIGHT_RULE } from './colors.js';
+import { tuiColors, HEAVY_RULE, LIGHT_RULE, LOOP } from './colors.js';
 import { TaskRow, STATUS_ORDER } from './components/TaskList.js';
 import { AgentRow, AGENT_STATUS_ORDER, TeamSectionRow, UnassignedSectionRow } from './components/AgentList.js';
+import { GoalRow, GOAL_STATUS_ORDER } from './components/GoalList.js';
 import { DetailPanel } from './components/DetailPanel.js';
 import { Header } from './components/Header.js';
 import type { HeaderStats, HeaderTokens } from './components/Header.js';
@@ -35,6 +37,9 @@ import {
   getEditAgentWizardSteps, editAgentWizardToFields,
   getTeamWizardSteps, teamWizardToInput,
   getConfigWizardSteps,
+  getAutonomousWizardSteps,
+  getGoalWizardSteps, goalWizardToInput,
+  getEditGoalWizardSteps, editGoalWizardToFields,
 } from './wizardConfigs.js';
 import type { ActivityFilterPreset } from '../domain/global-config.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
@@ -108,8 +113,14 @@ export interface AppProps {
   initialActivityFilter?: ActivityFilterPreset;
   /** Save activity filter to global config */
   onSaveActivityFilter?: (preset: ActivityFilterPreset) => Promise<void>;
-  /** Toggle autonomous mode on an agent (with optional goal for autonomous work) */
-  onToggleAutonomous?: (agentId: string, enabled: boolean, goal?: string) => Promise<Agent>;
+  /** Toggle autonomous mode on an agent */
+  onToggleAutonomous?: (agentId: string, enabled: boolean) => Promise<Agent>;
+  // Goal callbacks
+  onRefreshGoals?: () => Promise<Goal[]>;
+  onCreateGoal?: (input: { title: string; description?: string; assignee?: string }) => Promise<Goal>;
+  onUpdateGoal?: (id: string, fields: { title?: string; description?: string; assignee?: string }) => Promise<Goal>;
+  onUpdateGoalStatus?: (id: string, status: GoalStatus) => Promise<Goal>;
+  onDeleteGoal?: (id: string) => Promise<void>;
 }
 
 type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
@@ -118,7 +129,7 @@ type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
 interface WizardConfig {
   title: string;
   steps: WizardStep[];
-  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team' | 'config' | 'autonomous';
+  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team' | 'config' | 'autonomous' | 'goal' | 'edit_goal';
   /** Target ID for edit wizards */
   targetId?: string;
 }
@@ -200,6 +211,7 @@ export function App({
   onCreateTeam, onListTeams, onJoinTeam, onLeaveTeam, onDisbandTeam, onSetTeamLead,
   onStartWatch, onStopWatch,
   onToggleAutonomous,
+  onRefreshGoals, onCreateGoal, onUpdateGoal, onUpdateGoalStatus, onDeleteGoal,
   initialWatchActive,
   watchError,
   messageBatchMs = process.env.VITEST ? 0 : 80,
@@ -226,10 +238,14 @@ export function App({
   const [liveState, setLiveState] = useState<OrchestratorState>(initialState);
   const [watchActive, setWatchActive] = useState(initialWatchActive ?? !!initialState.pid);
 
+  // Goals state
+  const [liveGoals, setLiveGoals] = useState<Goal[]>([]);
+
   // View state
   const [activeView, setActiveView] = useState<ViewId>('tasks');
   const [taskSelectedIndex, setTaskSelectedIndex] = useState(0);
   const [agentSelectedIndex, setAgentSelectedIndex] = useState(0);
+  const [goalSelectedIndex, setGoalSelectedIndex] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);
   const [messages, setMessages] = useState<StatusMessage[]>([]);
 
@@ -263,6 +279,7 @@ export function App({
   const [taskScrollOffset, setTaskScrollOffset] = useState(0);
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [agentScrollOffset, setAgentScrollOffset] = useState(0);
+  const [goalScrollOffset, setGoalScrollOffset] = useState(0);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
 
   // Teams state (refreshed alongside other data)
@@ -275,24 +292,26 @@ export function App({
   // Refresh helpers — re-read from disk for consistent state
   // Teams are rarely mutated, so they are only refreshed when includeTeams is true.
   const refreshAll = useCallback(async (opts?: { includeTeams?: boolean }) => {
-    const [t, a, s, teams] = await Promise.all([
+    const [t, a, s, teams, goals] = await Promise.all([
       onRefreshTasks?.() ?? Promise.resolve(liveTasks),
       onRefreshAgents?.() ?? Promise.resolve(liveAgents),
       onRefreshState?.() ?? Promise.resolve(liveState),
       opts?.includeTeams
         ? (onListTeams?.() ?? Promise.resolve(liveTeamsRef.current))
         : Promise.resolve(null),
+      onRefreshGoals?.() ?? Promise.resolve(liveGoals),
     ]);
     setLiveTasks(t);
     setLiveAgents(a);
     setLiveState(s);
     if (teams !== null) setLiveTeams(teams);
+    setLiveGoals(goals);
     // Sync watchActive from state.pid only if we own the watch —
     // otherwise state.pid may belong to another process (stale lock).
     if (initialWatchActive) {
       setWatchActive(!!s.pid);
     }
-  }, [onRefreshTasks, onRefreshAgents, onRefreshState, onListTeams, initialWatchActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [onRefreshTasks, onRefreshAgents, onRefreshState, onListTeams, onRefreshGoals, initialWatchActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sorted data
   const sortedTasks = useMemo(
@@ -350,6 +369,13 @@ export function App({
   }, [liveAgents, agentTeamMap]);
 
   const selectedAgent = sortedAgents[agentSelectedIndex] as Agent | undefined;
+
+  // Sorted goals
+  const sortedGoals = useMemo(
+    () => [...liveGoals].sort((a, b) => (GOAL_STATUS_ORDER[a.status] ?? 9) - (GOAL_STATUS_ORDER[b.status] ?? 9)),
+    [liveGoals],
+  );
+  const selectedGoal = sortedGoals[goalSelectedIndex] as Goal | undefined;
 
   // Build runId → agentId and runId → taskId maps from state.running
   // Use refs so dynamic .set() calls from events persist across re-renders
@@ -627,14 +653,27 @@ export function App({
         }
       }
     } else if (kind === 'autonomous' && targetId && onToggleAutonomous) {
-      const goal = values.goal?.trim() || undefined;
       addMessage(`Enabling autonomous mode for agent...`, tuiColors.amber);
-      onToggleAutonomous(targetId, true, goal).then(
-        (agent) => { addMessage(`\u27F3 ${agent.name} autonomous ON${goal ? ` \u2014 goal: ${goal.slice(0, 60)}` : ''}`, tuiColors.cyan); refreshAll(); },
+      onToggleAutonomous(targetId, true).then(
+        (agent) => { addMessage(`${LOOP} ${agent.name} autonomous ON`, tuiColors.cyan); refreshAll(); },
+        (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+      );
+    } else if (kind === 'goal' && onCreateGoal) {
+      const input = goalWizardToInput(values);
+      addMessage(`Creating goal "${input.title}"...`, tuiColors.amber);
+      onCreateGoal(input).then(
+        (goal) => { addMessage(`\u2713 Created goal "${goal.title}" (${goal.id})`, tuiColors.green); refreshAll(); },
+        (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+      );
+    } else if (kind === 'edit_goal' && targetId && onUpdateGoal) {
+      const fields = editGoalWizardToFields(values);
+      addMessage(`Updating goal...`, tuiColors.amber);
+      onUpdateGoal(targetId, fields).then(
+        (goal) => { addMessage(`\u2713 Updated goal "${goal.title}"`, tuiColors.green); refreshAll(); },
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
     }
-  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, addMessage, refreshAll, onSaveActivityFilter]);
+  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter]);
 
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');
@@ -710,7 +749,8 @@ export function App({
   const agentSectionRows = activeTeamCount > 0
     ? activeTeamCount + (hasUnassigned ? 1 : 0)
     : 0;
-  const listItemCount = activeView === 'tasks' ? visibleTasks.length + 1 + (hiddenTaskCount > 0 ? 1 : 0) : // +1 for "+ add" row, +1 for "show all" row
+  const listItemCount = activeView === 'goals' ? sortedGoals.length + 1 :
+    activeView === 'tasks' ? visibleTasks.length + 1 + (hiddenTaskCount > 0 ? 1 : 0) : // +1 for "+ add" row, +1 for "show all" row
     activeView === 'agents' ? liveAgents.length + 1 + agentSectionRows : 0;
   const minListH = Math.min(listItemCount + 1, Math.ceil(contentH * 0.5)); // cap at 50%
   const mainH = activeView === 'logs' ? contentH : Math.max(2, Math.min(minListH, contentH - 4));
@@ -730,6 +770,9 @@ export function App({
   useEffect(() => {
     setAgentScrollOffset((o) => Math.min(o, Math.max(0, sortedAgents.length - mainH)));
   }, [sortedAgents.length, mainH]);
+  useEffect(() => {
+    setGoalScrollOffset((o) => Math.min(o, Math.max(0, sortedGoals.length - mainH)));
+  }, [sortedGoals.length, mainH]);
 
   // Command dispatcher for "/" command bar
   const executeCommand = useCallback((raw: string) => {
@@ -914,15 +957,13 @@ export function App({
           if (a.autonomous) {
             addMessage(`Disabling autonomous mode for "${a.name}"...`, tuiColors.amber);
             onToggleAutonomous(a.id, false).then(
-              () => { addMessage(`\u27F3 ${a.name} autonomous OFF`, tuiColors.cyan); refreshAll(); },
+              () => { addMessage(`${LOOP} ${a.name} autonomous OFF`, tuiColors.cyan); refreshAll(); },
               (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
             );
           } else {
-            // Goal from remaining args: /agent auto <name> <goal text...>
-            const goal = parts.slice(3).join(' ').trim() || undefined;
-            addMessage(`Enabling autonomous mode for "${a.name}"${goal ? ` with goal` : ''}...`, tuiColors.amber);
-            onToggleAutonomous(a.id, true, goal).then(
-              () => { addMessage(`\u27F3 ${a.name} autonomous ON${goal ? ` \u2014 ${goal.slice(0, 60)}` : ''}`, tuiColors.cyan); refreshAll(); },
+            addMessage(`Enabling autonomous mode for "${a.name}"...`, tuiColors.amber);
+            onToggleAutonomous(a.id, true).then(
+              () => { addMessage(`${LOOP} ${a.name} autonomous ON`, tuiColors.cyan); refreshAll(); },
               (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
             );
           }
@@ -1268,6 +1309,68 @@ export function App({
       return;
     }
 
+    // N: new goal wizard (only in goals view)
+    if ((input === 'n' || input === 'N') && activeView === 'goals' && !detailOpen && onCreateGoal) {
+      const steps = getGoalWizardSteps(liveAgents);
+      setWizardConfig({ title: 'New Goal', steps, kind: 'goal' });
+      setInputMode('wizard');
+      return;
+    }
+
+    // E: edit selected goal
+    if ((input === 'e' || input === 'E') && activeView === 'goals' && selectedGoal && onUpdateGoal) {
+      const steps = getEditGoalWizardSteps(selectedGoal, liveAgents);
+      setWizardConfig({ title: `Edit Goal: ${selectedGoal.title}`, steps, kind: 'edit_goal', targetId: selectedGoal.id });
+      setInputMode('wizard');
+      return;
+    }
+
+    // D: delete selected goal
+    if ((input === 'd' || input === 'D') && activeView === 'goals' && selectedGoal && onDeleteGoal) {
+      addMessage(`Deleting goal "${selectedGoal.title}"...`, tuiColors.amber);
+      onDeleteGoal(selectedGoal.id).then(
+        () => { addMessage(`\u2713 Deleted goal "${selectedGoal.title}"`, tuiColors.green); refreshAll(); },
+        (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+      );
+      return;
+    }
+
+    // C: mark goal as achieved / abandon
+    if ((input === 'c' || input === 'C') && activeView === 'goals' && selectedGoal && onUpdateGoalStatus) {
+      if (selectedGoal.status === 'active' || selectedGoal.status === 'paused') {
+        addMessage(`Marking goal "${selectedGoal.title}" as achieved...`, tuiColors.amber);
+        onUpdateGoalStatus(selectedGoal.id, 'achieved').then(
+          () => { addMessage(`\u2713 Goal "${selectedGoal.title}" achieved`, tuiColors.green); refreshAll(); },
+          (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+        );
+      }
+      return;
+    }
+
+    // X: abandon goal
+    if ((input === 'x' || input === 'X') && activeView === 'goals' && selectedGoal && onUpdateGoalStatus) {
+      if (selectedGoal.status === 'active' || selectedGoal.status === 'paused') {
+        addMessage(`Abandoning goal "${selectedGoal.title}"...`, tuiColors.amber);
+        onUpdateGoalStatus(selectedGoal.id, 'abandoned').then(
+          () => { addMessage(`\u2713 Goal "${selectedGoal.title}" abandoned`, tuiColors.dim); refreshAll(); },
+          (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+        );
+      }
+      return;
+    }
+
+    // P: pause/resume goal
+    if ((input === 'p' || input === 'P') && activeView === 'goals' && selectedGoal && onUpdateGoalStatus) {
+      const newStatus = selectedGoal.status === 'paused' ? 'active' : 'paused';
+      if (selectedGoal.status === 'active' || selectedGoal.status === 'paused') {
+        onUpdateGoalStatus(selectedGoal.id, newStatus).then(
+          () => { addMessage(`Goal "${selectedGoal.title}" ${newStatus}`, tuiColors.cyan); refreshAll(); },
+          (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+        );
+      }
+      return;
+    }
+
     // A: approve selected task in review (tasks view only, before view switch)
     if ((input === 'a' || input === 'A') && activeView === 'tasks' && selectedTask?.status === 'review' && onApproveTask) {
       addMessage(`Approving "${selectedTask.title}"...`, tuiColors.amber);
@@ -1371,32 +1474,18 @@ export function App({
 
     // U: toggle autonomous mode on selected agent (agents view)
     if ((input === 'u' || input === 'U') && activeView === 'agents' && selectedAgent && onToggleAutonomous) {
-      if (selectedAgent.autonomous) {
-        // Disable — direct toggle, keep goal for resume
-        addMessage(`Disabling autonomous mode for "${selectedAgent.name}"...`, tuiColors.amber);
-        onToggleAutonomous(selectedAgent.id, false).then(
-          () => { addMessage(`\u27F3 ${selectedAgent.name} autonomous OFF`, tuiColors.cyan); refreshAll(); },
-          (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
-        );
-      } else {
-        // Enable — launch goal wizard
-        const steps: WizardStep[] = [
-          {
-            id: 'goal',
-            label: 'Goal for autonomous work',
-            type: 'textarea' as const,
-            defaultValue: selectedAgent.autonomous_goal ?? '',
-            placeholder: 'Describe the goal: what should the agent achieve?',
-          },
-        ];
-        setWizardConfig({ title: `\u27F3 Autonomous: ${selectedAgent.name}`, steps, kind: 'autonomous', targetId: selectedAgent.id });
-        setInputMode('wizard');
-      }
+      const newAuto = !selectedAgent.autonomous;
+      addMessage(`${newAuto ? 'Enabling' : 'Disabling'} autonomous mode for "${selectedAgent.name}"...`, tuiColors.amber);
+      onToggleAutonomous(selectedAgent.id, newAuto).then(
+        () => { addMessage(`${LOOP} ${selectedAgent.name} autonomous ${newAuto ? 'ON' : 'OFF'}`, tuiColors.cyan); refreshAll(); },
+        (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
+      );
       return;
     }
 
     // View switching: T/A/L keys (only when detail panel is closed)
     if (!detailOpen) {
+      if (input === 'g' || input === 'G') { setActiveView('goals'); return; }
       if (input === 't' || input === 'T') { setActiveView('tasks'); return; }
       if (input === 'a' || input === 'A') { setActiveView('agents'); return; }
       if (input === 'l' || input === 'L') { setActiveView('logs'); return; }
@@ -1432,9 +1521,20 @@ export function App({
         launchTaskWizard();
         return;
       }
+      // Enter on "+ add goal..." row → open goal wizard
+      if (activeView === 'goals' && goalSelectedIndex === sortedGoals.length && onCreateGoal) {
+        const steps = getGoalWizardSteps(liveAgents);
+        setWizardConfig({ title: 'New Goal', steps, kind: 'goal' });
+        setInputMode('wizard');
+        return;
+      }
       // Enter on "+ add agent..." row → open agent wizard
       if (activeView === 'agents' && agentSelectedIndex === sortedAgents.length && onAddAgent) {
         launchAgentWizard();
+        return;
+      }
+      if (activeView === 'goals' && selectedGoal) {
+        setDetailOpen((prev) => !prev);
         return;
       }
       if (activeView === 'tasks' && selectedTask) {
@@ -1467,7 +1567,13 @@ export function App({
 
     // Navigation with scroll offset (functional updaters to avoid stale closures)
     if (key.upArrow || input === 'k') {
-      if (activeView === 'tasks') {
+      if (activeView === 'goals') {
+        setGoalSelectedIndex((i) => {
+          const next = Math.max(0, i - 1);
+          setGoalScrollOffset((o) => (next < o ? next : o));
+          return next;
+        });
+      } else if (activeView === 'tasks') {
         setTaskSelectedIndex((i) => {
           const next = Math.max(0, i - 1);
           setTaskScrollOffset((o) => (next < o ? next : o));
@@ -1494,7 +1600,14 @@ export function App({
       }
     }
     if (key.downArrow || input === 'j') {
-      if (activeView === 'tasks') {
+      if (activeView === 'goals') {
+        const maxIdx = sortedGoals.length + (onCreateGoal ? 1 : 0) - 1;
+        setGoalSelectedIndex((i) => {
+          const next = Math.min(Math.max(0, maxIdx), i + 1);
+          setGoalScrollOffset((o) => (next >= o + mainH ? next - mainH + 1 : o));
+          return next;
+        });
+      } else if (activeView === 'tasks') {
         const maxIdx = visibleTasks.length + (onCreateTask ? 1 : 0) + (hiddenTaskCount > 0 ? 1 : 0) - 1; // +1 for add row, +1 for show-all row
         setTaskSelectedIndex((i) => {
           const next = Math.min(Math.max(0, maxIdx), i + 1);
@@ -1528,9 +1641,11 @@ export function App({
   const selectedLog = logSelectedIndex >= 0 ? messages[logSelectedIndex] : undefined;
   const showTaskDetail = !inInput && detailOpen && activeView === 'tasks' && selectedTask;
   const showAgentDetail = !inInput && detailOpen && activeView === 'agents' && selectedAgent;
+  const showGoalDetail = !inInput && detailOpen && activeView === 'goals' && selectedGoal;
   const showLogDetail = !inInput && detailOpen && activeView === 'logs' && selectedLog;
   const canRun = !inInput && activeView === 'tasks' && selectedTask && RUNNABLE.has(selectedTask.status) && !!onRunTask;
   const canNew = !inInput && !detailOpen && (
+    (activeView === 'goals' && !!onCreateGoal) ||
     (activeView === 'tasks' && !!onCreateTask) ||
     (activeView === 'agents' && !!onAddAgent)
   );
@@ -1538,10 +1653,12 @@ export function App({
   const canReject = !inInput && activeView === 'tasks' && selectedTask?.status === 'review' && !!onRejectTask;
   const agentActuallyRunning = selectedAgent ? Object.values(liveState.running).some((e) => e.agent_id === selectedAgent.id) : false;
   const canDelete = !inInput && (
+    (activeView === 'goals' && selectedGoal && !!onDeleteGoal) ||
     (activeView === 'tasks' && selectedTask && selectedTask.status !== 'in_progress' && !!onDeleteTask) ||
     (activeView === 'agents' && selectedAgent && !!onDeleteAgent)
   );
   const canEdit = !inInput && !detailOpen && (
+    (activeView === 'goals' && !!selectedGoal && !!onUpdateGoal) ||
     (activeView === 'tasks' && !!selectedTask && !!onUpdateTask) ||
     (activeView === 'agents' && !!selectedAgent && !!onUpdateAgent)
   );
@@ -1568,6 +1685,17 @@ export function App({
       <Box height={1} />
 
       {/* Main content area */}
+      {activeView === 'goals' && (
+        <GoalsContent
+          goals={sortedGoals}
+          selectedIndex={goalSelectedIndex}
+          scrollOffset={goalScrollOffset}
+          height={mainH}
+          width={ruleW}
+          showAddRow={!!onCreateGoal}
+          agentNameMap={agentNameMap}
+        />
+      )}
       {activeView === 'tasks' && (
         <TasksContent
           tasks={visibleTasks}
@@ -1645,6 +1773,11 @@ export function App({
             taskLogs={messages.filter((m) => m.taskId === selectedTask.id)}
             agentNameMap={agentNameMap} />
         </>
+      ) : showGoalDetail ? (
+        <>
+          <SectionLabel label={`GOAL: ${selectedGoal.title}`} width={ruleW} />
+          <GoalDetailPanel goal={selectedGoal} height={feedH} width={ruleW} agentNameMap={agentNameMap} />
+        </>
       ) : showAgentDetail ? (
         <>
           <AgentDetailSectionLabel agent={selectedAgent} width={ruleW} />
@@ -1693,9 +1826,9 @@ export function App({
         autoActive={selectedAgent?.autonomous}
         canToggleShowAll={activeView === 'tasks' && sortedTasks.length > TASK_LIST_LIMIT}
         showAllActive={showAllTasks}
-        hasDetail={!!(showTaskDetail || showAgentDetail)}
-        itemCount={activeView === 'tasks' ? sortedTasks.length : activeView === 'agents' ? liveAgents.length : messages.length}
-        itemLabel={activeView === 'tasks' ? 'tasks' : activeView === 'agents' ? 'agents' : 'events'}
+        hasDetail={!!(showTaskDetail || showAgentDetail || showGoalDetail)}
+        itemCount={activeView === 'goals' ? sortedGoals.length : activeView === 'tasks' ? sortedTasks.length : activeView === 'agents' ? liveAgents.length : messages.length}
+        itemLabel={activeView === 'goals' ? 'goals' : activeView === 'tasks' ? 'tasks' : activeView === 'agents' ? 'agents' : 'events'}
         width={W}
         hasSuggestions={showSuggestions}
       />
@@ -1743,6 +1876,87 @@ function SuggestionsPanel({ suggestions, selectedIndex, height, width }: {
           </Text>
         );
       })}
+    </Box>
+  );
+}
+
+/* ── Goals Content ───────────────────────────────────── */
+
+function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap }: {
+  goals: Goal[];
+  selectedIndex: number;
+  scrollOffset?: number;
+  height: number;
+  width: number;
+  showAddRow?: boolean;
+  agentNameMap?: Map<string, string>;
+}) {
+  const addRowIndex = goals.length;
+  const totalItems = goals.length + (showAddRow ? 1 : 0);
+
+  const visible = goals.slice(scrollOffset, scrollOffset + height);
+  const addRowVisible = showAddRow && addRowIndex >= scrollOffset && addRowIndex < scrollOffset + height;
+
+  if (totalItems === 0 || (goals.length === 0 && !showAddRow)) {
+    return (
+      <Box flexDirection="column" paddingX={2}>
+        <Text> </Text>
+        <Text color={tuiColors.dim}>  No goals yet. Press <Text color={tuiColors.gray} bold>N</Text> to create one.</Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Box flexDirection="column" height={height}>
+      {visible.map((goal, i) => (
+        <Box key={goal.id} paddingX={2}>
+          <GoalRow goal={goal} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} />
+        </Box>
+      ))}
+      {addRowVisible && (
+        <Box key="__add__" paddingX={2}>
+          <Text color={selectedIndex === addRowIndex ? tuiColors.amber : tuiColors.ghost}>
+            {selectedIndex === addRowIndex ? '  \u25B8 ' : '    '}
+            <Text color={selectedIndex === addRowIndex ? tuiColors.amber : tuiColors.dim}>+ add goal...</Text>
+          </Text>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+/* ── Goal Detail Panel ──────────────────────────────── */
+
+function GoalDetailPanel({ goal, height, width, agentNameMap }: {
+  goal: Goal;
+  height: number;
+  width: number;
+  agentNameMap?: Map<string, string>;
+}) {
+  const assigneeName = goal.assignee ? (agentNameMap?.get(goal.assignee) ?? goal.assignee) : 'any';
+  return (
+    <Box flexDirection="column" height={height} paddingX={2}>
+      <Text>
+        <Text color={tuiColors.dim}>Status: </Text>
+        <Text color={goal.status === 'active' ? tuiColors.green : goal.status === 'achieved' ? tuiColors.amber : tuiColors.dim} bold>
+          {goal.status.toUpperCase()}
+        </Text>
+        <Text color={tuiColors.ghost}>  {'\u2502'}  </Text>
+        <Text color={tuiColors.dim}>Assignee: </Text>
+        <Text color={tuiColors.silver}>{assigneeName}</Text>
+        <Text color={tuiColors.ghost}>  {'\u2502'}  </Text>
+        <Text color={tuiColors.dim}>Created: </Text>
+        <Text color={tuiColors.silver}>{goal.created_at.slice(0, 10)}</Text>
+      </Text>
+      {goal.description ? (
+        <Box flexDirection="column" marginTop={1}>
+          {goal.description.split('\n').slice(0, Math.max(1, height - 2)).map((line, i) => (
+            <Text key={i} color={tuiColors.silver} wrap="truncate">{line}</Text>
+          ))}
+        </Box>
+      ) : (
+        <Text color={tuiColors.ghost} dimColor>No description</Text>
+      )}
     </Box>
   );
 }
@@ -1913,7 +2127,6 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
           currentTaskTitle={agent.current_task ? taskTitleMap.get(agent.current_task) : undefined}
           teamName={team}
           isLead={teamLeadSet?.has(agent.id)}
-          autonomous={agent.autonomous}
         />
       </Box>,
     );
@@ -2537,33 +2750,16 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
         <Box>
           <Box width={col1Width}>
             <Text color={tuiColors.dim}>  auto      </Text>
-            <Text color={tuiColors.cyan}>{'\u27F3'} ON</Text>
+            <Text color={tuiColors.cyan}>{LOOP} ON</Text>
           </Box>
-          {agent.autonomous_goal && (
-            <Box>
-              <Text color={tuiColors.dim}>  goal      </Text>
-              <Text color={tuiColors.amber} wrap="truncate">{agent.autonomous_goal.split('\n')[0]}</Text>
-            </Box>
-          )}
         </Box>
       )}
 
       {/* Blank separator */}
       <Text> </Text>
 
-      {/* Goal description (full) if autonomous */}
-      {agent.autonomous_goal && agent.autonomous ? (
-        <>
-          {agent.autonomous_goal.split('\n').slice(0, Math.max(1, height - (agent.role ? 6 : 5))).map((line, i) => (
-            <Text key={`g${i}`} color={tuiColors.amber} wrap="truncate">{'  '}{line}</Text>
-          ))}
-          {agent.role && <Text> </Text>}
-        </>
-      ) : null}
-
       {/* Role description — split into lines to fill available height */}
-      {/* Header uses 4-5 rows depending on autonomous */}
-      {agent.role ? agent.role.split('\n').slice(0, Math.max(1, height - (agent.autonomous ? 6 : 4))).map((line, i) => (
+      {agent.role ? agent.role.split('\n').slice(0, Math.max(1, height - 4)).map((line, i) => (
         <Text key={i} color={tuiColors.silver} wrap="truncate">{'  '}{line}</Text>
       )) : (
         <Text color={tuiColors.dim}>  No role description.</Text>

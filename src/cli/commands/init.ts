@@ -31,6 +31,7 @@ export function registerInitCommand(program: Command): void {
       // Create directory structure
       await ensureDir(paths.tasksDir);
       await ensureDir(paths.agentsDir);
+      await ensureDir(paths.goalsDir);
       await ensureDir(paths.runsDir);
       await ensureDir(paths.templatesDir);
       await ensureDir(paths.logsDir);

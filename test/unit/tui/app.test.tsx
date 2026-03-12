@@ -1330,7 +1330,7 @@ describe('Command bar — /task list', () => {
 /* ── View switching: Tab and ←→ ──────────────────────── */
 
 describe('View switching — Tab and arrows', () => {
-  it('Tab cycles views forward: tasks → agents → logs → tasks', async () => {
+  it('Tab cycles views forward: tasks → agents → logs → goals → tasks', async () => {
     const state: OrchestratorState = { ...DEFAULT_STATE };
     const agents = [makeAgent({ id: 'a1', name: 'bot' })];
     const { stdin, lastFrame } = render(
@@ -1353,6 +1353,12 @@ describe('View switching — Tab and arrows', () => {
     output = lastFrame()!;
     expect(output).toContain('ACTIONS');
 
+    // Tab → goals
+    stdin.write('\t');
+    await delay(50);
+    output = lastFrame()!;
+    expect(output).toContain('GOALS');
+
     // Tab → back to tasks
     stdin.write('\t');
     await delay(50);
@@ -1366,11 +1372,11 @@ describe('View switching — Tab and arrows', () => {
       React.createElement(App, { projectName: 'test', tasks: [], agents: [], state }),
     );
     await delay(50);
-    // tasks → ← → logs
+    // tasks → ← → goals (previous in cycle: goals, tasks, agents, logs)
     stdin.write('\x1B[D'); // left arrow
     await delay(50);
     const output = lastFrame()!;
-    expect(output).toContain('ACTIONS');
+    expect(output).toContain('GOALS');
   });
 
   it('→ arrow cycles views forward', async () => {

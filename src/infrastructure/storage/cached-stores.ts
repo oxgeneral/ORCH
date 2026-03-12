@@ -1,5 +1,5 @@
 /**
- * Tick-scoped caching wrappers for TaskStore and AgentStore.
+ * Tick-scoped caching wrappers for TaskStore, AgentStore, and GoalStore.
  *
  * Caches list() results within a single tick cycle.
  * Cache is invalidated on save()/delete() or manually via invalidate().
@@ -7,7 +7,8 @@
 
 import type { Task, TaskStatus } from '../../domain/task.js';
 import type { Agent } from '../../domain/agent.js';
-import type { ITaskStore, IAgentStore } from './interfaces.js';
+import type { Goal, GoalStatus } from '../../domain/goal.js';
+import type { ITaskStore, IAgentStore, IGoalStore } from './interfaces.js';
 
 export class CachedTaskStore implements ITaskStore {
   private cache: Map<string, Task[]> = new Map();
@@ -80,5 +81,37 @@ export class CachedAgentStore implements IAgentStore {
 
   invalidate(): void {
     this.listCache = null;
+  }
+}
+
+export class CachedGoalStore implements IGoalStore {
+  private cache: Map<string, Goal[]> = new Map();
+
+  constructor(private readonly inner: IGoalStore) {}
+
+  async list(filter?: { status?: GoalStatus }): Promise<Goal[]> {
+    const key = filter?.status ?? '__all__';
+    if (this.cache.has(key)) return this.cache.get(key)!;
+    const result = await this.inner.list(filter);
+    this.cache.set(key, result);
+    return result;
+  }
+
+  async get(id: string): Promise<Goal | null> {
+    return this.inner.get(id);
+  }
+
+  async save(goal: Goal): Promise<void> {
+    await this.inner.save(goal);
+    this.cache.clear();
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.inner.delete(id);
+    this.cache.clear();
+  }
+
+  invalidate(): void {
+    this.cache.clear();
   }
 }

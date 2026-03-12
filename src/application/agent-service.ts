@@ -115,10 +115,9 @@ export class AgentService {
     return this.setStatus(id, 'idle');
   }
 
-  async setAutonomous(id: string, enabled: boolean, goal?: string): Promise<Agent> {
+  async setAutonomous(id: string, enabled: boolean): Promise<Agent> {
     const agent = await this.get(id);
     agent.autonomous = enabled;
-    if (goal !== undefined) agent.autonomous_goal = goal || undefined;
     await this.agentStore.save(agent);
     this.eventBus.emit({ type: 'agent:autonomous_toggled', agentId: id, autonomous: enabled });
     return agent;

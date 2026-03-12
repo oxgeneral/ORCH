@@ -8,6 +8,7 @@
 
 import type { Agent } from '../../domain/agent.js';
 import type { OrchestratorConfig } from '../../domain/config.js';
+import type { Goal, GoalStatus } from '../../domain/goal.js';
 import type { Message } from '../../domain/message.js';
 import type { Run, RunEvent } from '../../domain/run.js';
 import type { OrchestratorState } from '../../domain/state.js';
@@ -77,6 +78,13 @@ export interface IMessageStore {
   markDelivered(id: string): Promise<void>;
   delete(id: string): Promise<void>;
   purgeExpired(): Promise<number>;
+}
+
+export interface IGoalStore {
+  list(filter?: { status?: GoalStatus }): Promise<Goal[]>;
+  get(id: string): Promise<Goal | null>;
+  save(goal: Goal): Promise<void>;
+  delete(id: string): Promise<void>;
 }
 
 export interface ITeamStore {

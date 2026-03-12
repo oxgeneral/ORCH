@@ -74,11 +74,9 @@ export interface AgentRowProps {
   teamName?: string;
   /** Whether this agent is a team lead */
   isLead?: boolean;
-  /** Whether this agent is in autonomous mode */
-  autonomous?: boolean;
 }
 
-export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitle, teamName, isLead, autonomous }: AgentRowProps) {
+export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitle, teamName, isLead }: AgentRowProps) {
   const chip = STATUS_CHIP[agent.status];
   const isRunning = agent.status === 'running';
 
@@ -153,7 +151,7 @@ export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitl
           bold={selected || isRunning}
           color={selected ? tuiColors.white : isRunning ? tuiColors.green : tuiColors.silver}
         >
-          {autonomous && <Text color={tuiColors.cyan}>{LOOP} </Text>}
+          {agent.autonomous && <Text color={tuiColors.cyan}>{LOOP} </Text>}
           {isLead && <Text color={tuiColors.amber}>{STAR} </Text>}
           {agent.name}
         </Text>

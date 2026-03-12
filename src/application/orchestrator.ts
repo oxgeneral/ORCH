@@ -22,8 +22,8 @@ import {
 import { NoAgentsError, TaskAlreadyRunningError, LockConflictError } from '../domain/errors.js';
 import { scopesOverlap } from '../domain/scope.js';
 import { acquireLock, releaseLock } from '../infrastructure/storage/lock.js';
-import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IContextStore } from '../infrastructure/storage/interfaces.js';
-import { CachedTaskStore, CachedAgentStore } from '../infrastructure/storage/cached-stores.js';
+import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IContextStore, IGoalStore } from '../infrastructure/storage/interfaces.js';
+import { CachedTaskStore, CachedAgentStore, CachedGoalStore } from '../infrastructure/storage/cached-stores.js';
 import type { AdapterRegistry } from '../infrastructure/adapters/registry.js';
 import type { IWorkspaceManager } from '../infrastructure/workspace/interface.js';
 import type { ITemplateEngine } from '../infrastructure/template/template-engine.js';
@@ -51,6 +51,7 @@ export interface OrchestratorDeps {
   runService: RunService;
   contextStore?: IContextStore;
   messageService?: import('./message-service.js').MessageService;
+  goalStore?: IGoalStore;
   config: OrchestratorConfig;
   projectRoot: string;
   lockPath: string;
@@ -63,6 +64,7 @@ export class Orchestrator {
   private abortControllers = new Map<string, AbortController>();
   private readonly cachedTaskStore: CachedTaskStore;
   private readonly cachedAgentStore: CachedAgentStore;
+  private readonly cachedGoalStore: CachedGoalStore | null;
   private saveStateTimer: ReturnType<typeof setTimeout> | null = null;
   private saveStateDirty = false;
   private lockAcquired = false;
@@ -80,6 +82,7 @@ export class Orchestrator {
   constructor(private readonly deps: OrchestratorDeps) {
     this.cachedTaskStore = new CachedTaskStore(deps.taskStore);
     this.cachedAgentStore = new CachedAgentStore(deps.agentStore);
+    this.cachedGoalStore = deps.goalStore ? new CachedGoalStore(deps.goalStore) : null;
   }
 
   /**
@@ -542,6 +545,9 @@ export class Orchestrator {
 
   /**
    * Create tasks for autonomous agents that have no active work.
+   *
+   * Priority: active Goals assigned to the agent come first.
+   * If no goals, falls back to role-based autonomous work.
    */
   private async seedAutonomousTasks(): Promise<void> {
     const agents = await this.cachedAgentStore.list();
@@ -551,22 +557,29 @@ export class Orchestrator {
     if (autonomousAgents.length === 0) return;
 
     const allTasks = await this.cachedTaskStore.list();
-    const nonTerminalStatuses = new Set(['todo', 'in_progress', 'retrying', 'review']);
+    const activeGoals = this.cachedGoalStore
+      ? await this.cachedGoalStore.list({ status: 'active' })
+      : [];
 
+    let anyCreated = false;
     for (const agent of autonomousAgents) {
       // Skip if agent already has a non-terminal task assigned
       const hasActiveTask = allTasks.some(
-        (t) => t.assignee === agent.id && nonTerminalStatuses.has(t.status),
+        (t) => t.assignee === agent.id && !isTerminal(t.status),
       );
       if (hasActiveTask) continue;
 
-      const goal = agent.autonomous_goal;
+      // Find goal assigned to this agent (or unassigned)
+      const goal = activeGoals.find(
+        (g) => g.assignee === agent.id || !g.assignee,
+      );
       const role = agent.role ?? 'general assistant';
+
       const title = goal
-        ? `[auto] ${agent.name}: ${goal.slice(0, 60)}`
+        ? `[auto] ${agent.name}: ${goal.title.slice(0, 60)}`
         : `[auto] ${agent.name}: ${role.slice(0, 60)}`;
       const description = goal
-        ? `## GOAL (highest priority)\n\n${goal}\n\n---\nAgent role: ${role}`
+        ? `## GOAL (highest priority)\n\n${goal.description || goal.title}\n\n---\nAgent role: ${role}`
         : `Autonomous work cycle. Agent role: ${role}`;
 
       try {
@@ -577,7 +590,7 @@ export class Orchestrator {
           labels: ['autonomous'],
           priority: 3,
         });
-        this.cachedTaskStore.invalidate();
+        anyCreated = true;
       } catch (err) {
         this.deps.eventBus.emit({
           type: 'orchestrator:error',
@@ -587,6 +600,7 @@ export class Orchestrator {
         });
       }
     }
+    if (anyCreated) this.cachedTaskStore.invalidate();
   }
 
   /**

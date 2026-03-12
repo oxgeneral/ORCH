@@ -9,11 +9,12 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { tuiColors, DOT } from '../colors.js';
 
-export type ViewId = 'tasks' | 'agents' | 'logs';
+export type ViewId = 'goals' | 'tasks' | 'agents' | 'logs';
 
 const DIAMOND = '\u25C6'; // ◆
 
 const TABS: Array<{ key: string; id: ViewId; label: string }> = [
+  { key: 'G', id: 'goals', label: 'GOALS' },
   { key: 'T', id: 'tasks', label: 'TASKS' },
   { key: 'A', id: 'agents', label: 'AGENTS' },
   { key: 'L', id: 'logs', label: 'ACTIONS' },

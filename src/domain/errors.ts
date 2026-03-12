@@ -91,6 +91,13 @@ export class InvalidTransitionError extends OrchestryError {
   }
 }
 
+export class GoalNotFoundError extends OrchestryError {
+  constructor(goalId: string) {
+    super(`Goal not found: ${goalId}`, 1);
+    this.name = 'GoalNotFoundError';
+  }
+}
+
 export class TeamNotFoundError extends OrchestryError {
   constructor(teamId: string) {
     super(`Team not found: ${teamId}`, 1);

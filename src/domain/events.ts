@@ -6,6 +6,7 @@
  * run store, state) react independently.
  */
 
+import type { GoalStatus } from './goal.js';
 import type { MessageChannel } from './message.js';
 import type { Task, TaskStatus, ReviewResult } from './task.js';
 
@@ -36,7 +37,10 @@ export type OrchestratorEvent =
   | { type: 'team:task_claimed'; teamId: string; taskId: string; agentId: string }
   | { type: 'team:disbanded'; teamId: string }
   | { type: 'team:task_added'; teamId: string; taskId: string }
-  | { type: 'agent:autonomous_toggled'; agentId: string; autonomous: boolean };
+  | { type: 'agent:autonomous_toggled'; agentId: string; autonomous: boolean }
+  | { type: 'goal:created'; goalId: string; title: string }
+  | { type: 'goal:status_changed'; goalId: string; from: GoalStatus; to: GoalStatus }
+  | { type: 'goal:deleted'; goalId: string };
 
 export type OrchestratorEventType = OrchestratorEvent['type'];
 

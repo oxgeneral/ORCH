@@ -39,7 +39,6 @@ export interface Agent {
   status: AgentStatus;
   current_task?: string;
   autonomous?: boolean;
-  autonomous_goal?: string;
   stats: AgentStats;
 }
 

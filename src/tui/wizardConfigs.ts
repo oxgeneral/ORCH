@@ -7,6 +7,7 @@
 
 import type { WizardStep } from './components/FormWizard.js';
 import type { Agent } from '../domain/agent.js';
+import type { Goal } from '../domain/goal.js';
 import type { ActivityFilterPreset } from '../domain/global-config.js';
 import type { Team } from '../domain/team.js';
 import type { CreateTeamInput } from '../domain/team.js';
@@ -387,11 +388,99 @@ export function getConfigWizardSteps(currentFilter: ActivityFilterPreset): Wizar
   ];
 }
 
+// ── Autonomous goal wizard ──
+
+export function getAutonomousWizardSteps(currentGoal?: string): WizardStep[] {
+  return [
+    {
+      id: 'goal',
+      label: 'Goal for autonomous work',
+      type: 'textarea',
+      defaultValue: currentGoal ?? '',
+      placeholder: 'Describe the goal: what should the agent achieve?',
+    },
+  ];
+}
+
 export function editAgentWizardToFields(vals: Record<string, string>) {
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
   return {
     name: vals.name,
     role,
     model: vals.model || undefined,
+  };
+}
+
+// ── Goal creation wizard ──
+
+export function getGoalWizardSteps(agents: Agent[]): WizardStep[] {
+  const agentOptions = buildAgentOptions(agents, 'Any agent', 'auto-assign to autonomous agents');
+
+  return [
+    {
+      id: 'title',
+      label: 'Goal title',
+      type: 'text',
+      placeholder: 'What should be achieved?',
+      required: true,
+    },
+    {
+      id: 'assignee',
+      label: 'Assignee',
+      type: 'select',
+      options: agentOptions,
+      skip: () => agentOptions.length <= 1,
+    },
+    {
+      id: 'description',
+      label: 'Description',
+      type: 'textarea',
+      placeholder: 'Detailed goal description, success criteria...',
+    },
+  ];
+}
+
+export function goalWizardToInput(vals: Record<string, string>) {
+  return {
+    title: vals.title!,
+    assignee: vals.assignee || undefined,
+    description: vals.description || undefined,
+  };
+}
+
+export function getEditGoalWizardSteps(goal: Goal, agents: Agent[]): WizardStep[] {
+  const agentOptions = buildAgentOptions(agents, 'Any agent', 'auto-assign');
+
+  return [
+    {
+      id: 'title',
+      label: 'Goal title',
+      type: 'text',
+      defaultValue: goal.title,
+      required: true,
+    },
+    {
+      id: 'assignee',
+      label: 'Assignee',
+      type: 'select',
+      options: agentOptions,
+      defaultValue: goal.assignee ?? '',
+      skip: () => agentOptions.length <= 1,
+    },
+    {
+      id: 'description',
+      label: 'Description',
+      type: 'textarea',
+      defaultValue: goal.description || '',
+      placeholder: 'Detailed goal description...',
+    },
+  ];
+}
+
+export function editGoalWizardToFields(vals: Record<string, string>) {
+  return {
+    title: vals.title,
+    assignee: vals.assignee || undefined,
+    description: vals.description ?? '',
   };
 }

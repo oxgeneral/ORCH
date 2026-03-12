@@ -120,8 +120,8 @@ export function registerTuiCommand(program: Command, container: Container): void
         await container.orchestrator.forceStopAgent(agentId);
       };
 
-      const onToggleAutonomous = async (agentId: string, enabled: boolean, goal?: string) => {
-        return container.agentService.setAutonomous(agentId, enabled, goal);
+      const onToggleAutonomous = async (agentId: string, enabled: boolean) => {
+        return container.agentService.setAutonomous(agentId, enabled);
       };
 
       const onLoadHistory = async (): Promise<import('../../tui/App.js').HistoryEntry[]> => {
@@ -178,6 +178,28 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.teamService.setLead(teamId, agentId);
       };
 
+      // ── Goal callbacks ──
+
+      const onRefreshGoals = async () => {
+        return container.goalService.list();
+      };
+
+      const onCreateGoal = async (input: { title: string; description?: string; assignee?: string }) => {
+        return container.goalService.create(input);
+      };
+
+      const onUpdateGoal = async (id: string, fields: { title?: string; description?: string; assignee?: string }) => {
+        return container.goalService.update(id, fields);
+      };
+
+      const onUpdateGoalStatus = async (id: string, status: import('../../domain/goal.js').GoalStatus) => {
+        return container.goalService.updateStatus(id, status);
+      };
+
+      const onDeleteGoal = async (id: string) => {
+        await container.goalService.delete(id);
+      };
+
       const onStartWatch = async () => {
         await container.orchestrator.startWatch();
       };
@@ -225,6 +247,11 @@ export function registerTuiCommand(program: Command, container: Container): void
           onUpdateAgent,
           onForceStopAgent,
           onToggleAutonomous,
+          onRefreshGoals,
+          onCreateGoal,
+          onUpdateGoal,
+          onUpdateGoalStatus,
+          onDeleteGoal,
           onCreateTeam,
           onListTeams,
           onJoinTeam,

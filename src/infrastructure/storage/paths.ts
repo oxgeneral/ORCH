@@ -69,6 +69,14 @@ export class Paths {
     return path.join(this.messagesDir, `${sanitizeId(id)}.json`);
   }
 
+  get goalsDir(): string {
+    return path.join(this.root, 'goals');
+  }
+
+  goalPath(id: string): string {
+    return path.join(this.goalsDir, `${sanitizeId(id)}.yml`);
+  }
+
   get teamsDir(): string {
     return path.join(this.root, 'teams');
   }

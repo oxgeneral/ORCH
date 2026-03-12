@@ -221,12 +221,11 @@ export function registerAgentCommand(program: Command, container: Container): vo
     .description('Toggle autonomous mode for an agent')
     .option('--on', 'Enable autonomous mode')
     .option('--off', 'Disable autonomous mode')
-    .option('--goal <goal>', 'Set the goal for autonomous work')
-    .action(async (id: string, opts: { on?: boolean; off?: boolean; goal?: string }) => {
+    .action(async (id: string, opts: { on?: boolean; off?: boolean }) => {
       await container.paths.requireInit();
       const current = await container.agentService.get(id);
       const enable = opts.on ? true : opts.off ? false : !current.autonomous;
-      const a = await container.agentService.setAutonomous(id, enable, opts.goal);
+      const a = await container.agentService.setAutonomous(id, enable);
 
       if (container.context.json) {
         console.log(JSON.stringify(a, null, 2));
