@@ -221,18 +221,25 @@ export function App({
   // Teams state (refreshed alongside other data)
   const [liveTeams, setLiveTeams] = useState<Team[]>([]);
 
+  // Ref for liveTeams — avoids adding it to executeCommand deps
+  const liveTeamsRef = useRef(liveTeams);
+  useEffect(() => { liveTeamsRef.current = liveTeams; }, [liveTeams]);
+
   // Refresh helpers — re-read from disk for consistent state
-  const refreshAll = useCallback(async () => {
-    const [t, a, s, teams] = await Promise.all([
+  // Teams are rarely mutated, so they are only refreshed when includeTeams is true.
+  const refreshAll = useCallback(async (opts?: { includeTeams?: boolean }) => {
+    const [t, a, s] = await Promise.all([
       onRefreshTasks?.() ?? Promise.resolve(liveTasks),
       onRefreshAgents?.() ?? Promise.resolve(liveAgents),
       onRefreshState?.() ?? Promise.resolve(liveState),
-      onListTeams?.() ?? Promise.resolve(liveTeams),
     ]);
     setLiveTasks(t);
     setLiveAgents(a);
     setLiveState(s);
-    setLiveTeams(teams);
+    if (opts?.includeTeams) {
+      const teams = await (onListTeams?.() ?? Promise.resolve(liveTeams));
+      setLiveTeams(teams);
+    }
     // Sync watchActive from state.pid only if we own the watch —
     // otherwise state.pid may belong to another process (stale lock).
     if (initialWatchActive) {
@@ -397,9 +404,9 @@ export function App({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load teams on mount
+  // Load teams on mount (single fetch — refreshAll skips teams by default)
   useEffect(() => {
-    onListTeams?.().then(setLiveTeams).catch(() => {});
+    refreshAll({ includeTeams: true }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -407,11 +414,11 @@ export function App({
   const launchAgentWizard = useCallback(() => {
     setWizardConfig({
       title: 'NEW AGENT',
-      steps: getAgentWizardSteps(liveTeams),
+      steps: getAgentWizardSteps(),
       kind: 'agent',
     });
     setInputMode('wizard');
-  }, [liveTeams]);
+  }, []);
 
   const launchTaskWizard = useCallback(() => {
     setWizardConfig({
@@ -467,10 +474,6 @@ export function App({
       }).then(
         (agent) => {
           addMessage(`\u2713 Created agent "${agent.name}" (${agent.id}, ${agent.adapter})`, tuiColors.green);
-          // Auto-join team if selected
-          if (input.team_id && onCreateTeam) {
-            // Use teamService.join via the onJoinTeam callback — for now add via refreshAll
-          }
           refreshAll();
         },
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
@@ -481,7 +484,7 @@ export function App({
       onCreateTeam(input).then(
         (team) => {
           addMessage(`\u2713 Created team "${team.name}" (${team.id}, ${team.members.length} members)`, tuiColors.green);
-          refreshAll();
+          refreshAll({ includeTeams: true });
         },
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
@@ -804,8 +807,9 @@ export function App({
         if (sub === 'create' || sub === 'add') {
           launchTeamWizard();
         } else if (sub === 'list') {
-          if (liveTeams.length === 0) { addMessage('No teams', tuiColors.dim); }
-          else for (const t of liveTeams) {
+          const teams = liveTeamsRef.current;
+          if (teams.length === 0) { addMessage('No teams', tuiColors.dim); }
+          else for (const t of teams) {
             addMessage(`  ${t.id}  ${t.status.padEnd(8)} ${t.name} (${t.members.length} members)`, tuiColors.cyan);
           }
         } else {
@@ -910,7 +914,7 @@ export function App({
   }, [selectedTask, selectedAgent, sortedTasks, sortedAgents, liveTasks, mode, watchActive,
       onCancelTask, onRetryTask, onAssignTask, onRunAll, onRunTask, onCreateTask,
       onDisableAgent, onEnableAgent, onAddAgent, onApproveTask, onRejectTask, onDeleteTask,
-      onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard, liveTeams]);
+      onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard]);
 
   useInput((input, key) => {
     // ── Input mode: all keys go to the text buffer ──

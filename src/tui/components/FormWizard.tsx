@@ -353,7 +353,8 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
       return;
     }
 
-    if (step.type === 'select') {
+    // Shared navigation for select and multiselect
+    if (step.type === 'select' || step.type === 'multiselect') {
       if (key.upArrow || input === 'k') {
         setSelectIndex((i) => Math.max(0, i - 1));
         return;
@@ -362,61 +363,49 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
         setSelectIndex((i) => Math.min(options.length - 1, i + 1));
         return;
       }
-      if (key.return || key.tab) {
-        const selected = options[clampedSelectIndex];
-        if (selected) goToNextStep(selected.value);
-        return;
-      }
-      // Backspace: go to previous step
       if (key.backspace || key.delete) {
         goToPrevStep();
         return;
       }
-      // Number keys for quick selection
-      if (input >= '1' && input <= '9') {
-        const idx = parseInt(input, 10) - 1;
-        if (idx < options.length) {
-          const selected = options[idx];
-          if (selected) goToNextStep(selected.value);
-        }
-        return;
-      }
-    }
 
-    if (step.type === 'multiselect') {
-      if (key.upArrow || input === 'k') {
-        setSelectIndex((i) => Math.max(0, i - 1));
-        return;
-      }
-      if (key.downArrow || input === 'j') {
-        setSelectIndex((i) => Math.min(options.length - 1, i + 1));
-        return;
-      }
-      // Space: toggle selection
-      if (input === ' ') {
-        const opt = options[clampedSelectIndex];
-        if (opt) {
-          setMultiSelected((prev) => {
-            const next = new Set(prev);
-            if (next.has(opt.value)) {
-              next.delete(opt.value);
-            } else {
-              next.add(opt.value);
-            }
-            return next;
-          });
+      // Type-specific confirm and actions
+      if (step.type === 'select') {
+        if (key.return || key.tab) {
+          const selected = options[clampedSelectIndex];
+          if (selected) goToNextStep(selected.value);
+          return;
         }
-        return;
-      }
-      // Enter: confirm selection
-      if (key.return) {
-        const selected = Array.from(multiSelected).join(',');
-        goToNextStep(selected);
-        return;
-      }
-      if (key.backspace || key.delete) {
-        goToPrevStep();
-        return;
+        // Number keys for quick selection
+        if (input >= '1' && input <= '9') {
+          const idx = parseInt(input, 10) - 1;
+          if (idx < options.length) {
+            const selected = options[idx];
+            if (selected) goToNextStep(selected.value);
+          }
+          return;
+        }
+      } else {
+        // Multiselect: Space toggle, Enter confirm
+        if (input === ' ') {
+          const opt = options[clampedSelectIndex];
+          if (opt) {
+            setMultiSelected((prev) => {
+              const next = new Set(prev);
+              if (next.has(opt.value)) {
+                next.delete(opt.value);
+              } else {
+                next.add(opt.value);
+              }
+              return next;
+            });
+          }
+          return;
+        }
+        if (key.return) {
+          const selected = Array.from(multiSelected).join(',');
+          goToNextStep(selected);
+          return;
+        }
       }
     }
   });

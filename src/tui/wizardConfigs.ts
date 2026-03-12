@@ -7,7 +7,7 @@
 
 import type { WizardStep } from './components/FormWizard.js';
 import type { Agent } from '../domain/agent.js';
-import type { Team, CreateTeamInput } from '../domain/team.js';
+import type { CreateTeamInput } from '../domain/team.js';
 
 // ── Model catalogs per adapter ──
 
@@ -65,16 +65,21 @@ const PRIORITY_OPTIONS = [
 
 const AGENT_HINT_MAX_LEN = 80;
 
+/** Map agents to select options (no sentinel). Shared by buildAgentOptions and team wizard. */
+function mapAgentOptions(agents: Agent[]) {
+  return agents
+    .filter((a) => a.status !== 'disabled')
+    .map((a) => {
+      const raw = a.role ?? a.adapter;
+      const hint = raw.length > AGENT_HINT_MAX_LEN ? raw.slice(0, AGENT_HINT_MAX_LEN - 1) + '\u2026' : raw;
+      return { value: a.id, label: a.name, hint };
+    });
+}
+
 function buildAgentOptions(agents: Agent[], emptyLabel = 'Auto-assign', emptyHint = 'orchestrator picks the best agent') {
   return [
     { value: '', label: emptyLabel, hint: emptyHint },
-    ...agents
-      .filter((a) => a.status !== 'disabled')
-      .map((a) => {
-        const raw = a.role ?? a.adapter;
-        const hint = raw.length > AGENT_HINT_MAX_LEN ? raw.slice(0, AGENT_HINT_MAX_LEN - 1) + '\u2026' : raw;
-        return { value: a.id, label: a.name, hint };
-      }),
+    ...mapAgentOptions(agents),
   ];
 }
 
@@ -94,17 +99,7 @@ const ROLE_PRESETS = [
 
 // ── Agent creation wizard ──
 
-export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
-  const teamOptions = [
-    { value: '', label: 'None', hint: 'no team' },
-    ...(teams ?? [])
-      .filter((t) => t.status === 'active')
-      .map((t) => {
-        const hint = `${t.members.length} members`;
-        return { value: t.id, label: t.name, hint };
-      }),
-  ];
-
+export function getAgentWizardSteps(): WizardStep[] {
   return [
     {
       id: 'name',
@@ -143,17 +138,10 @@ export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
       placeholder: 'e.g. Specialist in React and TypeScript',
       skip: (vals) => vals.role !== '__custom__',
     },
-    {
-      id: 'team',
-      label: 'Team',
-      type: 'select',
-      options: teamOptions,
-      skip: () => teamOptions.length <= 1, // Skip if no teams exist
-    },
   ];
 }
 
-/** Convert wizard values → CreateAgentInput-compatible object + optional team_id */
+/** Convert wizard values → CreateAgentInput-compatible object */
 export function agentWizardToInput(vals: Record<string, string>) {
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
   return {
@@ -162,20 +150,13 @@ export function agentWizardToInput(vals: Record<string, string>) {
     role,
     model: vals.model || undefined,
     approval_policy: 'auto' as const,
-    team_id: vals.team || undefined,
   };
 }
 
 // ── Team creation wizard ──
 
 export function getTeamWizardSteps(agents: Agent[]): WizardStep[] {
-  const agentOptions = agents
-    .filter((a) => a.status !== 'disabled')
-    .map((a) => {
-      const raw = a.role ?? a.adapter;
-      const hint = raw.length > AGENT_HINT_MAX_LEN ? raw.slice(0, AGENT_HINT_MAX_LEN - 1) + '\u2026' : raw;
-      return { value: a.id, label: a.name, hint };
-    });
+  const agentOptions = mapAgentOptions(agents);
 
   return [
     {
@@ -197,7 +178,7 @@ export function getTeamWizardSteps(agents: Agent[]): WizardStep[] {
       type: 'multiselect',
       getOptions: (vals) =>
         agentOptions.filter((a) => a.value !== vals.lead),
-      skip: (vals) => agentOptions.filter((a) => a.value !== vals.lead).length === 0,
+      skip: (vals) => !agentOptions.some((a) => a.value !== vals.lead),
     },
     {
       id: 'description',
