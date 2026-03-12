@@ -223,23 +223,23 @@ export function App({
 
   // Ref for liveTeams — avoids adding it to executeCommand deps
   const liveTeamsRef = useRef(liveTeams);
-  useEffect(() => { liveTeamsRef.current = liveTeams; }, [liveTeams]);
+  liveTeamsRef.current = liveTeams;
 
   // Refresh helpers — re-read from disk for consistent state
   // Teams are rarely mutated, so they are only refreshed when includeTeams is true.
   const refreshAll = useCallback(async (opts?: { includeTeams?: boolean }) => {
-    const [t, a, s] = await Promise.all([
+    const [t, a, s, teams] = await Promise.all([
       onRefreshTasks?.() ?? Promise.resolve(liveTasks),
       onRefreshAgents?.() ?? Promise.resolve(liveAgents),
       onRefreshState?.() ?? Promise.resolve(liveState),
+      opts?.includeTeams
+        ? (onListTeams?.() ?? Promise.resolve(liveTeams))
+        : Promise.resolve(null),
     ]);
     setLiveTasks(t);
     setLiveAgents(a);
     setLiveState(s);
-    if (opts?.includeTeams) {
-      const teams = await (onListTeams?.() ?? Promise.resolve(liveTeams));
-      setLiveTeams(teams);
-    }
+    if (teams !== null) setLiveTeams(teams);
     // Sync watchActive from state.pid only if we own the watch —
     // otherwise state.pid may belong to another process (stale lock).
     if (initialWatchActive) {
@@ -404,9 +404,9 @@ export function App({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load teams on mount (single fetch — refreshAll skips teams by default)
+  // Load teams on mount — tasks/agents/state are already in props
   useEffect(() => {
-    refreshAll({ includeTeams: true }).catch(() => {});
+    onListTeams?.().then(setLiveTeams).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

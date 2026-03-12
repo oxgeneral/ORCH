@@ -197,6 +197,10 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
       setTaLines(lines);
       setTaCursorRow(lines.length - 1);
       setTaCursorCol(lines[lines.length - 1]!.length);
+    } else if (prevStep.type === 'multiselect') {
+      setSelectIndex(0);
+      const prevVal = values[prevStep.id];
+      setMultiSelected(prevVal ? new Set(prevVal.split(',')) : new Set());
     } else {
       const prevOptions = prevStep.getOptions?.(values) ?? prevStep.options ?? [];
       const prevVal = values[prevStep.id];
