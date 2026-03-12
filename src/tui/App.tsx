@@ -16,7 +16,7 @@ import type { OrchestratorEvent } from '../domain/events.js';
 import { formatDurationSince, formatTokens } from '../cli/output.js';
 import { tuiColors, HEAVY_RULE, LIGHT_RULE } from './colors.js';
 import { TaskRow, STATUS_ORDER } from './components/TaskList.js';
-import { AgentRow, AGENT_STATUS_ORDER, TeamSectionRow } from './components/AgentList.js';
+import { AgentRow, AGENT_STATUS_ORDER, TeamSectionRow, UnassignedSectionRow } from './components/AgentList.js';
 import { DetailPanel } from './components/DetailPanel.js';
 import { Header } from './components/Header.js';
 import type { HeaderStats, HeaderTokens } from './components/Header.js';
@@ -1739,6 +1739,15 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
           leadName={teamLeadNameMap.get(team)}
           width={width}
         />,
+      );
+      if (rows.length >= height) break;
+    }
+
+    // Insert unassigned divider when transitioning from team agents to unassigned
+    if (hasTeams && !team && prevTeam) {
+      const unassignedCount = agents.length - Array.from(teamMemberCounts.values()).reduce((s, n) => s + n, 0);
+      rows.push(
+        <UnassignedSectionRow key="ts-unassigned" memberCount={unassignedCount} width={width} />,
       );
       if (rows.length >= height) break;
     }

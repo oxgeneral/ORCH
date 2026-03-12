@@ -220,3 +220,27 @@ export function TeamSectionRow({ teamName, memberCount, leadName, width }: TeamS
     </Box>
   );
 }
+
+/* ── Unassigned Section Header ─────────────────────── */
+
+const EMPTY_DIAMOND = '\u25C7';  // ◇
+
+/**
+ * Ghost-tinted section divider for agents not in any team.
+ *
+ *   ─── ◇ UNASSIGNED · 3 agents ──────────────────
+ */
+export function UnassignedSectionRow({ memberCount, width }: { memberCount: number; width: number }) {
+  const count = `${memberCount} agent${memberCount !== 1 ? 's' : ''}`;
+  const label = ` ${EMPTY_DIAMOND} UNASSIGNED ${DOT} ${count} `;
+  const leftLen = 3;
+  const rightLen = Math.max(0, width - leftLen - label.length - 4);
+
+  return (
+    <Box paddingX={2}>
+      <Text color={tuiColors.ghost}>{'─'.repeat(leftLen)}</Text>
+      <Text backgroundColor={chipBg.neutral} color={tuiColors.dim}>{label}</Text>
+      <Text color={tuiColors.ghost}>{'─'.repeat(rightLen)}</Text>
+    </Box>
+  );
+}
