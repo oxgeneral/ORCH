@@ -1,5 +1,5 @@
 {
-  "name": "agents-organizations",
+  "name": "@oxgeneral/orch",
   "version": "0.1.0",
   "description": "Agents Organizations — CLI orchestrator for AI agents",
   "type": "module",
@@ -44,6 +44,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/oxgeneral/ORCH.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "homepage": "https://github.com/oxgeneral/ORCH#readme",
   "bugs": {

@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ORCH — AI Agent Orchestrator</title>
+  <meta name="description" content="Lightweight CLI orchestrator for managing teams of AI agents. Inter-agent messaging, scope isolation, auto merge-back. Zero cloud dependencies.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+    :root {
+      --black: #0a0a0a;
+      --white: #f0efe9;
+      --gray: #6b6b6b;
+      --gray-light: #2a2a2a;
+      --accent: #c8ff00;
+      --accent-dim: rgba(200,255,0,0.12);
+      --blue: #58a8d0;
+      --green: #4a9;
+      --mono: 'JetBrains Mono', monospace;
+      --serif: 'Instrument Serif', serif;
+    }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: var(--mono);
+      font-weight: 300;
+      line-height: 1.6;
+      overflow-x: hidden;
+      cursor: default;
+    }
+
+    ::selection {
+      background: var(--accent);
+      color: var(--black);
+    }
+
+    /* --- NAV --- */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 3rem;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(10,10,10,0.7);
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .logo {
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .logo span { color: var(--accent); }
+
+    nav a {
+      color: var(--gray);
+      text-decoration: none;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color 0.3s;
+    }
+
+    nav a:hover { color: var(--white); }
+
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+
+    .nav-cta {
+      color: var(--black) !important;
+      background: var(--accent);
+      padding: 0.5rem 1.2rem;
+      font-weight: 500;
+      transition: transform 0.2s, background 0.3s !important;
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      background: #d9ff4d !important;
+    }
+
+    /* --- HERO --- */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 8rem 3rem 4rem;
+      position: relative;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 50%;
+      height: 100%;
+      background:
+        radial-gradient(ellipse at 80% 30%, rgba(200,255,0,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse at 60% 70%, rgba(88,168,208,0.03) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .hero-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-bottom: 2rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.2s forwards;
+    }
+
+    .hero h1 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(3rem, 8vw, 7rem);
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      max-width: 16ch;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.4s forwards;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .hero-sub {
+      margin-top: 2.5rem;
+      font-size: 0.9rem;
+      color: var(--gray);
+      max-width: 52ch;
+      line-height: 1.8;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.6s forwards;
+    }
+
+    .hero-actions {
+      margin-top: 3rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.8s forwards;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--black);
+      padding: 0.8rem 2rem;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-decoration: none;
+      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.3s;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(200,255,0,0.15);
+    }
+
+    .btn-ghost {
+      color: var(--gray);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      text-decoration: none;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 0.8rem 1.5rem;
+      border: 1px solid var(--gray-light);
+      transition: color 0.3s, border-color 0.3s;
+    }
+
+    .btn-ghost:hover {
+      color: var(--white);
+      border-color: var(--white);
+    }
+
+    .hero-version {
+      position: absolute;
+      bottom: 3rem;
+      right: 3rem;
+      font-size: 0.65rem;
+      color: var(--gray-light);
+      letter-spacing: 0.1em;
+      writing-mode: vertical-rl;
+      text-transform: uppercase;
+    }
+
+    /* --- STATS BAR --- */
+    .stats-bar {
+      padding: 2rem 3rem;
+      border-top: 1px solid var(--gray-light);
+      border-bottom: 1px solid var(--gray-light);
+      display: flex;
+      justify-content: center;
+      gap: 4rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 1s forwards;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+
+    .stat-label {
+      font-size: 0.6rem;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-top: 0.3rem;
+    }
+
+    /* --- TERMINAL DEMO --- */
+    .terminal-section {
+      padding: 6rem 3rem;
+      position: relative;
+    }
+
+    .terminal {
+      max-width: 780px;
+      margin: 0 auto;
+      background: #111;
+      border: 1px solid var(--gray-light);
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.8s, transform 0.8s;
+    }
+
+    .terminal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 16px;
+      background: #1a1a1a;
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .terminal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--gray-light);
+    }
+
+    .terminal-dot:first-child { background: #ff5f57; }
+    .terminal-dot:nth-child(2) { background: #febc2e; }
+    .terminal-dot:nth-child(3) { background: #28c840; }
+
+    .terminal-body {
+      padding: 1.5rem;
+      font-size: 0.8rem;
+      line-height: 2;
+      color: var(--gray);
+    }
+
+    .terminal-body .cmd { color: var(--white); }
+    .terminal-body .prompt { color: var(--accent); }
+    .terminal-body .flag { color: #7aa2f7; }
+    .terminal-body .str { color: #9ece6a; }
+    .terminal-body .dim { color: #3a3a3a; }
+    .terminal-body .ok { color: #28c840; }
+    .terminal-body .blue { color: #58a8d0; }
+
+    .terminal-line {
+      opacity: 0;
+      animation: typeLine 0.4s forwards;
+    }
+
+    /* --- SCREENSHOTS --- */
+    .screenshots {
+      padding: 8rem 3rem;
+      border-top: 1px solid var(--gray-light);
+    }
+
+    .screenshots-header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .screenshots-header h2 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      font-weight: 400;
+      line-height: 1.1;
+    }
+
+    .screenshots-header p {
+      color: var(--gray);
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      max-width: 55ch;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .screenshot-card {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #111;
+      border: 1px solid var(--gray-light);
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s, transform 0.6s;
+    }
+
+    .screenshot-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .ss-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 14px;
+      background: #1a1a1a;
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .ss-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+
+    .ss-dot:nth-child(1) { background: #ff5f57; }
+    .ss-dot:nth-child(2) { background: #febc2e; }
+    .ss-dot:nth-child(3) { background: #28c840; }
+
+    .ss-title {
+      margin-left: auto;
+      font-size: 0.6rem;
+      color: #444;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* --- FEATURES --- */
+    .features {
+      padding: 8rem 3rem;
+      border-top: 1px solid var(--gray-light);
+    }
+
+    .features-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 5rem;
+    }
+
+    .features-header h2 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      font-weight: 400;
+      line-height: 1.1;
+    }
+
+    .features-header .count {
+      font-size: 0.7rem;
+      color: var(--gray);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--gray-light);
+    }
+
+    .feature {
+      background: var(--black);
+      padding: 3rem 2rem;
+      position: relative;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s, transform 0.6s;
+    }
+
+    .feature.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .feature:hover {
+      background: #111;
+    }
+
+    .feature-num {
+      font-size: 0.65rem;
+      color: var(--gray-light);
+      letter-spacing: 0.1em;
+      margin-bottom: 1.5rem;
+    }
+
+    .feature-icon {
+      font-size: 1.6rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .feature h3 {
+      font-family: var(--serif);
+      font-size: 1.4rem;
+      font-weight: 400;
+      margin-bottom: 1rem;
+    }
+
+    .feature p {
+      font-size: 0.78rem;
+      color: var(--gray);
+      line-height: 1.8;
+    }
+
+    .feature .tag {
+      display: inline-block;
+      font-size: 0.55rem;
+      padding: 2px 6px;
+      margin-top: 1rem;
+      border: 1px solid var(--gray-light);
+      color: var(--gray);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .feature .tag.new {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* --- AGENT TEAMS SECTION --- */
+    .teams {
+      padding: 8rem 3rem;
+      border-top: 1px solid var(--gray-light);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .teams::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.3;
+    }
+
+    .teams-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 5rem;
+      align-items: center;
+    }
+
+    .teams-text h2 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      font-weight: 400;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+    }
+
+    .teams-text h2 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .teams-text > p {
+      color: var(--gray);
+      font-size: 0.85rem;
+      line-height: 1.8;
+      margin-bottom: 2rem;
+    }
+
+    .teams-features {
+      list-style: none;
+    }
+
+    .teams-features li {
+      font-size: 0.8rem;
+      color: var(--gray);
+      padding: 0.6rem 0;
+      border-bottom: 1px solid var(--gray-light);
+      display: flex;
+      gap: 0.8rem;
+      align-items: baseline;
+    }
+
+    .teams-features li::before {
+      content: '→';
+      color: var(--accent);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .teams-features li strong {
+      color: var(--white);
+      font-weight: 500;
+    }
+
+    .teams-demo {
+      background: #111;
+      border: 1px solid var(--gray-light);
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s, transform 0.6s;
+    }
+
+    .teams-demo.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .teams-demo-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 14px;
+      background: #1a1a1a;
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .td-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .td-dot:nth-child(1) { background: #ff5f57; }
+    .td-dot:nth-child(2) { background: #febc2e; }
+    .td-dot:nth-child(3) { background: #28c840; }
+
+    .td-title {
+      margin-left: auto;
+      font-size: 0.55rem;
+      color: #444;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .teams-demo-body {
+      padding: 1.2rem 1.5rem;
+      font-size: 0.72rem;
+      line-height: 2.1;
+      color: var(--gray);
+    }
+
+    .teams-demo-body .prompt { color: #d4a054; }
+    .teams-demo-body .cmd { color: var(--white); }
+    .teams-demo-body .flag { color: #58a8d0; }
+    .teams-demo-body .str { color: #9ece6a; }
+    .teams-demo-body .out { color: #555; }
+    .teams-demo-body .ok { color: #28c840; }
+
+    /* --- WORKFLOW --- */
+    .workflow {
+      padding: 8rem 3rem;
+      border-top: 1px solid var(--gray-light);
+    }
+
+    .workflow h2 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      font-weight: 400;
+      text-align: center;
+      margin-bottom: 5rem;
+    }
+
+    .workflow-steps {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .workflow-step {
+      flex: 1;
+      text-align: center;
+      padding: 2rem 1.5rem;
+      position: relative;
+    }
+
+    .workflow-step::after {
+      content: '→';
+      position: absolute;
+      right: -0.5rem;
+      top: 2.8rem;
+      color: var(--gray-light);
+      font-size: 1.2rem;
+    }
+
+    .workflow-step:last-child::after { display: none; }
+
+    .step-label {
+      display: inline-block;
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 0.3rem 0.8rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .workflow-step h4 {
+      font-family: var(--serif);
+      font-size: 1.2rem;
+      font-weight: 400;
+      margin-bottom: 0.5rem;
+    }
+
+    .workflow-step p {
+      font-size: 0.72rem;
+      color: var(--gray);
+      line-height: 1.7;
+    }
+
+    /* --- INSTALL --- */
+    .install {
+      padding: 8rem 3rem;
+      border-top: 1px solid var(--gray-light);
+      text-align: center;
+    }
+
+    .install h2 {
+      font-family: var(--serif);
+      font-size: clamp(2.5rem, 5vw, 4.5rem);
+      font-weight: 400;
+      margin-bottom: 1rem;
+    }
+
+    .install h2 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .install-sub {
+      color: var(--gray);
+      font-size: 0.8rem;
+      margin-bottom: 3rem;
+    }
+
+    .install-cmd {
+      display: inline-flex;
+      align-items: center;
+      gap: 1rem;
+      background: #111;
+      border: 1px solid var(--gray-light);
+      padding: 1rem 2rem;
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: border-color 0.3s;
+      position: relative;
+    }
+
+    .install-cmd:hover { border-color: var(--accent); }
+
+    .install-cmd .prompt-sign { color: var(--accent); }
+
+    .install-cmd .copy-hint {
+      font-size: 0.6rem;
+      color: var(--gray-light);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .install-cmd.copied .copy-hint { color: var(--accent); }
+
+    /* --- FOOTER --- */
+    footer {
+      padding: 3rem;
+      border-top: 1px solid var(--gray-light);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer .left {
+      font-size: 0.7rem;
+      color: var(--gray-light);
+      letter-spacing: 0.05em;
+    }
+
+    footer .right {
+      display: flex;
+      gap: 2rem;
+    }
+
+    footer a {
+      color: var(--gray);
+      text-decoration: none;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color 0.3s;
+    }
+
+    footer a:hover { color: var(--white); }
+
+    /* --- NOISE OVERLAY --- */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 256px 256px;
+    }
+
+    /* --- ANIMATIONS --- */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes typeLine {
+      from { opacity: 0; transform: translateX(-8px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* --- RESPONSIVE --- */
+    @media (max-width: 768px) {
+      nav { padding: 1rem 1.5rem; }
+      .nav-links a:not(.nav-cta) { display: none; }
+      .hero { padding: 7rem 1.5rem 3rem; }
+      .hero-version { display: none; }
+      .stats-bar { gap: 1.5rem; padding: 1.5rem; flex-wrap: wrap; }
+      .stat-value { font-size: 1.3rem; }
+      .features { padding: 4rem 1.5rem; }
+      .features-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+      .features-grid { grid-template-columns: 1fr !important; }
+      .teams { padding: 4rem 1.5rem; }
+      .teams-inner { grid-template-columns: 1fr; gap: 2rem; }
+      .workflow { padding: 4rem 1.5rem; }
+      .workflow-steps { flex-direction: column; gap: 0; }
+      .workflow-step::after { display: none; }
+      .workflow-step { text-align: left; padding: 1.5rem 0; border-bottom: 1px solid var(--gray-light); }
+      .install { padding: 4rem 1.5rem; }
+      .install-cmd { font-size: 0.75rem; padding: 0.8rem 1.2rem; }
+      footer { flex-direction: column; gap: 1.5rem; text-align: center; padding: 2rem 1.5rem; }
+      .terminal-section { padding: 3rem 1.5rem; }
+      .screenshots { padding: 4rem 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="logo">ORC<span>H</span></div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#teams">Teams</a>
+      <a href="#workflow">How it works</a>
+      <a href="https://github.com/oxgeneral/ORCH/packages" style="color:var(--accent);">npm</a>
+      <a href="https://github.com/oxgeneral/ORCH" class="nav-cta">GitHub</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <p class="hero-label">CLI-first agent orchestration</p>
+    <h1>Coordinate <em>AI agent teams</em> from your terminal</h1>
+    <p class="hero-sub">
+      A lightweight CLI orchestrator for managing teams of AI agents.
+      Inter-agent messaging, scope isolation with git worktrees, auto merge-back,
+      shared context, and review governance. Zero cloud dependencies.
+    </p>
+    <div class="hero-actions">
+      <a href="#install" class="btn-primary">Get Started</a>
+      <a href="#features" class="btn-ghost">Learn more</a>
+    </div>
+    <div class="hero-version">v0.1.0 — open source — MIT</div>
+  </section>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-value">165</div>
+      <div class="stat-label">User Stories</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">737</div>
+      <div class="stat-label">Tests</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">4</div>
+      <div class="stat-label">Agent Adapters</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">0</div>
+      <div class="stat-label">Cloud Dependencies</div>
+    </div>
+  </div>
+
+  <!-- TERMINAL DEMO -->
+  <section class="terminal-section">
+    <div class="terminal" id="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot"></div>
+        <div class="terminal-dot"></div>
+        <div class="terminal-dot"></div>
+      </div>
+      <div class="terminal-body">
+        <div class="terminal-line" style="animation-delay:0.1s">
+          <span class="prompt">$</span> <span class="cmd">orch init</span> <span class="dim">&& </span><span class="cmd">orch agent add backend</span> <span class="flag">--adapter claude</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:0.4s">
+          <span class="dim">  → Created .orchestry/ · Agent </span><span class="str">backend</span><span class="dim"> registered</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:0.7s">&nbsp;</div>
+        <div class="terminal-line" style="animation-delay:0.9s">
+          <span class="prompt">$</span> <span class="cmd">orch team create core</span> <span class="flag">--lead</span> <span class="str">backend</span> <span class="flag">--members</span> <span class="str">frontend,qa</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:1.2s">
+          <span class="dim">  → Team </span><span class="str">"core"</span><span class="dim"> created · 3 members</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:1.5s">&nbsp;</div>
+        <div class="terminal-line" style="animation-delay:1.7s">
+          <span class="prompt">$</span> <span class="cmd">orch task add</span> <span class="str">"Implement auth module"</span> <span class="flag">-p 1</span> <span class="flag">--scope</span> <span class="str">"src/auth/**"</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:2.0s">
+          <span class="prompt">$</span> <span class="cmd">orch task add</span> <span class="str">"Auth UI"</span> <span class="flag">--depends-on</span> <span class="str">tsk_a1b</span> <span class="flag">--scope</span> <span class="str">"src/pages/**"</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:2.3s">&nbsp;</div>
+        <div class="terminal-line" style="animation-delay:2.5s">
+          <span class="prompt">$</span> <span class="cmd">orch run</span> <span class="flag">--all --watch</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:2.8s">
+          <span class="ok">  ● Running</span> <span class="dim">— 3 agents active · scope isolation · auto merge-back</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREENSHOT -->
+  <section class="screenshots" id="screenshots">
+    <div class="screenshots-header">
+      <h2>See it in action</h2>
+      <p>Real-time TUI dashboard with task management, agent activity feed, team coordination, and inter-agent messaging — all from your terminal.</p>
+    </div>
+    <div class="screenshot-card">
+      <div class="ss-bar"><div class="ss-dot"></div><div class="ss-dot"></div><div class="ss-dot"></div><span class="ss-title">TUI Dashboard — Live</span></div>
+      <div style="padding:0;">
+        <img src="screenshot-tui.png" alt="ORCH TUI Dashboard — real-time task monitoring, agent activity feed, team coordination" style="width:100%;display:block;" />
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features" id="features">
+    <div class="features-header">
+      <h2>Built for<br>precision</h2>
+      <span class="count">12 features</span>
+    </div>
+    <div class="features-grid">
+      <div class="feature">
+        <div class="feature-num">01</div>
+        <h3>Agent Teams</h3>
+        <p>Create teams with a lead agent and members. Broadcast messages, share context, coordinate work across specialized agents.</p>
+        <span class="tag new">new</span>
+      </div>
+      <div class="feature">
+        <div class="feature-num">02</div>
+        <h3>Inter-agent messaging</h3>
+        <p>Direct messages, broadcasts, and lead-channel routing. TTL-based expiry. Messages injected into agent prompts at dispatch time.</p>
+        <span class="tag new">new</span>
+      </div>
+      <div class="feature">
+        <div class="feature-num">03</div>
+        <h3>Goals & Autonomous mode</h3>
+        <p>Define high-level goals and let agents autonomously generate tasks to achieve them. Pause, resume, track progress — all from the Goals tab.</p>
+        <span class="tag new">new</span>
+      </div>
+      <div class="feature">
+        <div class="feature-num">04</div>
+        <h3>Reactive dispatch</h3>
+        <p>No more waiting for the next 30-second poll. When a task is created or completed, agents pick up work in under a second.</p>
+        <span class="tag new">new</span>
+      </div>
+      <div class="feature">
+        <div class="feature-num">05</div>
+        <h3>State machine</h3>
+        <p>Tasks flow through todo → in_progress → review → done. Every transition validated. No task gets lost.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">06</div>
+        <h3>Safe parallel execution</h3>
+        <p>Run multiple agents with scope isolation — each agent gets its own git worktree. File conflicts detected before they happen.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">07</div>
+        <h3>Auto merge-back</h3>
+        <p>When an agent finishes in a worktree, changes are automatically merged back to the main branch. No manual git juggling.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">08</div>
+        <h3>Rework loop</h3>
+        <p>Reject a task with feedback — the agent retries with your notes as context. Iterate until it's right.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">09</div>
+        <h3>TUI dashboard</h3>
+        <p>Full-screen React/Ink terminal UI. Live tasks, agent activity feed, token tracking — keyboard-driven.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">10</div>
+        <h3>Smart retries</h3>
+        <p>Exponential backoff for failures. Stall detection kills zombies. Your tasks finish even when individual runs fail.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">11</div>
+        <h3>Shared context</h3>
+        <p>Agents publish context that other agents can read. LiquidJS templates inject project info, scope, and retry history into prompts.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">12</div>
+        <h3>Zero infrastructure</h3>
+        <p>No cloud. No database. All state in .orchestry/ — YAML configs, JSON state, JSONL logs. Git clone and run.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- AGENT TEAMS -->
+  <section class="teams" id="teams">
+    <div class="teams-inner">
+      <div class="teams-text">
+        <h2>Agent <em>Teams</em></h2>
+        <p>
+          Move beyond isolated agents. Create coordinated teams where agents communicate,
+          share discoveries, and delegate subtasks — just like a real engineering team.
+        </p>
+        <ul class="teams-features">
+          <li><strong>Teams with leads</strong> — assign a lead agent who coordinates the team's work</li>
+          <li><strong>Direct messaging</strong> — agents send messages to specific teammates</li>
+          <li><strong>Broadcasts</strong> — announce to all agents or team-scoped groups</li>
+          <li><strong>Mailbox delivery</strong> — messages injected into prompts at task dispatch</li>
+          <li><strong>Shared context store</strong> — key-value pairs readable by all agents</li>
+          <li><strong>Task pools</strong> — teams claim and distribute work automatically</li>
+        </ul>
+      </div>
+      <div class="teams-demo" id="teamsDemo">
+        <div class="teams-demo-bar">
+          <div class="td-dot"></div><div class="td-dot"></div><div class="td-dot"></div>
+          <span class="td-title">Agent Teams CLI</span>
+        </div>
+        <div class="teams-demo-body">
+          <span class="prompt">$</span> <span class="cmd">orch team create</span> <span class="str">platform</span> <span class="flag">--lead</span> <span class="str">architect</span><br>
+          <span class="ok">  ✓ Created team "platform" → team_k2m</span><br><br>
+
+          <span class="prompt">$</span> <span class="cmd">orch team join</span> <span class="str">team_k2m</span> <span class="str">backend</span><br>
+          <span class="ok">  ✓ Agent backend joined team platform</span><br><br>
+
+          <span class="prompt">$</span> <span class="cmd">orch msg send</span> <span class="str">backend</span> <span class="str">"Use PostgreSQL for the new schema"</span> <span class="flag">-s</span> <span class="str">"DB decision"</span><br>
+          <span class="ok">  ✓ Message sent → backend</span><br><br>
+
+          <span class="prompt">$</span> <span class="cmd">orch msg broadcast</span> <span class="str">"API v2 spec is ready"</span> <span class="flag">--team</span> <span class="str">team_k2m</span><br>
+          <span class="ok">  ✓ Broadcast sent to 3 agent(s)</span><br><br>
+
+          <span class="prompt">$</span> <span class="cmd">orch context set</span> <span class="str">db_schema</span> <span class="str">"users(id,email,role)"</span><br>
+          <span class="out">  → Shared with all agents</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WORKFLOW -->
+  <section class="workflow" id="workflow">
+    <h2>Four steps</h2>
+    <div class="workflow-steps">
+      <div class="workflow-step">
+        <div class="step-label">01</div>
+        <h4>Build your team</h4>
+        <p>Register Claude, Codex, Cursor, or shell agents. Group them into teams with leads.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="step-label">02</div>
+        <h4>Create tasks</h4>
+        <p>Add tasks with scopes, priorities, and dependencies. Assign to agents or let the orchestrator decide.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="step-label">03</div>
+        <h4>Run & coordinate</h4>
+        <p>Agents work in parallel on isolated worktrees. They message each other and share context.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="step-label">04</div>
+        <h4>Review & merge</h4>
+        <p>Review results, approve or reject with feedback. Auto merge-back to main branch.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALL -->
+  <section class="install" id="install">
+    <h2>Start <em>now</em></h2>
+    <p class="install-sub">Install from GitHub Packages or clone the repo.</p>
+    <div class="install-cmd" id="installNpm" onclick="copyCmd('npm install -g @oxgeneral/orch --registry=https://npm.pkg.github.com', 'installNpm')" style="margin-bottom: 1rem;">
+      <span class="prompt-sign">$</span>
+      <span>npm install -g @oxgeneral/orch --registry=https://npm.pkg.github.com</span>
+      <span class="copy-hint">click to copy</span>
+    </div>
+    <p style="color: var(--gray); font-size: 0.7rem; margin-bottom: 1.5rem; letter-spacing: 0.05em;">OR</p>
+    <div class="install-cmd" id="installGit" onclick="copyCmd('git clone https://github.com/oxgeneral/ORCH.git && cd ORCH && npm i && npm run build', 'installGit')">
+      <span class="prompt-sign">$</span>
+      <span>git clone https://github.com/oxgeneral/ORCH.git && cd ORCH && npm i && npm run build</span>
+      <span class="copy-hint">click to copy</span>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="left">© 2026 ORCH — Open Source, MIT License</div>
+    <div class="right">
+      <a href="https://github.com/oxgeneral/ORCH">GitHub</a>
+      <a href="https://github.com/oxgeneral/ORCH#full-cli-reference">Docs</a>
+    </div>
+  </footer>
+
+  <script>
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.terminal, .feature, .screenshot-card, .teams-demo').forEach(el => observer.observe(el));
+
+    document.querySelectorAll('.feature').forEach((el, i) => {
+      el.style.transitionDelay = `${i * 0.08}s`;
+    });
+
+    function copyCmd(text, elId) {
+      navigator.clipboard.writeText(text);
+      const cmd = document.getElementById(elId);
+      cmd.classList.add('copied');
+      cmd.querySelector('.copy-hint').textContent = 'copied!';
+      setTimeout(() => {
+        cmd.classList.remove('copied');
+        cmd.querySelector('.copy-hint').textContent = 'click to copy';
+      }, 2000);
+    }
+  </script>
+
+</body>
+</html>

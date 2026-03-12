@@ -7,6 +7,7 @@
   <p align="center">
     <a href="https://github.com/oxgeneral/ORCH/stargazers"><img src="https://img.shields.io/github/stars/oxgeneral/ORCH?style=social" alt="GitHub Stars" /></a>
     <a href="https://landing-xi-murex.vercel.app/"><img src="https://img.shields.io/badge/website-landing-amber" alt="Website" /></a>
+    <a href="https://github.com/oxgeneral/ORCH/packages"><img src="https://img.shields.io/badge/npm-@oxgeneral/orch-cb0000" alt="GitHub Packages" /></a>
     <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-one%20command-brightgreen" alt="One command setup" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
     <a href="#development"><img src="https://img.shields.io/badge/tests-737%20passing-brightgreen" alt="Tests" /></a>
@@ -51,6 +52,17 @@ $ orch run --all
 One command. Three agents. Zero tab-switching.
 
 ## Get started in 30 seconds
+
+### Option 1: Install from GitHub Packages
+
+```bash
+npm install -g @oxgeneral/orch --registry=https://npm.pkg.github.com
+
+cd ~/your-project
+orch
+```
+
+### Option 2: Clone and build
 
 ```bash
 git clone https://github.com/oxgeneral/ORCH.git && cd ORCH
