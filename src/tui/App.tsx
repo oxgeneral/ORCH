@@ -2477,7 +2477,7 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
       <Text> </Text>
 
       {/* Role description — split into lines to fill available height */}
-      {/* Header uses 5 rows: status/adapter, model/task, runs/team, blank separator, and one for padding */}
+      {/* Header uses 4 rows: status/adapter, model/task, runs/team, blank separator */}
       {agent.role ? agent.role.split('\n').slice(0, Math.max(1, height - 4)).map((line, i) => (
         <Text key={i} color={tuiColors.silver} wrap="truncate">{'  '}{line}</Text>
       )) : (
