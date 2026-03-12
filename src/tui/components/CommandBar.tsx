@@ -27,6 +27,8 @@ export interface CommandBarProps {
   canForceStop?: boolean;
   canToggleAuto?: boolean;
   autoActive?: boolean;
+  canPause?: boolean;
+  isPaused?: boolean;
   canToggleShowAll?: boolean;
   showAllActive?: boolean;
   hasDetail: boolean;
@@ -37,7 +39,7 @@ export interface CommandBarProps {
 }
 
 export function CommandBar({
-  mode, value, completion, activeView, canRun, canNew, canApprove, canReject, canCancel, canDelete, canEdit, canForceStop, canToggleAuto, autoActive, canToggleShowAll, showAllActive, hasDetail,
+  mode, value, completion, activeView, canRun, canNew, canApprove, canReject, canCancel, canDelete, canEdit, canForceStop, canToggleAuto, autoActive, canPause, isPaused, canToggleShowAll, showAllActive, hasDetail,
   itemCount, itemLabel, width, hasSuggestions,
 }: CommandBarProps) {
   if (mode === 'command') {
@@ -121,6 +123,13 @@ export function CommandBar({
             {' stop'}
           </>
         )}
+        {canPause && (
+          <>
+            {'  '}
+            <Text bold color={tuiColors.amber}>P</Text>
+            {isPaused ? ' resume' : ' pause'}
+          </>
+        )}
         {canToggleAuto && (
           <>
             {'  '}
@@ -149,7 +158,7 @@ export function CommandBar({
             {' close'}
           </>
         )}
-        {!hasDetail && (activeView === 'tasks' || activeView === 'agents') && (
+        {!hasDetail && (activeView === 'tasks' || activeView === 'agents' || activeView === 'goals') && (
           <>
             {'  '}
             <Text bold color={tuiColors.gray}>Enter</Text>

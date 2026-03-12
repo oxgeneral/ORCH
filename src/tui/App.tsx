@@ -501,9 +501,10 @@ export function App({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load teams on mount — tasks/agents/state are already in props
+  // Load teams and goals on mount — tasks/agents/state are already in props
   useEffect(() => {
     onListTeams?.().then(setLiveTeams).catch(() => {});
+    onRefreshGoals?.().then(setLiveGoals).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -699,7 +700,11 @@ export function App({
           event.type === 'task:assigned' ||
           event.type === 'agent:started' ||
           event.type === 'agent:completed' ||
-          event.type === 'run:retry') {
+          event.type === 'run:retry' ||
+          event.type === 'goal:created' ||
+          event.type === 'goal:status_changed' ||
+          event.type === 'goal:updated' ||
+          event.type === 'goal:deleted') {
         scheduleRefresh();
       }
     });
@@ -1658,6 +1663,8 @@ export function App({
   const canForceStop = !inInput && activeView === 'agents' && selectedAgent &&
     (agentActuallyRunning || selectedAgent.status === 'running') && !!onForceStopAgent;
   const canToggleAuto = !inInput && activeView === 'agents' && !!selectedAgent && !!onToggleAutonomous;
+  const canPause = !inInput && activeView === 'goals' && !!selectedGoal &&
+    (selectedGoal.status === 'active' || selectedGoal.status === 'paused') && !!onUpdateGoalStatus;
 
   const showSuggestions = inputMode === 'command' && suggestions.length > 0;
 
@@ -1817,6 +1824,8 @@ export function App({
         canForceStop={!!canForceStop}
         canToggleAuto={!!canToggleAuto}
         autoActive={selectedAgent?.autonomous}
+        canPause={!!canPause}
+        isPaused={selectedGoal?.status === 'paused'}
         canToggleShowAll={activeView === 'tasks' && sortedTasks.length > TASK_LIST_LIMIT}
         showAllActive={showAllTasks}
         hasDetail={!!(showTaskDetail || showAgentDetail || showGoalDetail)}

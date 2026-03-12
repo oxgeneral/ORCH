@@ -11,6 +11,7 @@
 
 import { nanoid } from 'nanoid';
 import type { Goal, GoalStatus, CreateGoalInput } from '../domain/goal.js';
+import { isGoalTerminal } from '../domain/goal.js';
 import { GoalNotFoundError, InvalidArgumentsError } from '../domain/errors.js';
 import type { IGoalStore } from '../infrastructure/storage/interfaces.js';
 import type { EventBus } from './event-bus.js';
@@ -83,7 +84,7 @@ export class GoalService {
     this.eventBus.emit({ type: 'goal:status_changed', goalId: id, from: oldStatus, to: newStatus });
 
     // Terminal status — check if agent still has other active goals
-    if ((newStatus === 'achieved' || newStatus === 'abandoned') && goal.assignee) {
+    if (isGoalTerminal(newStatus) && goal.assignee) {
       await this.maybeDisableAutonomous(goal.assignee);
     }
 
@@ -105,15 +106,13 @@ export class GoalService {
     await this.goalStore.save(goal);
     this.eventBus.emit({ type: 'goal:updated', goalId: id });
 
-    // Handle assignee change
+    // Handle assignee change — independent agents, run in parallel
     const newAssignee = goal.assignee;
     if (newAssignee !== oldAssignee) {
-      if (newAssignee) {
-        await this.enableAutonomous(newAssignee);
-      }
-      if (oldAssignee) {
-        await this.maybeDisableAutonomous(oldAssignee);
-      }
+      const ops: Promise<void>[] = [];
+      if (newAssignee) ops.push(this.enableAutonomous(newAssignee));
+      if (oldAssignee) ops.push(this.maybeDisableAutonomous(oldAssignee));
+      await Promise.all(ops);
     }
 
     return goal;
@@ -140,13 +139,17 @@ export class GoalService {
     }
   }
 
+  /** Check if an agent has at least one active goal. */
+  async hasActiveGoalsForAgent(agentId: string): Promise<boolean> {
+    const activeGoals = await this.goalStore.list({ status: 'active' });
+    return activeGoals.some((g) => g.assignee === agentId);
+  }
+
   /** Disable autonomous if agent has no other active goals. */
   private async maybeDisableAutonomous(agentId: string): Promise<void> {
     if (!this.agentService) return;
     try {
-      const activeGoals = await this.goalStore.list({ status: 'active' });
-      const hasOtherGoals = activeGoals.some((g) => g.assignee === agentId);
-      if (!hasOtherGoals) {
+      if (!(await this.hasActiveGoalsForAgent(agentId))) {
         await this.agentService.setAutonomous(agentId, false);
       }
     } catch {

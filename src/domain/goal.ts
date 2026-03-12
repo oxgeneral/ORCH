@@ -12,6 +12,13 @@
 export const GOAL_STATUSES = ['active', 'paused', 'achieved', 'abandoned'] as const;
 export type GoalStatus = (typeof GOAL_STATUSES)[number];
 
+/** Terminal goal statuses — no further transitions possible. */
+export const TERMINAL_GOAL_STATUSES: ReadonlySet<GoalStatus> = new Set(['achieved', 'abandoned']);
+
+export function isGoalTerminal(status: GoalStatus): boolean {
+  return TERMINAL_GOAL_STATUSES.has(status);
+}
+
 /** Canonical sort order for goal statuses. */
 export const GOAL_STATUS_ORDER: Record<GoalStatus, number> = {
   active: 0,

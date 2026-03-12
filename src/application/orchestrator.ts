@@ -988,7 +988,8 @@ export class Orchestrator {
     await this.deps.taskStore.save(task);
 
     const agent = await this.deps.agentStore.get(agentId);
-    const autoApprove = agent?.config.approval_policy === 'auto';
+    const isAutonomousTask = task.labels?.includes('autonomous');
+    const autoApprove = isAutonomousTask || agent?.config.approval_policy === 'auto';
 
     const newStatus = resolveCompletionStatus(task, true, autoApprove);
 
