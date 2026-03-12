@@ -90,50 +90,111 @@ CLI = единая точка управления агентами.
 
 ```
 src/
-├── cli/                    # CLI-команды и TUI
-│   ├── commands/           # Определение команд
-│   │   ├── init.ts         # orchestry init
-│   │   ├── task.ts         # orchestry task [add|list|show|assign]
-│   │   ├── agent.ts        # orchestry agent [add|list|status|remove]
-│   │   ├── run.ts          # orchestry run [task-id|--all]
-│   │   ├── status.ts       # orchestry status (dashboard)
-│   │   ├── logs.ts         # orchestry logs [agent|task]
-│   │   └── config.ts       # orchestry config [set|get]
-│   ├── tui/                # Интерактивный TUI (Ink)
-│   │   ├── Dashboard.tsx   # Главный экран статуса
-│   │   ├── TaskBoard.tsx   # Канбан задач
-│   │   └── AgentView.tsx   # Детали агента и логи
-│   └── repl.ts             # Интерактивный режим
+├── domain/                        # Доменные модели и бизнес-правила
+│   ├── task.ts                    # Task, TaskStatus, TaskProof
+│   ├── agent.ts                   # Agent, AgentStatus, AgentStats
+│   ├── run.ts                     # Run, RunStatus
+│   ├── goal.ts                    # Goal, GoalStatus
+│   ├── team.ts                    # Team, TeamMember, TeamConfig
+│   ├── message.ts                 # Message, MessageStatus
+│   ├── events.ts                  # OrchestratorEvent (31 тип событий)
+│   ├── errors.ts                  # Доменные ошибки (NotInitializedError и др.)
+│   ├── transitions.ts             # State machine: VALID_TRANSITIONS
+│   ├── state.ts                   # OrchestratorState (running, claimed, retry_queue, stats)
+│   ├── scope.ts                   # Scope overlap detection
+│   ├── config.ts                  # Конфигурация оркестратора (poll_interval, timeouts)
+│   ├── global-config.ts           # Глобальная конфигурация (~/.orch/)
+│   └── default-agents.ts          # Агенты по умолчанию (Agent Creator)
 │
-├── core/                   # Бизнес-логика
-│   ├── orchestrator.ts     # Главный оркестратор (state machine)
-│   ├── task-manager.ts     # CRUD задач + состояния + приоритеты
-│   ├── agent-pool.ts       # Управление пулом агентов
-│   ├── scheduler.ts        # Планировщик запусков
-│   ├── workspace.ts        # Управление рабочими директориями
-│   └── event-bus.ts        # Шина событий (внутренний pub/sub)
+├── application/                   # Сервисный слой (бизнес-логика)
+│   ├── orchestrator.ts            # Главный оркестратор (tick, dispatch, reconcile)
+│   ├── task-service.ts            # CRUD задач + валидация + depends_on
+│   ├── agent-service.ts           # Управление агентами + skills matching
+│   ├── run-service.ts             # Управление запусками + event streaming
+│   ├── goal-service.ts            # Цели + autonomous mode toggle
+│   ├── team-service.ts            # Команды + task pool + lead
+│   ├── message-service.ts         # Сообщения + broadcast + inbox
+│   ├── review-runner.ts           # Авто-ревью задач
+│   ├── doctor-service.ts          # Диагностика (orch doctor)
+│   └── event-bus.ts               # Шина событий (pub/sub, wildcard, maxListeners)
 │
-├── adapters/               # Адаптеры агентов
-│   ├── types.ts            # Общий интерфейс AgentAdapter
-│   ├── registry.ts         # Реестр адаптеров
-│   ├── claude.ts           # Claude Code adapter
-│   ├── codex.ts            # Codex CLI adapter
-│   ├── cursor.ts           # Cursor adapter
-│   ├── shell.ts            # Произвольный shell-скрипт
-│   └── custom.ts           # Пользовательский агент через конфиг
+├── infrastructure/                # Инфраструктурный слой
+│   ├── adapters/                  # Адаптеры агентов
+│   │   ├── interface.ts           # AgentAdapter интерфейс
+│   │   ├── registry.ts            # Реестр адаптеров
+│   │   ├── claude.ts              # Claude Code adapter
+│   │   ├── codex.ts               # Codex CLI adapter
+│   │   ├── cursor.ts              # Cursor adapter
+│   │   ├── shell.ts               # Shell-скрипт adapter
+│   │   ├── event-buffer.ts        # Ring buffer для event streaming
+│   │   └── utils.ts               # Shared: extractTokens, createStreamingEvents
+│   ├── storage/                   # Файловое хранилище (YAML/JSON/JSONL)
+│   │   ├── interfaces.ts          # Store интерфейсы
+│   │   ├── fs-utils.ts            # Атомарные записи, readJsonlTail, parseJsonlLines
+│   │   ├── paths.ts               # Пути .orch/ директории
+│   │   ├── lock.ts                # File lock (atomic rename, O_EXCL)
+│   │   ├── task-store.ts          # Хранилище задач (YAML)
+│   │   ├── agent-store.ts         # Хранилище агентов (YAML)
+│   │   ├── run-store.ts           # Хранилище запусков (JSON + JSONL events)
+│   │   ├── state-store.ts         # Состояние оркестратора (JSON)
+│   │   ├── goal-store.ts          # Хранилище целей (YAML)
+│   │   ├── team-store.ts          # Хранилище команд (YAML)
+│   │   ├── message-store.ts       # Хранилище сообщений (YAML)
+│   │   ├── context-store.ts       # Shared context (JSON, TTL)
+│   │   ├── config-store.ts        # Конфигурация проекта (YAML)
+│   │   ├── global-config-store.ts # Глобальная конфигурация (~/.orch/)
+│   │   └── cached-stores.ts       # Tick-scoped кеширование (CachedTaskStore/AgentStore)
+│   ├── process/
+│   │   └── process-manager.ts     # Управление подпроцессами (spawn, kill, grace)
+│   ├── template/
+│   │   └── template-engine.ts     # LiquidJS шаблонизатор промптов (с timeout)
+│   └── workspace/
+│       ├── interface.ts           # WorkspaceManager интерфейс
+│       ├── workspace-manager.ts   # Git worktree / isolated / shared
+│       └── merge-strategy.ts      # Стратегии merge (auto, manual)
 │
-├── storage/                # Файловое хранилище
-│   ├── store.ts            # Абстракция чтения/записи
-│   ├── tasks.ts            # Хранилище задач
-│   ├── agents.ts           # Конфигурации агентов
-│   ├── runs.ts             # История запусков
-│   └── state.ts            # Текущее состояние оркестратора
+├── cli/                           # CLI-команды (Commander.js)
+│   ├── commands/                  # Определение команд
+│   │   ├── init.ts                # orch init
+│   │   ├── task.ts                # orch task [add|list|show|edit|assign]
+│   │   ├── agent.ts               # orch agent [add|list|edit|remove]
+│   │   ├── run.ts                 # orch run [task-id|--all]
+│   │   ├── status.ts              # orch status
+│   │   ├── logs.ts                # orch logs [--follow|--since]
+│   │   ├── config.ts              # orch config [set|get|edit]
+│   │   ├── doctor.ts              # orch doctor
+│   │   ├── goal.ts                # orch goal [add|list|status|delete]
+│   │   ├── team.ts                # orch team [create|join|set-lead|add-task]
+│   │   ├── msg.ts                 # orch msg [send|broadcast|inbox]
+│   │   ├── context.ts             # orch context [set|get|list|delete]
+│   │   └── tui.ts                 # orch tui (запуск TUI дашборда)
+│   ├── editor.ts                  # Открытие $EDITOR (task/agent edit)
+│   ├── output.ts                  # Форматирование вывода (icons, colors)
+│   └── context.ts                 # CLI context helpers
 │
-└── utils/                  # Утилиты
-    ├── logger.ts           # Структурированное логирование
-    ├── template.ts         # Шаблонизатор промптов
-    ├── process.ts          # Управление подпроцессами
-    └── config.ts           # Загрузка и валидация конфига
+├── tui/                           # TUI дашборд (Ink/React)
+│   ├── App.tsx                    # Главный компонент (tabs, activity feed)
+│   ├── colors.ts                  # Цветовая палитра
+│   ├── commandBar.ts              # Конфигурация горячих клавиш
+│   ├── wizardConfigs.ts           # Конфигурации форм-визардов
+│   └── components/                # UI-компоненты
+│       ├── Header.tsx             # Шапка с tabs
+│       ├── TabBar.tsx             # Переключатель вкладок
+│       ├── TaskList.tsx           # Список задач
+│       ├── AgentList.tsx          # Список агентов
+│       ├── GoalList.tsx           # Список целей
+│       ├── DetailPanel.tsx        # Панель деталей
+│       ├── CommandBar.tsx         # Командная строка
+│       ├── Footer.tsx             # Подвал со статусом
+│       ├── FormWizard.tsx         # Wizard-формы (add task/agent/goal)
+│       ├── Spinner.tsx            # Анимированный спиннер
+│       └── useAnimTick.ts         # Hook для анимации (shared interval)
+│
+├── bin/
+│   └── cli.ts                     # Точка входа CLI
+├── container.ts                   # DI-контейнер
+├── index.ts                       # Public API exports
+└── utils/                         # Утилиты (зарезервировано)
 ```
 
 ---
