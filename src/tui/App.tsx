@@ -36,6 +36,7 @@ import {
   getTeamWizardSteps, teamWizardToInput,
   getConfigWizardSteps,
 } from './wizardConfigs.js';
+import type { ActivityFilterPreset } from '../domain/global-config.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
 
 /** Max tasks visible in collapsed mode; press S to show all */
@@ -104,9 +105,9 @@ export interface AppProps {
   /** Message batch flush interval in ms. 0 = immediate. Default: 80 (0 in test env). */
   messageBatchMs?: number;
   /** Initial activity feed filter preset from global config */
-  initialActivityFilter?: import('../domain/global-config.js').ActivityFilterPreset;
+  initialActivityFilter?: ActivityFilterPreset;
   /** Save activity filter to global config */
-  onSaveActivityFilter?: (preset: import('../domain/global-config.js').ActivityFilterPreset) => Promise<void>;
+  onSaveActivityFilter?: (preset: ActivityFilterPreset) => Promise<void>;
 }
 
 type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
@@ -168,6 +169,25 @@ const MSG_ICONS: Record<MsgType, string> = {
   info: '\u2502',       // │
 };
 
+/** All message types — used as default "show everything" filter */
+const ALL_MSG_TYPES: MsgType[] = ['system', 'lifecycle', 'output', 'tool', 'result', 'error', 'file', 'info'];
+
+/** Filter presets shared across activity feed, logs, config wizard */
+const ACTIVITY_PRESETS: ReadonlyArray<{ label: ActivityFilterPreset; types: MsgType[] }> = [
+  { label: 'all', types: ALL_MSG_TYPES },
+  { label: 'text', types: ['output'] },
+  { label: 'tools', types: ['tool', 'result', 'file'] },
+  { label: 'errors', types: ['error'] },
+  { label: 'events', types: ['lifecycle', 'system'] },
+];
+
+/** Cycle to the next preset given the current filter set */
+function cyclePreset(current: Set<MsgType>): { label: ActivityFilterPreset; types: MsgType[] } {
+  const curIdx = ACTIVITY_PRESETS.findIndex((p) => p.types.length === current.size && p.types.every((t) => current.has(t)));
+  const nextIdx = (curIdx + 1) % ACTIVITY_PRESETS.length;
+  return ACTIVITY_PRESETS[nextIdx]!;
+}
+
 export function App({
   projectName, tasks: initialTasks, agents: initialAgents = [], state: initialState,
   onRunTask, onCreateTask, onCancelTask, onRetryTask, onAssignTask,
@@ -217,26 +237,18 @@ export function App({
 
   // Logs view: agent filter (0 = all, 1-9 = agent by index), type filter, selection, scroll
   const [logFilter, setLogFilter] = useState(0);
-  const ALL_MSG_TYPES: MsgType[] = ['system', 'lifecycle', 'output', 'tool', 'result', 'error', 'file', 'info'];
   const [logTypeFilter, setLogTypeFilter] = useState<Set<MsgType>>(() => new Set(ALL_MSG_TYPES));
   const [logSelectedIndex, setLogSelectedIndex] = useState(-1); // -1 = follow tail (no selection)
   const [logScrollOffset, setLogScrollOffset] = useState(0);
 
   // Activity feed filter (tasks/agents tabs bottom panel)
-  const ACTIVITY_PRESETS: Array<{ label: string; types: MsgType[] }> = [
-    { label: 'all', types: ALL_MSG_TYPES },
-    { label: 'text', types: ['output'] },
-    { label: 'tools', types: ['tool', 'result', 'file'] },
-    { label: 'errors', types: ['error'] },
-    { label: 'events', types: ['lifecycle', 'system'] },
-  ];
   const [activityFilter, setActivityFilter] = useState<Set<MsgType>>(() => {
     const preset = ACTIVITY_PRESETS.find((p) => p.label === initialActivityFilter);
     return new Set(preset?.types ?? ALL_MSG_TYPES);
   });
-  const activityFilterLabel = useMemo(() => {
+  const activityFilterLabel = useMemo((): ActivityFilterPreset => {
     const preset = ACTIVITY_PRESETS.find((p) => p.types.length === activityFilter.size && p.types.every((t) => activityFilter.has(t)));
-    return preset?.label ?? 'custom';
+    return preset?.label ?? 'all';
   }, [activityFilter]);
 
   // Command bar: history, scroll offsets, suggestion selection
@@ -603,7 +615,7 @@ export function App({
         const preset = ACTIVITY_PRESETS.find((p) => p.label === values.activity_filter);
         if (preset) {
           setActivityFilter(new Set(preset.types));
-          onSaveActivityFilter?.(values.activity_filter as import('../domain/global-config.js').ActivityFilterPreset);
+          onSaveActivityFilter?.(values.activity_filter as ActivityFilterPreset);
           addMessage(`Activity filter: ${preset.label}`, tuiColors.amber);
         }
       }
@@ -993,12 +1005,9 @@ export function App({
       case 'config': {
         const sub = parts[1]?.toLowerCase();
         if (sub === 'activity-filter') {
-          // Quick cycle through presets
           setActivityFilter((prev) => {
-            const curIdx = ACTIVITY_PRESETS.findIndex((p) => p.types.length === prev.size && p.types.every((t) => prev.has(t)));
-            const nextIdx = (curIdx + 1) % ACTIVITY_PRESETS.length;
-            const next = ACTIVITY_PRESETS[nextIdx]!;
-            onSaveActivityFilter?.(next.label as import('../domain/global-config.js').ActivityFilterPreset);
+            const next = cyclePreset(prev);
+            onSaveActivityFilter?.(next.label);
             addMessage(`Activity filter: ${next.label}`, tuiColors.amber);
             return new Set(next.types);
           });
@@ -1200,30 +1209,15 @@ export function App({
 
     // F: cycle type filter in Logs view
     if ((input === 'f' || input === 'F') && activeView === 'logs' && !detailOpen) {
-      setLogTypeFilter((prev) => {
-        const presets: Array<{ label: string; types: MsgType[] }> = [
-          { label: 'all', types: ALL_MSG_TYPES },
-          { label: 'text', types: ['output'] },
-          { label: 'tools', types: ['tool', 'result', 'file'] },
-          { label: 'errors', types: ['error'] },
-          { label: 'events', types: ['lifecycle', 'system'] },
-        ];
-        // Find current preset index
-        const curIdx = presets.findIndex((p) => p.types.length === prev.size && p.types.every((t) => prev.has(t)));
-        const nextIdx = (curIdx + 1) % presets.length;
-        return new Set(presets[nextIdx]!.types);
-      });
+      setLogTypeFilter((prev) => new Set(cyclePreset(prev).types));
       return;
     }
 
     // F: cycle activity feed filter on tasks/agents views
     if ((input === 'f' || input === 'F') && (activeView === 'tasks' || activeView === 'agents') && !detailOpen) {
       setActivityFilter((prev) => {
-        const curIdx = ACTIVITY_PRESETS.findIndex((p) => p.types.length === prev.size && p.types.every((t) => prev.has(t)));
-        const nextIdx = (curIdx + 1) % ACTIVITY_PRESETS.length;
-        const next = ACTIVITY_PRESETS[nextIdx]!;
-        // Persist to global config
-        onSaveActivityFilter?.(next.label as import('../domain/global-config.js').ActivityFilterPreset);
+        const next = cyclePreset(prev);
+        onSaveActivityFilter?.(next.label);
         return new Set(next.types);
       });
       return;
@@ -2184,18 +2178,18 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap, typeFilte
   width: number;
   agents: Agent[];
   agentNameMap: Map<string, string>;
-  typeFilter?: Set<MsgType>;
-  filterLabel?: string;
+  typeFilter: Set<MsgType>;
+  filterLabel: string;
 }) {
   const now = useNow();
 
-  // Apply type filter if provided
-  const filtered = typeFilter && typeFilter.size < 8
+  // Apply type filter
+  const filtered = typeFilter.size < ALL_MSG_TYPES.length
     ? messages.filter((m) => typeFilter.has(m.msgType ?? 'info'))
     : messages;
 
   // Reserve 1 line for filter indicator when filter is active
-  const showFilterBar = !!filterLabel && filterLabel !== 'all';
+  const showFilterBar = filterLabel !== 'all';
   const contentH = showFilterBar ? height - 1 : height;
   const visible = filtered.slice(-contentH);
   // Available text width: total - paddingX(2) - border(1) - ts(5) - agent(9) - icon(2)
@@ -2208,7 +2202,7 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap, typeFilte
       {showFilterBar && (
         <Box gap={0}>
           <Text color={tuiColors.dim}> F:</Text>
-          <Text color={tuiColors.amber}>{filterLabel!.toUpperCase()}</Text>
+          <Text color={tuiColors.amber}>{filterLabel.toUpperCase()}</Text>
           <Text color={tuiColors.ghost}> {'\u2502'} {filtered.length}/{messages.length} events</Text>
         </Box>
       )}

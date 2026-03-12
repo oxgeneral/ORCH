@@ -6,8 +6,11 @@
 
 import type { Command } from 'commander';
 import type { Container } from '../../container.js';
+import type { ActivityFilterPreset } from '../../domain/global-config.js';
 import { printSuccess, printError, dim } from '../output.js';
 import { spawn } from 'node:child_process';
+
+const VALID_FILTER_PRESETS: ActivityFilterPreset[] = ['all', 'text', 'tools', 'errors', 'events'];
 
 export function registerConfigCommand(program: Command, container: Container): void {
   const config = program
@@ -93,12 +96,11 @@ export function registerConfigCommand(program: Command, container: Container): v
     .description('Set a global config value')
     .action(async (key: string, value: string) => {
       if (key === 'activity_filter') {
-        const valid = ['all', 'text', 'tools', 'errors', 'events'];
-        if (!valid.includes(value)) {
-          printError(`Invalid value "${value}". Valid: ${valid.join(', ')}`);
+        if (!VALID_FILTER_PRESETS.includes(value as ActivityFilterPreset)) {
+          printError(`Invalid value "${value}". Valid: ${VALID_FILTER_PRESETS.join(', ')}`);
           return;
         }
-        await container.globalConfigStore.set('activity_filter', value as 'all' | 'text' | 'tools' | 'errors' | 'events');
+        await container.globalConfigStore.set('activity_filter', value as ActivityFilterPreset);
         printSuccess(`${key} = ${value}`);
       } else {
         printError(`Unknown global config key: ${key}`);

@@ -7,6 +7,7 @@
 
 import type { WizardStep } from './components/FormWizard.js';
 import type { Agent } from '../domain/agent.js';
+import type { ActivityFilterPreset } from '../domain/global-config.js';
 import type { Team } from '../domain/team.js';
 import type { CreateTeamInput } from '../domain/team.js';
 
@@ -365,7 +366,7 @@ const ACTIVITY_FILTER_OPTIONS = [
   { value: 'events', label: 'Events', hint: 'lifecycle, system events' },
 ];
 
-export function getConfigWizardSteps(currentFilter: string): WizardStep[] {
+export function getConfigWizardSteps(currentFilter: ActivityFilterPreset): WizardStep[] {
   return [
     {
       id: 'setting',
