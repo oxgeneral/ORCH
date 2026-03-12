@@ -108,18 +108,14 @@ async function runWatch(container: Container): Promise<void> {
       case 'orchestrator:stall_detected':
         console.log(`${dim(time)}  ${getIcon('warning')} STALL  ${event.runId}`);
         break;
+      case 'orchestrator:shutdown':
+        console.log(`\n${dim('Shutting down...')}`);
+        break;
     }
   });
 
-  // Graceful shutdown
-  const shutdown = async () => {
-    console.log(`\n${dim('Shutting down...')}`);
-    await container.orchestrator.stop();
-    process.exit(0);
-  };
-
-  process.once('SIGINT', shutdown);
-  process.once('SIGTERM', shutdown);
-
+  // Orchestrator registers its own SIGINT/SIGTERM handlers in startWatch(),
+  // which call stop() for graceful shutdown (flush state, release lock, kill agents).
+  // After stop() clears the interval and removes listeners, Node exits naturally.
   await container.orchestrator.startWatch();
 }

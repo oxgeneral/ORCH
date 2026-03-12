@@ -103,10 +103,16 @@ export async function appendJsonl(filePath: string, record: unknown): Promise<vo
 export async function readJsonl<T>(filePath: string): Promise<T[]> {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
-    return content
-      .split('\n')
-      .filter((line) => line.trim().length > 0)
-      .map((line) => JSON.parse(line) as T);
+    const results: T[] = [];
+    for (const line of content.split('\n')) {
+      if (line.trim().length === 0) continue;
+      try {
+        results.push(JSON.parse(line) as T);
+      } catch {
+        process.stderr.write(`[readJsonl] skipping corrupt JSONL line: ${line.slice(0, 200)}\n`);
+      }
+    }
+    return results;
   } catch (err) {
     if (isENOENT(err)) return [];
     throw err;
@@ -133,10 +139,12 @@ export async function readJsonlTail<T>(filePath: string, count: number): Promise
     try {
       const chunkSize = Math.min(stat.size, 16384);
       let position = Math.max(0, stat.size - chunkSize);
+      let earliestReadPosition = position;
       let tail = '';
 
       // Read up to 3 chunks from the end
       for (let attempt = 0; attempt < 3 && position >= 0; attempt++) {
+        earliestReadPosition = position;
         const readSize = Math.min(chunkSize, stat.size - position);
         const buf = Buffer.alloc(readSize);
         await fd.read(buf, 0, readSize, position);
@@ -145,7 +153,7 @@ export async function readJsonlTail<T>(filePath: string, count: number): Promise
         const lines = tail.split('\n').filter((l) => l.trim().length > 0);
         if (lines.length >= count + 1) {
           // +1 because first line might be partial
-          return lines.slice(-count).map((l) => JSON.parse(l) as T);
+          return parseJsonlLines<T>(lines.slice(-count));
         }
         if (position === 0) break;
         position = Math.max(0, position - chunkSize);
@@ -154,8 +162,8 @@ export async function readJsonlTail<T>(filePath: string, count: number): Promise
       // Parse whatever we got
       const lines = tail.split('\n').filter((l) => l.trim().length > 0);
       // Skip first line if we didn't read from start (could be partial)
-      const safeLines = position > 0 ? lines.slice(1) : lines;
-      return safeLines.slice(-count).map((l) => JSON.parse(l) as T);
+      const safeLines = earliestReadPosition > 0 ? lines.slice(1) : lines;
+      return parseJsonlLines<T>(safeLines.slice(-count));
     } finally {
       await fd.close();
     }
@@ -163,6 +171,21 @@ export async function readJsonlTail<T>(filePath: string, count: number): Promise
     if (isENOENT(err)) return [];
     throw err;
   }
+}
+
+/**
+ * Parse JSONL lines with error tolerance — corrupt lines are logged and skipped.
+ */
+function parseJsonlLines<T>(lines: string[]): T[] {
+  const results: T[] = [];
+  for (const line of lines) {
+    try {
+      results.push(JSON.parse(line) as T);
+    } catch {
+      process.stderr.write(`[readJsonlTail] skipping corrupt JSONL line: ${line.slice(0, 200)}\n`);
+    }
+  }
+  return results;
 }
 
 /**

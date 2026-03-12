@@ -54,16 +54,31 @@ describe('Orchestrator', () => {
   });
 
   describe('requireOwnership', () => {
-    it('runTask throws LockConflictError if lock not acquired', async () => {
+    it('runTask throws LockConflictError if lock is held by another process', async () => {
+      const { acquireLock } = await import('../../../src/infrastructure/storage/lock.js');
+      vi.mocked(acquireLock).mockResolvedValueOnce({ acquired: false, pid: 9999 });
       deps = buildDeps();
       orchestrator = new Orchestrator(deps);
       await expect(orchestrator.runTask('tsk_1')).rejects.toThrow(LockConflictError);
     });
 
-    it('runAll throws LockConflictError if lock not acquired', async () => {
+    it('runAll throws LockConflictError if lock is held by another process', async () => {
+      const { acquireLock } = await import('../../../src/infrastructure/storage/lock.js');
+      vi.mocked(acquireLock).mockResolvedValueOnce({ acquired: false, pid: 9999 });
       deps = buildDeps();
       orchestrator = new Orchestrator(deps);
       await expect(orchestrator.runAll()).rejects.toThrow(LockConflictError);
+    });
+
+    it('runTask acquires and releases lock even on error', async () => {
+      const { acquireLock, releaseLock } = await import('../../../src/infrastructure/storage/lock.js');
+      deps = buildDeps();
+      orchestrator = new Orchestrator(deps);
+      // runTask will fail because task doesn't exist, but lock should still be acquired and released
+      await orchestrator.runTask('tsk_nonexistent').catch(() => {});
+      expect(acquireLock).toHaveBeenCalled();
+      expect(releaseLock).toHaveBeenCalled();
+      expect(orchestrator.isOwner).toBe(false); // lock released after run
     });
 
     it('cancelTask throws LockConflictError if lock not acquired', async () => {

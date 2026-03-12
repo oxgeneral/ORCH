@@ -37,6 +37,19 @@ export class TaskService {
       throw new InvalidArgumentsError('Priority must be an integer between 1 and 4');
     }
 
+    if (input.depends_on?.length) {
+      const missing: string[] = [];
+      for (const depId of input.depends_on) {
+        const dep = await this.taskStore.get(depId);
+        if (!dep) missing.push(depId);
+      }
+      if (missing.length > 0) {
+        throw new InvalidArgumentsError(
+          `Unknown depends_on task ID(s): ${missing.join(', ')}`,
+        );
+      }
+    }
+
     const now = new Date().toISOString();
     const task: Task = {
       id: `tsk_${nanoid(7)}`,

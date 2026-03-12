@@ -103,12 +103,12 @@ describe('Error paths', () => {
       expect(records.length).toBe(2);
     });
 
-    it('readJsonl throws on corrupted lines', async () => {
+    it('readJsonl skips corrupted lines and returns valid records', async () => {
       const filePath = path.join(tmpDir, 'bad.jsonl');
       await fs.writeFile(filePath, '{"ok":1}\nnot json\n{"ok":2}\n', 'utf-8');
 
-      // readJsonl maps all lines with JSON.parse — corrupt line will throw
-      await expect(readJsonl(filePath)).rejects.toThrow();
+      const records = await readJsonl<{ ok: number }>(filePath);
+      expect(records).toEqual([{ ok: 1 }, { ok: 2 }]);
     });
 
     it('readJsonl returns empty array for nonexistent file', async () => {

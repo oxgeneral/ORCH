@@ -62,16 +62,18 @@ const PRIORITY_OPTIONS = [
 
 // ── Agent options builder ──
 
+const AGENT_HINT_MAX_LEN = 80;
+
 function buildAgentOptions(agents: Agent[], emptyLabel = 'Auto-assign', emptyHint = 'orchestrator picks the best agent') {
   return [
     { value: '', label: emptyLabel, hint: emptyHint },
     ...agents
       .filter((a) => a.status !== 'disabled')
-      .map((a) => ({
-        value: a.id,
-        label: a.name,
-        hint: a.role ?? a.adapter,
-      })),
+      .map((a) => {
+        const raw = a.role ?? a.adapter;
+        const hint = raw.length > AGENT_HINT_MAX_LEN ? raw.slice(0, AGENT_HINT_MAX_LEN - 1) + '\u2026' : raw;
+        return { value: a.id, label: a.name, hint };
+      }),
   ];
 }
 

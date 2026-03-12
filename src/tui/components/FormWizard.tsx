@@ -489,7 +489,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
                   {opt.label}
                 </Text>
                 {opt.hint && (
-                  <Text color={tuiColors.dim}>{' '}{LIGHT_RULE} {opt.hint}</Text>
+                  <Text color={tuiColors.dim} wrap="truncate">{' '}{LIGHT_RULE} {opt.hint.replace(/\n/g, ' ')}</Text>
                 )}
               </Box>
             );

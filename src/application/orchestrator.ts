@@ -105,21 +105,41 @@ export class Orchestrator {
   }
 
   /**
-   * Run a single task by ID. Requires lock ownership.
+   * Run a single task by ID. Acquires lock for the duration of the run.
    */
   async runTask(taskId: string): Promise<void> {
-    this.requireOwnership();
-    await this.loadState();
-    await this.dispatchTask(taskId);
+    await this.withTemporaryLock(async () => {
+      await this.loadState();
+      await this.dispatchTask(taskId);
+    });
   }
 
   /**
-   * Run all dispatchable tasks. Requires lock ownership.
+   * Run all dispatchable tasks. Acquires lock for the duration of the run.
    */
   async runAll(): Promise<void> {
-    this.requireOwnership();
-    await this.loadState();
-    await this.dispatchAll();
+    await this.withTemporaryLock(async () => {
+      await this.loadState();
+      await this.dispatchAll();
+    });
+  }
+
+  /**
+   * Acquire lock, run fn, then release lock.
+   * Used by single-shot commands (runTask, runAll) that don't go through startWatch.
+   */
+  private async withTemporaryLock(fn: () => Promise<void>): Promise<void> {
+    const lockResult = await acquireLock(this.deps.lockPath);
+    if (!lockResult.acquired) {
+      throw new LockConflictError(lockResult.pid!);
+    }
+    this.lockAcquired = true;
+    try {
+      await fn();
+    } finally {
+      this.lockAcquired = false;
+      await releaseLock(this.deps.lockPath).catch(() => {});
+    }
   }
 
   /**

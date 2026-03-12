@@ -16,6 +16,7 @@ type Handler<T> = (event: T) => void;
 
 export class EventBus {
   private handlers = new Map<string, Set<Handler<any>>>();
+  private wildcardHandlers = new Set<Handler<OrchestratorEvent>>();
   private maxListeners: number = 10;
   private warnedTypes = new Set<string>();
 
@@ -93,14 +94,22 @@ export class EventBus {
    */
   emit(event: OrchestratorEvent): void {
     const handlers = this.handlers.get(event.type);
-    if (!handlers) return;
+    if (handlers) {
+      for (const handler of handlers) {
+        try {
+          handler(event);
+        } catch (err) {
+          // Don't let a failing handler break the event chain
+          console.error(`EventBus handler error for "${event.type}":`, err);
+        }
+      }
+    }
 
-    for (const handler of handlers) {
+    for (const handler of this.wildcardHandlers) {
       try {
         handler(event);
       } catch (err) {
-        // Don't let a failing handler break the event chain
-        console.error(`EventBus handler error for "${event.type}":`, err);
+        console.error(`EventBus wildcard handler error for "${event.type}":`, err);
       }
     }
   }
@@ -109,41 +118,8 @@ export class EventBus {
    * Subscribe to ALL events regardless of type.
    */
   onAny(handler: Handler<OrchestratorEvent>): () => void {
-    const unsubscribes: Array<() => void> = [];
-    const allTypes: OrchestratorEventType[] = [
-      'task:created',
-      'task:assigned',
-      'task:status_changed',
-      'task:auto_reviewed',
-      'agent:started',
-      'agent:output',
-      'agent:file_changed',
-      'agent:completed',
-      'agent:error',
-      'run:retry',
-      'orchestrator:tick',
-      'orchestrator:stall_detected',
-      'task:scope_overlap',
-      'workspace:merge_succeeded',
-      'workspace:merge_conflict',
-      'task:orphaned',
-      'orchestrator:error',
-      'orchestrator:shutdown',
-      'message:sent',
-      'message:delivered',
-      'team:created',
-      'team:member_joined',
-      'team:member_left',
-      'team:task_claimed',
-      'team:disbanded',
-      'team:task_added',
-    ];
-
-    for (const type of allTypes) {
-      unsubscribes.push(this.on(type, handler as Handler<any>));
-    }
-
-    return () => unsubscribes.forEach((unsub) => unsub());
+    this.wildcardHandlers.add(handler);
+    return () => { this.wildcardHandlers.delete(handler); };
   }
 
   /**
@@ -151,6 +127,7 @@ export class EventBus {
    */
   clear(): void {
     this.handlers.clear();
+    this.wildcardHandlers.clear();
     this.warnedTypes.clear();
   }
 }
