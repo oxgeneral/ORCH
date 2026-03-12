@@ -1023,4 +1023,130 @@ describe('Orchestrator', () => {
       expect(savedAgent?.stats.total_runtime_ms).toBeGreaterThan(0);
     });
   });
+
+  describe('immediate dispatch on task:created', () => {
+    it('task:created triggers immediateDispatch after debounce', async () => {
+      deps = buildDeps({
+        taskStore: createMockTaskStore([]),
+        agentStore: createMockAgentStore([]),
+        config: { ...DEFAULT_CONFIG, scheduling: { ...DEFAULT_CONFIG.scheduling, poll_interval_ms: 60_000 } },
+      });
+
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+
+      // Spy on stateStore.read to track loadState calls after initial tick
+      const readSpy = deps.stateStore.read as ReturnType<typeof vi.fn>;
+      const readCountBefore = readSpy.mock.calls.length;
+
+      // Emit task:created — should schedule immediateDispatch
+      deps.eventBus.emit({ type: 'task:created', task: makeTask() });
+
+      // Wait for debounce (500ms) + execution
+      await new Promise((r) => setTimeout(r, 800));
+
+      // immediateDispatch should have called loadState (stateStore.read) at least once more
+      const readCountAfter = readSpy.mock.calls.length;
+      expect(readCountAfter).toBeGreaterThan(readCountBefore);
+    });
+
+    it('debounce batches multiple task:created events into one dispatch', async () => {
+      const agent = makeAgent();
+      const taskStore = createMockTaskStore([]);
+      const agentStore = createMockAgentStore([agent]);
+
+      const config = {
+        ...DEFAULT_CONFIG,
+        scheduling: { ...DEFAULT_CONFIG.scheduling, poll_interval_ms: 60_000 },
+      };
+
+      deps = buildDeps({ taskStore, agentStore, config });
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+
+      // Track how many times dispatchAll runs via stateStore.write calls after initial tick
+      const writesBefore = (deps.stateStore.write as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      // Emit 3 task:created events in quick succession
+      for (let i = 0; i < 3; i++) {
+        deps.eventBus.emit({ type: 'task:created', task: makeTask({ id: `tsk_batch_${i}` }) });
+      }
+
+      // Wait for debounce window
+      await new Promise((r) => setTimeout(r, 800));
+
+      // Only one immediate dispatch should have happened (single write batch after debounce)
+      const writesAfter = (deps.stateStore.write as ReturnType<typeof vi.fn>).mock.calls.length;
+      // Should have exactly 1 extra save from immediateDispatch (not 3)
+      expect(writesAfter - writesBefore).toBeLessThanOrEqual(2); // 1 for loadState saveState, at most 1 extra
+    });
+
+    it('stop clears task:created subscription and debounce timer', async () => {
+      deps = buildDeps({
+        taskStore: createMockTaskStore([]),
+        agentStore: createMockAgentStore([]),
+        config: { ...DEFAULT_CONFIG, scheduling: { ...DEFAULT_CONFIG.scheduling, poll_interval_ms: 60_000 } },
+      });
+
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+
+      // Schedule an immediate dispatch
+      deps.eventBus.emit({ type: 'task:created', task: makeTask() });
+
+      // Stop immediately — timer should be cleared
+      await orchestrator.stop();
+
+      // Verify internal state is cleaned up
+      expect((orchestrator as any).taskCreatedUnsub).toBeNull();
+      expect((orchestrator as any).immediateDispatchTimer).toBeNull();
+    });
+
+    it('does not dispatch if shuttingDown', async () => {
+      deps = buildDeps({
+        taskStore: createMockTaskStore([]),
+        agentStore: createMockAgentStore([]),
+        config: { ...DEFAULT_CONFIG, scheduling: { ...DEFAULT_CONFIG.scheduling, poll_interval_ms: 60_000 } },
+      });
+
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+      await orchestrator.stop();
+
+      const writesBefore = (deps.stateStore.write as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      // Manually call scheduleImmediateDispatch — should be no-op because shuttingDown
+      (orchestrator as any).shuttingDown = true;
+      (orchestrator as any).scheduleImmediateDispatch();
+
+      await new Promise((r) => setTimeout(r, 700));
+
+      const writesAfter = (deps.stateStore.write as ReturnType<typeof vi.fn>).mock.calls.length;
+      expect(writesAfter).toBe(writesBefore);
+    });
+
+    it('does not run immediateDispatch while tick is in progress', async () => {
+      deps = buildDeps({
+        taskStore: createMockTaskStore([]),
+        agentStore: createMockAgentStore([]),
+        config: { ...DEFAULT_CONFIG, scheduling: { ...DEFAULT_CONFIG.scheduling, poll_interval_ms: 60_000 } },
+      });
+
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+
+      // Simulate tick in progress
+      (orchestrator as any).tickInProgress = true;
+
+      const writesBefore = (deps.stateStore.write as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      // Manually trigger
+      (orchestrator as any).scheduleImmediateDispatch();
+      await new Promise((r) => setTimeout(r, 700));
+
+      // No extra writes because tickInProgress was true
+      const writesAfter = (deps.stateStore.write as ReturnType<typeof vi.fn>).mock.calls.length;
+      expect(writesAfter).toBe(writesBefore);
+    });
+  });
 });

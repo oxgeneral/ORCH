@@ -70,6 +70,9 @@ export class Orchestrator {
   private readonly maxConsecutiveTickFailures = 5;
   private readonly maxRetryQueueSize = 100;
   private signalHandlers: Array<[string, (...args: any[]) => void]> = [];
+  private immediateDispatchTimer: ReturnType<typeof setTimeout> | null = null;
+  private taskCreatedUnsub: (() => void) | null = null;
+  private tickInProgress = false;
 
   /** Promise-chain mutex to serialize critical state mutations. */
   private stateMutex: Promise<void> = Promise.resolve();
@@ -163,6 +166,11 @@ export class Orchestrator {
     // Register signal handlers for graceful shutdown
     this.registerSignalHandlers();
 
+    // Subscribe to task:created for reactive dispatch
+    this.taskCreatedUnsub = this.deps.eventBus.on('task:created', () => {
+      this.scheduleImmediateDispatch();
+    });
+
     // Initial tick
     await this.tick();
 
@@ -232,6 +240,16 @@ export class Orchestrator {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
+    }
+
+    // Unsubscribe from task:created and clear debounce timer
+    if (this.taskCreatedUnsub) {
+      this.taskCreatedUnsub();
+      this.taskCreatedUnsub = null;
+    }
+    if (this.immediateDispatchTimer) {
+      clearTimeout(this.immediateDispatchTimer);
+      this.immediateDispatchTimer = null;
     }
 
     // Flush any pending debounced writes before shutdown
@@ -354,6 +372,62 @@ export class Orchestrator {
   private async tick(): Promise<void> {
     if (this.shuttingDown) return;
 
+    this.tickInProgress = true;
+    try {
+      await this.withStateLock(async () => {
+        if (this.shuttingDown) return;
+
+        this.cachedTaskStore.invalidate();
+        this.cachedAgentStore.invalidate();
+
+        await this.loadState();
+        await this.reconcile();
+        await this.dispatchAll();
+
+        const tasks = await this.cachedTaskStore.list();
+        const running = Object.keys(this.state!.running).length;
+        const queued = tasks.filter((t) => isDispatchable(t.status)).length;
+
+        this.deps.eventBus.emit({
+          type: 'orchestrator:tick',
+          running,
+          queued,
+        });
+      });
+    } finally {
+      this.tickInProgress = false;
+    }
+  }
+
+  /**
+   * Schedule an immediate dispatch with 500ms debounce.
+   * Called on task:created to avoid waiting for the next 30s tick.
+   */
+  private scheduleImmediateDispatch(): void {
+    if (this.shuttingDown) return;
+    if (this.immediateDispatchTimer) return; // already scheduled
+
+    this.immediateDispatchTimer = setTimeout(() => {
+      this.immediateDispatchTimer = null;
+      if (this.shuttingDown || this.tickInProgress) return;
+      this.immediateDispatch().catch((err) => {
+        this.deps.eventBus.emit({
+          type: 'orchestrator:error',
+          error: err instanceof Error ? err.message : String(err),
+          context: 'immediate dispatch on task:created',
+          fatal: false,
+        });
+      });
+    }, 500);
+  }
+
+  /**
+   * Mini-tick: invalidate caches → loadState → dispatchAll → saveState.
+   * Skips reconcile/collect — only dispatches new tasks immediately.
+   */
+  private async immediateDispatch(): Promise<void> {
+    if (this.shuttingDown) return;
+
     await this.withStateLock(async () => {
       if (this.shuttingDown) return;
 
@@ -361,18 +435,8 @@ export class Orchestrator {
       this.cachedAgentStore.invalidate();
 
       await this.loadState();
-      await this.reconcile();
       await this.dispatchAll();
-
-      const tasks = await this.cachedTaskStore.list();
-      const running = Object.keys(this.state!.running).length;
-      const queued = tasks.filter((t) => isDispatchable(t.status)).length;
-
-      this.deps.eventBus.emit({
-        type: 'orchestrator:tick',
-        running,
-        queued,
-      });
+      await this.saveState();
     });
   }
 
