@@ -4,6 +4,9 @@
  * Goals are persistent objectives that drive autonomous agent work.
  * State machine: active → achieved | abandoned
  *                active ↔ paused
+ *
+ * Side effect: assigning an agent to a goal auto-enables autonomous mode;
+ * removing the last active goal from an agent auto-disables it.
  */
 
 import { nanoid } from 'nanoid';
@@ -11,6 +14,7 @@ import type { Goal, GoalStatus, CreateGoalInput } from '../domain/goal.js';
 import { GoalNotFoundError, InvalidArgumentsError } from '../domain/errors.js';
 import type { IGoalStore } from '../infrastructure/storage/interfaces.js';
 import type { EventBus } from './event-bus.js';
+import type { AgentService } from './agent-service.js';
 
 const VALID_TRANSITIONS: Record<GoalStatus, GoalStatus[]> = {
   active: ['paused', 'achieved', 'abandoned'],
@@ -23,6 +27,7 @@ export class GoalService {
   constructor(
     private readonly goalStore: IGoalStore,
     private readonly eventBus: EventBus,
+    private readonly agentService?: AgentService,
   ) {}
 
   async create(input: CreateGoalInput): Promise<Goal> {
@@ -43,6 +48,11 @@ export class GoalService {
 
     await this.goalStore.save(goal);
     this.eventBus.emit({ type: 'goal:created', goalId: goal.id, title: goal.title });
+
+    if (goal.assignee) {
+      await this.enableAutonomous(goal.assignee);
+    }
+
     return goal;
   }
 
@@ -71,11 +81,18 @@ export class GoalService {
     await this.goalStore.save(goal);
 
     this.eventBus.emit({ type: 'goal:status_changed', goalId: id, from: oldStatus, to: newStatus });
+
+    // Terminal status — check if agent still has other active goals
+    if ((newStatus === 'achieved' || newStatus === 'abandoned') && goal.assignee) {
+      await this.maybeDisableAutonomous(goal.assignee);
+    }
+
     return goal;
   }
 
   async update(id: string, fields: { title?: string; description?: string; assignee?: string }): Promise<Goal> {
     const goal = await this.get(id);
+    const oldAssignee = goal.assignee;
 
     if (fields.title !== undefined) {
       if (!fields.title.trim()) throw new InvalidArgumentsError('Goal title cannot be empty');
@@ -87,12 +104,53 @@ export class GoalService {
     goal.updated_at = new Date().toISOString();
     await this.goalStore.save(goal);
     this.eventBus.emit({ type: 'goal:updated', goalId: id });
+
+    // Handle assignee change
+    const newAssignee = goal.assignee;
+    if (newAssignee !== oldAssignee) {
+      if (newAssignee) {
+        await this.enableAutonomous(newAssignee);
+      }
+      if (oldAssignee) {
+        await this.maybeDisableAutonomous(oldAssignee);
+      }
+    }
+
     return goal;
   }
 
   async delete(id: string): Promise<void> {
-    await this.get(id); // ensure exists
+    const goal = await this.get(id);
+    const { assignee } = goal;
     await this.goalStore.delete(id);
     this.eventBus.emit({ type: 'goal:deleted', goalId: id });
+
+    if (assignee) {
+      await this.maybeDisableAutonomous(assignee);
+    }
+  }
+
+  /** Enable autonomous mode on an agent. */
+  private async enableAutonomous(agentId: string): Promise<void> {
+    if (!this.agentService) return;
+    try {
+      await this.agentService.setAutonomous(agentId, true);
+    } catch {
+      // Agent may not exist — ignore silently
+    }
+  }
+
+  /** Disable autonomous if agent has no other active goals. */
+  private async maybeDisableAutonomous(agentId: string): Promise<void> {
+    if (!this.agentService) return;
+    try {
+      const activeGoals = await this.goalStore.list({ status: 'active' });
+      const hasOtherGoals = activeGoals.some((g) => g.assignee === agentId);
+      if (!hasOtherGoals) {
+        await this.agentService.setAutonomous(agentId, false);
+      }
+    } catch {
+      // Agent may not exist — ignore silently
+    }
   }
 }

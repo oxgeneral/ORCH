@@ -1281,7 +1281,7 @@ export function App({
     }
 
     // F: cycle activity feed filter on tasks/agents views
-    if ((input === 'f' || input === 'F') && (activeView === 'tasks' || activeView === 'agents') && !detailOpen) {
+    if ((input === 'f' || input === 'F') && (activeView === 'tasks' || activeView === 'agents' || activeView === 'goals') && !detailOpen) {
       setActivityFilter((prev) => {
         const next = cyclePreset(prev);
         onSaveActivityFilter?.(next.label);
