@@ -100,6 +100,30 @@ describe('getDefaultAgents()', () => {
   it('role does not mention AgentsOrchestryCLI (universal prompt)', () => {
     expect(getDefaultAgents()[0].role).not.toContain('AgentsOrchestryCLI');
   });
+
+  it('agent has required fields: id, name, adapter, role, config, status, stats', () => {
+    const agent = getDefaultAgents()[0];
+    expect(agent.id).toBeDefined();
+    expect(agent.name).toBeDefined();
+    expect(agent.adapter).toBeDefined();
+    expect(agent.role).toBeDefined();
+    expect(agent.config).toBeDefined();
+    expect(agent.status).toBeDefined();
+    expect(agent.stats).toBeDefined();
+  });
+
+  it('role is a non-empty string', () => {
+    const role = getDefaultAgents()[0].role;
+    expect(typeof role).toBe('string');
+    expect((role as string).length).toBeGreaterThan(0);
+  });
+
+  it('returns a new array on each call (no shared reference)', () => {
+    const a = getDefaultAgents();
+    const b = getDefaultAgents();
+    expect(a).not.toBe(b);
+    expect(a[0]).not.toBe(b[0]);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
