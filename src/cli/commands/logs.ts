@@ -100,9 +100,11 @@ async function showTaskLogs(container: Container, taskId: string, sinceMs?: numb
 
   for (const run of runs) {
     console.log(`\n  Run ${run.id} · attempt ${run.attempt} · ${run.status}`);
-    let events = await container.runService.readEventsTail(run.id, 10);
-    events = filterBySince(events, sinceMs);
-    for (const event of events) {
+    let events = sinceMs
+      ? await container.runService.readEvents(run.id)
+      : await container.runService.readEventsTail(run.id, 10);
+    events = sinceMs ? filterBySince(events, sinceMs) : events;
+    for (const event of events.slice(-10)) {
       console.log(formatEvent(event));
     }
   }
@@ -124,9 +126,11 @@ async function showAgentLogs(container: Container, agentId: string, sinceMs?: nu
 
   for (const run of runs.slice(-5)) {
     console.log(`\n  Run ${run.id} · task ${run.task_id} · ${run.status}`);
-    let events = await container.runService.readEventsTail(run.id, 5);
-    events = filterBySince(events, sinceMs);
-    for (const event of events) {
+    let events = sinceMs
+      ? await container.runService.readEvents(run.id)
+      : await container.runService.readEventsTail(run.id, 5);
+    events = sinceMs ? filterBySince(events, sinceMs) : events;
+    for (const event of events.slice(-5)) {
       console.log(formatEvent(event));
     }
   }

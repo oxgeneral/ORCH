@@ -71,6 +71,7 @@ export function makeContainer(overrides: Partial<Container> = {}): Container {
       send: vi.fn(async () => []),
       drainMailbox: vi.fn(async () => []),
       listAll: vi.fn(async () => []),
+      listPendingForAgent: vi.fn(async () => []),
       listForAgent: vi.fn(async () => []),
       purgeExpired: vi.fn(async () => 0),
     },

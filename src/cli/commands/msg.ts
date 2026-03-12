@@ -69,8 +69,7 @@ export function registerMsgCommand(program: Command, container: Container): void
     .description('Show pending messages for an agent')
     .action(async (agentId: string) => {
       await container.paths.requireInit();
-      const messages = await container.messageService.listForAgent(agentId);
-      const pending = messages.filter((m) => m.to_agent_id === agentId && m.status === 'pending');
+      const pending = await container.messageService.listPendingForAgent(agentId);
       if (container.context.json) {
         console.log(JSON.stringify(pending, null, 2));
         return;

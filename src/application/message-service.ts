@@ -132,6 +132,10 @@ export class MessageService {
     return this.messageStore.list();
   }
 
+  async listPendingForAgent(agentId: string): Promise<Message[]> {
+    return this.messageStore.listPending(agentId);
+  }
+
   async listForAgent(agentId: string): Promise<Message[]> {
     const all = await this.messageStore.list();
     return all.filter((m) => m.to_agent_id === agentId || m.from_agent_id === agentId);
