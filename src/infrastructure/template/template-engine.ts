@@ -8,7 +8,7 @@
 import { Liquid } from 'liquidjs';
 import type { Agent } from '../../domain/agent.js';
 import type { OrchestratorConfig } from '../../domain/config.js';
-import type { Task } from '../../domain/task.js';
+import { AUTONOMOUS_LABEL, type Task } from '../../domain/task.js';
 
 export interface ITemplateEngine {
   render(template: string, context: PromptContext): Promise<string>;
@@ -38,6 +38,7 @@ export interface PromptContext {
     priority: number;
     labels: string[];
     scope?: string[];
+    is_autonomous: boolean;
   };
   agent: {
     id: string;
@@ -141,6 +142,7 @@ export function buildPromptContext(
       priority: task.priority,
       labels: task.labels,
       scope: task.scope,
+      is_autonomous: task.labels?.includes(AUTONOMOUS_LABEL) ?? false,
     },
     agent: {
       id: agent.id,
@@ -234,7 +236,7 @@ Manage tasks and coordinate with other agents using \`orch\`:
 **Shared context:**
 - \`orch context set <key> <value>\` / \`orch context get <key>\` / \`orch context list\`
 
-{% if task.labels contains "autonomous" %}
+{% if task.is_autonomous %}
 ## Autonomous Goal Mode
 This is an autonomous task driven by a goal. Work in a continuous loop until the goal is achieved:
 
