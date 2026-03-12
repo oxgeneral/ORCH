@@ -99,7 +99,7 @@ export function AgentRow({ agent, selected, width, runningEntry, currentTaskTitl
   const chipWidth = 11;     // " ▶ ACTIVE " = ~11 chars
   const adapterWidth = 10;
   const teamColWidth = teamName ? Math.min(teamName.length + 2, 14) : 0;
-  const roleWidth = 22 - teamColWidth; // shrink role to fit team badge
+  const roleWidth = Math.max(6, 22 - teamColWidth); // shrink role to fit team badge
   const timeWidth = 7;
   const fixedCols = 2 + chipWidth + adapterWidth + teamColWidth + roleWidth + timeWidth;
   const nameWidth = width ? Math.max(8, width - fixedCols) : 20;

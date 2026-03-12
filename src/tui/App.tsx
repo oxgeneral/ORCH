@@ -283,16 +283,18 @@ export function App({
     return map;
   }, [liveAgents]);
 
-  // Build agent ID → team name map from liveTeams
-  const agentTeamMap = useMemo(() => {
+  // Build agent ID → team name map from liveTeams + count active teams in one pass
+  const { agentTeamMap, activeTeamCount } = useMemo(() => {
     const map = new Map<string, string>();
+    let count = 0;
     for (const team of liveTeams) {
       if (team.status !== 'active') continue;
+      count++;
       for (const member of team.members) {
         map.set(member.agent_id, team.name);
       }
     }
-    return map;
+    return { agentTeamMap: map, activeTeamCount: count };
   }, [liveTeams]);
 
   // Build runId → agentId and runId → taskId maps from state.running
@@ -430,11 +432,11 @@ export function App({
   const launchAgentWizard = useCallback(() => {
     setWizardConfig({
       title: 'NEW AGENT',
-      steps: getAgentWizardSteps(liveTeams),
+      steps: getAgentWizardSteps(liveTeamsRef.current),
       kind: 'agent',
     });
     setInputMode('wizard');
-  }, [liveTeams]);
+  }, []);
 
   const launchTaskWizard = useCallback(() => {
     setWizardConfig({
@@ -610,7 +612,7 @@ export function App({
     done: liveTasks.filter((t) => t.status === 'done').length,
     failed: liveTasks.filter((t) => t.status === 'failed').length,
     cancelled: liveTasks.filter((t) => t.status === 'cancelled').length,
-    teams: liveTeams.filter((t) => t.status === 'active').length,
+    teams: activeTeamCount,
   };
   const runningCount = headerStats.running;
   const headerTokens: HeaderTokens = {
