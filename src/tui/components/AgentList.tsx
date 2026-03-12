@@ -15,7 +15,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import type { Agent, AgentStatus } from '../../domain/agent.js';
 import type { RunningEntry } from '../../domain/state.js';
-import { tuiColors, DOT } from '../colors.js';
+import { tuiColors, DOT, LOZENGE, STAR } from '../colors.js';
 import { Spinner } from './Spinner.js';
 import { formatDuration } from '../../cli/output.js';
 
@@ -26,8 +26,6 @@ const CROSS = '\u2715';          // ✕
 const EMPTY_CIRCLE = '\u25CB';   // ○
 const TRIANGLE = '\u25B6';       // ▶
 const CHECK = '\u2713';          // ✓
-const LOZENGE = '\u25C8';        // ◈
-const STAR = '\u2605';           // ★
 
 /* ── Chip backgrounds ─────────────────────────────── */
 

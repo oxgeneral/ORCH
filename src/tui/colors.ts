@@ -40,3 +40,7 @@ export const HEAVY_RULE = '\u2501';
 export const LIGHT_RULE = '\u2500';
 /** Dot separator (·) */
 export const DOT = '\u00B7';
+/** Lozenge (◈) — review status, team headers */
+export const LOZENGE = '\u25C8';
+/** Star (★) — team leads */
+export const STAR = '\u2605';

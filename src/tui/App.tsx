@@ -1707,10 +1707,20 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
 
   // Build display rows — insert team section headers on team transitions
   const hasTeams = activeTeamCount != null && activeTeamCount > 0;
+
+  // Pre-compute team → lead name map to avoid O(n) search per team in render loop
+  const teamLeadNameMap = new Map<string, string>();
+  if (hasTeams && teamLeadSet && agentTeamMap) {
+    for (const a of agents) {
+      if (teamLeadSet.has(a.id)) {
+        const t = agentTeamMap.get(a.id);
+        if (t) teamLeadNameMap.set(t, a.name);
+      }
+    }
+  }
+
   const rows: React.ReactNode[] = [];
-  let prevTeam: string | undefined = scrollOffset > 0
-    ? agentTeamMap?.get(agents[scrollOffset - 1]?.id ?? '')
-    : undefined;
+  let prevTeam: string | undefined;
 
   for (let i = 0; i < visible.length && rows.length < height; i++) {
     const agent = visible[i]!;
@@ -1718,13 +1728,12 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
 
     // Insert team section header when entering a new team
     if (hasTeams && team && team !== prevTeam) {
-      const leadAgent = agents.find((a) => teamLeadSet?.has(a.id) && agentTeamMap?.get(a.id) === team);
       rows.push(
         <TeamSectionRow
           key={`ts-${team}`}
           teamName={team}
           memberCount={teamMemberCounts.get(team) ?? 0}
-          leadName={leadAgent?.name}
+          leadName={teamLeadNameMap.get(team)}
           width={width}
         />,
       );
@@ -1740,7 +1749,7 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
           width={width - 2}
           runningEntry={runningByAgent.get(agent.id)}
           currentTaskTitle={agent.current_task ? taskTitleMap.get(agent.current_task) : undefined}
-          teamName={agentTeamMap?.get(agent.id)}
+          teamName={team}
           isLead={teamLeadSet?.has(agent.id)}
         />
       </Box>,

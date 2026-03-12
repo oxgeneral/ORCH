@@ -15,7 +15,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { Task, TaskStatus } from '../../domain/task.js';
-import { tuiColors, DOT } from '../colors.js';
+import { tuiColors, DOT, LOZENGE } from '../colors.js';
 import { Spinner } from './Spinner.js';
 import { formatDuration } from '../../cli/output.js';
 
@@ -36,7 +36,6 @@ const FILLED_CIRCLE = '\u25CF';  // ●
 const EMPTY_CIRCLE = '\u25CB';   // ○
 const CHECK = '\u2713';          // ✓
 const CROSS = '\u2715';          // ✕
-const LOZENGE = '\u25C8';        // ◈
 const RETRY = '\u21BB';          // ↻
 const DASH = '\u2500';           // ─
 const TRIANGLE = '\u25B6';       // ▶

@@ -18,7 +18,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import { tuiColors, HEAVY_RULE, DOT } from '../colors.js';
+import { tuiColors, HEAVY_RULE, DOT, LOZENGE } from '../colors.js';
 import { TABS } from './TabBar.js';
 import type { ViewId } from './TabBar.js';
 
@@ -31,7 +31,6 @@ const FILLED_CIRCLE = '\u25CF';      // ●
 const EMPTY_CIRCLE = '\u25CB';       // ○
 const CHECK = '\u2713';              // ✓
 const CROSS = '\u2715';              // ✕
-const LOZENGE = '\u25C8';            // ◈
 const ARROW_UP = '\u2191';           // ↑
 const ARROW_DOWN = '\u2193';         // ↓
 const SIGMA = '\u03A3';              // Σ
