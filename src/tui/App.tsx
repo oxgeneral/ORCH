@@ -1935,18 +1935,14 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
           const active = logFilter === i + 1;
           const count = agentMsgCounts.get(a.id) ?? 0;
           const countStr = count > 0 ? `\u00B7${count}` : '';
-          return (
-            <React.Fragment key={a.id}>
-              {active ? (
-                <Text backgroundColor={tuiColors.successBg} color={ac} bold>
-                  {' '}{i + 1}:{a.name}{countStr}{' '}
-                </Text>
-              ) : (
-                <Text color={count > 0 ? tuiColors.dim : tuiColors.ghost}>
-                  {' '}{i + 1}:{a.name}{countStr}
-                </Text>
-              )}
-            </React.Fragment>
+          return active ? (
+            <Text key={a.id} backgroundColor={tuiColors.successBg} color={ac} bold>
+              {' '}{i + 1}:{a.name}{countStr}{' '}
+            </Text>
+          ) : (
+            <Text key={a.id} color={count > 0 ? tuiColors.dim : tuiColors.ghost}>
+              {' '}{i + 1}:{a.name}{countStr}
+            </Text>
           );
         })}
       </Box>
