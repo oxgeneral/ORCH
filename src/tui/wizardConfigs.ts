@@ -313,7 +313,7 @@ export function editTaskWizardToFields(vals: Record<string, string>) {
   };
 }
 
-export function getEditAgentWizardSteps(agent: Agent): WizardStep[] {
+export function getEditAgentWizardSteps(agent: Agent, teams?: Team[], currentTeamId?: string): WizardStep[] {
   // Find current role in presets or mark as custom
   const currentRoleInPresets = ROLE_PRESETS.find((r) => r.value === agent.role);
   const roleDefault = currentRoleInPresets ? agent.role! : (agent.role ? '__custom__' : '');
@@ -323,6 +323,13 @@ export function getEditAgentWizardSteps(agent: Agent): WizardStep[] {
     agent.adapter === 'cursor' ? CURSOR_MODELS :
     agent.adapter === 'shell' ? SHELL_MODELS :
     CLAUDE_MODELS;
+
+  const teamOptions = [
+    { value: '', label: 'None', hint: 'no team' },
+    ...(teams ?? [])
+      .filter((t) => t.status === 'active')
+      .map((t) => ({ value: t.id, label: t.name, hint: `${t.members.length} members` })),
+  ];
 
   return [
     {
@@ -353,6 +360,14 @@ export function getEditAgentWizardSteps(agent: Agent): WizardStep[] {
       defaultValue: agent.role && !currentRoleInPresets ? agent.role : '',
       placeholder: 'e.g. Specialist in React and TypeScript',
       skip: (vals) => vals.role !== '__custom__',
+    },
+    {
+      id: 'team',
+      label: 'Team',
+      type: 'select',
+      options: teamOptions,
+      defaultValue: currentTeamId ?? '',
+      skip: () => teamOptions.length <= 1,
     },
   ];
 }
@@ -394,6 +409,7 @@ export function editAgentWizardToFields(vals: Record<string, string>) {
     name: vals.name,
     role,
     model: vals.model || undefined,
+    team_id: vals.team || undefined,
   };
 }
 
