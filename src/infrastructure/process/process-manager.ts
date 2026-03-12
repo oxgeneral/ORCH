@@ -31,10 +31,16 @@ export class ProcessManager implements IProcessManager {
   }
 
   kill(pid: number, signal: NodeJS.Signals = 'SIGTERM'): void {
+    // Kill entire process group (-pid) to clean up child processes (vitest, playwright, etc.)
     try {
-      process.kill(pid, signal);
+      process.kill(-pid, signal);
     } catch {
-      // Process already dead
+      // Group kill failed — fall back to direct PID kill
+      try {
+        process.kill(pid, signal);
+      } catch {
+        // Process already dead
+      }
     }
   }
 
@@ -57,6 +63,7 @@ export class ProcessManager implements IProcessManager {
   spawn(command: string, args: string[], options?: SpawnOptions): SpawnResult {
     const proc = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: true, // Create new process group so killWithGrace(-pid) kills all children
       ...options,
     });
 
