@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { readJson, writeJson, appendJsonl, readJsonl, readYaml, writeYaml } from '../../../src/infrastructure/storage/fs-utils.js';
+import { readJson, writeJson, appendJsonl, readJsonl, readJsonlTail, readYaml, writeYaml } from '../../../src/infrastructure/storage/fs-utils.js';
 import { StateStore } from '../../../src/infrastructure/storage/state-store.js';
 import { RunStore } from '../../../src/infrastructure/storage/run-store.js';
 import { Paths } from '../../../src/infrastructure/storage/paths.js';
@@ -113,6 +113,36 @@ describe('Error paths', () => {
 
     it('readJsonl returns empty array for nonexistent file', async () => {
       const result = await readJsonl(path.join(tmpDir, 'missing.jsonl'));
+      expect(result).toEqual([]);
+    });
+
+    it('readJsonl skips multiple consecutive corrupt lines', async () => {
+      const filePath = path.join(tmpDir, 'multi-corrupt.jsonl');
+      await fs.writeFile(filePath, '{"ok":1}\nbad1\nbad2\nbad3\n{"ok":2}\n', 'utf-8');
+
+      const records = await readJsonl<{ ok: number }>(filePath);
+      expect(records).toEqual([{ ok: 1 }, { ok: 2 }]);
+    });
+
+    it('readJsonl returns empty array when all lines are corrupt', async () => {
+      const filePath = path.join(tmpDir, 'all-corrupt.jsonl');
+      await fs.writeFile(filePath, 'bad1\nbad2\nbad3\n', 'utf-8');
+
+      const records = await readJsonl(filePath);
+      expect(records).toEqual([]);
+    });
+
+    it('readJsonlTail skips corrupted lines in small files', async () => {
+      const filePath = path.join(tmpDir, 'tail-corrupt.jsonl');
+      // Small file (<32KB) uses readJsonl internally
+      await fs.writeFile(filePath, '{"ok":1}\ncorrupt\n{"ok":2}\n{"ok":3}\n', 'utf-8');
+
+      const records = await readJsonlTail<{ ok: number }>(filePath, 10);
+      expect(records).toEqual([{ ok: 1 }, { ok: 2 }, { ok: 3 }]);
+    });
+
+    it('readJsonlTail returns empty array for nonexistent file', async () => {
+      const result = await readJsonlTail(path.join(tmpDir, 'missing-tail.jsonl'), 10);
       expect(result).toEqual([]);
     });
 
