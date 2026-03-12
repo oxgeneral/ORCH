@@ -11,6 +11,7 @@ import { ensureDir, pathExists } from '../../infrastructure/storage/fs-utils.js'
 import { writeYaml, atomicWrite } from '../../infrastructure/storage/fs-utils.js';
 import { DEFAULT_CONFIG } from '../../domain/config.js';
 import { DEFAULT_PROMPT_TEMPLATE } from '../../infrastructure/template/template-engine.js';
+import { getDefaultAgents } from '../../domain/default-agents.js';
 import { printSuccess, printWarning, dim } from '../output.js';
 
 export function registerInitCommand(program: Command): void {
@@ -80,6 +81,12 @@ export function registerInitCommand(program: Command): void {
       // Write default template
       await atomicWrite(paths.defaultTemplatePath(), DEFAULT_PROMPT_TEMPLATE);
 
+      // Write default agents
+      const defaultAgents = getDefaultAgents();
+      await Promise.all(
+        defaultAgents.map((agent) => writeYaml(paths.agentPath(agent.id), agent)),
+      );
+
       // Output
       console.log();
       printSuccess('initialized');
@@ -88,10 +95,13 @@ export function registerInitCommand(program: Command): void {
       console.log(`  ${dim('├──')} config.yml`);
       console.log(`  ${dim('├──')} tasks/`);
       console.log(`  ${dim('├──')} agents/`);
+      for (const agent of defaultAgents) {
+        console.log(`  ${dim('│   └──')} ${agent.id}.yml ${dim(`(${agent.name})`)}`);
+      }
       console.log(`  ${dim('├──')} templates/default.md`);
       console.log(`  ${dim('└──')} .gitignore`);
       console.log();
-      console.log(`  Next: ${dim('orch agent add <name> --adapter claude')}`);
+      console.log(`  Next: ${dim('orch task add "Create backend agent" --assignee agt_creator')}`);
       console.log();
     });
 }
