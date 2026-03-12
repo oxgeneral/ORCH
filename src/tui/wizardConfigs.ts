@@ -388,20 +388,6 @@ export function getConfigWizardSteps(currentFilter: ActivityFilterPreset): Wizar
   ];
 }
 
-// ── Autonomous goal wizard ──
-
-export function getAutonomousWizardSteps(currentGoal?: string): WizardStep[] {
-  return [
-    {
-      id: 'goal',
-      label: 'Goal for autonomous work',
-      type: 'textarea',
-      defaultValue: currentGoal ?? '',
-      placeholder: 'Describe the goal: what should the agent achieve?',
-    },
-  ];
-}
-
 export function editAgentWizardToFields(vals: Record<string, string>) {
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
   return {

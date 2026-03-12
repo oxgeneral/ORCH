@@ -382,6 +382,7 @@ export class Orchestrator {
 
         this.cachedTaskStore.invalidate();
         this.cachedAgentStore.invalidate();
+        this.cachedGoalStore?.invalidate();
 
         await this.loadState();
         await this.reconcile();
@@ -562,6 +563,7 @@ export class Orchestrator {
       : [];
 
     let anyCreated = false;
+    const claimedGoalIds = new Set<string>();
     for (const agent of autonomousAgents) {
       // Skip if agent already has a non-terminal task assigned
       const hasActiveTask = allTasks.some(
@@ -569,10 +571,13 @@ export class Orchestrator {
       );
       if (hasActiveTask) continue;
 
-      // Find goal assigned to this agent (or unassigned)
+      // Find goal: prefer assigned to this agent, then unassigned (not yet claimed)
       const goal = activeGoals.find(
-        (g) => g.assignee === agent.id || !g.assignee,
+        (g) => g.assignee === agent.id && !claimedGoalIds.has(g.id),
+      ) ?? activeGoals.find(
+        (g) => !g.assignee && !claimedGoalIds.has(g.id),
       );
+      if (goal) claimedGoalIds.add(goal.id);
       const role = agent.role ?? 'general assistant';
 
       const title = goal

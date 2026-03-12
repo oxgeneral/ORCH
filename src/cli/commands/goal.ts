@@ -106,6 +106,12 @@ export function registerGoalCommand(program: Command, container: Container): voi
     .description('Change goal status (active, paused, achieved, abandoned)')
     .action(async (id: string, status: string) => {
       await container.paths.requireInit();
+      const valid: GoalStatus[] = ['active', 'paused', 'achieved', 'abandoned'];
+      if (!valid.includes(status as GoalStatus)) {
+        console.error(`Invalid status "${status}". Valid: ${valid.join(', ')}`);
+        process.exitCode = 1;
+        return;
+      }
       const g = await container.goalService.updateStatus(id, status as GoalStatus);
 
       if (container.context.json) {

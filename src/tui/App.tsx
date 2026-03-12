@@ -37,7 +37,6 @@ import {
   getEditAgentWizardSteps, editAgentWizardToFields,
   getTeamWizardSteps, teamWizardToInput,
   getConfigWizardSteps,
-  getAutonomousWizardSteps,
   getGoalWizardSteps, goalWizardToInput,
   getEditGoalWizardSteps, editGoalWizardToFields,
 } from './wizardConfigs.js';
@@ -129,7 +128,7 @@ type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
 interface WizardConfig {
   title: string;
   steps: WizardStep[];
-  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team' | 'config' | 'autonomous' | 'goal' | 'edit_goal';
+  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team' | 'config' | 'goal' | 'edit_goal';
   /** Target ID for edit wizards */
   targetId?: string;
 }
@@ -652,12 +651,6 @@ export function App({
           addMessage(`Activity filter: ${preset.label}`, tuiColors.amber);
         }
       }
-    } else if (kind === 'autonomous' && targetId && onToggleAutonomous) {
-      addMessage(`Enabling autonomous mode for agent...`, tuiColors.amber);
-      onToggleAutonomous(targetId, true).then(
-        (agent) => { addMessage(`${LOOP} ${agent.name} autonomous ON`, tuiColors.cyan); refreshAll(); },
-        (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
-      );
     } else if (kind === 'goal' && onCreateGoal) {
       const input = goalWizardToInput(values);
       addMessage(`Creating goal "${input.title}"...`, tuiColors.amber);

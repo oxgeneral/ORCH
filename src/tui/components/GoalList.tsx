@@ -16,8 +16,6 @@ import { tuiColors, DOT } from '../colors.js';
 
 /* ── Glyphs ───────────────────────────────────────── */
 
-const FILLED_CIRCLE = '\u25CF';  // ●
-const EMPTY_CIRCLE = '\u25CB';   // ○
 const CHECK = '\u2713';          // ✓
 const CROSS = '\u2715';          // ✕
 const PAUSE = '\u2016';          // ‖
@@ -171,5 +169,3 @@ export function GoalList({ goals, selectedIndex }: GoalListProps) {
   );
 }
 
-GoalList.Row = GoalRow;
-export { STATUS_CHIP as GOAL_STATUS_CHIP };

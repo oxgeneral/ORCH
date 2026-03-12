@@ -8,14 +8,13 @@
 import type { Goal, GoalStatus } from '../../domain/goal.js';
 import type { IGoalStore } from './interfaces.js';
 import type { Paths } from './paths.js';
-import { listFiles, readYaml, writeYaml, ensureDir } from './fs-utils.js';
+import { listFiles, readYaml, writeYaml } from './fs-utils.js';
 import fs from 'node:fs/promises';
 
 export class GoalStore implements IGoalStore {
   constructor(private readonly paths: Paths) {}
 
   async list(filter?: { status?: GoalStatus }): Promise<Goal[]> {
-    await ensureDir(this.paths.goalsDir);
     const files = await listFiles(this.paths.goalsDir, '.yml');
 
     const results = await Promise.all(
@@ -30,7 +29,7 @@ export class GoalStore implements IGoalStore {
     );
 
     return goals.sort((a, b) => {
-      const statusOrder = statusPriority(a.status) - statusPriority(b.status);
+      const statusOrder = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
       if (statusOrder !== 0) return statusOrder;
       const bTime = b.updated_at ?? '';
       const aTime = a.updated_at ?? '';
@@ -43,7 +42,6 @@ export class GoalStore implements IGoalStore {
   }
 
   async save(goal: Goal): Promise<void> {
-    await ensureDir(this.paths.goalsDir);
     await writeYaml(this.paths.goalPath(goal.id), goal);
   }
 
@@ -56,12 +54,9 @@ export class GoalStore implements IGoalStore {
   }
 }
 
-function statusPriority(status: GoalStatus): number {
-  const order: Record<GoalStatus, number> = {
-    active: 0,
-    paused: 1,
-    achieved: 2,
-    abandoned: 3,
-  };
-  return order[status];
-}
+const STATUS_PRIORITY: Record<GoalStatus, number> = {
+  active: 0,
+  paused: 1,
+  achieved: 2,
+  abandoned: 3,
+};

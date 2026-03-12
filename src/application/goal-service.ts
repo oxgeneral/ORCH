@@ -86,6 +86,7 @@ export class GoalService {
 
     goal.updated_at = new Date().toISOString();
     await this.goalStore.save(goal);
+    this.eventBus.emit({ type: 'goal:updated', goalId: id });
     return goal;
   }
 

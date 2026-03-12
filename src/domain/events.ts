@@ -40,6 +40,7 @@ export type OrchestratorEvent =
   | { type: 'agent:autonomous_toggled'; agentId: string; autonomous: boolean }
   | { type: 'goal:created'; goalId: string; title: string }
   | { type: 'goal:status_changed'; goalId: string; from: GoalStatus; to: GoalStatus }
+  | { type: 'goal:updated'; goalId: string }
   | { type: 'goal:deleted'; goalId: string };
 
 export type OrchestratorEventType = OrchestratorEvent['type'];
