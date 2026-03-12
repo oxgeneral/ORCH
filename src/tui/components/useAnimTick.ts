@@ -35,12 +35,6 @@ function stopGlobal(): void {
   }
 }
 
-/**
- * Hook: subscribe to the global animation tick.
- * Returns the current tick number (increments every 120ms).
- * The global timer starts when the first subscriber mounts
- * and stops when the last one unmounts.
- */
 /** Reset global state — for tests only. */
 export function _resetAnimTick(): void {
   if (timer) { clearInterval(timer); timer = null; }
