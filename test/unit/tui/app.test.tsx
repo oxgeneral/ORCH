@@ -1120,8 +1120,7 @@ describe('App', () => {
     await delay(50);
     const output = lastFrame()!;
     expect(output).toContain('ACTIONS');
-    expect(output).toContain('0');
-    expect(output).toContain('all');
+    expect(output).toContain('ALL');
   });
 
   it('filters logs by agent with number keys', async () => {

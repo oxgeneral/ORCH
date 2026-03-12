@@ -1920,57 +1920,63 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
 
   return (
     <Box flexDirection="column" paddingX={1}>
-      {/* ── Filter bar: agent chips + type filter + mode + count ── */}
-      <Box gap={1}>
+      {/* ── Line 1: Agent filter chips ── */}
+      <Box gap={0}>
         {/* ALL chip */}
         {logFilter === 0 ? (
-          <Text backgroundColor={tuiColors.infoBg} color={tuiColors.silver} bold>{' 0 ALL '}</Text>
+          <Text backgroundColor={tuiColors.infoBg} color={tuiColors.silver} bold>{' \u25CF ALL '}</Text>
         ) : (
-          <Text color={tuiColors.ghost}>{' 0·all'}</Text>
+          <Text color={tuiColors.ghost}>{' \u25CB all '}</Text>
         )}
-        {/* Per-agent chips with message counts */}
+        <Text color={tuiColors.ghost}>{' '}</Text>
+        {/* Per-agent chips — compact numbered pills */}
         {agents.slice(0, 9).map((a, i) => {
           const ac = getAgentColor(a.id, agents);
           const active = logFilter === i + 1;
           const count = agentMsgCounts.get(a.id) ?? 0;
-          if (active) {
-            return (
-              <Text key={a.id} backgroundColor={tuiColors.successBg} color={ac} bold>
-                {' '}{i + 1} {a.name.toUpperCase()}{count > 0 ? ` ${count}` : ''}{' '}
-              </Text>
-            );
-          }
+          const countStr = count > 0 ? `\u00B7${count}` : '';
           return (
-            <Text key={a.id} color={tuiColors.ghost}>
-              {i + 1}·{a.name}{count > 0 ? <Text color={tuiColors.dim}> {count}</Text> : ''}
-            </Text>
+            <React.Fragment key={a.id}>
+              {active ? (
+                <Text backgroundColor={tuiColors.successBg} color={ac} bold>
+                  {' '}{i + 1}:{a.name}{countStr}{' '}
+                </Text>
+              ) : (
+                <Text color={count > 0 ? tuiColors.dim : tuiColors.ghost}>
+                  {' '}{i + 1}:{a.name}{countStr}
+                </Text>
+              )}
+            </React.Fragment>
           );
         })}
-        <Text color={tuiColors.ghost}>│</Text>
-        {/* Type filter chip with count */}
+      </Box>
+
+      {/* ── Line 2: Type filter + count + mode + sparkline ── */}
+      <Box gap={0}>
+        {/* Type filter */}
         {typeFilterLabel === 'all' ? (
-          <Text color={tuiColors.dim}><Text bold color={tuiColors.gray}>F</Text> {typeFilterLabel} <Text color={tuiColors.ghost}>{filteredMessages.length}</Text></Text>
+          <Text color={tuiColors.dim}>{' F:all'}</Text>
         ) : (
-          <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber} bold>{' F '}{typeFilterLabel.toUpperCase()} {filteredMessages.length}{' '}</Text>
+          <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber} bold>{' F:'}{typeFilterLabel.toUpperCase()}{' '}</Text>
         )}
-        <Text color={tuiColors.ghost}>│</Text>
-        {/* Live/browse mode with animated indicator */}
+        <Text color={tuiColors.ghost}> {'\u2502'} </Text>
+        {/* Event count */}
+        <Text color={tuiColors.dim}>{filteredMessages.length} events</Text>
+        <Text color={tuiColors.ghost}> {'\u2502'} </Text>
+        {/* Live/browse mode */}
         {selectedIndex === -1 ? (
-          <Box>
+          <Box gap={0}>
             <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}>{' '}</Text>
             <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}><Spinner color={tuiColors.green} /></Text>
             <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}>{' LIVE '}</Text>
           </Box>
         ) : (
           <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber}>
-            {' ↑↓ '}{selectedIndex + 1}/{filteredMessages.length}{' '}
+            {' \u2191\u2193 '}{selectedIndex + 1}/{filteredMessages.length}{' '}
           </Text>
         )}
-      </Box>
-
-      {/* ── Sparkline activity bar ── */}
-      <Box>
-        <Text color={tuiColors.ghost}> activity </Text>
+        <Text color={tuiColors.ghost}>{'  '}</Text>
+        {/* Inline sparkline */}
         <Text color={tuiColors.amberDim}>{sparkline}</Text>
         <Text color={tuiColors.ghost}> 5m</Text>
       </Box>
