@@ -245,6 +245,119 @@ interface RunEvent {
 }
 ```
 
+### 5.4. Goal (Цель)
+
+```typescript
+// Статусы цели. State machine: active → achieved | abandoned; active ↔ paused
+type GoalStatus = 'active' | 'paused' | 'achieved' | 'abandoned';
+
+// Терминальные статусы — дальнейшие переходы невозможны
+const TERMINAL_GOAL_STATUSES: ReadonlySet<GoalStatus> = new Set(['achieved', 'abandoned']);
+
+interface Goal {
+  id: string;                    // nanoid, e.g. "gol_a1b2c3"
+  title: string;                 // "Increase test coverage to 90%"
+  description: string;           // Markdown-описание цели
+  status: GoalStatus;            // active | paused | achieved | abandoned
+  assignee?: string;             // agent_id — агент, ответственный за цель
+  created_at: string;            // ISO-8601
+  updated_at?: string;           // ISO-8601
+}
+
+interface CreateGoalInput {
+  title: string;
+  description?: string;
+  assignee?: string;             // Если указан — автоматически включает autonomous mode агента
+}
+```
+
+**Приоритет**: Цели имеют более низкий приоритет, чем задачи — агенты работают над целями только когда нет обычных задач.
+
+### 5.5. Team (Команда)
+
+```typescript
+type TeamStatus = 'active' | 'paused' | 'disbanded';
+
+interface TeamMember {
+  agent_id: string;              // Ссылка на Agent.id
+  role: 'lead' | 'member';      // Роль в команде
+  joined_at: string;             // ISO-8601
+}
+
+interface Team {
+  id: string;                    // nanoid, e.g. "team_a1b2c3"
+  name: string;                  // "Backend Squad"
+  description?: string;          // Описание команды
+  status: TeamStatus;            // active | paused | disbanded
+  members: TeamMember[];         // Участники команды
+  task_pool: string[];           // task_id[] — общий пул задач команды
+  lead_agent_id: string;         // agent_id лида команды
+  created_at: string;            // ISO-8601
+  updated_at: string;            // ISO-8601
+  config: TeamConfig;            // Конфигурация команды
+}
+
+interface TeamConfig {
+  max_concurrent_tasks?: number; // Лимит параллельных задач команды
+  auto_claim: boolean;           // Автоматический claim задач из пула (default: true)
+  message_ttl_ms?: number;       // TTL сообщений команды (default: 86400000 = 24h)
+}
+
+interface CreateTeamInput {
+  name: string;
+  description?: string;
+  lead_agent_id: string;         // Обязательный лид
+  member_agent_ids?: string[];   // Начальные участники
+  config?: Partial<TeamConfig>;
+}
+
+// Default конфигурация
+const DEFAULT_TEAM_CONFIG: TeamConfig = {
+  auto_claim: true,
+  message_ttl_ms: 86400000,      // 24 часа
+};
+```
+
+### 5.6. Message (Сообщение)
+
+```typescript
+type MessageChannel = 'direct' | 'broadcast' | 'lead';
+
+type MessageStatus = 'pending' | 'delivered' | 'expired';
+
+interface Message {
+  id: string;                    // nanoid
+  channel: MessageChannel;       // Канал доставки
+  from_agent_id: string;         // Отправитель (agent_id)
+  to_agent_id: string | null;    // Получатель (null для broadcast)
+  subject: string;               // Тема сообщения
+  body: string;                  // Тело сообщения (Markdown)
+  created_at: string;            // ISO-8601
+  expires_at?: string;           // ISO-8601, auto-set из TTL
+  status: MessageStatus;         // pending | delivered | expired
+  delivered_at?: string;         // ISO-8601, заполняется при доставке
+  team_id?: string;              // team_id для team broadcast
+  reply_to?: string;             // message_id для reply-chain
+}
+
+interface CreateMessageInput {
+  channel: MessageChannel;
+  from_agent_id: string;
+  to_agent_id?: string;          // Обязателен для 'direct', null для 'broadcast'
+  subject: string;
+  body: string;
+  ttl_ms?: number;               // TTL в ms (default: 86400000 = 24h, max: 604800000 = 7d)
+  team_id?: string;              // Для team-scoped broadcast
+  reply_to?: string;             // Для цепочки ответов
+}
+
+// Константы TTL
+const MAX_MESSAGE_TTL_MS = 604800000;     // 7 дней
+const DEFAULT_MESSAGE_TTL_MS = 86400000;  // 24 часа
+```
+
+**Доставка**: Сообщения хранятся как JSON файлы в `.orchestry/messages/` и инжектируются в промпт агента при dispatch. После доставки статус меняется на `delivered`.
+
 ---
 
 ## 6. Файловая структура `.orchestry/`
