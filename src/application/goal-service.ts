@@ -13,7 +13,6 @@ import { nanoid } from 'nanoid';
 import type { Goal, GoalStatus, CreateGoalInput } from '../domain/goal.js';
 import { isGoalTerminal } from '../domain/goal.js';
 import { AUTONOMOUS_LABEL } from '../domain/task.js';
-import { isDispatchable } from '../domain/transitions.js';
 import { GoalNotFoundError, InvalidArgumentsError } from '../domain/errors.js';
 import type { IGoalStore } from '../infrastructure/storage/interfaces.js';
 import type { EventBus } from './event-bus.js';
@@ -162,12 +161,12 @@ export class GoalService {
   private async cancelPendingAutonomousTasks(agentId: string): Promise<void> {
     if (!this.taskService) return;
     try {
-      const allTasks = await this.taskService.list();
-      const pending = allTasks.filter(
-        (t) =>
-          t.assignee === agentId &&
-          t.labels?.includes(AUTONOMOUS_LABEL) &&
-          isDispatchable(t.status),
+      const [todos, retrying] = await Promise.all([
+        this.taskService.list({ status: 'todo' }),
+        this.taskService.list({ status: 'retrying' }),
+      ]);
+      const pending = [...todos, ...retrying].filter(
+        (t) => t.assignee === agentId && t.labels?.includes(AUTONOMOUS_LABEL),
       );
       await Promise.all(pending.map((t) => this.taskService!.cancel(t.id).catch(() => {})));
     } catch {
