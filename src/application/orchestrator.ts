@@ -652,12 +652,15 @@ export class Orchestrator {
       })
       .slice(0, availableSlots);
 
-    // Scope overlap warnings — soft check against in-progress tasks and batch peers
+    // Scope overlap check — block dispatch if candidate overlaps with running or earlier candidate
+    const blockedIds = new Set<string>();
     const inProgressScoped = allTasks.filter((t) => t.status === 'in_progress' && t.scope?.length);
     for (let i = 0; i < candidates.length; i++) {
       const candidate = candidates[i]!;
       if (!candidate.scope?.length) continue;
-      const compareTo = [...inProgressScoped, ...candidates.slice(0, i)];
+      const approvedPeers = candidates.slice(0, i).filter((c) => !blockedIds.has(c.id));
+      const compareTo = [...inProgressScoped, ...approvedPeers];
+      let overlapping = false;
       for (const other of compareTo) {
         if (scopesOverlap(candidate.scope, other.scope)) {
           this.deps.eventBus.emit({
@@ -666,11 +669,15 @@ export class Orchestrator {
             overlappingTaskId: other.id,
             patterns: candidate.scope!,
           });
+          overlapping = true;
+          break;
         }
       }
+      if (overlapping) blockedIds.add(candidate.id);
     }
 
     for (const task of candidates) {
+      if (blockedIds.has(task.id)) continue;
       try {
         await this.dispatchTask(task.id);
       } catch (err) {
