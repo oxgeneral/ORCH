@@ -140,7 +140,7 @@ export class GoalService {
   }
 
   /** Check if an agent has at least one active goal. */
-  async hasActiveGoalsForAgent(agentId: string): Promise<boolean> {
+  private async hasActiveGoalsForAgent(agentId: string): Promise<boolean> {
     const activeGoals = await this.goalStore.list({ status: 'active' });
     return activeGoals.some((g) => g.assignee === agentId);
   }

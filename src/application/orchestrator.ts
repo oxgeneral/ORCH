@@ -11,6 +11,7 @@
 import type { OrchestratorConfig } from '../domain/config.js';
 import type { OrchestratorState, RunningEntry } from '../domain/state.js';
 import type { Task } from '../domain/task.js';
+import { AUTONOMOUS_LABEL } from '../domain/task.js';
 import type { RunEvent } from '../domain/run.js';
 import {
   isDispatchable,
@@ -592,7 +593,7 @@ export class Orchestrator {
           title,
           description,
           assignee: agent.id,
-          labels: ['autonomous'],
+          labels: [AUTONOMOUS_LABEL],
           priority: 3,
         });
         anyCreated = true;
@@ -988,7 +989,7 @@ export class Orchestrator {
     await this.deps.taskStore.save(task);
 
     const agent = await this.deps.agentStore.get(agentId);
-    const isAutonomousTask = task.labels?.includes('autonomous');
+    const isAutonomousTask = task.labels?.includes(AUTONOMOUS_LABEL);
     const autoApprove = isAutonomousTask || agent?.config.approval_policy === 'auto';
 
     const newStatus = resolveCompletionStatus(task, true, autoApprove);
