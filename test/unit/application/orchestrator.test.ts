@@ -583,6 +583,94 @@ describe('Orchestrator', () => {
       expect(overlapEvents[0].taskId).toBe('tsk_s2');
       expect(overlapEvents[0].overlappingTaskId).toBe('tsk_s1');
     });
+
+    it('does not dispatch task with scope overlapping a running task', async () => {
+      // tsk_running is in_progress with scope; tsk_overlap is todo with conflicting scope
+      const task1 = makeTask({ id: 'tsk_running', status: 'in_progress', scope: ['src/auth/**'] });
+      const task2 = makeTask({ id: 'tsk_overlap', status: 'todo', scope: ['src/auth/login.ts'] });
+      const agent = makeAgent();
+      const registry = new AdapterRegistry();
+      registry.register(createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'done' } },
+      ]));
+
+      deps = buildDeps({
+        taskStore: createMockTaskStore([task1, task2]),
+        agentStore: createMockAgentStore([agent]),
+        adapterRegistry: registry,
+      });
+
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+      await new Promise((r) => setTimeout(r, 100));
+
+      // tsk_overlap must NOT have been dispatched (saved as in_progress)
+      const taskSaves = (deps.taskStore.save as ReturnType<typeof vi.fn>).mock.calls;
+      const overlapDispatched = taskSaves.find(([t]: [Task]) => t.id === 'tsk_overlap' && t.status === 'in_progress');
+      expect(overlapDispatched).toBeUndefined();
+    });
+
+    it('dispatches tasks without scope normally even when other tasks have scope', async () => {
+      // tsk_scoped is in_progress with scope; tsk_noscope has no scope — should dispatch fine
+      const task1 = makeTask({ id: 'tsk_scoped', status: 'in_progress', scope: ['src/auth/**'] });
+      const task2 = makeTask({ id: 'tsk_noscope', status: 'todo' }); // no scope
+      const agent = makeAgent();
+      const registry = new AdapterRegistry();
+      registry.register(createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'done' } },
+      ]));
+
+      deps = buildDeps({
+        taskStore: createMockTaskStore([task1, task2]),
+        agentStore: createMockAgentStore([agent]),
+        adapterRegistry: registry,
+      });
+
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+      await new Promise((r) => setTimeout(r, 100));
+
+      // tsk_noscope should have been dispatched
+      const taskSaves = (deps.taskStore.save as ReturnType<typeof vi.fn>).mock.calls;
+      const noscopeDispatched = taskSaves.find(([t]: [Task]) => t.id === 'tsk_noscope' && t.status === 'in_progress');
+      expect(noscopeDispatched).toBeDefined();
+    });
+
+    it('blocked candidate does not count as peer for subsequent candidates', async () => {
+      // tsk_a is in_progress overlapping with tsk_b; tsk_c overlaps tsk_b but NOT tsk_a
+      // tsk_b gets blocked; tsk_c should still be dispatched (not blocked by tsk_b since it's blocked)
+      const config = {
+        ...DEFAULT_CONFIG,
+        scheduling: { ...DEFAULT_CONFIG.scheduling, max_concurrent_agents: 3, poll_interval_ms: 100_000 },
+      };
+      const taskA = makeTask({ id: 'tsk_pa', status: 'in_progress', scope: ['src/auth/**'] });
+      const taskB = makeTask({ id: 'tsk_pb', status: 'todo', scope: ['src/auth/login.ts'], updated_at: '2025-01-02T00:00:00Z' });
+      const taskC = makeTask({ id: 'tsk_pc', status: 'todo', scope: ['src/api/**'], updated_at: '2025-01-01T00:00:00Z' });
+      const agent = makeAgent();
+      const registry = new AdapterRegistry();
+      registry.register(createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'done' } },
+      ]));
+
+      deps = buildDeps({
+        taskStore: createMockTaskStore([taskA, taskB, taskC]),
+        agentStore: createMockAgentStore([agent]),
+        adapterRegistry: registry,
+        config,
+      });
+
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+      await new Promise((r) => setTimeout(r, 100));
+
+      const taskSaves = (deps.taskStore.save as ReturnType<typeof vi.fn>).mock.calls;
+      // tsk_pb overlaps tsk_pa (in_progress) → must be blocked
+      const pbDispatched = taskSaves.find(([t]: [Task]) => t.id === 'tsk_pb' && t.status === 'in_progress');
+      expect(pbDispatched).toBeUndefined();
+      // tsk_pc does NOT overlap tsk_pa or tsk_pb (blocked), so should dispatch
+      const pcDispatched = taskSaves.find(([t]: [Task]) => t.id === 'tsk_pc' && t.status === 'in_progress');
+      expect(pcDispatched).toBeDefined();
+    });
   });
 
   describe('cancelTask', () => {
