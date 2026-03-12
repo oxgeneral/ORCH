@@ -129,6 +129,14 @@ export class EventBus {
       'task:orphaned',
       'orchestrator:error',
       'orchestrator:shutdown',
+      'message:sent',
+      'message:delivered',
+      'team:created',
+      'team:member_joined',
+      'team:member_left',
+      'team:task_claimed',
+      'team:disbanded',
+      'team:task_added',
     ];
 
     for (const type of allTypes) {

@@ -7,7 +7,7 @@
 
 import type { OrchestratorConfig } from './domain/config.js';
 import type { CliContext } from './cli/context.js';
-import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IConfigStore, IContextStore } from './infrastructure/storage/interfaces.js';
+import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IConfigStore, IContextStore, IMessageStore, ITeamStore } from './infrastructure/storage/interfaces.js';
 import type { IWorkspaceManager } from './infrastructure/workspace/interface.js';
 import type { ITemplateEngine } from './infrastructure/template/template-engine.js';
 import type { IProcessManager } from './infrastructure/process/process-manager.js';
@@ -19,6 +19,8 @@ import { RunStore } from './infrastructure/storage/run-store.js';
 import { StateStore } from './infrastructure/storage/state-store.js';
 import { ConfigStore } from './infrastructure/storage/config-store.js';
 import { ContextStore } from './infrastructure/storage/context-store.js';
+import { MessageStore } from './infrastructure/storage/message-store.js';
+import { TeamStore } from './infrastructure/storage/team-store.js';
 import { ProcessManager } from './infrastructure/process/process-manager.js';
 import { AdapterRegistry } from './infrastructure/adapters/registry.js';
 import { ClaudeAdapter } from './infrastructure/adapters/claude.js';
@@ -33,6 +35,8 @@ import { TaskService } from './application/task-service.js';
 import { AgentService } from './application/agent-service.js';
 import { RunService } from './application/run-service.js';
 import { DoctorService } from './application/doctor-service.js';
+import { MessageService } from './application/message-service.js';
+import { TeamService } from './application/team-service.js';
 import { Orchestrator } from './application/orchestrator.js';
 
 export interface Container {
@@ -48,6 +52,8 @@ export interface Container {
   stateStore: IStateStore;
   configStore: IConfigStore;
   contextStore: IContextStore;
+  messageStore: IMessageStore;
+  teamStore: ITeamStore;
   processManager: IProcessManager;
   adapterRegistry: AdapterRegistry;
   workspaceManager: IWorkspaceManager;
@@ -59,6 +65,8 @@ export interface Container {
   agentService: AgentService;
   runService: RunService;
   doctorService: DoctorService;
+  messageService: MessageService;
+  teamService: TeamService;
   orchestrator: Orchestrator;
 }
 
@@ -76,6 +84,8 @@ export async function buildContainer(context: CliContext): Promise<Container> {
   const runStore = new RunStore(paths);
   const stateStore = new StateStore(paths);
   const contextStore = new ContextStore(paths);
+  const messageStore = new MessageStore(paths);
+  const teamStore = new TeamStore(paths);
   const processManager = new ProcessManager();
   const templateEngine = new LiquidTemplateEngine();
   const workspaceManager = new WorkspaceManager(
@@ -97,6 +107,8 @@ export async function buildContainer(context: CliContext): Promise<Container> {
   const agentService = new AgentService(agentStore, stateStore, eventBus, config);
   const runService = new RunService(runStore, eventBus);
   const doctorService = new DoctorService(adapterRegistry, processManager);
+  const messageService = new MessageService(messageStore, agentStore, teamStore, eventBus);
+  const teamService = new TeamService(teamStore, agentStore, taskStore, eventBus);
   const orchestrator = new Orchestrator({
     taskStore,
     agentStore,
@@ -111,6 +123,7 @@ export async function buildContainer(context: CliContext): Promise<Container> {
     agentService,
     runService,
     contextStore,
+    messageService,
     config,
     projectRoot: context.projectRoot,
     lockPath: paths.lockPath,
@@ -126,6 +139,8 @@ export async function buildContainer(context: CliContext): Promise<Container> {
     stateStore,
     configStore,
     contextStore,
+    messageStore,
+    teamStore,
     processManager,
     adapterRegistry,
     workspaceManager,
@@ -135,6 +150,8 @@ export async function buildContainer(context: CliContext): Promise<Container> {
     agentService,
     runService,
     doctorService,
+    messageService,
+    teamService,
     orchestrator,
   };
 }

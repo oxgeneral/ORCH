@@ -15,6 +15,8 @@ import type {
   IRunStore,
   IStateStore,
   IContextStore,
+  IMessageStore,
+  ITeamStore,
 } from '../../../src/infrastructure/storage/interfaces.js';
 import type { IProcessManager } from '../../../src/infrastructure/process/process-manager.js';
 import type { IWorkspaceManager } from '../../../src/infrastructure/workspace/interface.js';
@@ -187,6 +189,29 @@ export function createMockContextStore(): IContextStore {
     delete: vi.fn(async () => {}),
     list: vi.fn(async () => []),
     getAll: vi.fn(async () => ({})),
+  };
+}
+
+export function createMockMessageStore(): IMessageStore {
+  return {
+    save: vi.fn(async () => {}),
+    get: vi.fn(async () => null),
+    list: vi.fn(async () => []),
+    listPending: vi.fn(async () => []),
+    listForTeam: vi.fn(async () => []),
+    markDelivered: vi.fn(async () => {}),
+    delete: vi.fn(async () => {}),
+    purgeExpired: vi.fn(async () => 0),
+  };
+}
+
+export function createMockTeamStore(): ITeamStore {
+  return {
+    save: vi.fn(async () => {}),
+    get: vi.fn(async () => null),
+    getByName: vi.fn(async () => null),
+    list: vi.fn(async () => []),
+    delete: vi.fn(async () => {}),
   };
 }
 

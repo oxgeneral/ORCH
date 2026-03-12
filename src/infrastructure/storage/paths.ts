@@ -45,10 +45,6 @@ export class Paths {
     return path.join(this.root, 'runs');
   }
 
-  get workspacesDir(): string {
-    return path.join(this.root, 'workspaces');
-  }
-
   get templatesDir(): string {
     return path.join(this.root, 'templates');
   }
@@ -63,6 +59,22 @@ export class Paths {
 
   contextPath(key: string): string {
     return path.join(this.contextDir, `${sanitizeId(key)}.json`);
+  }
+
+  get messagesDir(): string {
+    return path.join(this.root, 'messages');
+  }
+
+  messagePath(id: string): string {
+    return path.join(this.messagesDir, `${sanitizeId(id)}.json`);
+  }
+
+  get teamsDir(): string {
+    return path.join(this.root, 'teams');
+  }
+
+  teamPath(id: string): string {
+    return path.join(this.teamsDir, `${sanitizeId(id)}.yml`);
   }
 
   get gitignorePath(): string {

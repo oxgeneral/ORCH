@@ -51,6 +51,26 @@ describe('Paths', () => {
       path.join(root, '.orchestry', 'templates', 'default.md'),
     );
   });
+
+  it('resolves messagesDir', () => {
+    expect(paths.messagesDir).toBe(path.join(root, '.orchestry', 'messages'));
+  });
+
+  it('resolves messagePath with sanitized ID', () => {
+    expect(paths.messagePath('msg_abc123')).toBe(
+      path.join(root, '.orchestry', 'messages', 'msg_abc123.json'),
+    );
+  });
+
+  it('resolves teamsDir', () => {
+    expect(paths.teamsDir).toBe(path.join(root, '.orchestry', 'teams'));
+  });
+
+  it('resolves teamPath with sanitized ID', () => {
+    expect(paths.teamPath('team_xyz')).toBe(
+      path.join(root, '.orchestry', 'teams', 'team_xyz.yml'),
+    );
+  });
 });
 
 describe('sanitizeId', () => {

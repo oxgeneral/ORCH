@@ -8,9 +8,11 @@
 
 import type { Agent } from '../../domain/agent.js';
 import type { OrchestratorConfig } from '../../domain/config.js';
+import type { Message } from '../../domain/message.js';
 import type { Run, RunEvent } from '../../domain/run.js';
 import type { OrchestratorState } from '../../domain/state.js';
 import type { Task, TaskStatus } from '../../domain/task.js';
+import type { Team } from '../../domain/team.js';
 
 export interface ITaskStore {
   list(filter?: { status?: TaskStatus }): Promise<Task[]>;
@@ -65,4 +67,23 @@ export interface IContextStore {
   delete(key: string): Promise<void>;
   list(): Promise<ContextEntry[]>;
   getAll(): Promise<Record<string, string>>;
+}
+
+export interface IMessageStore {
+  save(message: Message): Promise<void>;
+  get(id: string): Promise<Message | null>;
+  list(): Promise<Message[]>;
+  listPending(agentId: string): Promise<Message[]>;
+  listForTeam(teamId: string): Promise<Message[]>;
+  markDelivered(id: string): Promise<void>;
+  delete(id: string): Promise<void>;
+  purgeExpired(): Promise<number>;
+}
+
+export interface ITeamStore {
+  save(team: Team): Promise<void>;
+  get(id: string): Promise<Team | null>;
+  getByName(name: string): Promise<Team | null>;
+  list(): Promise<Team[]>;
+  delete(id: string): Promise<void>;
 }

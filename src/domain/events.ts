@@ -6,6 +6,7 @@
  * run store, state) react independently.
  */
 
+import type { MessageChannel } from './message.js';
 import type { Task, TaskStatus, ReviewResult } from './task.js';
 
 export type OrchestratorEvent =
@@ -26,7 +27,15 @@ export type OrchestratorEvent =
   | { type: 'workspace:merge_conflict'; taskId: string; branch: string; conflictInfo: string }
   | { type: 'task:orphaned'; taskId: string }
   | { type: 'orchestrator:error'; error: string; context: string; fatal: boolean }
-  | { type: 'orchestrator:shutdown'; reason: string };
+  | { type: 'orchestrator:shutdown'; reason: string }
+  | { type: 'message:sent'; messageId: string; fromAgentId: string; toAgentId: string | null; channel: MessageChannel }
+  | { type: 'message:delivered'; messageId: string; toAgentId: string; taskId: string }
+  | { type: 'team:created'; teamId: string; name: string; leadAgentId: string }
+  | { type: 'team:member_joined'; teamId: string; agentId: string }
+  | { type: 'team:member_left'; teamId: string; agentId: string }
+  | { type: 'team:task_claimed'; teamId: string; taskId: string; agentId: string }
+  | { type: 'team:disbanded'; teamId: string }
+  | { type: 'team:task_added'; teamId: string; taskId: string };
 
 export type OrchestratorEventType = OrchestratorEvent['type'];
 

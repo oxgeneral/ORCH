@@ -90,3 +90,17 @@ export class InvalidTransitionError extends OrchestryError {
     this.name = 'InvalidTransitionError';
   }
 }
+
+export class TeamNotFoundError extends OrchestryError {
+  constructor(teamId: string) {
+    super(`Team not found: ${teamId}`, 1);
+    this.name = 'TeamNotFoundError';
+  }
+}
+
+export class MessageNotFoundError extends OrchestryError {
+  constructor(messageId: string) {
+    super(`Message not found: ${messageId}`, 1);
+    this.name = 'MessageNotFoundError';
+  }
+}

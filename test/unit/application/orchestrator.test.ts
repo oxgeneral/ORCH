@@ -972,6 +972,9 @@ describe('Orchestrator', () => {
       const agent = makeAgent({ id: 'agt_speed', stats: { tasks_completed: 0, tasks_failed: 0, total_runs: 0, total_runtime_ms: 0 } });
       const task = makeTask({ id: 'tsk_speed', status: 'in_progress', attempts: 1 });
       const agentStore = createMockAgentStore([agent]);
+      const runStore = createMockRunStore();
+      const run = makeRun({ id: 'run_speed', task_id: 'tsk_speed', agent_id: 'agt_speed' });
+      (runStore.get as ReturnType<typeof vi.fn>).mockResolvedValue(structuredClone(run));
 
       // Simulate a run that started 1s ago
       const startedAt = new Date(Date.now() - 1000).toISOString();
@@ -991,6 +994,7 @@ describe('Orchestrator', () => {
       deps = buildDeps({
         taskStore: createMockTaskStore([task]),
         agentStore,
+        runStore,
         stateStore,
       });
 

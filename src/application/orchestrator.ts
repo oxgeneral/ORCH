@@ -50,6 +50,7 @@ export interface OrchestratorDeps {
   agentService: AgentService;
   runService: RunService;
   contextStore?: IContextStore;
+  messageService?: import('./message-service.js').MessageService;
   config: OrchestratorConfig;
   projectRoot: string;
   lockPath: string;
@@ -574,13 +575,18 @@ export class Orchestrator {
         ? await this.deps.contextStore.getAll()
         : undefined;
 
+      // Drain pending messages for this agent
+      const pendingMessages = this.deps.messageService
+        ? await this.deps.messageService.drainMailbox(agent.id, task.id)
+        : [];
+
       const context = buildPromptContext(
         task,
         agent,
         attempt,
         workspacePath,
         this.deps.config,
-        { allAgents, retryContext, sharedContext, feedback: task.feedback },
+        { allAgents, retryContext, sharedContext, feedback: task.feedback, messages: pendingMessages.length ? pendingMessages : undefined },
       );
       const prompt = await this.deps.templateEngine.render(template, context);
 
@@ -625,7 +631,12 @@ export class Orchestrator {
       const handle = adapter.execute({
         prompt,
         workspace: workspacePath,
-        env: agent.config.env,
+        env: {
+          ...agent.config.env,
+          ORCH_AGENT_ID: agent.id,
+          ORCH_AGENT_NAME: agent.name,
+          ORCH_TASK_ID: task.id,
+        },
         config: agentData.config,
         signal: abortController.signal,
       });
@@ -833,9 +844,11 @@ export class Orchestrator {
 
     // Track runtime before cleaning up
     const runningEntry = state.running[taskId];
+    const successRuntimeMs = runningEntry
+      ? Date.now() - new Date(runningEntry.started_at).getTime()
+      : 0;
     if (runningEntry) {
-      const runtimeMs = Date.now() - new Date(runningEntry.started_at).getTime();
-      state.stats.total_runtime_ms += runtimeMs;
+      state.stats.total_runtime_ms += successRuntimeMs;
     }
 
     // Clean up running entry early — prevents handleRunFailure from being called on catch
@@ -845,6 +858,7 @@ export class Orchestrator {
     const statsUpdate: Partial<import('../domain/agent.js').AgentStats> = {
       tasks_completed: (agent?.stats.tasks_completed ?? 0) + 1,
       total_runs: (agent?.stats.total_runs ?? 0) + 1,
+      total_runtime_ms: (agent?.stats.total_runtime_ms ?? 0) + successRuntimeMs,
     };
     if (tokens) {
       statsUpdate.tokens_used = (agent?.stats.tokens_used ?? 0) + tokens.total;
@@ -929,6 +943,13 @@ export class Orchestrator {
     }
     await this.deps.agentService.setStatus(agentId, 'idle').catch(() => {});
 
+    // Clear current_task — agent is now idle
+    const agentAfter = await this.deps.agentStore.get(agentId);
+    if (agentAfter) {
+      agentAfter.current_task = undefined;
+      await this.deps.agentStore.save(agentAfter);
+    }
+
     // Auto-review: if task landed in 'review' and has review_criteria, run them
     if (newStatus === 'review' && task.review_criteria?.length) {
       await this.runAutoReview(taskId, task.review_criteria, task.workspace ?? this.deps.projectRoot);
@@ -959,11 +980,20 @@ export class Orchestrator {
     await this.deps.runService.finish(entry.run_id, 'failed', undefined, error);
     await this.deps.agentService.setStatus(entry.agent_id, 'idle');
 
+    // Clear current_task — agent is now idle
+    const agentAfterIdle = await this.deps.agentStore.get(entry.agent_id);
+    if (agentAfterIdle) {
+      agentAfterIdle.current_task = undefined;
+      await this.deps.agentStore.save(agentAfterIdle);
+    }
+
     // Update agent stats
     const agent = await this.deps.agentStore.get(entry.agent_id);
+    const failRuntimeMs = Date.now() - new Date(entry.started_at).getTime();
     await this.deps.agentService.updateStats(entry.agent_id, {
       tasks_failed: (agent?.stats.tasks_failed ?? 0) + 1,
       total_runs: (agent?.stats.total_runs ?? 0) + 1,
+      total_runtime_ms: (agent?.stats.total_runtime_ms ?? 0) + failRuntimeMs,
     });
 
     // Determine retry or fail

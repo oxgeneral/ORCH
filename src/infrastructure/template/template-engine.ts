@@ -49,6 +49,14 @@ export interface PromptContext {
   retry?: RetryContext;
   feedback?: string;
   shared_context?: Record<string, string>;
+  messages?: Array<{
+    id: string;
+    from: string;
+    subject: string;
+    body: string;
+    sent_at: string;
+    reply_to?: string;
+  }>;
 }
 
 export class LiquidTemplateEngine implements ITemplateEngine {
@@ -94,6 +102,7 @@ export interface BuildPromptOptions {
   retryContext?: RetryContext;
   sharedContext?: Record<string, string>;
   feedback?: string;
+  messages?: import('../../domain/message.js').Message[];
 }
 
 export function buildPromptContext(
@@ -104,7 +113,21 @@ export function buildPromptContext(
   config: OrchestratorConfig,
   options?: BuildPromptOptions,
 ): PromptContext {
-  const { allAgents, retryContext, sharedContext, feedback } = options ?? {};
+  const { allAgents, retryContext, sharedContext, feedback, messages: rawMessages } = options ?? {};
+
+  // Map messages to prompt-friendly shape
+  const agentById = new Map((allAgents ?? []).map((a) => [a.id, a]));
+  const messages = rawMessages?.length
+    ? rawMessages.map((m) => ({
+        id: m.id,
+        from: agentById.get(m.from_agent_id)?.name ?? m.from_agent_id,
+        subject: m.subject,
+        body: m.body,
+        sent_at: m.created_at,
+        reply_to: m.reply_to,
+      }))
+    : undefined;
+
   return {
     project: {
       name: config.project.name,
@@ -133,6 +156,7 @@ export function buildPromptContext(
     retry: attempt > 1 ? retryContext : undefined,
     feedback,
     shared_context: sharedContext && Object.keys(sharedContext).length > 0 ? sharedContext : undefined,
+    messages,
   };
 }
 
@@ -183,6 +207,18 @@ You can read and write shared context using:
 - \`orch context set <key> <value>\` — share a value with other agents
 {% endif %}
 
+{% if messages %}
+## Inbox ({{ messages.size }} message{% if messages.size != 1 %}s{% endif %})
+You have messages from other agents. Read them and respond through your work or by sending messages back.
+{% for msg in messages %}
+---
+**From:** {{ msg.from }}{% if msg.subject != "" %} · **Subject:** {{ msg.subject }}{% endif %}
+{{ msg.body }}
+{% if msg.reply_to %}*(Reply to: {{ msg.reply_to }})*{% endif %}
+---
+{% endfor %}
+{% endif %}
+
 ## Orchestrator CLI
 You can manage tasks and coordinate with other agents using the \`orch\` CLI:
 
@@ -195,6 +231,12 @@ You can manage tasks and coordinate with other agents using the \`orch\` CLI:
 
 **Agent commands:**
 - \`orch agent list\` — list all agents and their statuses
+
+**Messaging commands:**
+- \`orch msg send <agent-id> "<body>" -s "<subject>"\` — send a direct message
+- \`orch msg broadcast "<body>" -s "<subject>"\` — broadcast to all agents
+- \`orch msg broadcast "<body>" --team <team-id>\` — broadcast to team members
+- \`orch msg inbox\` — list your pending messages
 
 **Context commands (share data with other agents):**
 - \`orch context set <key> <value>\` — store a shared context entry

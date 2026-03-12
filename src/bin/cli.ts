@@ -20,6 +20,8 @@ import { registerConfigCommand } from '../cli/commands/config.js';
 import { registerDoctorCommand } from '../cli/commands/doctor.js';
 import { registerTuiCommand } from '../cli/commands/tui.js';
 import { registerContextCommand } from '../cli/commands/context.js';
+import { registerMsgCommand } from '../cli/commands/msg.js';
+import { registerTeamCommand } from '../cli/commands/team.js';
 
 const program = new Command();
 
@@ -97,6 +99,8 @@ async function main(): Promise<void> {
   registerLogsCommand(program, container);
   registerConfigCommand(program, container);
   registerContextCommand(program, container);
+  registerMsgCommand(program, container);
+  registerTeamCommand(program, container);
   registerDoctorCommand(program, container);
   registerTuiCommand(program, container);
 
