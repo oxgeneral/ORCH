@@ -1577,7 +1577,7 @@ describe('onLoadHistory — progressive history loading', () => {
     timestamp: TS,
     agentId: 'agt_1',
     taskId: 'tsk_1',
-    type: 'output',
+    type: 'agent_output',
     data: 'Hello from history',
     ...overrides,
   });
@@ -1698,7 +1698,7 @@ describe('onLoadHistory — progressive history loading', () => {
 
     // Send 250 entries — should be capped at 200
     const entries = Array.from({ length: 250 }, (_, i) =>
-      makeEntry({ type: 'output', data: `msg-${i}`, timestamp: new Date(Date.UTC(2026, 0, 1, 10, 0, i)).toISOString() }),
+      makeEntry({ type: 'agent_output', data: `msg-${i}`, timestamp: new Date(Date.UTC(2026, 0, 1, 10, 0, i)).toISOString() }),
     );
     capturedBatch(entries);
     await delay(50);
