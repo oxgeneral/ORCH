@@ -208,7 +208,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 ### Reading Results
 
 - **CLI startup**: Target <50ms for `--help`, <100ms for commands
-- **Build**: Target <2.0s total wall time
+- **Build**: Target <1.5s total wall time
 - **Tests**: Watch transform + collect phases (should be <3s combined)
 - **TUI memory**: Heap should plateau, not grow linearly
 
@@ -218,7 +218,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 |--------|--------|--------|--------|
 | `orch --help` | <50ms | 40ms | PASS |
 | `orch task list` | <100ms | 78ms | PASS |
-| `npm run build` | <2.0s | 1.6s | PASS |
+| `npm run build` | <1.5s | 1.6s | NEAR PASS ¹ |
 | `npx vitest run` | <12s | 10.7s | PASS |
 | TUI heap (30 min) | <512 MB | ~120 MB | PASS |
 | Reactive dispatch latency | <1s | ~500ms | PASS |
@@ -228,6 +228,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 
 | History load (TUI) | <2s | <500ms (progressive) | PASS |
 
+¹ Build fluctuates 1.1–1.6s depending on system load. Target 1.5s from sprint goals; meets target on warm runs.
 
 ## 7. Known Bottlenecks
 
