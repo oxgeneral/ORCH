@@ -11,7 +11,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import type { Task, TaskStatus } from '../domain/task.js';
 import type { Agent, AgentStatus } from '../domain/agent.js';
-import type { Goal, GoalStatus } from '../domain/goal.js';
+import { GOAL_STATUSES, type Goal, type GoalStatus } from '../domain/goal.js';
 import type { OrchestratorState } from '../domain/state.js';
 import type { OrchestratorEvent } from '../domain/events.js';
 import { formatDurationSince, formatTokens } from '../cli/output.js';
@@ -1280,7 +1280,6 @@ export function App({
         if (sub === 'add' || sub === 'create') {
           const title = parts.slice(2).join(' ').trim();
           if (!title) {
-            if (!onCreateGoal) { addMessage('Goal creation not available', tuiColors.yellow); return; }
             const steps = getGoalWizardSteps(liveAgents);
             setWizardConfig({ title: 'New Goal', steps, kind: 'goal' });
             setInputMode('wizard');
@@ -1302,13 +1301,15 @@ export function App({
           addMessage(`${g.id}  ${g.status}  "${g.title}"`, tuiColors.cyan);
           if (g.description) addMessage(`  ${g.description.slice(0, 100)}`, tuiColors.dim);
         } else if (sub === 'status') {
-          const g = parts[2] ? sortedGoals.find((x) => x.id === parts[2]) : selectedGoal;
+          const resolved = parts[2] ? sortedGoals.find((x) => x.id === parts[2]) : undefined;
+          const g = resolved ?? selectedGoal;
           if (!g) { addMessage('No goal selected or id given', tuiColors.yellow); return; }
-          const newStatus = parts[parts[2] && sortedGoals.find((x) => x.id === parts[2]) ? 3 : 2] as GoalStatus | undefined;
-          if (!newStatus || !['active', 'paused', 'achieved', 'abandoned'].includes(newStatus)) {
+          const statusArg: string | undefined = parts[resolved ? 3 : 2];
+          if (!statusArg || !(GOAL_STATUSES as readonly string[]).includes(statusArg)) {
             addMessage('Usage: /goal status [id] <active|paused|achieved|abandoned>', tuiColors.yellow);
             return;
           }
+          const newStatus = statusArg as GoalStatus;
           if (!onUpdateGoalStatus) { addMessage('Status update not available', tuiColors.yellow); return; }
           addMessage(`Updating goal status to ${newStatus}...`, tuiColors.amber);
           onUpdateGoalStatus(g.id, newStatus).then(
