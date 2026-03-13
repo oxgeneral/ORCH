@@ -923,6 +923,8 @@ export class Orchestrator {
 
         // Serialize + truncate once — reused for JSONL write and event bus
         const serialized = serializeEventData(event.data, MAX_EVENT_DATA_LEN);
+        // Release the original (potentially large) parsed object for GC
+        (event as unknown as Record<string, unknown>).data = undefined;
 
         // Record event (pre-serialized string keeps JSONL lines manageable)
         const runEvent: RunEvent = {

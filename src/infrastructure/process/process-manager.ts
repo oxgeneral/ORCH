@@ -5,7 +5,6 @@
  */
 
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
-import readline from 'node:readline';
 import type { Readable } from 'node:stream';
 
 export interface SpawnResult {
@@ -76,16 +75,37 @@ export class ProcessManager implements IProcessManager {
 }
 
 /**
+ * Max stdout line length before truncation (16 KB).
+ * Claude tool_result events can be 100KB+ (full file contents).
+ * Truncated lines produce invalid JSON → adapters' catch block handles gracefully.
+ */
+const MAX_LINE_LEN = 16384;
+
+/**
  * Read lines from a readable stream as an async generator.
- * Handles line buffering and backpressure.
+ *
+ * Uses `for await` on the raw Readable (proper backpressure) instead of
+ * readline.createInterface, which buffers all 'line' events in an unbounded
+ * queue even when the consumer is paused — causing OOM under high throughput.
  */
 export async function* readLines(stream: Readable): AsyncGenerator<string> {
-  const rl = readline.createInterface({
-    input: stream,
-    crlfDelay: Infinity,
-  });
+  let buffer = '';
 
-  for await (const line of rl) {
-    yield line;
+  for await (const chunk of stream) {
+    buffer += typeof chunk === 'string' ? chunk : (chunk as Buffer).toString('utf-8');
+
+    let newlineIdx: number;
+    while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, newlineIdx);
+      buffer = buffer.slice(newlineIdx + 1);
+      if (line.length === 0) continue;
+      // Cap line length to prevent multi-MB JSON.parse allocations
+      yield line.length > MAX_LINE_LEN ? line.slice(0, MAX_LINE_LEN) : line;
+    }
+  }
+
+  // Flush remaining data (last line without trailing newline)
+  if (buffer.length > 0) {
+    yield buffer.length > MAX_LINE_LEN ? buffer.slice(0, MAX_LINE_LEN) : buffer;
   }
 }
