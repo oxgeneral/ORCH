@@ -11,6 +11,9 @@
     "orch": "./dist/cli.js",
     "ao": "./dist/cli.js"
   },
+  "files": [
+    "dist"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -46,7 +49,8 @@
     "url": "git+https://github.com/oxgeneral/ORCH.git"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
   },
   "homepage": "https://github.com/oxgeneral/ORCH#readme",
   "bugs": {
