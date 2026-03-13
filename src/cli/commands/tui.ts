@@ -131,9 +131,6 @@ export function registerTuiCommand(program: Command, container: Container): void
         // Load all runs once (not per-task!) to avoid N×M file reads
         const allRuns: Run[] = await container.runService.listAll();
 
-        // Sort by start time descending (newest first) — already sorted by listAll
-
-
         // Progressive loading: first batch = last 3 runs (fast), second = next 7
         const FIRST_BATCH = 3;
         const TOTAL_RUNS = 10;

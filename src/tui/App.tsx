@@ -3099,9 +3099,46 @@ function formatAgentOutput(raw: string): { summary: string; detail: string } {
     if (parsed.type) return { summary: `[${parsed.type}]`, detail };
     return { summary: raw.slice(0, 150), detail };
   } catch {
-    // Plain text (non-JSON)
-    return { summary: raw.slice(0, 200), detail };
+    // Truncated JSON or plain text — try regex extraction for known fields
+    return { summary: extractSummaryFromTruncated(raw), detail };
   }
+}
+
+/** Extract a human-readable summary from truncated/unparseable JSON via regex. */
+function extractSummaryFromTruncated(raw: string): string {
+  // Try to extract "type" and "subtype" fields for system events
+  const subtypeMatch = raw.match(/"subtype"\s*:\s*"([^"]+)"/);
+  if (subtypeMatch) return `[${subtypeMatch[1]}]`;
+
+  const typeMatch = raw.match(/"type"\s*:\s*"([^"]+)"/);
+  if (!typeMatch) return raw.slice(0, 200);
+
+  const type = typeMatch[1]!;
+
+  // assistant/message — try to find text content
+  if (type === 'assistant' || type === 'message') {
+    const textMatch = raw.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    if (textMatch) {
+      try { return JSON.parse(`"${textMatch[1]}"`).slice(0, 200); } catch { /* use raw */ }
+      return textMatch[1]!.slice(0, 200);
+    }
+    return '\u{1F4AC} (assistant)';
+  }
+
+  // user/tool_result — summarize
+  if (type === 'user' || type === 'tool_result') {
+    return '\u2190 (tool result)';
+  }
+
+  // tool_use
+  if (type === 'tool_use') {
+    const nameMatch = raw.match(/"name"\s*:\s*"([^"]+)"/);
+    return `\u2699 ${nameMatch?.[1] ?? 'tool'}()`;
+  }
+
+  if (type === 'result') return '\u2713 Agent finished';
+
+  return `[${type}]`;
 }
 
 function formatEvent(

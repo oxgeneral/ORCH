@@ -16,8 +16,8 @@ import {
   readJsonlTail,
   ensureDir,
   listFiles,
+  pathExists,
 } from './fs-utils.js';
-import fs from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { readLines } from '../process/process-manager.js';
 
@@ -67,12 +67,8 @@ export class RunStore implements IRunStore {
     // Wait for file to exist (max 30s to avoid infinite polling)
     const deadline = Date.now() + 30_000;
     while (!signal?.aborted && Date.now() < deadline) {
-      try {
-        await fs.access(filePath);
-        break;
-      } catch {
-        await new Promise((r) => setTimeout(r, 100));
-      }
+      if (await pathExists(filePath)) break;
+      await new Promise((r) => setTimeout(r, 100));
     }
 
     if (signal?.aborted || Date.now() >= deadline) return;
@@ -99,17 +95,24 @@ export class RunStore implements IRunStore {
     await ensureDir(this.paths.runsDir);
     const files = await listFiles(this.paths.runsDir, '.json');
 
-    const results = await Promise.all(
-      files.map(file => {
-        const id = file.replace('.json', '');
-        return readJson<Run>(this.paths.runPath(id));
-      })
-    );
-
-    return results
-      .filter((run): run is Run => run !== null && predicate(run))
-      .sort(
-        (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+    // Batch reads to avoid EMFILE (macOS default ulimit 256)
+    const BATCH = 64;
+    const all: Run[] = [];
+    for (let i = 0; i < files.length; i += BATCH) {
+      const batch = files.slice(i, i + BATCH);
+      const results = await Promise.all(
+        batch.map(file => {
+          const id = file.replace('.json', '');
+          return readJson<Run>(this.paths.runPath(id));
+        }),
       );
+      for (const run of results) {
+        if (run !== null && predicate(run)) all.push(run);
+      }
+    }
+
+    return all.sort(
+      (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+    );
   }
 }
