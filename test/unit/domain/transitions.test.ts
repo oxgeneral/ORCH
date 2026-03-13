@@ -135,6 +135,41 @@ describe('isBlocked', () => {
     const task = makeTask({ depends_on: ['tsk_d1', 'tsk_d2'] });
     expect(isBlocked(task, [dep1, dep2, task])).toBe(true);
   });
+
+  describe('Map<string, Task> overload', () => {
+    it('returns false when task has no dependencies', () => {
+      const task = makeTask({ depends_on: [] });
+      expect(isBlocked(task, new Map())).toBe(false);
+    });
+
+    it('returns false when all dependencies are done (Map path)', () => {
+      const dep = makeTask({ id: 'tsk_dep', status: 'done' });
+      const task = makeTask({ depends_on: ['tsk_dep'] });
+      const taskMap = new Map([['tsk_dep', dep], [task.id, task]]);
+      expect(isBlocked(task, taskMap)).toBe(false);
+    });
+
+    it('returns true when a dependency is not done (Map path)', () => {
+      const dep = makeTask({ id: 'tsk_dep', status: 'in_progress' });
+      const task = makeTask({ depends_on: ['tsk_dep'] });
+      const taskMap = new Map([['tsk_dep', dep], [task.id, task]]);
+      expect(isBlocked(task, taskMap)).toBe(true);
+    });
+
+    it('returns true when a dependency is missing from map', () => {
+      const task = makeTask({ depends_on: ['tsk_missing'] });
+      const taskMap = new Map([[task.id, task]]);
+      expect(isBlocked(task, taskMap)).toBe(true);
+    });
+
+    it('handles multiple dependencies via Map (all must be done)', () => {
+      const dep1 = makeTask({ id: 'tsk_d1', status: 'done' });
+      const dep2 = makeTask({ id: 'tsk_d2', status: 'todo' });
+      const task = makeTask({ depends_on: ['tsk_d1', 'tsk_d2'] });
+      const taskMap = new Map([['tsk_d1', dep1], ['tsk_d2', dep2], [task.id, task]]);
+      expect(isBlocked(task, taskMap)).toBe(true);
+    });
+  });
 });
 
 describe('resolveFailureStatus', () => {
