@@ -68,7 +68,8 @@ export class WorkspaceManager implements IWorkspaceManager {
       } catch {
         this.isGitRepo = false;
       }
-      this.gitRepoChecked = true;
+      // Only cache positive result — negative may change if user runs git init
+      if (this.isGitRepo) this.gitRepoChecked = true;
     }
 
     if (!this.isGitRepo) {
@@ -177,10 +178,6 @@ export class WorkspaceManager implements IWorkspaceManager {
         });
         proc.on('error', reject);
       });
-
-      // Remove .orchestry/ from clone to prevent recursive workspaces
-      const clonedOrchestry = path.join(workspacePath, '.orchestry');
-      await fs.rm(clonedOrchestry, { recursive: true, force: true }).catch(() => {});
     } catch {
       // Fallback: rsync
       const excludeFile = path.join(this.orchestryDir, 'workspace-exclude');
@@ -198,6 +195,10 @@ export class WorkspaceManager implements IWorkspaceManager {
         proc.on('error', reject);
       });
     }
+
+    // Remove .orchestry/ to prevent recursive workspaces (covers both clone and rsync)
+    const clonedOrchestry = path.join(workspacePath, '.orchestry');
+    await fs.rm(clonedOrchestry, { recursive: true, force: true }).catch(() => {});
 
     return workspacePath;
   }

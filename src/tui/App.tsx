@@ -30,6 +30,7 @@ import { CommandBar } from './components/CommandBar.js';
 import { FormWizard } from './components/FormWizard.js';
 import type { WizardStep } from './components/FormWizard.js';
 import { Spinner } from './components/Spinner.js';
+import { useAnimTick } from './components/useAnimTick.js';
 import { OnboardingBox, type OnboardingConfig } from './components/OnboardingBox.js';
 import {
   getAgentWizardSteps, agentWizardToInput,
@@ -196,6 +197,26 @@ interface StatusMessage {
   msgType?: MsgType;
 }
 
+/** How long (ms) before a pending deletion becomes permanent */
+const UNDO_TIMEOUT_MS = 5_000;
+
+/** A deletion waiting to be finalized (user can undo within UNDO_TIMEOUT_MS) */
+interface PendingDeletion {
+  key: number;
+  entityType: 'task' | 'agent' | 'goal';
+  entityId: string;
+  entityName: string;
+  expiresAt: number;
+  /** For running agents — need force-stop before delete */
+  needsForceStop?: boolean;
+}
+
+/** Monotonic counter for PendingDeletion keys */
+let pendingDeletionSeq = 0;
+
+/** Reset counter — for tests only. */
+export function _resetPendingDeletionSeq(): void { pendingDeletionSeq = 0; }
+
 /** Bracket-tags emitted by adapters: [init], [hook_started], [hook_response], etc. */
 const LIFECYCLE_TAG_RE = /^\[[\w_]+\]$/;
 
@@ -351,6 +372,9 @@ export function App({
 
   // Teams state (refreshed alongside other data)
   const [liveTeams, setLiveTeams] = useState<Team[]>([]);
+
+  // Pending deletions with undo (soft-delete queue)
+  const [pendingDeletions, setPendingDeletions] = useState<PendingDeletion[]>([]);
 
   // Ref for liveTeams — avoids adding it to executeCommand deps
   const liveTeamsRef = useRef(liveTeams);
@@ -520,6 +544,67 @@ export function App({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Soft-delete with undo ──────────────────────────────
+
+  /** Schedule a deletion: adds to pending queue, executes after UNDO_TIMEOUT_MS */
+  const scheduleDeletion = useCallback((entityType: PendingDeletion['entityType'], entityId: string, entityName: string, opts?: { needsForceStop?: boolean }) => {
+    const entry: PendingDeletion = {
+      key: ++pendingDeletionSeq,
+      entityType,
+      entityId,
+      entityName,
+      expiresAt: Date.now() + UNDO_TIMEOUT_MS,
+      needsForceStop: opts?.needsForceStop,
+    };
+    setPendingDeletions((prev) => [...prev, entry]);
+    addMessage(`\u2717 "${entityName}" will be deleted in ${Math.round(UNDO_TIMEOUT_MS / 1000)}s — press Z to undo`, tuiColors.yellow);
+  }, [addMessage]);
+
+  /** Cancel the most recent pending deletion */
+  const undoLastDeletion = useCallback(() => {
+    setPendingDeletions((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1]!;
+      addMessage(`\u21B6 Undo: "${last.entityName}" restored`, tuiColors.green);
+      return prev.slice(0, -1);
+    });
+  }, [addMessage]);
+
+  /** Execute a single deletion (called when timer expires) */
+  const executeDeletion = useCallback(async (entry: PendingDeletion) => {
+    try {
+      if (entry.entityType === 'task' && onDeleteTask) {
+        await onDeleteTask(entry.entityId);
+      } else if (entry.entityType === 'agent') {
+        if (entry.needsForceStop && onForceStopAgent) {
+          await onForceStopAgent(entry.entityId);
+        }
+        if (onDeleteAgent) await onDeleteAgent(entry.entityId);
+      } else if (entry.entityType === 'goal' && onDeleteGoal) {
+        await onDeleteGoal(entry.entityId);
+      }
+      addMessage(`\u2713 Deleted "${entry.entityName}"`, tuiColors.green);
+      refreshAll();
+    } catch (err) {
+      addMessage(`Failed to delete "${entry.entityName}": ${err instanceof Error ? err.message : String(err)}`, tuiColors.red);
+    }
+  }, [onDeleteTask, onDeleteAgent, onDeleteGoal, onForceStopAgent, addMessage, refreshAll]);
+
+  // Process expired pending deletions (check every 500ms)
+  useEffect(() => {
+    if (pendingDeletions.length === 0) return;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      // Collect expired entries outside the updater to avoid async-in-setState race conditions
+      const snapshot = pendingDeletions;
+      const expired = snapshot.filter((d) => d.expiresAt <= now);
+      if (expired.length === 0) return;
+      setPendingDeletions((prev) => prev.filter((d) => d.expiresAt > now));
+      for (const entry of expired) executeDeletion(entry);
+    }, 500);
+    return () => clearInterval(timer);
+  }, [pendingDeletions, executeDeletion]);
 
   // Load history progressively from disk on mount
   useEffect(() => {
@@ -994,11 +1079,7 @@ export function App({
           if (!t) { addMessage('No task selected or id given', tuiColors.yellow); return; }
           if (t.status === 'in_progress') { addMessage(`Cannot delete \u2014 task is running`, tuiColors.yellow); return; }
           if (!onDeleteTask) return;
-          addMessage(`Deleting "${t.title}"...`, tuiColors.amber);
-          onDeleteTask(t.id).then(
-            () => { addMessage(`\u2713 Deleted "${t.title}"`, tuiColors.green); refreshAll(); },
-            (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
-          );
+          scheduleDeletion('task', t.id, t.title);
         } else {
           addMessage('Usage: /task add|list|show|cancel|retry|assign|approve|reject|delete', tuiColors.yellow);
         }
@@ -1045,11 +1126,7 @@ export function App({
           if (!a) { addMessage('No agent selected or id given', tuiColors.yellow); return; }
           if (a.status === 'running') { addMessage('Cannot delete — agent is running', tuiColors.yellow); return; }
           if (!onDeleteAgent) { addMessage('Agent deletion not available', tuiColors.yellow); return; }
-          addMessage(`Deleting agent "${a.name}"...`, tuiColors.amber);
-          onDeleteAgent(a.id).then(
-            () => { addMessage(`\u2713 Deleted agent "${a.name}"`, tuiColors.green); refreshAll(); },
-            (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
-          );
+          scheduleDeletion('agent', a.id, a.name);
         } else if (sub === 'autonomous' || sub === 'auto') {
           const a = parts[2] ? sortedAgents.find((x) => x.id === parts[2] || x.name === parts[2]) : selectedAgent;
           if (!a) { addMessage('No agent selected or id given', tuiColors.yellow); return; }
@@ -1387,6 +1464,12 @@ export function App({
       return;
     }
 
+    // Z or Ctrl+Z: undo last pending deletion
+    if ((input === 'z' || input === 'Z') && pendingDeletions.length > 0) {
+      undoLastDeletion();
+      return;
+    }
+
     // F: cycle activity feed filter on tasks/agents views
     if ((input === 'f' || input === 'F') && (activeView === 'tasks' || activeView === 'agents' || activeView === 'goals') && !detailOpen) {
       setActivityFilter((prev) => {
@@ -1425,13 +1508,9 @@ export function App({
       return;
     }
 
-    // D: delete selected goal
+    // D: soft-delete selected goal (with undo)
     if ((input === 'd' || input === 'D') && activeView === 'goals' && selectedGoal && onDeleteGoal) {
-      addMessage(`Deleting goal "${selectedGoal.title}"...`, tuiColors.amber);
-      onDeleteGoal(selectedGoal.id).then(
-        () => { addMessage(`\u2713 Deleted goal "${selectedGoal.title}"`, tuiColors.green); refreshAll(); },
-        (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
-      );
+      scheduleDeletion('goal', selectedGoal.id, selectedGoal.title);
       return;
     }
 
@@ -1538,37 +1617,19 @@ export function App({
       return;
     }
 
-    // D: delete selected task (not running) or agent (not running)
+    // D: soft-delete selected task (with undo) — not running
     if ((input === 'd' || input === 'D') && activeView === 'tasks' && selectedTask && selectedTask.status !== 'in_progress' && onDeleteTask) {
-      addMessage(`Deleting "${selectedTask.title}"...`, tuiColors.amber);
-      onDeleteTask(selectedTask.id).then(
-        () => { addMessage(`\u2713 Deleted "${selectedTask.title}"`, tuiColors.green); refreshAll(); },
-        (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
-      );
+      scheduleDeletion('task', selectedTask.id, selectedTask.title);
       return;
     }
+    // D: soft-delete selected agent (with undo) — force-stop if running
     if ((input === 'd' || input === 'D') && activeView === 'agents' && selectedAgent && onDeleteAgent) {
       const isActuallyRunning = Object.values(liveState.running).some((e) => e.agent_id === selectedAgent.id);
-      if (isActuallyRunning) {
-        // Force-stop first, then delete
-        if (onForceStopAgent) {
-          addMessage(`Stopping & deleting agent "${selectedAgent.name}"...`, tuiColors.amber);
-          onForceStopAgent(selectedAgent.id).then(
-            () => onDeleteAgent(selectedAgent.id),
-          ).then(
-            () => { addMessage(`\u2713 Deleted agent "${selectedAgent.name}"`, tuiColors.green); refreshAll(); },
-            (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
-          );
-        } else {
-          addMessage(`Cannot delete \u2014 agent "${selectedAgent.name}" is running. Press S to stop first.`, tuiColors.yellow);
-        }
+      if (isActuallyRunning && !onForceStopAgent) {
+        addMessage(`Cannot delete \u2014 agent "${selectedAgent.name}" is running. Press S to stop first.`, tuiColors.yellow);
         return;
       }
-      addMessage(`Deleting agent "${selectedAgent.name}"...`, tuiColors.amber);
-      onDeleteAgent(selectedAgent.id).then(
-        () => { addMessage(`\u2713 Deleted agent "${selectedAgent.name}"`, tuiColors.green); refreshAll(); },
-        (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
-      );
+      scheduleDeletion('agent', selectedAgent.id, selectedAgent.name, { needsForceStop: isActuallyRunning });
       return;
     }
 
@@ -1767,6 +1828,7 @@ export function App({
   const canToggleAuto = !inInput && activeView === 'agents' && !!selectedAgent && !!onToggleAutonomous;
   const canPause = !inInput && activeView === 'goals' && !!selectedGoal &&
     (selectedGoal.status === 'active' || selectedGoal.status === 'paused') && !!onUpdateGoalStatus;
+  const canUndo = !inInput && pendingDeletions.length > 0;
 
   const showSuggestions = inputMode === 'command' && suggestions.length > 0;
 
@@ -1918,6 +1980,11 @@ export function App({
       {/* Spacer pushes CommandBar to bottom */}
       <Box flexGrow={1} />
 
+      {/* Undo banner — shows pending deletions with countdown */}
+      {pendingDeletions.length > 0 && (
+        <UndoBanner deletions={pendingDeletions} width={W} />
+      )}
+
       {/* Command bar */}
       <CommandBar
         mode={inputMode === 'command' ? 'command' : 'navigate'}
@@ -1930,6 +1997,7 @@ export function App({
         canReject={!!canReject}
         canCancel={activeView === 'tasks' && !!selectedTask && selectedTask.status === 'in_progress' && !!onCancelTask}
         canDelete={!!canDelete}
+        canUndo={!!canUndo}
         canEdit={!!canEdit}
         canForceStop={!!canForceStop}
         canToggleAuto={!!canToggleAuto}
@@ -1947,6 +2015,42 @@ export function App({
     </Box>
   );
 }
+
+/* ── Undo Banner ─────────────────────────────────────── */
+
+/** Shows pending deletions with live countdown. Uses useAnimTick for smooth updates. */
+const UndoBanner = React.memo(function UndoBanner({ deletions, width }: { deletions: PendingDeletion[]; width: number }) {
+  // Re-render on animation tick for countdown update
+  useAnimTick();
+
+  const now = Date.now();
+
+  return (
+    <Box flexDirection="column" width={width}>
+      {deletions.map((d) => {
+        const remaining = Math.max(0, Math.ceil((d.expiresAt - now) / 1000));
+        const barWidth = Math.max(0, width - 4);
+        const label = d.entityType === 'task' ? 'Task' : d.entityType === 'agent' ? 'Agent' : 'Goal';
+        const nameMax = Math.max(10, barWidth - label.length - 30);
+        const name = d.entityName.length > nameMax ? d.entityName.slice(0, nameMax - 1) + '\u2026' : d.entityName;
+
+        return (
+          <Box key={d.key} paddingX={2}>
+            <Text color={tuiColors.yellow}>
+              {'\u2717 '}
+              <Text bold>{label}</Text>
+              {` "${name}" \u2014 `}
+              <Text color={tuiColors.amber} bold>{remaining}s</Text>
+              <Text color={tuiColors.dim}>{' \u2502 '}</Text>
+              <Text color={tuiColors.gray} bold>Z</Text>
+              <Text color={tuiColors.dim}> undo</Text>
+            </Text>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+});
 
 /* ── Helpers ──────────────────────────────────────────── */
 

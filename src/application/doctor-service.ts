@@ -26,11 +26,15 @@ export interface DoctorReport {
 }
 
 export class DoctorService {
+  private readonly cwd: string;
+
   constructor(
     private readonly adapterRegistry: AdapterRegistry,
     private readonly processManager: IProcessManager,
-    private readonly projectRoot?: string,
-  ) {}
+    projectRoot?: string,
+  ) {
+    this.cwd = projectRoot ?? process.cwd();
+  }
 
   async runAll(): Promise<DoctorReport> {
     const checks: DoctorCheck[] = [];
@@ -90,8 +94,7 @@ export class DoctorService {
   }
 
   private async checkGitignore(): Promise<DoctorCheck> {
-    const cwd = this.projectRoot ?? process.cwd();
-    const gitignorePath = path.join(cwd, '.gitignore');
+    const gitignorePath = path.join(this.cwd, '.gitignore');
     try {
       const content = await fs.readFile(gitignorePath, 'utf-8');
       const hasEntry = content.split('\n').some((line) => line.trim() === '.orchestry');
@@ -113,9 +116,8 @@ export class DoctorService {
   }
 
   private async checkGitRepo(): Promise<DoctorCheck> {
-    const cwd = this.projectRoot ?? process.cwd();
     try {
-      await execFileAsync('git', ['rev-parse', '--is-inside-work-tree'], { cwd });
+      await execFileAsync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: this.cwd });
       return { name: 'git repo', status: 'ok', detail: 'git repository detected' };
     } catch {
       return {

@@ -23,6 +23,7 @@ export interface CommandBarProps {
   canReject?: boolean;
   canCancel?: boolean;
   canDelete?: boolean;
+  canUndo?: boolean;
   canEdit?: boolean;
   canForceStop?: boolean;
   canToggleAuto?: boolean;
@@ -39,7 +40,7 @@ export interface CommandBarProps {
 }
 
 export const CommandBar = React.memo(function CommandBar({
-  mode, value, completion, activeView, canRun, canNew, canApprove, canReject, canCancel, canDelete, canEdit, canForceStop, canToggleAuto, autoActive, canPause, isPaused, canToggleShowAll, showAllActive, hasDetail,
+  mode, value, completion, activeView, canRun, canNew, canApprove, canReject, canCancel, canDelete, canUndo, canEdit, canForceStop, canToggleAuto, autoActive, canPause, isPaused, canToggleShowAll, showAllActive, hasDetail,
   itemCount, itemLabel, width, hasSuggestions,
 }: CommandBarProps) {
   if (mode === 'command') {
@@ -149,6 +150,13 @@ export const CommandBar = React.memo(function CommandBar({
             {'  '}
             <Text bold color={tuiColors.gray}>D</Text>
             {' delete'}
+          </>
+        )}
+        {canUndo && (
+          <>
+            {'  '}
+            <Text bold color={tuiColors.yellow}>Z</Text>
+            {' undo'}
           </>
         )}
         {hasDetail && (

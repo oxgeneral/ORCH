@@ -124,20 +124,10 @@ export class Orchestrator {
    */
   async runTask(taskId: string): Promise<void> {
     if (this.lockAcquired) {
-      // Watch mode active — dispatch inline, no lock dance
-      await this.withStateLock(async () => {
-        this.cachedTaskStore.invalidate();
-        this.cachedAgentStore.invalidate();
-        await this.loadState();
-        await this.dispatchTask(taskId);
-        await this.saveState();
-      });
+      await this.freshDispatch(() => this.dispatchTask(taskId));
       return;
     }
-    await this.withTemporaryLock(async () => {
-      await this.loadState();
-      await this.dispatchTask(taskId);
-    });
+    await this.withTemporaryLock(() => this.freshDispatch(() => this.dispatchTask(taskId)));
   }
 
   /**
@@ -147,19 +137,23 @@ export class Orchestrator {
    */
   async runAll(): Promise<void> {
     if (this.lockAcquired) {
-      // Watch mode active — dispatch inline, no lock dance
-      await this.withStateLock(async () => {
-        this.cachedTaskStore.invalidate();
-        this.cachedAgentStore.invalidate();
-        await this.loadState();
-        await this.dispatchAll();
-        await this.saveState();
-      });
+      await this.freshDispatch(() => this.dispatchAll());
       return;
     }
-    await this.withTemporaryLock(async () => {
+    await this.withTemporaryLock(() => this.freshDispatch(() => this.dispatchAll()));
+  }
+
+  /**
+   * Invalidate caches → loadState → run dispatch fn → saveState.
+   * Shared by runTask, runAll, and immediateDispatch.
+   */
+  private async freshDispatch(fn: () => Promise<void>): Promise<void> {
+    await this.withStateLock(async () => {
+      this.cachedTaskStore.invalidate();
+      this.cachedAgentStore.invalidate();
       await this.loadState();
-      await this.dispatchAll();
+      await fn();
+      await this.saveState();
     });
   }
 
@@ -455,10 +449,9 @@ export class Orchestrator {
   /**
    * Schedule an immediate dispatch with 500ms debounce.
    * Called on task:created to avoid waiting for the next 30s tick.
-   * If a tick is in progress when the timer fires, retries after 500ms
-   * instead of silently dropping the dispatch.
+   * Retries up to 10 times (5s) if a tick is in progress.
    */
-  private scheduleImmediateDispatch(): void {
+  private scheduleImmediateDispatch(retries = 0): void {
     if (this.shuttingDown) return;
     if (this.immediateDispatchTimer) return; // already scheduled
 
@@ -466,8 +459,7 @@ export class Orchestrator {
       this.immediateDispatchTimer = null;
       if (this.shuttingDown) return;
       if (this.tickInProgress) {
-        // Tick running — retry after it finishes instead of dropping
-        this.scheduleImmediateDispatch();
+        if (retries < 10) this.scheduleImmediateDispatch(retries + 1);
         return;
       }
       this.immediateDispatch().catch((err) => {
@@ -487,17 +479,7 @@ export class Orchestrator {
    */
   private async immediateDispatch(): Promise<void> {
     if (this.shuttingDown) return;
-
-    await this.withStateLock(async () => {
-      if (this.shuttingDown) return;
-
-      this.cachedTaskStore.invalidate();
-      this.cachedAgentStore.invalidate();
-
-      await this.loadState();
-      await this.dispatchAll();
-      await this.saveState();
-    });
+    await this.freshDispatch(() => this.shuttingDown ? Promise.resolve() : this.dispatchAll());
   }
 
   /**
@@ -725,10 +707,16 @@ export class Orchestrator {
       try {
         await this.dispatchTask(task.id);
       } catch (err) {
-        // Workspace errors are permanent — fail the task to prevent infinite retry loop
+        // Workspace errors are permanent — force-fail the task to prevent infinite retry loop.
+        // Cannot use taskService.updateStatus because todo → failed is not a valid transition.
         if (err instanceof WorkspaceError) {
           try {
-            await this.deps.taskService.updateStatus(task.id, 'failed');
+            const t = await this.deps.taskStore.get(task.id);
+            if (t && !isTerminal(t.status)) {
+              t.status = 'failed';
+              t.updated_at = new Date().toISOString();
+              await this.deps.taskStore.save(t);
+            }
           } catch {
             // Task may already be in a terminal state
           }
