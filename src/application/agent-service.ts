@@ -165,24 +165,29 @@ export class AgentService {
       return null;
     }
 
+    // Pre-compute lowercase task labels once
+    const lowerLabels = task.labels?.length
+      ? task.labels.map((l) => l.toLowerCase())
+      : undefined;
+
     // Score each available agent
     const scored = available.map((agent) => {
       let score = 0;
 
       // Skill match with task labels: 50 per matching skill
-      if (task.labels?.length > 0 && agent.config.skills?.length) {
-        for (const label of task.labels) {
-          const lowerLabel = label.toLowerCase();
-          if (agent.config.skills.some((s) => s.toLowerCase() === lowerLabel)) {
+      if (lowerLabels && agent.config.skills?.length) {
+        const skillSet = new Set(agent.config.skills.map((s) => s.toLowerCase()));
+        for (const label of lowerLabels) {
+          if (skillSet.has(label)) {
             score += 50;
           }
         }
       }
 
       // Role match with task labels: 30
-      if (task.labels?.length > 0 && agent.role) {
+      if (lowerLabels && agent.role) {
         const lowerRole = agent.role.toLowerCase();
-        if (task.labels.some((l) => lowerRole.includes(l.toLowerCase()))) {
+        if (lowerLabels.some((l) => lowerRole.includes(l))) {
           score += 30;
         }
       }

@@ -22,7 +22,7 @@ import {
   calculateRetryDelay,
 } from '../domain/transitions.js';
 import { NoAgentsError, TaskAlreadyRunningError, LockConflictError, WorkspaceError } from '../domain/errors.js';
-import { scopesOverlap } from '../domain/scope.js';
+import { scopesOverlap, ScopeIndex } from '../domain/scope.js';
 import { acquireLock, releaseLock } from '../infrastructure/storage/lock.js';
 import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IContextStore, IGoalStore } from '../infrastructure/storage/interfaces.js';
 import { CachedTaskStore, CachedAgentStore, CachedGoalStore } from '../infrastructure/storage/cached-stores.js';
@@ -684,28 +684,26 @@ export class Orchestrator {
       })
       .slice(0, availableSlots);
 
-    // Scope overlap check — block dispatch if candidate overlaps with running or earlier candidate
+    // Scope overlap check — pre-compute index of in-progress scopes, then check candidates
     const blockedIds = new Set<string>();
     const inProgressScoped = allTasks.filter((t) => t.status === 'in_progress' && t.scope?.length);
-    for (let i = 0; i < candidates.length; i++) {
-      const candidate = candidates[i]!;
+    const scopeIndex = new ScopeIndex(inProgressScoped.map((t) => t.scope));
+    for (const candidate of candidates) {
       if (!candidate.scope?.length) continue;
-      const approvedPeers = candidates.slice(0, i).filter((c) => !blockedIds.has(c.id));
-      const compareTo = [...inProgressScoped, ...approvedPeers];
-      let overlapping = false;
-      for (const other of compareTo) {
-        if (scopesOverlap(candidate.scope, other.scope)) {
-          this.deps.eventBus.emit({
-            type: 'task:scope_overlap',
-            taskId: candidate.id,
-            overlappingTaskId: other.id,
-            patterns: candidate.scope!,
-          });
-          overlapping = true;
-          break;
-        }
+      if (scopeIndex.overlapsAny(candidate.scope)) {
+        // Find first overlapping task for the event (check in-progress first, then peers)
+        const overlapper = inProgressScoped.find((t) => scopesOverlap(candidate.scope, t.scope));
+        this.deps.eventBus.emit({
+          type: 'task:scope_overlap',
+          taskId: candidate.id,
+          overlappingTaskId: overlapper?.id ?? candidate.id,
+          patterns: candidate.scope,
+        });
+        blockedIds.add(candidate.id);
+      } else {
+        // Approved — add to index so later candidates check against it
+        scopeIndex.add(candidate.scope);
       }
-      if (overlapping) blockedIds.add(candidate.id);
     }
 
     for (const task of candidates) {
