@@ -156,6 +156,19 @@ interface StatusMessage {
   msgType?: MsgType;
 }
 
+/** Bracket-tags emitted by adapters: [init], [hook_started], [hook_response], etc. */
+const LIFECYCLE_TAG_RE = /^\[[\w_]+\]$/;
+
+/** Classify agent output summary into a semantic message type + color. */
+function classifyAgentSummary(summary: string): { msgType: MsgType; color: string } {
+  if (LIFECYCLE_TAG_RE.test(summary)) return { msgType: 'lifecycle', color: tuiColors.green };
+  if (summary.startsWith('\u2699')) return { msgType: 'tool', color: tuiColors.cyan };
+  if (summary.startsWith('\u2190')) return { msgType: 'result', color: tuiColors.dim };
+  if (summary.startsWith('\u2713')) return { msgType: 'lifecycle', color: tuiColors.green };
+  if (summary.startsWith('\u23F3')) return { msgType: 'info', color: tuiColors.silver };
+  return { msgType: 'output', color: tuiColors.silver };
+}
+
 /** Rotating palette for agent identification */
 const AGENT_COLORS = [
   '#5faf87', // green
@@ -494,12 +507,9 @@ export function App({
         } else {
           const { summary } = formatAgentOutput(raw);
           text = summary;
-          // Reclassify by content prefix (same logic as live formatEvent)
-          if (/^\[[\w_]+\]$/.test(text)) { msgType = 'lifecycle'; color = tuiColors.green; }
-          else if (text.startsWith('\u2699')) { msgType = 'tool'; color = tuiColors.cyan; }
-          else if (text.startsWith('\u2190')) { msgType = 'result'; color = tuiColors.dim; }
-          else if (text.startsWith('\u2713')) { msgType = 'lifecycle'; color = tuiColors.green; }
-          else if (text.startsWith('\u23F3')) { msgType = 'info'; }
+          const cls = classifyAgentSummary(text);
+          msgType = cls.msgType;
+          color = cls.color;
         }
 
         return { text, color, time, ts: new Date(entry.timestamp).getTime(), agentId: entry.agentId, taskId: entry.taskId, msgType };
@@ -1124,16 +1134,8 @@ export function App({
             addMessage(`Activity filter: ${next.label}`, tuiColors.amber);
             return new Set(next.types);
           });
-        } else if (sub === 'max-concurrent') {
-          // Open wizard pre-selecting max_concurrent setting
-          setWizardConfig({
-            title: 'SETTINGS',
-            steps: getConfigWizardSteps(activityFilterLabel, maxConcurrent),
-            kind: 'config',
-          });
-          setInputMode('wizard');
         } else {
-          // No subcommand → open interactive settings wizard
+          // No subcommand or named setting → open interactive settings wizard
           launchConfigWizard();
         }
         return;
@@ -3010,7 +3012,7 @@ function formatAgentOutput(raw: string): { summary: string; detail: string } {
   const detail = raw.length > 2048 ? raw.slice(0, 2048) + '…' : raw;
 
   // Skip bracket-tags like [init], [hook_started], [hook_response]
-  if (/^\[[\w_]+\]$/.test(raw.trim())) {
+  if (LIFECYCLE_TAG_RE.test(raw.trim())) {
     return { summary: raw.trim(), detail };
   }
 
@@ -3104,14 +3106,9 @@ function formatEvent(
       break;
     case 'agent:output': {
       const { summary, detail } = formatAgentOutput(event.data);
-      let msgType: MsgType = 'output';
-      if (/^\[[\w_]+\]$/.test(summary)) msgType = 'lifecycle';
-      else if (summary.startsWith('\u2699')) msgType = 'tool';
-      else if (summary.startsWith('\u2190')) msgType = 'result';
-      else if (summary.startsWith('\u2713')) msgType = 'lifecycle';
-      else if (summary.startsWith('\u23F3')) msgType = 'info';
-      addMsg(summary, msgType === 'lifecycle' ? tuiColors.green : tuiColors.silver,
-        { agentId: event.agentId, taskId: resolveTask(event.runId), detail, msgType });
+      const cls = classifyAgentSummary(summary);
+      addMsg(summary, cls.color,
+        { agentId: event.agentId, taskId: resolveTask(event.runId), detail, msgType: cls.msgType });
       break;
     }
     case 'agent:file_changed':
