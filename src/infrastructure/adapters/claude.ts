@@ -8,6 +8,7 @@
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
 import { extractTokens, createStreamingEvents } from './utils.js';
+import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -22,10 +23,12 @@ export class ClaudeAdapter implements IAgentAdapter {
     try {
       const { stdout } = await execFileAsync('claude', ['--version']);
       return { ok: true, version: stdout.trim() };
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       return {
         ok: false,
         error: 'Claude Code CLI not found. Install: npm i -g @anthropic-ai/claude-code',
+        errorKind: classifyAdapterError(msg),
       };
     }
   }
@@ -79,8 +82,11 @@ function parseClaudeEvent(line: string): AgentEvent | null {
         return { type: 'tool_call', timestamp, data: parsed };
       case 'tool_result':
         return { type: 'output', timestamp, data: parsed };
-      case 'error':
-        return { type: 'error', timestamp, data: (parsed.error as unknown) ?? parsed };
+      case 'error': {
+        const errData = (parsed.error as unknown) ?? parsed;
+        const errMsg = typeof errData === 'string' ? errData : JSON.stringify(errData);
+        return { type: 'error', timestamp, data: errData, errorKind: classifyAdapterError(errMsg) };
+      }
       case 'result': {
         const tokens = extractTokens(parsed, { statsFallback: true });
         return { type: 'done', timestamp, data: parsed, tokens };

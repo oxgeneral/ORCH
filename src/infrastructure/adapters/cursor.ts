@@ -12,6 +12,7 @@
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
 import { extractTokens, createStreamingEvents } from './utils.js';
+import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -46,6 +47,7 @@ export class CursorAdapter implements IAgentAdapter {
     return {
       ok: false,
       error: 'Cursor Agent CLI not found. The headless agent CLI is required (cursor-agent or agent).',
+      errorKind: AdapterErrorKind.ADAPTER_NOT_FOUND,
     };
   }
 
@@ -99,8 +101,11 @@ function parseCursorEvent(line: string): AgentEvent | null {
         return { type: 'tool_call', timestamp, data: parsed };
       case 'tool_result':
         return { type: 'output', timestamp, data: parsed };
-      case 'error':
-        return { type: 'error', timestamp, data: (parsed.error as unknown) ?? parsed };
+      case 'error': {
+        const errData = (parsed.error as unknown) ?? parsed;
+        const errMsg = typeof errData === 'string' ? errData : JSON.stringify(errData);
+        return { type: 'error', timestamp, data: errData, errorKind: classifyAdapterError(errMsg) };
+      }
       case 'result': {
         const tokens = extractTokens(parsed);
         return { type: 'done', timestamp, data: parsed, tokens };

@@ -9,6 +9,7 @@ import type { ChildProcess } from 'node:child_process';
 import type { AgentEvent } from './interface.js';
 import { readLines } from '../process/process-manager.js';
 import { createTokenUsage } from '../../domain/run.js';
+import { classifyAdapterError } from '../../domain/errors.js';
 
 export type TokenInfo = { input: number; output: number; total: number };
 
@@ -77,10 +78,16 @@ export function createStreamingEvents(
     await exitPromise;
 
     if (exitError && !signal?.aborted && !gotDoneEvent) {
-      throw exitError;
+      const spawnErr = exitError as Error;
+      const classified = classifyAdapterError(spawnErr.message, exitCode ?? undefined);
+      const err = Object.assign(new Error(spawnErr.message), { errorKind: classified });
+      throw err;
     }
     if (exitCode !== 0 && exitCode !== null && !signal?.aborted && !gotDoneEvent) {
-      throw new Error(`${adapterName} process exited with code ${exitCode}`);
+      const msg = `${adapterName} process exited with code ${exitCode}`;
+      const classified = classifyAdapterError(msg, exitCode);
+      const err = Object.assign(new Error(msg), { errorKind: classified });
+      throw err;
     }
   }
 

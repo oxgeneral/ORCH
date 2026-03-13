@@ -10,6 +10,7 @@ import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, Execu
 import type { IProcessManager } from '../process/process-manager.js';
 import { readLines } from '../process/process-manager.js';
 import { EventBuffer } from './event-buffer.js';
+import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -39,6 +40,7 @@ export class ShellAdapter implements IAgentAdapter {
           type: 'error',
           timestamp: new Date().toISOString(),
           data: 'Shell adapter requires a command in agent config',
+          errorKind: AdapterErrorKind.SPAWN_FAILED,
         };
       }
       return { pid: 0, events: errorGen() };
@@ -93,6 +95,7 @@ export class ShellAdapter implements IAgentAdapter {
             type: 'error',
             timestamp: new Date().toISOString(),
             data: line,
+            errorKind: classifyAdapterError(line),
           });
         }
       })();

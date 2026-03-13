@@ -12,6 +12,7 @@ export interface AdapterTestResult {
   ok: boolean;
   version?: string;
   error?: string;
+  errorKind?: AdapterErrorKind;
   details?: Record<string, unknown>;
 }
 

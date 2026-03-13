@@ -9,6 +9,7 @@
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
 import { extractTokens, createStreamingEvents } from './utils.js';
+import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -23,10 +24,12 @@ export class CodexAdapter implements IAgentAdapter {
     try {
       const { stdout } = await execFileAsync('codex', ['--version']);
       return { ok: true, version: stdout.trim() };
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       return {
         ok: false,
         error: 'Codex CLI not found. Install: npm i -g @openai/codex',
+        errorKind: classifyAdapterError(msg),
       };
     }
   }
@@ -94,7 +97,8 @@ function parseCodexEvent(line: string): AgentEvent | null {
 
       case 'turn.failed': {
         const tokens = extractTokens(parsed);
-        return { type: 'error', timestamp, data: parsed, tokens };
+        const failMsg = typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed);
+        return { type: 'error', timestamp, data: parsed, tokens, errorKind: classifyAdapterError(failMsg) };
       }
 
       // Item events
@@ -126,13 +130,17 @@ function parseCodexEvent(line: string): AgentEvent | null {
           return { type: 'output', timestamp, data: item };
         }
         if (itemType === 'error') {
-          return { type: 'error', timestamp, data: item };
+          const itemErrMsg = typeof item.message === 'string' ? item.message : JSON.stringify(item);
+          return { type: 'error', timestamp, data: item, errorKind: classifyAdapterError(itemErrMsg) };
         }
         return { type: 'output', timestamp, data: item };
       }
 
-      case 'error':
-        return { type: 'error', timestamp, data: (parsed.error as unknown) ?? parsed };
+      case 'error': {
+        const errData = (parsed.error as unknown) ?? parsed;
+        const errMsg = typeof errData === 'string' ? errData : JSON.stringify(errData);
+        return { type: 'error', timestamp, data: errData, errorKind: classifyAdapterError(errMsg) };
+      }
 
       default:
         return { type: 'output', timestamp, data: parsed };
