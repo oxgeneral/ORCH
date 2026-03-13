@@ -487,7 +487,7 @@ describe('FormWizard textarea', () => {
     expect(lastFrame()!).toContain('Description');
   });
 
-  it('Backspace on empty textarea at step > 0 goes back', async () => {
+  it('Backspace on empty textarea at step > 0 does NOT go back (use Esc)', async () => {
     const onComplete = vi.fn();
     const onCancel = vi.fn();
     const { stdin, lastFrame } = render(
@@ -508,8 +508,76 @@ describe('FormWizard textarea', () => {
     stdin.write('\r');
     await delay(50);
 
-    // Step 2: textarea — backspace on empty → go back to step 1
+    // Step 2: textarea — backspace on empty should NOT go back
     stdin.write('\x7F');
+    await delay(50);
+
+    // Should still be on textarea step (not back on text step)
+    expect(lastFrame()!).toContain('Shift+Enter newline');
+    expect(lastFrame()!).toContain('Description');
+  });
+
+  it('erasing description to empty does not navigate back to title', async () => {
+    const onComplete = vi.fn();
+    const onCancel = vi.fn();
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextThenTextareaSteps(),
+        onComplete,
+        onCancel,
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    // Step 1: type title and confirm
+    stdin.write('My Title');
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+
+    // Step 2: type description, then erase it all with backspace
+    stdin.write('Hello');
+    await delay(50);
+    // 5 backspaces to erase "Hello"
+    for (let i = 0; i < 5; i++) {
+      stdin.write('\x7F');
+      await delay(20);
+    }
+    // One more backspace on empty — should NOT go back
+    stdin.write('\x7F');
+    await delay(50);
+
+    // Should still be on textarea step
+    expect(lastFrame()!).toContain('Shift+Enter newline');
+    expect(lastFrame()!).toContain('Description');
+  });
+
+  it('Esc on textarea at step > 0 goes back to previous step', async () => {
+    const onComplete = vi.fn();
+    const onCancel = vi.fn();
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextThenTextareaSteps(),
+        onComplete,
+        onCancel,
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    // Step 1: text input → type and confirm
+    stdin.write('Title');
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+
+    // Step 2: textarea — Esc goes back
+    stdin.write('\x1B');
     await delay(50);
 
     // Should be back on text step

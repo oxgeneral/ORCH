@@ -313,10 +313,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
       }
       if (key.backspace || key.delete) {
         if (taCursorCol === 0 && taCursorRow === 0) {
-          // At very start — if empty, go back
-          if (taLines.length === 1 && taLines[0] === '' && currentStep > 0) {
-            goToPrevStep();
-          }
+          // At very start — do nothing (use Esc to go back)
           return;
         }
         if (taCursorCol > 0) {
