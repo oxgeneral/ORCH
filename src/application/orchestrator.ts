@@ -489,10 +489,17 @@ export class Orchestrator {
     const state = this.state!;
     const now = Date.now();
 
+    // Pre-fetch all running task data in parallel
+    const runningEntries = Object.entries(state.running);
+    const runningTaskData = await Promise.all(
+      runningEntries.map(([taskId]) => this.deps.taskStore.get(taskId)),
+    );
+
     // Check running processes
-    for (const [taskId, entry] of Object.entries(state.running)) {
+    for (let i = 0; i < runningEntries.length; i++) {
+      const [taskId, entry] = runningEntries[i]!;
       // If task is already terminal (done/failed/cancelled), just clean up the stale entry
-      const taskData = await this.deps.taskStore.get(taskId);
+      const taskData = runningTaskData[i];
       if (!taskData || isTerminal(taskData.status)) {
         this.abortControllers.delete(taskId);
         delete state.running[taskId];
@@ -757,9 +764,9 @@ export class Orchestrator {
 
     try {
       // Find agent
+      const allAgents = await this.cachedAgentStore.list();
       const agent = await this.deps.agentService.findBestAgent(task);
       if (!agent) {
-        const allAgents = await this.cachedAgentStore.list();
         if (allAgents.length === 0) {
           throw new NoAgentsError();
         }
@@ -779,7 +786,6 @@ export class Orchestrator {
       // Build prompt (with retry context if this is a retry attempt)
       const template =
         this.deps.config.prompt?.template ?? DEFAULT_PROMPT_TEMPLATE;
-      const allAgents = await this.cachedAgentStore.list();
       const attempt = task.attempts + 1;
 
       let retryContext: RetryContext | undefined;
