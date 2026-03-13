@@ -52,19 +52,22 @@ program
 const COMMAND_STUBS: Array<[name: string, description: string]> = [
   ['task',    'Manage tasks'],
   ['agent',   'Manage agents'],
-  ['status',  'Show project status'],
+  ['status',  'Show orchestrator status'],
   ['logs',    'View run logs'],
   ['config',  'Manage configuration'],
-  ['context', 'Manage shared context'],
-  ['msg',     'Send and read messages'],
+  ['context', 'Shared context store for inter-agent data exchange'],
+  ['msg',     'Inter-agent messaging'],
   ['goal',    'Manage goals'],
   ['team',    'Manage teams'],
   ['run',     'Run tasks'],
-  ['doctor',  'Check system health'],
+  ['doctor',  'Check adapters and dependencies'],
   ['tui',     'Launch TUI dashboard'],
   ['init',    'Initialize project'],
   ['update',  'Check for updates'],
 ];
+
+/** Set of all known subcommand names (derived from COMMAND_STUBS). */
+const ALL_KNOWN_COMMANDS = new Set(COMMAND_STUBS.map(([name]) => name));
 
 async function main(): Promise<void> {
   // Parse global options first
@@ -82,17 +85,14 @@ async function main(): Promise<void> {
   const sub = process.argv[2];
 
   // Fast path: --help/--version without a real subcommand skip container init entirely
-  const allKnownCommands = new Set([...Object.keys(LIGHT_COMMANDS), ...Object.keys(FULL_COMMANDS), 'init', 'update']);
-  const hasRealSub = sub !== undefined && allKnownCommands.has(sub);
+  const hasRealSub = sub !== undefined && ALL_KNOWN_COMMANDS.has(sub);
   const isHelpOrVersion = process.argv.includes('--help') || process.argv.includes('-h')
     || process.argv.includes('--version') || process.argv.includes('-V');
 
   if (isHelpOrVersion && !hasRealSub) {
     // Register lightweight stubs so Commander can display help with all command names
     for (const [name, desc] of COMMAND_STUBS) {
-      if (!program.commands.some((c) => c.name() === name)) {
-        program.command(name).description(desc);
-      }
+      program.command(name).description(desc);
     }
     await program.parseAsync(process.argv);
     return;
