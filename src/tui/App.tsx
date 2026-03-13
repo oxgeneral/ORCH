@@ -3107,11 +3107,11 @@ function formatAgentOutput(raw: string): { summary: string; detail: string } {
 /** Extract a human-readable summary from truncated/unparseable JSON via regex. */
 function extractSummaryFromTruncated(raw: string): string {
   // Try to extract "type" and "subtype" fields for system events
-  const subtypeMatch = raw.match(/"subtype":"([^"]+)"/);
+  const subtypeMatch = raw.match(/"subtype"\s*:\s*"([^"]+)"/);
   if (subtypeMatch) return `[${subtypeMatch[1]}]`;
 
-  const typeMatch = raw.match(/"type":"([^"]+)"/);
-  const roleMatch = raw.match(/"role":"([^"]+)"/);
+  const typeMatch = raw.match(/"type"\s*:\s*"([^"]+)"/);
+  const roleMatch = raw.match(/"role"\s*:\s*"([^"]+)"/);
   const type = typeMatch?.[1];
   const role = roleMatch?.[1];
 
@@ -3119,7 +3119,7 @@ function extractSummaryFromTruncated(raw: string): string {
 
   // assistant/message — try to find text content
   if (type === 'assistant' || type === 'message' || role === 'assistant') {
-    const textMatch = raw.match(/"text":"((?:[^"\\]|\\.)*)"/);
+    const textMatch = raw.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     if (textMatch) {
       try { return JSON.parse(`"${textMatch[1]}"`).slice(0, 200); } catch { /* truncated escape */ }
     }
@@ -3133,12 +3133,12 @@ function extractSummaryFromTruncated(raw: string): string {
 
   // tool_use
   if (type === 'tool_use') {
-    const nameMatch = raw.match(/"name":"([^"]+)"/);
+    const nameMatch = raw.match(/"name"\s*:\s*"([^"]+)"/);
     return `\u2699 ${nameMatch?.[1] ?? 'tool'}()`;
   }
 
   if (type === 'result') {
-    const resultMatch = raw.match(/"result":"((?:[^"\\]|\\.)*)"/);
+    const resultMatch = raw.match(/"result"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     if (resultMatch) {
       try { return `\u2713 ${JSON.parse(`"${resultMatch[1]}"`).slice(0, 180)}`; } catch { /* truncated */ }
     }
@@ -3147,7 +3147,7 @@ function extractSummaryFromTruncated(raw: string): string {
 
   if (type === 'rate_limit_event') return '\u23F3 Rate limited';
 
-  return `[${type}]`;
+  return `[${type ?? role}]`;
 }
 
 function formatEvent(
