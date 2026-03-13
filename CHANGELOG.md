@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.1 (2026-03-13)
+
+### New Features
+
+- **`/goal` command group in TUI** — `/goal add` opens wizard, `/goal list`, `/goal show`, `/goal status <active|paused|achieved|abandoned>`, `/goal delete` with soft-delete undo; previously the command was registered but silently did nothing
+
+### Bug Fixes
+
+- **Empty assistant messages in activity feed** — tool_use-only and empty-content assistant messages no longer produce `💬 (assistant message)` noise in the TUI activity feed; `formatAgentOutput` returns `null` summary with lazy detail computation to avoid slicing 100KB+ strings for discarded messages
+- **Multiline role text in wizard hints** — agent roles with markdown (e.g. `## WORKFLOW\n...`) now show only the first line in wizard select options instead of breaking layout
+
+### Architecture
+
+- **`GOAL_STATUSES` reuse** — `/goal status` validation uses the canonical constant from `src/domain/goal.ts` instead of a hardcoded array
+- **Type-safe status narrowing** — `statusArg: string | undefined` validated before `as GoalStatus` cast, eliminating premature unsafe type assertion
+
+### Tests
+
+- **1001 tests** (up from 987 in 0.3.0)
+- New coverage: image paste integration (4 cases), agent hint stripping in wizard (10 cases)
+
+---
+
 ## 0.3.0 (2026-03-13)
 
 ### New Features
