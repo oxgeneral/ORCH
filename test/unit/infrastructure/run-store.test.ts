@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -54,5 +54,37 @@ describe('RunStore.streamEvents', () => {
     }
 
     expect(collected).toHaveLength(0);
+  });
+
+  it('exits immediately when AbortSignal is already aborted and file does not exist', async () => {
+    const ac = new AbortController();
+    ac.abort();
+
+    const collected: RunEvent[] = [];
+    for await (const event of store.streamEvents('run-aborted', ac.signal)) {
+      collected.push(event);
+    }
+
+    expect(collected).toHaveLength(0);
+  });
+
+  it('exits when 30s deadline passes without file appearing', async () => {
+    // Spy on Date.now: first call sets deadline, subsequent calls return past deadline
+    let callCount = 0;
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => {
+      // First call: sets deadline = 0 + 30_000 = 30_000
+      // All subsequent calls: return 30_001 (>= deadline → loop exits)
+      return callCount++ === 0 ? 0 : 30_001;
+    });
+
+    try {
+      const collected: RunEvent[] = [];
+      for await (const event of store.streamEvents('run-no-file')) {
+        collected.push(event);
+      }
+      expect(collected).toHaveLength(0);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

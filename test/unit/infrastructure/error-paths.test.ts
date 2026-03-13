@@ -134,7 +134,7 @@ describe('Error paths', () => {
 
     it('readJsonlTail skips corrupted lines in small files', async () => {
       const filePath = path.join(tmpDir, 'tail-corrupt.jsonl');
-      // Small file (<32KB) uses readJsonl internally
+      // Small file (<32KB) reads directly (no recursive readJsonl call)
       await fs.writeFile(filePath, '{"ok":1}\ncorrupt\n{"ok":2}\n{"ok":3}\n', 'utf-8');
 
       const records = await readJsonlTail<{ ok: number }>(filePath, 10);
