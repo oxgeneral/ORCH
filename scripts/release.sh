@@ -19,7 +19,8 @@ sed -i.bak "s/v[0-9]*\.[0-9]*\.[0-9]* — open source/v${VERSION} — open sourc
 rm -f landing/index.html.bak
 
 # Commit and tag
-git add package.json package-lock.json src/bin/cli.ts landing/index.html
+git add package.json package-lock.json src/bin/cli.ts
+git add -f landing/index.html
 git commit -m "Release ${NEW_VERSION}"
 git tag "$NEW_VERSION"
 
