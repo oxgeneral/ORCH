@@ -9,7 +9,7 @@
 | CLI startup (`--help`) | 103ms (cold) / 75ms (warm) | 40ms | **-61%** |
 | CLI `task list` | 103ms | 78ms | **-24%** |
 | Build (tsup) | 2.7s | 1.6s | **-41%** |
-| Test suite (vitest) | 12.2s | 14.6s / 977 tests | **+319% tests, 15ms/test** |
+| Test suite (vitest) | 12.2s | 15.0s / 987 tests | **+324% tests, 15ms/test** |
 | TUI memory | OOM after ~27 min | Stable indefinitely | **Fixed** |
 
 All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx vitest run`.
@@ -46,11 +46,11 @@ All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx v
 
 | Metric | Before | After | Delta |
 |--------|--------|-------|-------|
-| Total time | 12.2s | 14.6s | +20% (4× more tests) |
-| Transform | 1.6s | 2.0s | +25% |
-| Collect | 4.8s | 4.0s | -17% |
-| Test count | 233 → 977 | 977 | +319% |
-| Per-test avg | 52.4ms | 14.9ms | **-72%** |
+| Total time | 12.2s | 15.0s | +23% (4× more tests) |
+| Transform | 1.6s | 2.4s | +50% |
+| Collect | 4.8s | 4.7s | -2% |
+| Test count | 233 → 987 | 987 | +324% |
+| Per-test avg | 52.4ms | 15.2ms | **-71%** |
 
 ### TUI Memory
 
@@ -234,7 +234,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 
 - **CLI startup**: Target <50ms for `--help`, <100ms for commands
 - **Build**: Target <1.5s total wall time
-- **Tests**: Watch transform + collect phases (should be <7s combined). Per-test avg <15ms at 977 tests
+- **Tests**: Watch transform + collect phases (should be <7s combined). Per-test avg <15ms at 987 tests
 - **TUI memory**: Heap should plateau, not grow linearly
 
 ## 6. Performance Targets / SLOs
@@ -244,7 +244,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 | `orch --help` | <50ms | 40ms | PASS |
 | `orch task list` | <100ms | 78ms | PASS |
 | `npm run build` | <1.5s | 1.35s | PASS |
-| `npx vitest run` (977 tests) | <16s | 14.6s | PASS |
+| `npx vitest run` (987 tests) | <16s | 15.0s | PASS |
 | TUI heap (30 min) | <512 MB | ~120 MB | PASS |
 | Reactive dispatch latency | <1s | ~500ms | PASS |
 | Tick duration | <5s | <1s typical | PASS |
