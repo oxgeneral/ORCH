@@ -228,7 +228,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 
 | History load (TUI) | <2s | <500ms (progressive) | PASS |
 
-¹ Build fluctuates 1.1–1.6s depending on system load. Target 1.5s from sprint goals; meets target on warm runs.
+¹ Build 1.6s exceeds 1.5s target but within 20% margin. Varies 1.1–1.6s across runs depending on DTS phase.
 
 ## 7. Known Bottlenecks
 

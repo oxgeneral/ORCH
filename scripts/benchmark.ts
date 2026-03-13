@@ -17,7 +17,7 @@ import { join } from 'node:path';
 const TARGETS: Record<string, number> = {
   'cli-help':      50,
   'cli-task-list': 100,
-  'build':         2000,
+  'build':         1500,
   'test-suite':    12000,
   'tick-cycle':    50,
 };
@@ -230,7 +230,7 @@ function printTable(results: BenchmarkResult[]): void {
   console.log(sep);
 
   for (const r of results) {
-    const status = r.pass ? 'PASS' : 'FAIL';
+    const status = r.pass ? 'PASS' : r.median <= r.target * 1.2 ? 'NEAR PASS' : 'FAIL';
     const line = [
       r.name.padEnd(nameW),
       `${r.median}ms`.padStart(colW),
