@@ -19,7 +19,6 @@ import {
   pathExists,
 } from './fs-utils.js';
 import { createReadStream } from 'node:fs';
-import { readLines } from '../process/process-manager.js';
 
 export class RunStore implements IRunStore {
   constructor(private readonly paths: Paths) {}
@@ -74,6 +73,8 @@ export class RunStore implements IRunStore {
     if (signal?.aborted || Date.now() >= deadline) return;
 
     const stream = createReadStream(filePath);
+
+    const { readLines } = await import('../process/process-manager.js');
 
     try {
       for await (const line of readLines(stream)) {
