@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.3.2 (2026-03-14)
+
+### New Features
+
+- **Agent Shop** — browse and install from 15 pre-built agent templates with detailed role prompts, skills, and recommended models; accessible via TUI (`/agent shop`, `Ctrl+S`/`⌘+S` from agent wizard) and CLI (`orch agent shop`)
+- **Agent templates catalog** — Backend Dev, Frontend Dev, QA Engineer, Code Reviewer, Architect, DevOps Engineer, Bug Hunter, Technical Writer, Marketer, Content Creator, Growth Hacker, Security Auditor, Performance Engineer, Data Engineer, Full-Stack Developer
+- **Skills step in agent wizard** — new comma-separated skills input when creating agents via TUI
+- **macOS shortcut support** — `⌘+V` image paste and `⌘+S` agent shop now work on macOS (previously only `Ctrl+` variants worked); platform-aware hints shown in footer
+
+### Landing Page
+
+- **Full redesign** — 13 sections (was 10), conversion-optimized copy, marketing psychology applied
+- **New sections** — Social Proof (adapter cards), Problem-Solution (Before/After), Mid-page CTA, Use Cases (9 cards across 9 personas), FAQ (7 items with accordion)
+- **SVG agent topology** — animated particle diagram showing CTO→Backend→QA→Reviewer team coordination
+- **Stats bar** — replaced internal metrics (tests, LOC) with user-facing stats (N+ parallel agents, 15 ready-made agents, 1 command to start, 0 cloud dependencies)
+- **4-column footer** — Product, Resources, Community links with GitHub/Discord icons
+
+### Bug Fixes
+
+- **FormWizard remount** — wizard defaultValues (name, role, model) were not applied when switching between wizard sessions; fixed by adding React `key` to force remount
+- **Shop template approval_policy** — Code Reviewer, Architect, and Security Auditor templates had `suggest` policy silently overwritten to `auto` in TUI flow; now preserved via hidden wizard step
+- **Shop picker robustness** — guarded against `process.stdout.rows` being undefined/zero, added raw-mode cleanup on exceptions and SIGINT
+- **release.sh** — updated to replace all `vX.Y.Z` occurrences in landing page (was only matching `vX.Y.Z — open source` pattern)
+
+### Tests
+
+- **1020 tests** (up from 1001 in 0.3.1)
+- New coverage: Agent Shop catalog validation (15 templates, unique keys/names, role format), wizard prefill injection, skills parsing, approval_policy passthrough
+
+---
+
 ## 0.3.1 (2026-03-13)
 
 ### New Features
