@@ -11,6 +11,8 @@ import type { Goal } from '../domain/goal.js';
 import type { ActivityFilterPreset } from '../domain/global-config.js';
 import type { Team } from '../domain/team.js';
 import type { CreateTeamInput } from '../domain/team.js';
+import { AGENT_SHOP_TEMPLATES, getShopTemplateByKey } from '../domain/agent-shop.js';
+import type { AgentShopTemplate } from '../domain/agent-shop.js';
 
 // ── Model catalogs per adapter ──
 
@@ -109,6 +111,49 @@ function buildTeamOptions(teams?: Team[]) {
   ];
 }
 
+// ── Agent Shop ──
+
+/** Single-step wizard for browsing the Agent Shop catalog. */
+export function getShopWizardSteps(): WizardStep[] {
+  return [
+    {
+      id: 'shop_template',
+      label: 'Agent Shop — choose a template',
+      type: 'select',
+      options: AGENT_SHOP_TEMPLATES.map((t) => ({
+        value: t.key,
+        label: t.name,
+        hint: t.description,
+      })),
+    },
+  ];
+}
+
+/** Clone base wizard steps with defaultValues injected from a shop template. */
+export function applyShopTemplate(
+  baseSteps: WizardStep[],
+  template: AgentShopTemplate,
+): WizardStep[] {
+  return baseSteps.map((step): WizardStep => {
+    switch (step.id) {
+      case 'name':
+        return { ...step, defaultValue: template.name };
+      case 'adapter':
+        return { ...step, defaultValue: template.adapter };
+      case 'model':
+        return { ...step, defaultValue: template.model };
+      case 'role':
+        return { ...step, defaultValue: '__custom__' };
+      case 'role_custom':
+        return { ...step, defaultValue: template.role, skip: undefined };
+      case 'skills':
+        return { ...step, defaultValue: template.skills.join(', ') };
+      default:
+        return step;
+    }
+  });
+}
+
 // ── Agent creation wizard ──
 
 export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
@@ -153,6 +198,12 @@ export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
       skip: (vals) => vals.role !== '__custom__',
     },
     {
+      id: 'skills',
+      label: 'Skills (comma-separated)',
+      type: 'text',
+      placeholder: 'e.g. feature-dev:feature-dev, testing-suite:generate-tests',
+    },
+    {
       id: 'team',
       label: 'Join team',
       type: 'select',
@@ -165,12 +216,14 @@ export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
 /** Convert wizard values → CreateAgentInput-compatible object */
 export function agentWizardToInput(vals: Record<string, string>) {
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
+  const skills = vals.skills ? vals.skills.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
   return {
     name: vals.name!,
     adapter: vals.adapter || 'claude',
     role,
     model: vals.model || undefined,
     approval_policy: 'auto' as const,
+    skills,
     team_id: vals.team || undefined,
   };
 }

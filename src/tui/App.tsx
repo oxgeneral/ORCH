@@ -40,7 +40,9 @@ import {
   getConfigWizardSteps,
   getGoalWizardSteps, goalWizardToInput,
   getEditGoalWizardSteps, editGoalWizardToFields,
+  getShopWizardSteps, applyShopTemplate,
 } from './wizardConfigs.js';
+import { getShopTemplateByKey } from '../domain/agent-shop.js';
 import type { ActivityFilterPreset } from '../domain/global-config.js';
 import { DEFAULT_CONFIG } from '../domain/config.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
@@ -123,7 +125,7 @@ export interface AppProps {
   // History (loaded progressively from disk on startup)
   onLoadHistory?: (onBatch: (entries: HistoryEntry[]) => void) => Promise<void>;
   // New actions
-  onAddAgent?: (name: string, adapter?: string, opts?: { model?: string; role?: string; approval_policy?: string }) => Promise<Agent>;
+  onAddAgent?: (name: string, adapter?: string, opts?: { model?: string; role?: string; approval_policy?: string; skills?: string[] }) => Promise<Agent>;
   onDeleteAgent?: (agentId: string) => Promise<void>;
   onApproveTask?: (taskId: string) => Promise<void>;
   onRejectTask?: (taskId: string, feedback?: string) => Promise<void>;
@@ -174,7 +176,7 @@ type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
 interface WizardConfig {
   title: string;
   steps: WizardStep[];
-  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team' | 'config' | 'goal' | 'edit_goal';
+  kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team' | 'config' | 'goal' | 'edit_goal' | 'agent_shop' | 'agent_from_shop';
   /** Target ID for edit wizards */
   targetId?: string;
 }
@@ -706,6 +708,15 @@ export function App({
     setInputMode('wizard');
   }, []);
 
+  const launchShopWizard = useCallback(() => {
+    setWizardConfig({
+      title: 'AGENT SHOP',
+      steps: getShopWizardSteps(),
+      kind: 'agent_shop',
+    });
+    setInputMode('wizard');
+  }, []);
+
   const launchTaskWizard = useCallback(() => {
     setPendingAttachments([]);
     setWizardConfig({
@@ -790,13 +801,31 @@ export function App({
     const targetId = wizardConfig?.targetId;
     setWizardConfig(null);
 
-    if (kind === 'agent' && onAddAgent) {
+    if (kind === 'agent_shop') {
+      // Phase 1 complete — user selected a template, now launch pre-filled agent wizard
+      const templateKey = values.shop_template;
+      const template = templateKey ? getShopTemplateByKey(templateKey) : undefined;
+      if (template) {
+        const baseSteps = getAgentWizardSteps(liveTeamsRef.current);
+        const prefilledSteps = applyShopTemplate(baseSteps, template);
+        setWizardConfig({
+          title: `NEW AGENT — ${template.name}`,
+          steps: prefilledSteps,
+          kind: 'agent_from_shop',
+        });
+        setInputMode('wizard');
+      }
+      return;
+    }
+
+    if ((kind === 'agent' || kind === 'agent_from_shop') && onAddAgent) {
       const input = agentWizardToInput(values);
       addMessage(`Creating agent "${input.name}"...`, tuiColors.amber);
       onAddAgent(input.name, input.adapter, {
         model: input.model,
         role: input.role,
         approval_policy: input.approval_policy,
+        skills: input.skills,
       }).then(
         (agent) => {
           addMessage(`\u2713 Created agent "${agent.name}" (${agent.id}, ${agent.adapter})`, tuiColors.green);
@@ -1212,8 +1241,10 @@ export function App({
               (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
             );
           }
+        } else if (sub === 'shop') {
+          launchShopWizard();
         } else {
-          addMessage('Usage: /agent add|list|disable|enable|delete|autonomous', tuiColors.yellow);
+          addMessage('Usage: /agent add|list|disable|enable|delete|autonomous|shop', tuiColors.yellow);
         }
         return;
       }
@@ -1444,6 +1475,12 @@ export function App({
       onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard, launchConfigWizard]);
 
   useInput((input, key) => {
+    // ── Ctrl+S: open Agent Shop from agent wizard ──
+    if (key.ctrl && input === 's' && inputMode === 'wizard' && wizardConfig?.kind === 'agent') {
+      launchShopWizard();
+      return;
+    }
+
     // ── Input mode: all keys go to the text buffer ──
     if (inputMode !== 'none') {
       if (key.escape) {
@@ -2049,7 +2086,11 @@ export function App({
           width={ruleW}
           height={feedH}
           onPasteImage={isPasteCapable ? handlePasteImage : undefined}
-          footerExtra={pendingAttachments.length > 0 && isPasteCapable ? `\uD83D\uDCCE${pendingAttachments.length}` : undefined}
+          footerExtra={
+            wizardConfig.kind === 'agent' ? 'Ctrl+S browse shop'
+            : pendingAttachments.length > 0 && isPasteCapable ? `\uD83D\uDCCE${pendingAttachments.length}`
+            : undefined
+          }
         />
       ) : showSuggestions ? (
         <>

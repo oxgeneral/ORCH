@@ -80,13 +80,14 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.stateStore.read();
       };
 
-      const onAddAgent = async (name: string, adapter?: string, opts?: { model?: string; role?: string; approval_policy?: string }) => {
+      const onAddAgent = async (name: string, adapter?: string, opts?: { model?: string; role?: string; approval_policy?: string; skills?: string[] }) => {
         return container.agentService.create({
           name,
           adapter: adapter ?? 'claude',
           model: opts?.model || undefined,
           role: opts?.role || undefined,
           approval_policy: (opts?.approval_policy as import('../../domain/agent.js').ApprovalPolicy) || undefined,
+          skills: opts?.skills || undefined,
         });
       };
 

@@ -72,6 +72,43 @@ export function registerAgentCommand(program: Command, container: LightContainer
       }
     });
 
+  // agent shop
+  agent
+    .command('shop')
+    .description('Browse and install pre-built agent templates')
+    .option('--list', 'Print all templates (non-interactive)')
+    .action(async (opts: { list?: boolean }) => {
+      await container.paths.requireInit();
+      const { AGENT_SHOP_TEMPLATES } = await import('../../domain/agent-shop.js');
+
+      if (opts.list || !process.stdout.isTTY) {
+        printTable(
+          ['Key', 'Name', 'Adapter', 'Model', 'Skills'],
+          AGENT_SHOP_TEMPLATES.map((t) => [t.key, t.name, t.adapter, t.model.replace('claude-', ''), t.skills.slice(0, 2).join(', ')]),
+        );
+        return;
+      }
+
+      const { pickFromShop } = await import('../shop-picker.js');
+      const template = await pickFromShop(AGENT_SHOP_TEMPLATES);
+
+      if (!template) {
+        console.log('  Cancelled.');
+        return;
+      }
+
+      const a = await container.agentService.create({
+        name: template.name,
+        adapter: template.adapter,
+        model: template.model,
+        role: template.role,
+        skills: template.skills,
+        approval_policy: template.approval_policy,
+      });
+
+      printSuccess(`Added agent ${agentName(a.name)} (${a.adapter}) → ${a.id}`);
+    });
+
   // agent list
   agent
     .command('list')
