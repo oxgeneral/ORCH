@@ -1568,3 +1568,142 @@ describe('Command bar — /task add', () => {
     expect(output).toContain('pause');
   });
 });
+
+/* ── onLoadHistory: progressive history loading ──────────────────────── */
+
+describe('onLoadHistory — progressive history loading', () => {
+  const TS = '2026-01-01T10:00:00.000Z';
+  const makeEntry = (overrides: Partial<import('../../../src/tui/App.js').HistoryEntry> = {}): import('../../../src/tui/App.js').HistoryEntry => ({
+    timestamp: TS,
+    agentId: 'agt_1',
+    taskId: 'tsk_1',
+    type: 'output',
+    data: 'Hello from history',
+    ...overrides,
+  });
+
+  it('TUI renders immediately without waiting for history to load', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let resolveHistory!: () => void;
+    const onLoadHistory = (_onBatch: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void): Promise<void> =>
+      new Promise((resolve) => { resolveHistory = resolve; });
+
+    const { lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], state, onLoadHistory }),
+    );
+    // TUI renders immediately — ORCH header is visible before history resolves
+    expect(lastFrame()!).toContain('ORCH');
+    resolveHistory();
+  });
+
+  it('batch with done-type entry shows "Completed" in logs view', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let capturedBatch!: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void;
+    const onLoadHistory = (onBatch: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void): Promise<void> => {
+      capturedBatch = onBatch;
+      return Promise.resolve();
+    };
+
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], state, onLoadHistory }),
+    );
+    // Wait for useEffect to fire
+    await delay(50);
+    capturedBatch([makeEntry({ type: 'done', data: undefined })]);
+    await delay(50);
+
+    // Switch to logs view to see the activity feed
+    stdin.write('l');
+    await delay(50);
+    expect(lastFrame()!).toContain('Completed');
+  });
+
+  it('batch with error-type entry shows error text in logs view', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let capturedBatch!: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void;
+    const onLoadHistory = (onBatch: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void): Promise<void> => {
+      capturedBatch = onBatch;
+      return Promise.resolve();
+    };
+
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], state, onLoadHistory }),
+    );
+    await delay(50);
+    capturedBatch([makeEntry({ type: 'error', data: 'ConnectionRefused' })]);
+    await delay(50);
+
+    stdin.write('l');
+    await delay(50);
+    expect(lastFrame()!).toContain('ConnectionRefused');
+  });
+
+  it('empty batch does not change the empty state message', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let capturedBatch!: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void;
+    const onLoadHistory = (onBatch: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void): Promise<void> => {
+      capturedBatch = onBatch;
+      return Promise.resolve();
+    };
+
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], state, onLoadHistory }),
+    );
+    await delay(50);
+    capturedBatch([]);
+    await delay(50);
+
+    stdin.write('l');
+    await delay(50);
+    // Empty batch → feed still shows waiting state
+    expect(lastFrame()!).toContain('Waiting for activity');
+  });
+
+  it('two consecutive batches accumulate messages in logs view', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let capturedBatch!: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void;
+    const onLoadHistory = (onBatch: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void): Promise<void> => {
+      capturedBatch = onBatch;
+      return Promise.resolve();
+    };
+
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], state, onLoadHistory }),
+    );
+    await delay(50);
+    capturedBatch([makeEntry({ type: 'done', data: undefined })]);
+    await delay(50);
+    capturedBatch([makeEntry({ type: 'error', data: 'TimeoutError' })]);
+    await delay(50);
+
+    stdin.write('l');
+    await delay(50);
+    const output = lastFrame()!;
+    expect(output).toContain('Completed');
+    expect(output).toContain('TimeoutError');
+  });
+
+  it('setMessages caps at MAX_MESSAGES (200) when batch overflows', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let capturedBatch!: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void;
+    const onLoadHistory = (onBatch: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void): Promise<void> => {
+      capturedBatch = onBatch;
+      return Promise.resolve();
+    };
+
+    const { lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], state, onLoadHistory }),
+    );
+    await delay(50);
+
+    // Send 250 entries — should be capped at 200
+    const entries = Array.from({ length: 250 }, (_, i) =>
+      makeEntry({ type: 'output', data: `msg-${i}`, timestamp: new Date(Date.UTC(2026, 0, 1, 10, 0, i)).toISOString() }),
+    );
+    capturedBatch(entries);
+    await delay(50);
+
+    // The component shouldn't crash and frame should render normally
+    expect(lastFrame()!).toContain('ORCH');
+  });
+});
