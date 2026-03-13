@@ -2,8 +2,31 @@ import { describe, it, expect, vi } from 'vitest';
 import { CursorAdapter } from '../../../src/infrastructure/adapters/cursor.js';
 import type { IProcessManager } from '../../../src/infrastructure/process/process-manager.js';
 import type { AgentEvent, ExecuteParams } from '../../../src/infrastructure/adapters/interface.js';
+import { AdapterErrorKind } from '../../../src/domain/errors.js';
 import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
+
+// Top-level mock so vi.mock hoisting applies to the whole module.
+// execFile is intercepted; by default both cursor-agent and agent binaries fail
+// so that existing test() behaviour is predictable.  Individual tests override
+// this via mockImplementationOnce.
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...actual,
+    execFile: vi.fn(
+      (
+        _cmd: string,
+        _args: string[],
+        cb: (err: Error | null, stdout: string, stderr: string) => void,
+      ) => {
+        const err = new Error('spawn cursor-agent ENOENT');
+        (err as NodeJS.ErrnoException).code = 'ENOENT';
+        cb(err, '', '');
+      },
+    ),
+  };
+});
 
 function createMockProcess() {
   const proc = new EventEmitter() as EventEmitter & {
@@ -224,6 +247,21 @@ describe('CursorAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('output');
+    });
+  });
+
+  describe('test', () => {
+    it('returns ok: false with errorKind ADAPTER_NOT_FOUND when no cursor binary is found', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+
+      // The module-level mock already makes execFile fail with ENOENT for all commands,
+      // so findCommand() returns null and test() returns ADAPTER_NOT_FOUND directly.
+      const result = await adapter.test();
+
+      expect(result.ok).toBe(false);
+      expect(result.errorKind).toBe(AdapterErrorKind.ADAPTER_NOT_FOUND);
     });
   });
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { ShellAdapter } from '../../../src/infrastructure/adapters/shell.js';
 import type { IProcessManager } from '../../../src/infrastructure/process/process-manager.js';
 import type { AgentEvent, ExecuteParams } from '../../../src/infrastructure/adapters/interface.js';
+import { AdapterErrorKind } from '../../../src/domain/errors.js';
 import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
 
@@ -131,5 +132,65 @@ describe('ShellAdapter', () => {
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe('error');
     expect(events[0].data).toContain('requires a command');
+  });
+
+  it('stderr error event has errorKind set by classifyAdapterError', async () => {
+    const proc = createMockProcess();
+    const pm = createMockProcessManager(proc);
+    const adapter = new ShellAdapter(pm);
+
+    const handle = adapter.execute(makeParams());
+
+    proc.stdout.end();
+    proc.stderr.write('something went wrong\n');
+    proc.stderr.end();
+
+    setTimeout(() => proc.emit('close', 0), 20);
+
+    const events: AgentEvent[] = [];
+    for await (const ev of handle.events) {
+      events.push(ev);
+    }
+
+    const errEvent = events.find((e) => e.type === 'error');
+    expect(errEvent).toBeDefined();
+    expect(errEvent!.errorKind).toBeDefined();
+  });
+
+  it('stderr error event has errorKind UNKNOWN for a generic stderr line', async () => {
+    const proc = createMockProcess();
+    const pm = createMockProcessManager(proc);
+    const adapter = new ShellAdapter(pm);
+
+    const handle = adapter.execute(makeParams());
+
+    proc.stdout.end();
+    proc.stderr.write('generic failure message\n');
+    proc.stderr.end();
+
+    setTimeout(() => proc.emit('close', 0), 20);
+
+    const events: AgentEvent[] = [];
+    for await (const ev of handle.events) {
+      events.push(ev);
+    }
+
+    const errEvent = events.find((e) => e.type === 'error');
+    expect(errEvent!.errorKind).toBe(AdapterErrorKind.UNKNOWN);
+  });
+
+  it('missing command error event has errorKind SPAWN_FAILED', async () => {
+    const proc = createMockProcess();
+    const pm = createMockProcessManager(proc);
+    const adapter = new ShellAdapter(pm);
+
+    const handle = adapter.execute(makeParams({ config: { adapter: 'shell' } }));
+
+    const events: AgentEvent[] = [];
+    for await (const ev of handle.events) {
+      events.push(ev);
+    }
+
+    expect(events[0]!.errorKind).toBe(AdapterErrorKind.SPAWN_FAILED);
   });
 });

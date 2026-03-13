@@ -2,8 +2,28 @@ import { describe, it, expect, vi } from 'vitest';
 import { ClaudeAdapter } from '../../../src/infrastructure/adapters/claude.js';
 import type { IProcessManager } from '../../../src/infrastructure/process/process-manager.js';
 import type { AgentEvent, ExecuteParams } from '../../../src/infrastructure/adapters/interface.js';
+import { AdapterErrorKind } from '../../../src/domain/errors.js';
 import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
+
+// Top-level mock so vi.mock hoisting applies to the whole module.
+// execFile is intercepted; by default it succeeds with a version string.
+// Individual tests override this via mockImplementationOnce.
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...actual,
+    execFile: vi.fn(
+      (
+        _cmd: string,
+        _args: string[],
+        cb: (err: Error | null, stdout: string, stderr: string) => void,
+      ) => {
+        cb(null, 'claude/1.0.0', '');
+      },
+    ),
+  };
+});
 
 function createMockProcess() {
   const proc = new EventEmitter() as EventEmitter & {
@@ -243,6 +263,64 @@ describe('ClaudeAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('output');
+    });
+
+    it('error event has errorKind UNKNOWN for a generic error message', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new ClaudeAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({ type: 'error', error: 'something broke' }) + '\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 0), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events[0]!.errorKind).toBe(AdapterErrorKind.UNKNOWN);
+    });
+
+    it('error event has errorKind AUTH_FAILED when message contains "unauthorized"', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new ClaudeAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({ type: 'error', error: 'Request unauthorized' }) + '\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 0), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events[0]!.errorKind).toBe(AdapterErrorKind.AUTH_FAILED);
+    });
+  });
+
+  describe('test', () => {
+    it('returns errorKind SPAWN_FAILED when execFile throws an ENOENT error', async () => {
+      const { execFile } = await import('node:child_process');
+      vi.mocked(execFile).mockImplementationOnce(
+        (
+          _cmd: unknown,
+          _args: unknown,
+          cb: (err: Error | null, stdout: string, stderr: string) => void,
+        ) => {
+          const err = new Error('spawn claude ENOENT');
+          (err as NodeJS.ErrnoException).code = 'ENOENT';
+          cb(err, '', '');
+          return {} as ReturnType<typeof execFile>;
+        },
+      );
+
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new ClaudeAdapter(pm);
+
+      const result = await adapter.test();
+
+      expect(result.errorKind).toBe(AdapterErrorKind.SPAWN_FAILED);
     });
   });
 
