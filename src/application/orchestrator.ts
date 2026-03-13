@@ -29,7 +29,7 @@ import { CachedTaskStore, CachedAgentStore, CachedGoalStore } from '../infrastru
 import type { AdapterRegistry } from '../infrastructure/adapters/registry.js';
 import type { IWorkspaceManager } from '../infrastructure/workspace/interface.js';
 import type { ITemplateEngine } from '../infrastructure/template/template-engine.js';
-import { buildPromptContext, DEFAULT_PROMPT_TEMPLATE, type RetryContext } from '../infrastructure/template/template-engine.js';
+import { buildPromptContext, DEFAULT_PROMPT_TEMPLATE, type RetryContext, type GoalContext } from '../infrastructure/template/template-engine.js';
 import type { IProcessManager } from '../infrastructure/process/process-manager.js';
 import type { AgentEvent } from '../infrastructure/adapters/interface.js';
 import type { EventBus } from './event-bus.js';
@@ -799,37 +799,36 @@ export class Orchestrator {
         }
       }
 
-      const sharedContext = this.deps.contextStore
-        ? await this.deps.contextStore.getAll()
-        : undefined;
+      // Fetch shared context, messages, and goal context in parallel
+      const goalId = task.goalId;
+      const [sharedContext, pendingMessages, goalRaw] = await Promise.all([
+        this.deps.contextStore?.getAll(),
+        this.deps.messageService
+          ? this.deps.messageService.drainMailbox(agent.id, task.id)
+          : [] as import('../domain/message.js').Message[],
+        goalId && this.cachedGoalStore
+          ? this.cachedGoalStore.get(goalId).catch(() => null)
+          : null,
+      ]);
 
-      // Drain pending messages for this agent
-      const pendingMessages = this.deps.messageService
-        ? await this.deps.messageService.drainMailbox(agent.id, task.id)
-        : [];
-
-      // Load goal context if task is linked to a goal
-      let goalContext: import('../infrastructure/template/template-engine.js').GoalContext | undefined;
-      if (task.goalId && this.cachedGoalStore) {
-        try {
-          const goal = await this.cachedGoalStore.get(task.goalId);
-          if (goal) {
-            const [goalTasks, progressEntry] = await Promise.all([
-              this.cachedTaskStore.list({ goalId: task.goalId }),
-              this.deps.contextStore?.get(`${task.goalId}-progress`),
-            ]);
-            goalContext = {
-              id: goal.id,
-              title: goal.title,
-              description: goal.description ?? '',
-              status: goal.status,
-              task_names: goalTasks.map((t) => `[${t.status}] ${t.title}`),
-              progress: progressEntry?.value,
-            };
-          }
-        } catch {
-          // Goal may have been deleted — continue without context
-        }
+      let goalContext: GoalContext | undefined;
+      if (goalRaw) {
+        // Cache hit — allTasks was already loaded this tick by dispatchAll/reconcile
+        const allTasks = await this.cachedTaskStore.list();
+        const goalTasks = allTasks.filter((t) => t.goalId === goalId);
+        const progressEntry = await this.deps.contextStore?.get(`${goalId}-progress`);
+        const MAX_GOAL_TASK_NAMES = 30;
+        const taskNames = goalTasks.map((t) => `[${t.status}] ${t.title}`);
+        goalContext = {
+          id: goalRaw.id,
+          title: goalRaw.title,
+          description: goalRaw.description,
+          status: goalRaw.status,
+          task_names: taskNames.length > MAX_GOAL_TASK_NAMES
+            ? [...taskNames.slice(0, MAX_GOAL_TASK_NAMES), `... and ${taskNames.length - MAX_GOAL_TASK_NAMES} more`]
+            : taskNames,
+          progress: progressEntry?.value,
+        };
       }
 
       const context = buildPromptContext(

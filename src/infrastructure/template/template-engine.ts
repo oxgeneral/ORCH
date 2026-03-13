@@ -7,6 +7,7 @@
 
 import type { Liquid } from 'liquidjs';
 import type { Agent } from '../../domain/agent.js';
+import type { GoalStatus } from '../../domain/goal.js';
 import type { OrchestratorConfig } from '../../domain/config.js';
 import { AUTONOMOUS_LABEL, type Task } from '../../domain/task.js';
 
@@ -30,7 +31,7 @@ export interface GoalContext {
   id: string;
   title: string;
   description: string;
-  status: string;
+  status: GoalStatus;
   task_names: string[];
   progress?: string;
 }
