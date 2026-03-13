@@ -88,18 +88,8 @@ export async function checkForUpdate(currentVersion: string): Promise<UpdateInfo
       };
     }
 
-    // Cache stale — fetch and wait (with timeout so CLI doesn't hang)
-    const latest = await fetchLatestVersion();
-    if (latest) {
-      await writeCache(latest).catch(() => {});
-      return {
-        current: currentVersion,
-        latest,
-        updateAvailable: compareSemver(latest, currentVersion) > 0,
-      };
-    }
-
-    return null;
+    // Cache stale — fetch and wait (5s timeout in fetchLatestVersion)
+    return await checkForUpdateNow(currentVersion);
   } catch {
     return null;
   }

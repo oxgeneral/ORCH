@@ -173,10 +173,7 @@ function BrandBar({
         <Text color={tuiColors.amber} bold> ORCH</Text>
         {version && <Text color={tuiColors.ghost}> {version}</Text>}
         {latestVersion && latestVersion !== version && (
-          <>
-            <Text> </Text>
-            <Text backgroundColor={chipBg.green} color={tuiColors.green} bold>{' '}UPDATE {latestVersion}{' '}</Text>
-          </>
+          <Text backgroundColor={chipBg.green} color={tuiColors.green} bold>  UPDATE {latestVersion} </Text>
         )}
         <Text color={tuiColors.ghost}> {DOT} </Text>
         <Text color={tuiColors.silver}>{projectName}</Text>

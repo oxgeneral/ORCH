@@ -188,18 +188,24 @@ async function main(): Promise<void> {
     process.argv.push('tui');
   }
 
-  // Start background update check (non-blocking, lazy import)
+  // Start background update check (cache-only — never blocks CLI).
+  // TUI and update commands handle their own checks.
   let updateMod: typeof import('../cli/update-check.js') | undefined;
-  const updateCheck = import('../cli/update-check.js').then((m) => {
-    updateMod = m;
-    return m.checkForUpdate(program.version() ?? '0.0.0');
-  });
+  const skipUpdateCheck = sub === 'tui' || sub === 'update';
+  const updateCheck = skipUpdateCheck
+    ? Promise.resolve(null)
+    : import('../cli/update-check.js').then((m) => {
+        updateMod = m;
+        // Cache-only: returns instantly. Triggers background refresh for next run.
+        const ver = program.version() ?? '0.0.0';
+        m.checkForUpdate(ver).catch(() => {}); // fire-and-forget refresh
+        return m.checkForUpdateCached(ver);
+      });
 
   await program.parseAsync(process.argv);
 
-  // Show update notification after command completes (skip for TUI — it has its own UI)
-  const actualSub = process.argv[2];
-  if (actualSub !== 'tui' && actualSub !== 'update') {
+  // Show update notification after command completes
+  if (!skipUpdateCheck) {
     const info = await updateCheck;
     if (info && updateMod) updateMod.printUpdateNotification(info);
   }

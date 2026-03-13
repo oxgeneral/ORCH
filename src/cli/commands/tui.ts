@@ -217,10 +217,14 @@ export function registerTuiCommand(program: Command, container: Container): void
         await container.orchestrator.stop();
       };
 
-      // Background update check (non-blocking, fires while TUI loads)
+      // Update check: read cache instantly, trigger background refresh for next run
       const currentVersion = program.version() ?? '0.0.0';
       const updateCheckPromise = import('../update-check.js')
-        .then((m) => m.checkForUpdate(currentVersion))
+        .then(async (m) => {
+          const cached = await m.checkForUpdateCached(currentVersion);
+          m.checkForUpdate(currentVersion).catch(() => {}); // fire-and-forget refresh
+          return cached;
+        })
         .catch(() => null);
 
       // Auto-start watch mode so the orchestrator is live
