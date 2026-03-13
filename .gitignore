@@ -38,3 +38,5 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+
+*.cpuprofile
