@@ -809,11 +809,13 @@ export function App({
         const baseSteps = getAgentWizardSteps(liveTeamsRef.current);
         const prefilledSteps = applyShopTemplate(baseSteps, template);
         setWizardConfig({
-          title: `NEW AGENT — ${template.name}`,
+          title: `NEW AGENT \u2014 ${template.name}`,
           steps: prefilledSteps,
           kind: 'agent_from_shop',
         });
         setInputMode('wizard');
+      } else {
+        addMessage('No template selected', tuiColors.yellow);
       }
       return;
     }

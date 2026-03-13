@@ -13,9 +13,14 @@ export async function pickFromShop(templates: AgentShopTemplate[]): Promise<Agen
   if (!process.stdin.isTTY) return null;
 
   let selected = 0;
-  const pageSize = Math.min(templates.length, process.stdout.rows - 4);
+
+  function getPageSize(): number {
+    const rows = process.stdout.rows ?? 24;
+    return Math.max(1, Math.min(templates.length, rows - 4));
+  }
 
   function render() {
+    const pageSize = getPageSize();
     // Clear previous output
     process.stdout.write('\x1B[2J\x1B[H');
     console.log(chalk.bold.yellow('\n  AGENT SHOP') + chalk.gray('  — arrow keys to navigate, enter to select, q to cancel\n'));
@@ -26,9 +31,9 @@ export async function pickFromShop(templates: AgentShopTemplate[]): Promise<Agen
     for (let i = start; i < end; i++) {
       const t = templates[i]!;
       const isSelected = i === selected;
-      const cursor = isSelected ? chalk.yellow('  ▸ ') : '    ';
+      const cursor = isSelected ? chalk.yellow('  \u25B8 ') : '    ';
       const name = isSelected ? chalk.bold.white(t.name) : chalk.gray(t.name);
-      const desc = chalk.gray(` — ${t.description}`);
+      const desc = chalk.gray(` \u2014 ${t.description}`);
       const model = chalk.gray.dim(` [${t.model.replace('claude-', '')}]`);
       console.log(`${cursor}${name}${desc}${model}`);
     }
@@ -43,7 +48,12 @@ export async function pickFromShop(templates: AgentShopTemplate[]): Promise<Agen
     process.stdin.setRawMode(true);
     readline.emitKeypressEvents(process.stdin);
 
-    render();
+    function cleanup() {
+      process.stdin.removeListener('keypress', onKeypress);
+      try { process.stdin.setRawMode(false); } catch { /* ignore if already restored */ }
+      rl.close();
+      process.stdout.write('\x1B[2J\x1B[H');
+    }
 
     const onKeypress = (_ch: string | undefined, key: readline.Key) => {
       if (key.name === 'up' || (key.ctrl && key.name === 'p')) {
@@ -61,11 +71,15 @@ export async function pickFromShop(templates: AgentShopTemplate[]): Promise<Agen
       }
     };
 
-    function cleanup() {
-      process.stdin.removeListener('keypress', onKeypress);
-      process.stdin.setRawMode(false);
-      rl.close();
-      process.stdout.write('\x1B[2J\x1B[H');
+    rl.on('error', () => { cleanup(); resolve(null); });
+    rl.on('close', () => { cleanup(); resolve(null); });
+
+    try {
+      render();
+    } catch {
+      cleanup();
+      resolve(null);
+      return;
     }
 
     process.stdin.on('keypress', onKeypress);

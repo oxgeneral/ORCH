@@ -148,6 +148,8 @@ export function applyShopTemplate(
         return { ...step, defaultValue: template.role, skip: undefined };
       case 'skills':
         return { ...step, defaultValue: template.skills.join(', ') };
+      case 'approval_policy':
+        return { ...step, defaultValue: template.approval_policy };
       default:
         return step;
     }
@@ -204,6 +206,12 @@ export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
       placeholder: 'e.g. feature-dev:feature-dev, testing-suite:generate-tests',
     },
     {
+      id: 'approval_policy',
+      label: 'Approval policy',
+      type: 'text',
+      skip: () => true, // hidden — only populated by shop templates
+    },
+    {
       id: 'team',
       label: 'Join team',
       type: 'select',
@@ -217,12 +225,13 @@ export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
 export function agentWizardToInput(vals: Record<string, string>) {
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
   const skills = vals.skills ? vals.skills.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
+  const approval_policy = (vals.approval_policy as 'auto' | 'suggest' | 'manual' | undefined) || 'auto';
   return {
     name: vals.name!,
     adapter: vals.adapter || 'claude',
     role,
     model: vals.model || undefined,
-    approval_policy: 'auto' as const,
+    approval_policy,
     skills,
     team_id: vals.team || undefined,
   };
