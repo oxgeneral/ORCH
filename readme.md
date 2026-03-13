@@ -7,10 +7,10 @@
   <p align="center">
     <a href="https://github.com/oxgeneral/ORCH/stargazers"><img src="https://img.shields.io/github/stars/oxgeneral/ORCH?style=social" alt="GitHub Stars" /></a>
     <a href="https://landing-xi-murex.vercel.app/"><img src="https://img.shields.io/badge/website-landing-amber" alt="Website" /></a>
-    <a href="https://github.com/oxgeneral/ORCH/packages"><img src="https://img.shields.io/badge/npm-@oxgeneral/orch-cb0000" alt="GitHub Packages" /></a>
+    <a href="https://www.npmjs.com/package/@oxgeneral/orch"><img src="https://img.shields.io/npm/v/@oxgeneral/orch?color=cb0000" alt="npm" /></a>
     <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-one%20command-brightgreen" alt="One command setup" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
-    <a href="#development"><img src="https://img.shields.io/badge/tests-844%20passing-brightgreen" alt="Tests" /></a>
+    <a href="#development"><img src="https://img.shields.io/badge/tests-851%20passing-brightgreen" alt="Tests" /></a>
     <a href="#architecture"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
   </p>
 </p>
@@ -53,27 +53,18 @@ One command. Three agents. Zero tab-switching.
 
 ## Get started in 30 seconds
 
-### Option 1: Install from GitHub Packages
+```bash
+npm install -g @oxgeneral/orch
+```
+
+Then go to your project and run:
 
 ```bash
-npm install -g @oxgeneral/orch --registry=https://npm.pkg.github.com
-
 cd ~/your-project
 orch
 ```
 
-### Option 2: Clone and build
-
-```bash
-git clone https://github.com/oxgeneral/ORCH.git && cd ORCH
-npm install && npm run build
-
-# Go to your project and launch
-cd ~/your-project
-orch
-```
-
-That's it. The TUI opens, you add agents and tasks right from the dashboard — no CLI memorization needed.
+That's it. ORCH auto-initializes on first run, then opens the TUI dashboard — you add agents and tasks right from there.
 
 **Requirements:** Node.js >= 20
 
@@ -239,7 +230,7 @@ src/
 ```bash
 npm run dev            # Run via tsx
 npm run build          # Build ESM + DTS
-npm test               # 844 tests via Vitest
+npm test               # 851 tests via Vitest
 npm run typecheck      # Strict TypeScript
 ```
 

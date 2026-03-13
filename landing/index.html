@@ -794,7 +794,7 @@
       <a href="#features">Features</a>
       <a href="#teams">Teams</a>
       <a href="#workflow">How it works</a>
-      <a href="https://github.com/oxgeneral/ORCH/packages" style="color:var(--accent);">npm</a>
+      <a href="https://www.npmjs.com/package/@oxgeneral/orch" style="color:var(--accent);">npm</a>
       <a href="https://github.com/oxgeneral/ORCH" class="nav-cta">GitHub</a>
     </div>
   </nav>
@@ -812,7 +812,7 @@
       <a href="#install" class="btn-primary">Get Started</a>
       <a href="#features" class="btn-ghost">Learn more</a>
     </div>
-    <div class="hero-version">v0.1.0 — open source — MIT</div>
+    <div class="hero-version">v0.2.2 — open source — MIT</div>
   </section>
 
   <!-- STATS BAR -->
@@ -822,7 +822,7 @@
       <div class="stat-label">User Stories</div>
     </div>
     <div class="stat-item">
-      <div class="stat-value">737</div>
+      <div class="stat-value">851</div>
       <div class="stat-label">Tests</div>
     </div>
     <div class="stat-item">
@@ -845,30 +845,29 @@
       </div>
       <div class="terminal-body">
         <div class="terminal-line" style="animation-delay:0.1s">
-          <span class="prompt">$</span> <span class="cmd">orch init</span> <span class="dim">&& </span><span class="cmd">orch agent add backend</span> <span class="flag">--adapter claude</span>
+          <span class="prompt">$</span> <span class="cmd">npm install -g @oxgeneral/orch</span>
         </div>
         <div class="terminal-line" style="animation-delay:0.4s">
-          <span class="dim">  → Created .orchestry/ · Agent </span><span class="str">backend</span><span class="dim"> registered</span>
+          <span class="ok">  ✓</span> <span class="dim">orchestry installed</span>
         </div>
         <div class="terminal-line" style="animation-delay:0.7s">&nbsp;</div>
         <div class="terminal-line" style="animation-delay:0.9s">
-          <span class="prompt">$</span> <span class="cmd">orch team create core</span> <span class="flag">--lead</span> <span class="str">backend</span> <span class="flag">--members</span> <span class="str">frontend,qa</span>
+          <span class="prompt">$</span> <span class="cmd">cd ~/my-project && orch</span>
         </div>
         <div class="terminal-line" style="animation-delay:1.2s">
-          <span class="dim">  → Team </span><span class="str">"core"</span><span class="dim"> created · 3 members</span>
+          <span class="ok">  ✓</span> <span class="dim">initialized · Created .orchestry/</span>
         </div>
-        <div class="terminal-line" style="animation-delay:1.5s">&nbsp;</div>
-        <div class="terminal-line" style="animation-delay:1.7s">
-          <span class="prompt">$</span> <span class="cmd">orch task add</span> <span class="str">"Implement auth module"</span> <span class="flag">-p 1</span> <span class="flag">--scope</span> <span class="str">"src/auth/**"</span>
+        <div class="terminal-line" style="animation-delay:1.5s">
+          <span class="dim">  → Launching TUI dashboard…</span>
         </div>
+        <div class="terminal-line" style="animation-delay:1.8s">&nbsp;</div>
         <div class="terminal-line" style="animation-delay:2.0s">
-          <span class="prompt">$</span> <span class="cmd">orch task add</span> <span class="str">"Auth UI"</span> <span class="flag">--depends-on</span> <span class="str">tsk_a1b</span> <span class="flag">--scope</span> <span class="str">"src/pages/**"</span>
+          <span class="prompt">$</span> <span class="cmd">orch task add</span> <span class="str">"Implement auth module"</span> <span class="flag">-p 1</span>
         </div>
-        <div class="terminal-line" style="animation-delay:2.3s">&nbsp;</div>
-        <div class="terminal-line" style="animation-delay:2.5s">
+        <div class="terminal-line" style="animation-delay:2.3s">
           <span class="prompt">$</span> <span class="cmd">orch run</span> <span class="flag">--all --watch</span>
         </div>
-        <div class="terminal-line" style="animation-delay:2.8s">
+        <div class="terminal-line" style="animation-delay:2.6s">
           <span class="ok">  ● Running</span> <span class="dim">— 3 agents active · scope isolation · auto merge-back</span>
         </div>
       </div>
@@ -1012,8 +1011,8 @@
     <div class="workflow-steps">
       <div class="workflow-step">
         <div class="step-label">01</div>
-        <h4>Build your team</h4>
-        <p>Register Claude, Codex, Cursor, or shell agents. Group them into teams with leads.</p>
+        <h4>Install & run</h4>
+        <p><code>npm i -g @oxgeneral/orch</code> then <code>orch</code>. Auto-initializes and opens the dashboard.</p>
       </div>
       <div class="workflow-step">
         <div class="step-label">02</div>
@@ -1036,16 +1035,15 @@
   <!-- INSTALL -->
   <section class="install" id="install">
     <h2>Start <em>now</em></h2>
-    <p class="install-sub">Install from GitHub Packages or clone the repo.</p>
-    <div class="install-cmd" id="installNpm" onclick="copyCmd('npm install -g @oxgeneral/orch --registry=https://npm.pkg.github.com', 'installNpm')" style="margin-bottom: 1rem;">
+    <p class="install-sub">One command to install, one command to start.</p>
+    <div class="install-cmd" id="installNpm" onclick="copyCmd('npm install -g @oxgeneral/orch', 'installNpm')" style="margin-bottom: 1.5rem;">
       <span class="prompt-sign">$</span>
-      <span>npm install -g @oxgeneral/orch --registry=https://npm.pkg.github.com</span>
+      <span>npm install -g @oxgeneral/orch</span>
       <span class="copy-hint">click to copy</span>
     </div>
-    <p style="color: var(--gray); font-size: 0.7rem; margin-bottom: 1.5rem; letter-spacing: 0.05em;">OR</p>
-    <div class="install-cmd" id="installGit" onclick="copyCmd('git clone https://github.com/oxgeneral/ORCH.git && cd ORCH && npm i && npm run build', 'installGit')">
+    <div class="install-cmd" id="installOrch" onclick="copyCmd('orch', 'installOrch')">
       <span class="prompt-sign">$</span>
-      <span>git clone https://github.com/oxgeneral/ORCH.git && cd ORCH && npm i && npm run build</span>
+      <span>orch</span>
       <span class="copy-hint">click to copy</span>
     </div>
   </section>
