@@ -41,11 +41,15 @@ export interface FormWizardProps {
   onCancel: () => void;
   width: number;
   height: number;
+  /** Called on Ctrl+I to attempt clipboard image paste. Return true if image was found. */
+  onPasteImage?: () => Promise<boolean>;
+  /** Extra text shown in the hint bar footer (e.g. attachment indicator) */
+  footerExtra?: string;
 }
 
 const CURSOR = '\u2588'; // █
 
-export function FormWizard({ title, steps, onComplete, onCancel, width, height }: FormWizardProps) {
+export function FormWizard({ title, steps, onComplete, onCancel, width, height, onPasteImage, footerExtra }: FormWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [values, setValues] = useState<Record<string, string>>({});
   const [textInput, setTextInput] = useState(() => {
@@ -219,6 +223,12 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
       } else {
         goToPrevStep();
       }
+      return;
+    }
+
+    // Ctrl+I: paste image from clipboard (for text/textarea steps)
+    if (key.ctrl && input === 'i' && onPasteImage && (step.type === 'text' || step.type === 'textarea')) {
+      onPasteImage();
       return;
     }
 
@@ -603,9 +613,11 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
               : step.type === 'textarea'
                 ? 'Shift+Enter newline  Enter confirm  \u2190\u2191\u2192\u2193 navigate'
                 : '\u2190\u2192 move  Enter confirm'}
+          {onPasteImage && (step.type === 'text' || step.type === 'textarea') ? '  Ctrl+I paste image' : ''}
           {'  Esc '}
           {currentStep > 0 ? 'back' : 'cancel'}
         </Text>
+        {footerExtra && <Text color={tuiColors.amber}>{'  '}{footerExtra}</Text>}
       </Box>
     </Box>
   );

@@ -29,11 +29,12 @@ export function registerTuiCommand(program: Command, container: Container): void
         await container.orchestrator.runTask(taskId);
       };
 
-      const onCreateTask = async (title: string, opts?: { priority?: number; description?: string }) => {
+      const onCreateTask = async (title: string, opts?: { priority?: number; description?: string; attachments?: string[] }) => {
         return container.taskService.create({
           title,
           priority: opts?.priority,
           description: opts?.description,
+          attachments: opts?.attachments,
         });
       };
 
