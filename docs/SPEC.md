@@ -176,7 +176,7 @@ src/
 │   └── context.ts                 # CLI context helpers
 │
 ├── tui/                           # TUI дашборд (Ink/React)
-│   ├── App.tsx                    # Главный компонент (tabs, activity feed)
+│   ├── App.tsx                    # Главный компонент (tabs, activity feed, GoalDetailPanel)
 │   ├── colors.ts                  # Цветовая палитра
 │   ├── commandBar.ts              # Конфигурация горячих клавиш
 │   ├── wizardConfigs.ts           # Конфигурации форм-визардов
