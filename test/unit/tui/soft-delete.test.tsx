@@ -8,45 +8,16 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import React from 'react';
 import { render } from 'ink-testing-library';
-import { _resetAnimTick } from '../../../src/tui/components/useAnimTick.js';
 import { App, _resetPendingDeletionSeq } from '../../../src/tui/App.js';
-import type { Task } from '../../../src/domain/task.js';
-import type { Agent } from '../../../src/domain/agent.js';
-import type { OrchestratorState } from '../../../src/domain/state.js';
 import { DEFAULT_STATE } from '../../../src/domain/state.js';
+import { makeTask, makeAgent } from '../application/helpers.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 afterEach(() => {
-  _resetAnimTick();
   _resetPendingDeletionSeq();
   vi.useRealTimers();
 });
-
-function makeTask(overrides: Partial<Task> & { id: string; title: string }): Task {
-  return {
-    description: '',
-    status: 'todo',
-    priority: 3,
-    labels: [],
-    depends_on: [],
-    created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
-    attempts: 0,
-    max_attempts: 3,
-    ...overrides,
-  };
-}
-
-function makeAgent(overrides: Partial<Agent> & { id: string; name: string }): Agent {
-  return {
-    adapter: 'claude',
-    config: {},
-    status: 'idle',
-    stats: { tasks_completed: 0, tasks_failed: 0, total_runs: 0, total_runtime_ms: 0 },
-    ...overrides,
-  };
-}
 
 const baseState: OrchestratorState = { ...DEFAULT_STATE };
 

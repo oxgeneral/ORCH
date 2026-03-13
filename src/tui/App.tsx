@@ -30,7 +30,6 @@ import { CommandBar } from './components/CommandBar.js';
 import { FormWizard } from './components/FormWizard.js';
 import type { WizardStep } from './components/FormWizard.js';
 import { Spinner } from './components/Spinner.js';
-import { useAnimTick } from './components/useAnimTick.js';
 import { OnboardingBox, type OnboardingConfig } from './components/OnboardingBox.js';
 import {
   getAgentWizardSteps, agentWizardToInput,
@@ -591,20 +590,27 @@ export function App({
     }
   }, [onDeleteTask, onDeleteAgent, onDeleteGoal, onForceStopAgent, addMessage, refreshAll]);
 
-  // Process expired pending deletions (check every 500ms)
+  // Process expired pending deletions (check every 1s)
+  // Uses updater to atomically collect expired entries — avoids stale closure race
+  const executeDeletionRef = useRef(executeDeletion);
+  executeDeletionRef.current = executeDeletion;
+
   useEffect(() => {
     if (pendingDeletions.length === 0) return;
     const timer = setInterval(() => {
       const now = Date.now();
-      // Collect expired entries outside the updater to avoid async-in-setState race conditions
-      const snapshot = pendingDeletions;
-      const expired = snapshot.filter((d) => d.expiresAt <= now);
-      if (expired.length === 0) return;
-      setPendingDeletions((prev) => prev.filter((d) => d.expiresAt > now));
-      for (const entry of expired) executeDeletion(entry);
-    }, 500);
+      const expired: PendingDeletion[] = [];
+      setPendingDeletions((prev) => {
+        const remaining = prev.filter((d) => {
+          if (d.expiresAt <= now) { expired.push(d); return false; }
+          return true;
+        });
+        return expired.length > 0 ? remaining : prev;
+      });
+      for (const entry of expired) executeDeletionRef.current(entry);
+    }, 1000);
     return () => clearInterval(timer);
-  }, [pendingDeletions, executeDeletion]);
+  }, [pendingDeletions.length > 0]); // only subscribe/unsubscribe on empty↔non-empty transitions
 
   // Load history progressively from disk on mount
   useEffect(() => {
@@ -2018,10 +2024,14 @@ export function App({
 
 /* ── Undo Banner ─────────────────────────────────────── */
 
-/** Shows pending deletions with live countdown. Uses useAnimTick for smooth updates. */
+/** Shows pending deletions with live countdown. Re-renders every 1s for countdown. */
 const UndoBanner = React.memo(function UndoBanner({ deletions, width }: { deletions: PendingDeletion[]; width: number }) {
-  // Re-render on animation tick for countdown update
-  useAnimTick();
+  // 1s tick for countdown display (seconds precision — no need for 120ms animation tick)
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const now = Date.now();
 
