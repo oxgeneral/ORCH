@@ -78,13 +78,21 @@ describe('sanitizeId', () => {
     expect(sanitizeId('tsk_abc-123.v1')).toBe('tsk_abc-123.v1');
   });
 
-  it('strips invalid characters', () => {
-    expect(sanitizeId('hello/world')).toBe('helloworld');
-    expect(sanitizeId('../etc/passwd')).toBe('..etcpasswd');
+  it('rejects IDs with path separators', () => {
+    expect(() => sanitizeId('hello/world')).toThrow('Invalid identifier');
+    expect(() => sanitizeId('../etc/passwd')).toThrow('Invalid identifier');
   });
 
-  it('throws on empty result', () => {
+  it('rejects IDs with slashes only', () => {
     expect(() => sanitizeId('///')).toThrow('Invalid identifier');
+  });
+
+  it('rejects IDs with spaces', () => {
+    expect(() => sanitizeId('hello world')).toThrow('Invalid identifier');
+  });
+
+  it('rejects empty string', () => {
+    expect(() => sanitizeId('')).toThrow('Invalid identifier');
   });
 });
 

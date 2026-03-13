@@ -125,15 +125,16 @@ export class Paths {
 }
 
 /**
- * Sanitize an identifier for use in file paths.
+ * Validate an identifier for use in file paths.
  * Only allows [A-Za-z0-9._-] characters.
+ * Rejects identifiers containing forbidden characters (path separators, etc.)
+ * to prevent path traversal attacks.
  */
 export function sanitizeId(id: string): string {
-  const sanitized = id.replace(/[^A-Za-z0-9._-]/g, '');
-  if (sanitized.length === 0) {
+  if (!ID_PATTERN.test(id)) {
     throw new Error(`Invalid identifier: "${id}"`);
   }
-  return sanitized;
+  return id;
 }
 
 /**
