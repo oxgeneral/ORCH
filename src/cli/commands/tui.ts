@@ -124,34 +124,47 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.agentService.setAutonomous(agentId, enabled);
       };
 
-      const onLoadHistory = async (): Promise<import('../../tui/App.js').HistoryEntry[]> => {
-        const allRuns: import('../../domain/run.js').Run[] = [];
-        // Collect recent runs from all tasks
-        for (const task of tasks) {
-          const runs = await container.runService.listForTask(task.id);
-          allRuns.push(...runs);
-        }
-        // Sort by start time, take last 10 runs
-        allRuns.sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime());
-        const recentRuns = allRuns.slice(-10);
+      const onLoadHistory = async (onBatch: (entries: import('../../tui/App.js').HistoryEntry[]) => void): Promise<void> => {
+        type HistoryEntry = import('../../tui/App.js').HistoryEntry;
+        type Run = import('../../domain/run.js').Run;
 
-        const entries: import('../../tui/App.js').HistoryEntry[] = [];
-        for (const run of recentRuns) {
-          // Read only last 30 events per run — avoids loading multi-MB JSONL files
+        // Collect runs from all tasks in parallel
+        const runsPerTask = await Promise.all(tasks.map((t) => container.runService.listForTask(t.id)));
+        const allRuns: Run[] = runsPerTask.flat();
+
+        // Sort by start time descending (newest first)
+        allRuns.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+
+        // Progressive loading: first batch = last 3 runs (fast), second = next 7
+        const FIRST_BATCH = 3;
+        const TOTAL_RUNS = 10;
+        const firstRuns = allRuns.slice(0, FIRST_BATCH);
+        const restRuns = allRuns.slice(FIRST_BATCH, TOTAL_RUNS);
+
+        const loadRunEvents = async (run: Run): Promise<HistoryEntry[]> => {
           const events = await container.runService.readEventsTail(run.id, 30);
-          for (const evt of events) {
-            entries.push({
-              timestamp: evt.timestamp,
-              agentId: run.agent_id,
-              taskId: run.task_id,
-              type: evt.type,
-              data: evt.data,
-            });
-          }
+          return events.map((evt) => ({
+            timestamp: evt.timestamp,
+            agentId: run.agent_id,
+            taskId: run.task_id,
+            type: evt.type,
+            data: evt.data,
+          }));
+        };
+
+        // First batch — deliver immediately for fast TUI startup
+        if (firstRuns.length > 0) {
+          const firstEntries = (await Promise.all(firstRuns.map(loadRunEvents))).flat();
+          firstEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          onBatch(firstEntries.slice(-200));
         }
-        // Sort all entries chronologically, limit total
-        entries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-        return entries.slice(-200);
+
+        // Second batch — remaining runs loaded in background
+        if (restRuns.length > 0) {
+          const restEntries = (await Promise.all(restRuns.map(loadRunEvents))).flat();
+          restEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          onBatch(restEntries.slice(-200));
+        }
       };
 
       const onCreateTeam = async (input: import('../../domain/team.js').CreateTeamInput) => {

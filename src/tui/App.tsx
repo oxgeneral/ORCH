@@ -84,8 +84,8 @@ export interface AppProps {
   onRefreshTasks?: () => Promise<Task[]>;
   onRefreshAgents?: () => Promise<Agent[]>;
   onRefreshState?: () => Promise<OrchestratorState>;
-  // History (loaded from disk on startup)
-  onLoadHistory?: () => Promise<HistoryEntry[]>;
+  // History (loaded progressively from disk on startup)
+  onLoadHistory?: (onBatch: (entries: HistoryEntry[]) => void) => Promise<void>;
   // New actions
   onAddAgent?: (name: string, adapter?: string, opts?: { model?: string; role?: string; approval_policy?: string }) => Promise<Agent>;
   onDeleteAgent?: (agentId: string) => Promise<void>;
@@ -161,10 +161,10 @@ const LIFECYCLE_TAG_RE = /^\[[\w_]+\]$/;
 
 /** Classify agent output summary into a semantic message type + color. */
 function classifyAgentSummary(summary: string): { msgType: MsgType; color: string } {
-  if (LIFECYCLE_TAG_RE.test(summary)) return { msgType: 'lifecycle', color: tuiColors.green };
-  if (summary.startsWith('\u2699')) return { msgType: 'tool', color: tuiColors.cyan };
+  if (LIFECYCLE_TAG_RE.test(summary)) return { msgType: 'lifecycle', color: tuiColors.dim };
+  if (summary.startsWith('\u2699')) return { msgType: 'tool', color: tuiColors.dim };
   if (summary.startsWith('\u2190')) return { msgType: 'result', color: tuiColors.dim };
-  if (summary.startsWith('\u2713')) return { msgType: 'lifecycle', color: tuiColors.green };
+  if (summary.startsWith('\u2713')) return { msgType: 'lifecycle', color: tuiColors.dim };
   if (summary.startsWith('\u23F3')) return { msgType: 'info', color: tuiColors.silver };
   return { msgType: 'output', color: tuiColors.silver };
 }
@@ -475,12 +475,10 @@ export function App({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load history from disk on mount
+  // Load history progressively from disk on mount
   useEffect(() => {
     if (!onLoadHistory) return;
-    onLoadHistory().then((entries) => {
-      if (entries.length === 0) return;
-      const histMsgs: StatusMessage[] = entries.map((entry) => {
+    const historyEntryToMsg = (entry: HistoryEntry): StatusMessage => {
         const time = new Date(entry.timestamp).toLocaleTimeString('en-US', {
           hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
         });
@@ -515,10 +513,14 @@ export function App({
           color = cls.color;
         }
 
-        return { text, color, time, ts: new Date(entry.timestamp).getTime(), agentId: entry.agentId, taskId: entry.taskId, msgType };
-      });
+      return { text, color, time, ts: new Date(entry.timestamp).getTime(), agentId: entry.agentId, taskId: entry.taskId, msgType };
+    };
+
+    onLoadHistory((batch) => {
+      if (batch.length === 0) return;
+      const histMsgs = batch.map(historyEntryToMsg);
       setMessages((prev) => {
-        const combined = [...histMsgs.slice(-150), ...prev];
+        const combined = [...histMsgs, ...prev];
         return combined.length > MAX_MESSAGES ? combined.slice(-MAX_MESSAGES) : combined;
       });
     }).catch(() => {});
@@ -2241,13 +2243,10 @@ function buildSparkline(messages: StatusMessage[], buckets: number, bucketMs: nu
   return counts.map((c) => SPARK_CHARS[Math.round((c / max) * 8)]!).join('');
 }
 
-/** Get background color for message type */
+/** Get background color for message type — only errors get a bg to keep the feed calm */
 function getMsgBg(msgType: MsgType): string | undefined {
   switch (msgType) {
     case 'error': return tuiColors.errorBg;
-    case 'tool': return tuiColors.toolBg;
-    case 'result': return tuiColors.toolBg;
-    case 'lifecycle': return tuiColors.successBg;
     default: return undefined;
   }
 }
@@ -2256,11 +2255,11 @@ function getMsgBg(msgType: MsgType): string | undefined {
 function getMsgTextColor(msgType: MsgType, fallback: string): string {
   switch (msgType) {
     case 'output': return tuiColors.white;
-    case 'tool': return tuiColors.cyan;
+    case 'tool': return tuiColors.dim;
     case 'result': return tuiColors.dim;
-    case 'file': return tuiColors.purple;
+    case 'file': return tuiColors.gray;
     case 'error': return tuiColors.red;
-    case 'lifecycle': return tuiColors.green;
+    case 'lifecycle': return tuiColors.dim;
     case 'system': return tuiColors.dim;
     default: return fallback;
   }
@@ -2557,9 +2556,9 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
         const prevMsg = i > 0 ? visible[i - 1] : undefined;
         const isContinuation = prevMsg?.agentId === msg.agentId && !!msg.agentId;
 
-        // Semantic row background: type override, then zebra for groups
+        // Subtle zebra: odd groups get barely-visible tint, errors override
         const isOddGroup = (groupIndices[i]! & 1) === 1;
-        const rowBg = getMsgBg(msgType) ?? (isOddGroup ? tuiColors.void : undefined);
+        const rowBg = getMsgBg(msgType) ?? (isOddGroup ? '#1a1a1a' : undefined);
 
         const relTs = relativeTime(msg.ts, now);
         const displayText = msg.text.length > textW ? msg.text.slice(0, textW - 1) + '…' : msg.text;
@@ -2584,7 +2583,7 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
               )}
             </Box>
             <Text color={msgType === 'error' ? tuiColors.red : isContinuation ? tuiColors.ghost : agentColor ?? tuiColors.dim}>{icon} </Text>
-            <Text color={textColor} bold={msgType === 'lifecycle'}>{displayText}</Text>
+            <Text color={textColor}>{displayText}</Text>
           </Box>
         );
       })}
