@@ -1,0 +1,155 @@
+/**
+ * TUI OnboardingBox — empty-state guidance for new projects.
+ *
+ * Shows a bordered box with title, description, and hotkey hints
+ * when a tab has 0 items (full variant) or 1-2 items (compact nudge).
+ * Disappears at 3+ items.
+ */
+
+import React from 'react';
+import { Box, Text } from 'ink';
+import { tuiColors } from '../colors.js';
+
+/* ── Box-drawing characters ─────────────────────── */
+
+const TL = '\u256D'; // ╭
+const TR = '\u256E'; // ╮
+const BL = '\u2570'; // ╰
+const BR = '\u256F'; // ╯
+const H  = '\u2500'; // ─
+const V  = '\u2502'; // │
+const DIAMOND = '\u25C6'; // ◆
+
+/* ── Types ───────────────────────────────────────── */
+
+export interface OnboardingHint {
+  key: string;
+  label: string;
+}
+
+export interface OnboardingConfig {
+  title: string;
+  description: string[];
+  hints: OnboardingHint[];
+  nudge: string;
+}
+
+export interface OnboardingBoxProps {
+  count: number;
+  config: OnboardingConfig;
+  width?: number;
+}
+
+/* ── Helpers ─────────────────────────────────────── */
+
+/** Right-pad string to width */
+const pad = (s: string, w: number) => s + ' '.repeat(Math.max(0, w - s.length));
+
+/** Bordered row: │  content  │ */
+function Row({ children, cw }: { children: string; cw: number }) {
+  return (
+    <Text>
+      <Text color={tuiColors.ghost}>{V}</Text>
+      <Text>  {pad(children, cw)}  </Text>
+      <Text color={tuiColors.ghost}>{V}</Text>
+    </Text>
+  );
+}
+
+/** Empty bordered row */
+function EmptyRow({ cw }: { cw: number }) {
+  return <Row cw={cw}>{''}</Row>;
+}
+
+/* ── Component ───────────────────────────────────── */
+
+export function OnboardingBox({ count, config, width }: OnboardingBoxProps) {
+  if (count >= 3) return null;
+
+  // Box total width: TL + H*n + TR = boxW. Content between │  ...  │ = boxW - 6
+  const boxW = Math.min((width ?? 44) - 4, 50); // -4 for paddingX on outer Box
+  const cw = boxW - 6; // content width between "│  " and "  │"
+
+  const topBorder = <Text color={tuiColors.ghost}>{TL}{H.repeat(boxW - 2)}{TR}</Text>;
+  const botBorder = <Text color={tuiColors.ghost}>{BL}{H.repeat(boxW - 2)}{BR}</Text>;
+
+  if (count > 0) {
+    // Compact nudge variant
+    const hint = config.hints[0];
+    const hintSuffix = hint ? `  ${hint.key} ${hint.label}` : '';
+    const nudgeLine = `${DIAMOND} ${config.nudge}`;
+    const fullLine = pad(nudgeLine, cw - hintSuffix.length) + hintSuffix;
+
+    return (
+      <Box flexDirection="column" paddingX={2} marginTop={1}>
+        {topBorder}
+        <Text>
+          <Text color={tuiColors.ghost}>{V}  </Text>
+          <Text color={tuiColors.amber}>{DIAMOND}</Text>
+          <Text color={tuiColors.silver}> {pad(config.nudge, cw - 2 - hintSuffix.length)}</Text>
+          {hint && (
+            <>
+              <Text color={tuiColors.amber}>  {hint.key}</Text>
+              <Text color={tuiColors.gray}> {hint.label}</Text>
+            </>
+          )}
+          <Text>  </Text>
+          <Text color={tuiColors.ghost}>{V}</Text>
+        </Text>
+        {botBorder}
+      </Box>
+    );
+  }
+
+  // Full empty variant — build hints string for padding calc
+  const hintsStr = config.hints.map((h) => `${h.key} ${h.label}`).join('   ');
+
+  return (
+    <Box flexDirection="column" paddingX={2} marginTop={1}>
+      {topBorder}
+      <EmptyRow cw={cw} />
+
+      {/* Title line */}
+      <Text>
+        <Text color={tuiColors.ghost}>{V}  </Text>
+        <Text color={tuiColors.amber}>{DIAMOND}</Text>
+        <Text color={tuiColors.white} bold> {config.title}</Text>
+        <Text>{' '.repeat(Math.max(0, cw - config.title.length - 2))}</Text>
+        <Text>  </Text>
+        <Text color={tuiColors.ghost}>{V}</Text>
+      </Text>
+
+      <EmptyRow cw={cw} />
+
+      {/* Description lines */}
+      {config.description.map((line, i) => (
+        <Text key={i}>
+          <Text color={tuiColors.ghost}>{V}  </Text>
+          <Text color={tuiColors.silver}>{pad(line, cw)}</Text>
+          <Text>  </Text>
+          <Text color={tuiColors.ghost}>{V}</Text>
+        </Text>
+      ))}
+
+      <EmptyRow cw={cw} />
+
+      {/* Hotkey hints */}
+      <Text>
+        <Text color={tuiColors.ghost}>{V}  </Text>
+        {config.hints.map((h, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <Text color={tuiColors.ghost}>{'   '}</Text>}
+            <Text color={tuiColors.amber}>{h.key}</Text>
+            <Text color={tuiColors.gray}> {h.label}</Text>
+          </React.Fragment>
+        ))}
+        <Text>{' '.repeat(Math.max(0, cw - hintsStr.length))}</Text>
+        <Text>  </Text>
+        <Text color={tuiColors.ghost}>{V}</Text>
+      </Text>
+
+      <EmptyRow cw={cw} />
+      {botBorder}
+    </Box>
+  );
+}

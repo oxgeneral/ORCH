@@ -304,8 +304,8 @@ describe('App', () => {
       }),
     );
     const output = lastFrame()!;
-    expect(output).toContain('No tasks yet');
-    expect(output).toContain('Enter');
+    expect(output).toContain('Tasks');
+    expect(output).toContain('new task');
   });
 
   it('exits on q key press', () => {
@@ -571,8 +571,8 @@ describe('App', () => {
     );
     stdin.write('a');
     await delay(50);
-    expect(lastFrame()!).toContain('No agents');
-    expect(lastFrame()!).toContain('Enter');
+    expect(lastFrame()!).toContain('Agents');
+    expect(lastFrame()!).toContain('new agent');
   });
 
   it('shows agents in agents view', async () => {
@@ -1216,7 +1216,8 @@ describe('Command bar — tab completion', () => {
     stdin.write('\r');
     await delay(50);
     const output = lastFrame()!;
-    expect(output).toContain('task');
+    // After /task submit, wizard opens with "NEW TASK" header
+    expect(output.toLowerCase()).toContain('task');
   });
 
   it('shows ghost completion text for partial verb', async () => {

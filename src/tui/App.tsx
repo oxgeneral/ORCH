@@ -30,6 +30,7 @@ import { CommandBar } from './components/CommandBar.js';
 import { FormWizard } from './components/FormWizard.js';
 import type { WizardStep } from './components/FormWizard.js';
 import { Spinner } from './components/Spinner.js';
+import { OnboardingBox, type OnboardingConfig } from './components/OnboardingBox.js';
 import {
   getAgentWizardSteps, agentWizardToInput,
   getTaskWizardSteps, taskWizardToInput,
@@ -56,6 +57,41 @@ const MAX_MESSAGES = 200;
 
 /** Statuses that allow R (run) action */
 const RUNNABLE: Set<TaskStatus> = new Set(['todo', 'failed', 'cancelled']);
+
+/* ── Onboarding configs for empty-state boxes ──── */
+
+const ONBOARDING_GOALS: OnboardingConfig = {
+  title: 'Goals',
+  description: [
+    'Define what your team should achieve.',
+    'The orchestrator breaks goals into tasks',
+    'and assigns them to agents automatically.',
+  ],
+  hints: [{ key: 'N', label: 'new goal' }, { key: '/', label: 'commands' }],
+  nudge: 'Add more goals to keep your team focused.',
+};
+
+const ONBOARDING_TASKS: OnboardingConfig = {
+  title: 'Tasks',
+  description: [
+    'Units of work dispatched to agents.',
+    'Create them manually or let goals',
+    'generate them automatically.',
+  ],
+  hints: [{ key: 'N', label: 'new task' }, { key: 'W', label: 'start orchestrator' }],
+  nudge: 'Add more tasks to keep agents busy.',
+};
+
+const ONBOARDING_AGENTS: OnboardingConfig = {
+  title: 'Agents',
+  description: [
+    'AI workers that execute your tasks.',
+    'Each agent uses an adapter (claude, codex,',
+    'cursor, shell) and has its own role.',
+  ],
+  hints: [{ key: 'N', label: 'new agent' }, { key: 'W', label: 'start orchestrator' }],
+  nudge: 'Add more agents to increase parallelism.',
+};
 
 /** History entry returned by onLoadHistory */
 export interface HistoryEntry {
@@ -1863,6 +1899,12 @@ export function App({
           <ActivityFeed messages={activityFilteredMessages} height={Math.max(1, feedH - 1)} width={ruleW}
             agents={sortedAgents} agentNameMap={agentNameMap} />
         </>
+      ) : activeView === 'goals' && sortedGoals.length < 3 ? (
+        <OnboardingBox count={sortedGoals.length} config={ONBOARDING_GOALS} width={ruleW} />
+      ) : activeView === 'tasks' && sortedTasks.length < 3 ? (
+        <OnboardingBox count={sortedTasks.length} config={ONBOARDING_TASKS} width={ruleW} />
+      ) : activeView === 'agents' && sortedAgents.length < 3 ? (
+        <OnboardingBox count={sortedAgents.length} config={ONBOARDING_AGENTS} width={ruleW} />
       ) : null}
 
       {/* Spacer pushes CommandBar to bottom */}
@@ -1959,15 +2001,6 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
   const visible = goals.slice(scrollOffset, scrollOffset + height);
   const addRowVisible = showAddRow && addRowIndex >= scrollOffset && addRowIndex < scrollOffset + height;
 
-  if (totalItems === 0 || (goals.length === 0 && !showAddRow)) {
-    return (
-      <Box flexDirection="column" paddingX={2}>
-        <Text> </Text>
-        <Text color={tuiColors.dim}>  No goals yet. Press <Text color={tuiColors.gray} bold>N</Text> to create one.</Text>
-      </Box>
-    );
-  }
-
   return (
     <Box flexDirection="column" height={height}>
       {visible.map((goal, i) => (
@@ -2046,15 +2079,6 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
   const showAllVisible = hasShowAll && showAllIndex >= scrollOffset && showAllIndex < scrollOffset + height;
   const addRowVisible = showAddRow && addRowIndex >= scrollOffset && addRowIndex < scrollOffset + height;
 
-  if (totalItems === 0 || (tasks.length === 0 && !showAddRow)) {
-    return (
-      <Box flexDirection="column" paddingX={2}>
-        <Text> </Text>
-        <Text color={tuiColors.dim}>  No tasks yet. Press <Text color={tuiColors.gray} bold>Enter</Text> to create one.</Text>
-      </Box>
-    );
-  }
-
   return (
     <Box flexDirection="column" height={height}>
       {visible.map((task, i) => (
@@ -2117,15 +2141,6 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
   const addRowIndex = agents.length;
   const visible = agents.slice(scrollOffset, scrollOffset + height);
   const addRowVisible = showAddRow && addRowIndex >= scrollOffset && addRowIndex < scrollOffset + height;
-
-  if (agents.length === 0 && !showAddRow) {
-    return (
-      <Box flexDirection="column" paddingX={2}>
-        <Text> </Text>
-        <Text color={tuiColors.dim}>  No agents yet. Press <Text color={tuiColors.gray} bold>Enter</Text> to create one.</Text>
-      </Box>
-    );
-  }
 
   // Build display rows — insert team section headers on team transitions
   const hasTeams = activeTeamCount != null && activeTeamCount > 0;
