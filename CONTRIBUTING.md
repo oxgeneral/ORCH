@@ -114,6 +114,17 @@ test/
 - Use descriptive `describe` and `it` blocks
 - Test files should be named `*.test.ts` or `*.test.tsx`
 
+## Releasing
+
+See [docs/RELEASING.md](docs/RELEASING.md) for the full release process. Quick version:
+
+```bash
+./scripts/release.sh patch
+git push && git push --tags
+```
+
+GitHub Actions will automatically publish to npm.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
