@@ -66,7 +66,7 @@ function filterBySince(events: RunEvent[], sinceMs: number | undefined): RunEven
 
 async function showRunLogs(container: Container, runId: string, sinceMs?: number): Promise<void> {
   let events = sinceMs
-    ? filterBySince(await container.runService.readEvents(runId), sinceMs)
+    ? filterBySince(await container.runService.readEventsTail(runId, 500), sinceMs)
     : await container.runService.readEventsTail(runId, 50);
 
   if (container.context.json) {
@@ -103,7 +103,7 @@ async function showTaskLogs(container: Container, taskId: string, sinceMs?: numb
   const eventsPerRun = await Promise.all(
     recentRuns.map((run) =>
       sinceMs
-        ? container.runService.readEvents(run.id).then((e) => filterBySince(e, sinceMs))
+        ? container.runService.readEventsTail(run.id, 500).then((e) => filterBySince(e, sinceMs))
         : container.runService.readEventsTail(run.id, 10),
     ),
   );
@@ -136,7 +136,7 @@ async function showAgentLogs(container: Container, agentId: string, sinceMs?: nu
   const eventsPerRun = await Promise.all(
     recentRuns.map((run) =>
       sinceMs
-        ? container.runService.readEvents(run.id).then((e) => filterBySince(e, sinceMs))
+        ? container.runService.readEventsTail(run.id, 500).then((e) => filterBySince(e, sinceMs))
         : container.runService.readEventsTail(run.id, 5),
     ),
   );
