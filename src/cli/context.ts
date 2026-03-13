@@ -22,7 +22,7 @@ export function createContext(opts: {
 }): CliContext {
   const noColor =
     opts.noColor ||
-    process.env['NO_COLOR'] === '1' ||
+    'NO_COLOR' in process.env ||
     false;
 
   const ascii =
