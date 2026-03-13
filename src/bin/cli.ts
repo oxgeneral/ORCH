@@ -48,6 +48,24 @@ program
     if (opts.color === false) setNoColor(true);
   });
 
+/** All known subcommand names for help stub registration. */
+const COMMAND_STUBS: Array<[name: string, description: string]> = [
+  ['task',    'Manage tasks'],
+  ['agent',   'Manage agents'],
+  ['status',  'Show project status'],
+  ['logs',    'View run logs'],
+  ['config',  'Manage configuration'],
+  ['context', 'Manage shared context'],
+  ['msg',     'Send and read messages'],
+  ['goal',    'Manage goals'],
+  ['team',    'Manage teams'],
+  ['run',     'Run tasks'],
+  ['doctor',  'Check system health'],
+  ['tui',     'Launch TUI dashboard'],
+  ['init',    'Initialize project'],
+  ['update',  'Check for updates'],
+];
+
 async function main(): Promise<void> {
   // Parse global options first
   program.parseOptions(process.argv);
@@ -62,6 +80,23 @@ async function main(): Promise<void> {
 
   // Determine which subcommand the user wants (before loading anything heavy)
   const sub = process.argv[2];
+
+  // Fast path: --help/--version without a real subcommand skip container init entirely
+  const allKnownCommands = new Set([...Object.keys(LIGHT_COMMANDS), ...Object.keys(FULL_COMMANDS), 'init', 'update']);
+  const hasRealSub = sub !== undefined && allKnownCommands.has(sub);
+  const isHelpOrVersion = process.argv.includes('--help') || process.argv.includes('-h')
+    || process.argv.includes('--version') || process.argv.includes('-V');
+
+  if (isHelpOrVersion && !hasRealSub) {
+    // Register lightweight stubs so Commander can display help with all command names
+    for (const [name, desc] of COMMAND_STUBS) {
+      if (!program.commands.some((c) => c.name() === name)) {
+        program.command(name).description(desc);
+      }
+    }
+    await program.parseAsync(process.argv);
+    return;
+  }
 
   // Commands that work without a container (lazy-loaded)
   if (sub === 'init') {

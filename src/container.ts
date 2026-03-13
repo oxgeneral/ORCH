@@ -92,11 +92,11 @@ export async function buildLightContainer(context: CliContext): Promise<LightCon
 
   // Infrastructure — stores
   const configStore = new ConfigStore(paths);
+  const globalConfigStore = new GlobalConfigStore();
   const [config, globalConfig] = await Promise.all([
     configStore.read(),
-    new GlobalConfigStore().read(),
+    globalConfigStore.read(),
   ]);
-  const globalConfigStore = new GlobalConfigStore();
   const taskStore = new TaskStore(paths);
   const agentStore = new AgentStore(paths);
   const runStore = new RunStore(paths);
