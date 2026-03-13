@@ -1788,3 +1788,79 @@ describe('onLoadHistory — progressive history loading', () => {
     expect(lastFrame()!).toContain('ORCH');
   });
 });
+
+/* ── Attachments display ──────────────────────────────── */
+
+describe('Attachments display', () => {
+  it('shows 📎 indicator in TaskList when task has attachments', () => {
+    const tasks = [
+      makeTask({ id: '1', title: 'Task with files', attachments: ['report.pdf', 'notes.txt'] }),
+    ];
+    const { lastFrame } = render(
+      React.createElement(TaskList, { tasks }),
+    );
+    const output = lastFrame()!;
+    expect(output).toContain('\uD83D\uDCCE'); // 📎
+    expect(output).toContain('2');
+  });
+
+  it('hides 📎 indicator in TaskList when task has no attachments', () => {
+    const tasks = [
+      makeTask({ id: '1', title: 'Task without files' }),
+    ];
+    const { lastFrame } = render(
+      React.createElement(TaskList, { tasks }),
+    );
+    expect(lastFrame()!).not.toContain('\uD83D\uDCCE');
+  });
+
+  it('hides 📎 indicator in TaskList when attachments array is empty', () => {
+    const tasks = [
+      makeTask({ id: '1', title: 'Empty attachments', attachments: [] }),
+    ];
+    const { lastFrame } = render(
+      React.createElement(TaskList, { tasks }),
+    );
+    expect(lastFrame()!).not.toContain('\uD83D\uDCCE');
+  });
+
+  it('shows attachments section in DetailPanel when task has attachments', async () => {
+    const tasks = [
+      makeTask({
+        id: '1',
+        title: 'Task with attachments',
+        attachments: ['design.png', 'spec.md'],
+      }),
+    ];
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks, state }),
+    );
+
+    stdin.write('\r');
+    await delay(50);
+    const output = lastFrame()!;
+
+    expect(output).toContain('DETAIL');
+    expect(output).toContain('attachments');
+    expect(output).toContain('design.png');
+    expect(output).toContain('spec.md');
+  });
+
+  it('hides attachments section in DetailPanel when task has no attachments', async () => {
+    const tasks = [
+      makeTask({ id: '1', title: 'Plain task without files' }),
+    ];
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks, state }),
+    );
+
+    stdin.write('\r');
+    await delay(50);
+    const output = lastFrame()!;
+
+    expect(output).toContain('DETAIL');
+    expect(output).not.toContain('attachments');
+  });
+});

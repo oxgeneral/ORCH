@@ -15,7 +15,7 @@ import type { Goal, GoalStatus } from '../domain/goal.js';
 import type { OrchestratorState } from '../domain/state.js';
 import type { OrchestratorEvent } from '../domain/events.js';
 import { formatDurationSince, formatTokens } from '../cli/output.js';
-import { tuiColors, HEAVY_RULE, LIGHT_RULE, LOOP } from './colors.js';
+import { tuiColors, HEAVY_RULE, LIGHT_RULE, LOOP, TASK_STATUS_COLOR } from './colors.js';
 import { TaskRow, STATUS_ORDER } from './components/TaskList.js';
 import { AgentRow, AGENT_STATUS_ORDER, TeamSectionRow, UnassignedSectionRow } from './components/AgentList.js';
 import { GoalRow, GOAL_STATUS_ORDER } from './components/GoalList.js';
@@ -2164,17 +2164,6 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
 
 /* ── Goal Detail Panel ──────────────────────────────── */
 
-/** Task status → color, matching DetailPanel.tsx canonical colors. */
-const GOAL_TASK_STATUS_COLOR: Record<string, string> = {
-  in_progress: tuiColors.green,
-  retrying: tuiColors.yellow,
-  review: tuiColors.blue,
-  todo: tuiColors.dim,
-  done: tuiColors.green,
-  failed: tuiColors.red,
-  cancelled: tuiColors.dim,
-};
-
 function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressReport }: {
   goal: Goal;
   height: number;
@@ -2220,7 +2209,7 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
         <Box flexDirection="column" marginTop={1}>
           <Text color={tuiColors.dim}>Tasks ({taskCount})</Text>
           {taskList.slice(0, taskRowsCap).map(t => {
-            const sc = GOAL_TASK_STATUS_COLOR[t.status] ?? tuiColors.dim;
+            const sc = TASK_STATUS_COLOR[t.status] ?? tuiColors.dim;
             return (
               <Text key={t.id} color={tuiColors.silver} wrap="truncate">
                 {'  '}<Text color={sc}>{t.status.padEnd(11)}</Text>

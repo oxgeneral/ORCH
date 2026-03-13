@@ -48,3 +48,14 @@ export const STAR = '\u2605';
 export const LOOP = '\u27F3';
 /** Filled diamond (◆) — brand marker, onboarding */
 export const DIAMOND = '\u25C6';
+
+/** Canonical task status → foreground color mapping. */
+export const TASK_STATUS_COLOR: Record<string, string> = {
+  in_progress: tuiColors.green,
+  retrying: tuiColors.yellow,
+  review: tuiColors.blue,
+  todo: tuiColors.dim,
+  done: tuiColors.green,
+  failed: tuiColors.red,
+  cancelled: tuiColors.dim,
+};

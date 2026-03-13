@@ -20,7 +20,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { Task } from '../../domain/task.js';
-import { tuiColors } from '../colors.js';
+import { tuiColors, TASK_STATUS_COLOR } from '../colors.js';
 
 /** Message types for icon/color mapping */
 type MsgType = 'system' | 'lifecycle' | 'output' | 'tool' | 'result' | 'error' | 'file' | 'info';
@@ -67,7 +67,7 @@ function SectionDivider({ label, width, color }: { label: string; width: number;
 }
 
 export function DetailPanel({ task, height, width, taskLogs, agentNameMap }: DetailPanelProps) {
-  const statusColor = STATUS_DETAIL_COLOR[task.status] ?? tuiColors.dim;
+  const statusColor = TASK_STATUS_COLOR[task.status] ?? tuiColors.dim;
   const priColor = task.priority <= 2 ? (task.priority === 1 ? tuiColors.red : tuiColors.yellow) : undefined;
   const col1Width = 24;
 
@@ -266,14 +266,3 @@ export function DetailPanel({ task, height, width, taskLogs, agentNameMap }: Det
   );
 }
 
-/* ── Helpers ──────────────────────────────────────────── */
-
-const STATUS_DETAIL_COLOR: Record<string, string> = {
-  in_progress: tuiColors.green,
-  retrying: tuiColors.yellow,
-  review: tuiColors.blue,
-  todo: tuiColors.dim,
-  done: tuiColors.green,
-  failed: tuiColors.red,
-  cancelled: tuiColors.dim,
-};
