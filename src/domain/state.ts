@@ -26,7 +26,7 @@ export interface OrchestratorState {
   pid?: number;
   started_at?: string;
   running: Record<string, RunningEntry>;
-  claimed: string[];
+  claimed: Set<string>;
   retry_queue: RetryEntry[];
   stats: {
     total_runs: number;
@@ -40,7 +40,7 @@ export interface OrchestratorState {
 export const DEFAULT_STATE: OrchestratorState = {
   version: 1,
   running: {},
-  claimed: [],
+  claimed: new Set<string>(),
   retry_queue: [],
   stats: {
     total_runs: 0,

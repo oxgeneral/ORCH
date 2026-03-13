@@ -24,7 +24,7 @@ export class StateStore implements IStateStore {
       started_at: raw.started_at,
       running:
         raw.running && typeof raw.running === 'object' ? raw.running : defaults.running,
-      claimed: Array.isArray(raw.claimed) ? raw.claimed : defaults.claimed,
+      claimed: Array.isArray(raw.claimed) ? new Set<string>(raw.claimed) : new Set<string>(defaults.claimed),
       retry_queue: Array.isArray(raw.retry_queue) ? raw.retry_queue : defaults.retry_queue,
       stats: {
         total_runs: raw.stats?.total_runs ?? defaults.stats.total_runs,
@@ -38,6 +38,7 @@ export class StateStore implements IStateStore {
   }
 
   async write(state: OrchestratorState): Promise<void> {
-    await writeJson(this.paths.statePath, state);
+    const serializable = { ...state, claimed: Array.from(state.claimed) };
+    await writeJson(this.paths.statePath, serializable);
   }
 }

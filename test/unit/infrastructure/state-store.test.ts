@@ -64,7 +64,7 @@ describe('StateStore', () => {
 
     const state = await store.read();
     expect(state.running).toEqual({});
-    expect(state.claimed).toEqual([]);
+    expect(state.claimed).toEqual(new Set());
     expect(state.retry_queue).toEqual([]);
     expect(state.stats).toEqual(DEFAULT_STATE.stats);
   });
@@ -85,7 +85,7 @@ describe('StateStore', () => {
     const state = await store.read();
     expect(state.pid).toBe(42);
     expect(state.running).toHaveProperty('r1');
-    expect(state.claimed).toEqual(['t1']);
+    expect(state.claimed).toEqual(new Set(['t1']));
     expect(state.retry_queue).toEqual([]);
     expect(state.stats.total_runs).toBe(10);
     expect(state.stats.total_tasks_completed).toBe(0);

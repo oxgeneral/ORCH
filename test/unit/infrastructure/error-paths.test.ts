@@ -186,7 +186,7 @@ describe('Error paths', () => {
 
       expect(state.version).toBe(1);
       expect(state.running).toEqual({});
-      expect(state.claimed).toEqual([]);
+      expect(state.claimed).toEqual(new Set());
       expect(state.retry_queue).toEqual([]);
       expect(state.stats.total_runs).toBe(5);
       expect(state.stats.total_tasks_completed).toBe(0);
@@ -213,7 +213,7 @@ describe('Error paths', () => {
       const state = await store.read();
 
       expect(state.running).toEqual({});
-      expect(state.claimed).toEqual([]);
+      expect(state.claimed).toEqual(new Set());
       expect(state.retry_queue).toEqual([]);
       expect(state.stats).toEqual(DEFAULT_STATE.stats);
     });

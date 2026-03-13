@@ -311,7 +311,7 @@ export class Orchestrator {
         }
 
         this.state.running = {};
-        this.state.claimed = [];
+        this.state.claimed = new Set<string>();
         this.state.pid = undefined;
         this.state.started_at = undefined;
         await this.saveState();
@@ -682,7 +682,7 @@ export class Orchestrator {
           isDispatchable(t.status) &&
           !isBlocked(t, taskMap) &&
           !state.running[t.id] &&
-          !state.claimed.includes(t.id),
+          !state.claimed.has(t.id),
       )
       .sort((a, b) => {
         const bTime = b.updated_at ?? '';
@@ -759,7 +759,7 @@ export class Orchestrator {
     const task = await this.deps.taskService.get(taskId);
 
     // Claim (persist before spawning)
-    state.claimed.push(taskId);
+    state.claimed.add(taskId);
     await this.saveState();
 
     try {
@@ -1379,8 +1379,7 @@ export class Orchestrator {
   }
 
   private unclaim(taskId: string): void {
-    const idx = this.state!.claimed.indexOf(taskId);
-    if (idx !== -1) this.state!.claimed.splice(idx, 1);
+    this.state!.claimed.delete(taskId);
   }
 
   /**
