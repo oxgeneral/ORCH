@@ -1,6 +1,6 @@
 {
   "name": "@oxgeneral/orch",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Agents Organizations — CLI orchestrator for AI agents",
   "type": "module",
   "engines": {
@@ -12,7 +12,8 @@
     "ao": "./dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "scripts"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -31,6 +32,7 @@
     "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
+    "postinstall": "node scripts/postinstall.js || true",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -49,7 +51,7 @@
     "url": "git+https://github.com/oxgeneral/ORCH.git"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
+    "registry": "https://registry.npmjs.org/",
     "access": "public"
   },
   "homepage": "https://github.com/oxgeneral/ORCH#readme",

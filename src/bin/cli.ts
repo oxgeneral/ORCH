@@ -37,7 +37,7 @@ const program = new Command();
 program
   .name('orchestry')
   .description('Agents Organizations — CLI orchestrator for AI agents')
-  .version('0.2.0')
+  .version('0.2.1')
   .option('--json', 'Output as JSON')
   .option('--quiet', 'Minimal output (IDs only)')
   .option('--no-color', 'Disable colors')
@@ -157,17 +157,22 @@ async function main(): Promise<void> {
         registerDoctorCommand(program);
       }
 
-      // No args → show welcome message
+      // No args → auto-init then launch TUI
       if (process.argv.length <= 2) {
-        const { dim } = await import('../cli/output.js');
-        console.log();
-        console.log(`  ${dim('orchestry')} — CLI orchestrator for AI agents`);
-        console.log();
-        console.log(`  Get started:`);
-        console.log(`    $ orch init`);
-        console.log();
-        console.log(`  ${dim('This will create .orchestry/ in the current directory.')}`);
-        console.log();
+        const { registerInitCommand } = await import('../cli/commands/init.js');
+        registerInitCommand(program);
+        process.argv.push('init');
+        await program.parseAsync(process.argv);
+        process.argv.pop();
+
+        // Re-build full container now that .orchestry/ exists
+        const { buildFullContainer } = await import('../container.js');
+        const freshContainer = await buildFullContainer(context);
+        await Promise.all(
+          Object.values(FULL_COMMANDS).map((fn) => fn(program, freshContainer)),
+        );
+        process.argv.push('tui');
+        await program.parseAsync(process.argv);
         return;
       }
 
