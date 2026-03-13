@@ -112,6 +112,10 @@ export interface AppProps {
   initialActivityFilter?: ActivityFilterPreset;
   /** Save activity filter to global config */
   onSaveActivityFilter?: (preset: ActivityFilterPreset) => Promise<void>;
+  /** Initial max concurrent agents from project config */
+  initialMaxConcurrent?: number;
+  /** Save max concurrent agents to project config */
+  onSaveMaxConcurrent?: (value: number) => Promise<void>;
   /** Toggle autonomous mode on an agent */
   onToggleAutonomous?: (agentId: string, enabled: boolean) => Promise<Agent>;
   // Goal callbacks
@@ -216,6 +220,8 @@ export function App({
   messageBatchMs = process.env.VITEST ? 0 : 80,
   initialActivityFilter = 'all',
   onSaveActivityFilter,
+  initialMaxConcurrent = 6,
+  onSaveMaxConcurrent,
 }: AppProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -272,6 +278,9 @@ export function App({
     if (activityFilter.size >= ALL_MSG_TYPES.length) return messages;
     return messages.filter((m) => activityFilter.has(m.msgType ?? 'info'));
   }, [messages, activityFilter]);
+
+  // Max concurrent agents (project config)
+  const [maxConcurrent, setMaxConcurrent] = useState(initialMaxConcurrent);
 
   // Command bar: history, scroll offsets, suggestion selection
   const cmdHistory = React.useRef(new CommandHistory()).current;
@@ -559,11 +568,11 @@ export function App({
   const launchConfigWizard = useCallback(() => {
     setWizardConfig({
       title: 'SETTINGS',
-      steps: getConfigWizardSteps(activityFilterLabel),
+      steps: getConfigWizardSteps(activityFilterLabel, maxConcurrent),
       kind: 'config',
     });
     setInputMode('wizard');
-  }, [activityFilterLabel]);
+  }, [activityFilterLabel, maxConcurrent]);
 
   const handleWizardComplete = useCallback((values: Record<string, string>) => {
     setInputMode('none');
@@ -671,6 +680,13 @@ export function App({
           onSaveActivityFilter?.(preset.label);
           addMessage(`Activity filter: ${preset.label}`, tuiColors.amber);
         }
+      } else if (values.setting === 'max_concurrent' && values.max_concurrent) {
+        const num = parseInt(values.max_concurrent, 10);
+        if (num > 0) {
+          setMaxConcurrent(num);
+          onSaveMaxConcurrent?.(num);
+          addMessage(`Max concurrent agents: ${num}`, tuiColors.amber);
+        }
       }
     } else if (kind === 'goal' && onCreateGoal) {
       const input = goalWizardToInput(values);
@@ -687,7 +703,7 @@ export function App({
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
     }
-  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onLeaveTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter, liveTeams]);
+  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onLeaveTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter, onSaveMaxConcurrent, liveTeams]);
 
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');

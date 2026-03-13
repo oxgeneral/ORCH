@@ -65,7 +65,7 @@ export const DEFAULT_CONFIG: OrchestratorConfig = {
   },
   scheduling: {
     poll_interval_ms: 30_000,
-    max_concurrent_agents: 3,
+    max_concurrent_agents: 6,
     retry_base_delay_ms: 10_000,
     retry_max_delay_ms: 300_000,
   },

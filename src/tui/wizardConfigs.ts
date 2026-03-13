@@ -372,6 +372,18 @@ export function getEditAgentWizardSteps(agent: Agent, teams?: Team[]): WizardSte
   ];
 }
 
+// ── Concurrency options ──
+
+const MAX_CONCURRENT_OPTIONS = [
+  { value: '1', label: '1 agent', hint: '~0.5 GB RAM, 1 subprocess' },
+  { value: '2', label: '2 agents', hint: '~1 GB RAM, 2 subprocesses' },
+  { value: '3', label: '3 agents', hint: '~1.5 GB RAM, 3 subprocesses' },
+  { value: '4', label: '4 agents', hint: '~2 GB RAM, 4 subprocesses' },
+  { value: '6', label: '6 agents', hint: '~3 GB RAM, 6 subprocesses' },
+  { value: '8', label: '8 agents', hint: '~4 GB RAM, 8 subprocesses' },
+  { value: '10', label: '10 agents', hint: '~5 GB RAM, 10 subprocesses' },
+];
+
 // ── Config wizard ──
 
 const ACTIVITY_FILTER_OPTIONS = [
@@ -382,7 +394,7 @@ const ACTIVITY_FILTER_OPTIONS = [
   { value: 'events', label: 'Events', hint: 'lifecycle, system events' },
 ];
 
-export function getConfigWizardSteps(currentFilter: ActivityFilterPreset): WizardStep[] {
+export function getConfigWizardSteps(currentFilter: ActivityFilterPreset, currentMaxConcurrent: number): WizardStep[] {
   return [
     {
       id: 'setting',
@@ -390,6 +402,7 @@ export function getConfigWizardSteps(currentFilter: ActivityFilterPreset): Wizar
       type: 'select',
       options: [
         { value: 'activity_filter', label: 'Activity filter', hint: `current: ${currentFilter}` },
+        { value: 'max_concurrent', label: 'Max concurrent agents', hint: `current: ${currentMaxConcurrent}` },
       ],
     },
     {
@@ -399,6 +412,14 @@ export function getConfigWizardSteps(currentFilter: ActivityFilterPreset): Wizar
       options: ACTIVITY_FILTER_OPTIONS,
       defaultValue: currentFilter,
       skip: (vals) => vals.setting !== 'activity_filter',
+    },
+    {
+      id: 'max_concurrent',
+      label: 'Max concurrent agents',
+      type: 'select',
+      options: MAX_CONCURRENT_OPTIONS,
+      defaultValue: String(currentMaxConcurrent),
+      skip: (vals) => vals.setting !== 'max_concurrent',
     },
   ];
 }
