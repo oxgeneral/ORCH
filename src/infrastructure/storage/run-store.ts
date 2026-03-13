@@ -19,7 +19,7 @@ import {
 } from './fs-utils.js';
 import fs from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
-import readline from 'node:readline';
+import { readLines } from '../process/process-manager.js';
 
 export class RunStore implements IRunStore {
   constructor(private readonly paths: Paths) {}
@@ -72,22 +72,20 @@ export class RunStore implements IRunStore {
 
     if (signal?.aborted) return;
 
-    const stream = createReadStream(filePath, { encoding: 'utf-8' });
-    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+    const stream = createReadStream(filePath);
 
     try {
-      for await (const line of rl) {
+      for await (const line of readLines(stream)) {
         if (signal?.aborted) break;
         if (line.trim()) {
           try {
             yield JSON.parse(line) as RunEvent;
           } catch {
-            process.stderr.write(`[RunStore] skipping corrupt JSONL line: ${line}\n`);
+            process.stderr.write(`[RunStore] skipping corrupt JSONL line: ${line.slice(0, 200)}\n`);
           }
         }
       }
     } finally {
-      rl.close();
       stream.destroy();
     }
   }

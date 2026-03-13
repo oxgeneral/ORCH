@@ -3022,7 +3022,7 @@ function summarizeToolResult(content: unknown): string {
 /** Extract human-readable text from agent output data (which may be raw JSON from Claude CLI) */
 function formatAgentOutput(raw: string): { summary: string; detail: string } {
   // Truncate detail early — raw can be 100KB+ for tool results with file contents
-  const detail = raw.length > 2048 ? raw.slice(0, 2048) + '…' : raw;
+  const detail = raw.length > MAX_DETAIL_LEN ? raw.slice(0, MAX_DETAIL_LEN) + '…' : raw;
 
   // Skip bracket-tags like [init], [hook_started], [hook_response]
   if (LIFECYCLE_TAG_RE.test(raw.trim())) {

@@ -97,11 +97,22 @@ export async function appendJsonl(filePath: string, record: unknown): Promise<vo
   }
 }
 
+/** Max file size for full readJsonl (50 MB). Larger files use tail read. */
+const MAX_JSONL_READ_SIZE = 50 * 1024 * 1024;
+
 /**
  * Read all records from a .jsonl file.
+ * Falls back to reading only the last 200 records if the file exceeds MAX_JSONL_READ_SIZE.
  */
 export async function readJsonl<T>(filePath: string): Promise<T[]> {
   try {
+    const stat = await fs.stat(filePath);
+    if (stat.size > MAX_JSONL_READ_SIZE) {
+      process.stderr.write(
+        `[readJsonl] file too large (${(stat.size / 1024 / 1024).toFixed(1)} MB), reading tail only: ${filePath}\n`,
+      );
+      return readJsonlTail<T>(filePath, 200);
+    }
     const content = await fs.readFile(filePath, 'utf-8');
     const lines = content.split('\n').filter((l) => l.trim().length > 0);
     return parseJsonlLines<T>(lines);

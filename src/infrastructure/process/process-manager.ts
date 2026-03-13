@@ -76,10 +76,15 @@ export class ProcessManager implements IProcessManager {
 
 /**
  * Max stdout line length before truncation (16 KB).
- * Claude tool_result events can be 100KB+ (full file contents).
+ * First layer of a three-layer cap: readLines (16 KB) → serializeEventData (8 KB) → bus emit (4 KB).
  * Truncated lines produce invalid JSON → adapters' catch block handles gracefully.
  */
 const MAX_LINE_LEN = 16384;
+
+/** Cap a string to MAX_LINE_LEN. */
+function capLine(s: string): string {
+  return s.length > MAX_LINE_LEN ? s.slice(0, MAX_LINE_LEN) : s;
+}
 
 /**
  * Read lines from a readable stream as an async generator.
@@ -87,25 +92,44 @@ const MAX_LINE_LEN = 16384;
  * Uses `for await` on the raw Readable (proper backpressure) instead of
  * readline.createInterface, which buffers all 'line' events in an unbounded
  * queue even when the consumer is paused — causing OOM under high throughput.
+ *
+ * Uses Buffer.concat + offset tracking to avoid O(n²) string copies.
  */
 export async function* readLines(stream: Readable): AsyncGenerator<string> {
-  let buffer = '';
+  const chunks: Buffer[] = [];
+  let totalLen = 0;
 
   for await (const chunk of stream) {
-    buffer += typeof chunk === 'string' ? chunk : (chunk as Buffer).toString('utf-8');
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string, 'utf-8');
+    if (buf.length === 0) continue;
+    chunks.push(buf);
+    totalLen += buf.length;
 
+    // Concat once per chunk arrival, then scan for newlines with offset tracking
+    const buffer = chunks.length === 1 ? chunks[0]! : Buffer.concat(chunks, totalLen);
+    chunks.length = 0;
+    totalLen = 0;
+
+    let offset = 0;
     let newlineIdx: number;
-    while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-      const line = buffer.slice(0, newlineIdx);
-      buffer = buffer.slice(newlineIdx + 1);
-      if (line.length === 0) continue;
-      // Cap line length to prevent multi-MB JSON.parse allocations
-      yield line.length > MAX_LINE_LEN ? line.slice(0, MAX_LINE_LEN) : line;
+    while ((newlineIdx = buffer.indexOf(0x0a, offset)) !== -1) {
+      if (newlineIdx > offset) {
+        yield capLine(buffer.toString('utf-8', offset, newlineIdx));
+      }
+      offset = newlineIdx + 1;
+    }
+
+    // Keep unconsumed remainder for next chunk
+    if (offset < buffer.length) {
+      const remainder = buffer.subarray(offset);
+      chunks.push(remainder);
+      totalLen = remainder.length;
     }
   }
 
   // Flush remaining data (last line without trailing newline)
-  if (buffer.length > 0) {
-    yield buffer.length > MAX_LINE_LEN ? buffer.slice(0, MAX_LINE_LEN) : buffer;
+  if (totalLen > 0) {
+    const final = chunks.length === 1 ? chunks[0]! : Buffer.concat(chunks, totalLen);
+    yield capLine(final.toString('utf-8'));
   }
 }
