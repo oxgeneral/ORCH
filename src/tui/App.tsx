@@ -639,7 +639,7 @@ export function App({
   // Load history progressively from disk on mount
   useEffect(() => {
     if (!onLoadHistory) return;
-    const historyEntryToMsg = (entry: HistoryEntry): StatusMessage => {
+    const historyEntryToMsg = (entry: HistoryEntry): StatusMessage | null => {
         const time = new Date(entry.timestamp).toLocaleTimeString('en-US', {
           hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
         });
@@ -668,6 +668,7 @@ export function App({
           msgType = 'tool';
         } else {
           const { summary } = formatAgentOutput(raw);
+          if (!summary) return null; // skip empty assistant messages
           text = summary;
           const cls = classifyAgentSummary(text);
           msgType = cls.msgType;
@@ -679,7 +680,7 @@ export function App({
 
     onLoadHistory((batch) => {
       if (batch.length === 0) return;
-      const histMsgs = batch.map(historyEntryToMsg);
+      const histMsgs = batch.map(historyEntryToMsg).filter((m): m is StatusMessage => m !== null);
       setMessages((prev) => {
         const combined = [...histMsgs, ...prev];
         return combined.length > MAX_MESSAGES ? combined.slice(-MAX_MESSAGES) : combined;
@@ -3395,7 +3396,8 @@ function formatAgentOutput(raw: string): { summary: string; detail: string } {
     if (parsed.type === 'message' && parsed.role === 'assistant') {
       const text = extractTextFromContent(parsed.content);
       if (text) return { summary: text.slice(0, 200), detail };
-      return { summary: '\u{1F4AC} (assistant message)', detail };
+      // Empty assistant messages (tool_use-only or empty content) — skip
+      return { summary: '', detail };
     }
 
     // Claude stream: {"type":"assistant","message":{"content":[...]}}
@@ -3403,7 +3405,8 @@ function formatAgentOutput(raw: string): { summary: string; detail: string } {
       const content = parsed.message?.content ?? parsed.content;
       const text = extractTextFromContent(content);
       if (text) return { summary: text.slice(0, 200), detail };
-      return { summary: '\u{1F4AC} (assistant)', detail };
+      // Empty assistant messages (tool_use-only or empty content) — skip
+      return { summary: '', detail };
     }
 
     // User message (tool results flowing back)
@@ -3524,9 +3527,11 @@ function formatEvent(
       break;
     case 'agent:output': {
       const { summary, detail } = formatAgentOutput(event.data);
-      const cls = classifyAgentSummary(summary);
-      addMsg(summary, cls.color,
-        { agentId: event.agentId, taskId: resolveTask(event.runId), detail, msgType: cls.msgType });
+      if (summary) {
+        const cls = classifyAgentSummary(summary);
+        addMsg(summary, cls.color,
+          { agentId: event.agentId, taskId: resolveTask(event.runId), detail, msgType: cls.msgType });
+      }
       break;
     }
     case 'agent:file_changed':
