@@ -1684,6 +1684,86 @@ describe('onLoadHistory — progressive history loading', () => {
     expect(output).toContain('TimeoutError');
   });
 
+  it('shows skills row in AgentDetailPanel when agent has skills', async () => {
+    const agent = makeAgent({
+      id: 'agt_1',
+      name: 'Backend',
+      config: { skills: ['feature-dev:feature-dev', 'testing-suite:generate-tests'] },
+    });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], agents: [agent], state }),
+    );
+
+    // Switch to agents view
+    stdin.write('a');
+    await delay(50);
+
+    // Open detail panel
+    stdin.write('\r');
+    await delay(50);
+
+    const output = lastFrame()!;
+    expect(output).toContain('AGENT'); // AgentDetailSectionLabel shows AGENT chip
+    expect(output).toContain('skills');
+    expect(output).toContain('feature-dev:feature-dev');
+    expect(output).toContain('testing-suite:generate-tests');
+  });
+
+  it('hides skills row in AgentDetailPanel when agent has no skills', async () => {
+    const agent = makeAgent({ id: 'agt_1', name: 'Backend', config: {} });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], agents: [agent], state }),
+    );
+
+    stdin.write('a');
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+
+    const output = lastFrame()!;
+    expect(output).toContain('AGENT'); // detail panel is open
+    expect(output).not.toContain('skills');
+  });
+
+  it('hides skills row in AgentDetailPanel when skills array is empty', async () => {
+    const agent = makeAgent({ id: 'agt_1', name: 'Backend', config: { skills: [] } });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], agents: [agent], state }),
+    );
+
+    stdin.write('a');
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+
+    const output = lastFrame()!;
+    expect(output).toContain('AGENT'); // detail panel is open
+    expect(output).not.toContain('skills');
+  });
+
+  it('joins multiple skills with comma in AgentDetailPanel', async () => {
+    const agent = makeAgent({
+      id: 'agt_1',
+      name: 'QA',
+      config: { skills: ['skill-a', 'skill-b', 'skill-c'] },
+    });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], agents: [agent], state }),
+    );
+
+    stdin.write('a');
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+
+    const output = lastFrame()!;
+    expect(output).toContain('skill-a, skill-b, skill-c');
+  });
+
   it('setMessages caps at MAX_MESSAGES (200) when batch overflows', async () => {
     const state: OrchestratorState = { ...DEFAULT_STATE };
     let capturedBatch!: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void;
