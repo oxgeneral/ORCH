@@ -106,7 +106,7 @@ export function registerTaskCommand(program: Command, container: Container): voi
         const time = t.status === 'in_progress' && t.updated_at
           ? formatDurationSince(t.updated_at)
           : t.status === 'done' && t.updated_at
-            ? formatDurationSince(t.created_at)
+            ? formatDurationSince(t.updated_at)
             : dim('—');
 
         return [
