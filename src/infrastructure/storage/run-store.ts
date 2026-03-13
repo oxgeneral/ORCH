@@ -102,7 +102,7 @@ export class RunStore implements IRunStore {
       const batch = files.slice(i, i + BATCH);
       const results = await Promise.all(
         batch.map(file => {
-          const id = file.replace('.json', '');
+          const id = file.endsWith('.json') ? file.slice(0, -5) : file;
           return readJson<Run>(this.paths.runPath(id));
         }),
       );

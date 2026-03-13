@@ -3107,36 +3107,45 @@ function formatAgentOutput(raw: string): { summary: string; detail: string } {
 /** Extract a human-readable summary from truncated/unparseable JSON via regex. */
 function extractSummaryFromTruncated(raw: string): string {
   // Try to extract "type" and "subtype" fields for system events
-  const subtypeMatch = raw.match(/"subtype"\s*:\s*"([^"]+)"/);
+  const subtypeMatch = raw.match(/"subtype":"([^"]+)"/);
   if (subtypeMatch) return `[${subtypeMatch[1]}]`;
 
-  const typeMatch = raw.match(/"type"\s*:\s*"([^"]+)"/);
-  if (!typeMatch) return raw.slice(0, 200);
+  const typeMatch = raw.match(/"type":"([^"]+)"/);
+  const roleMatch = raw.match(/"role":"([^"]+)"/);
+  const type = typeMatch?.[1];
+  const role = roleMatch?.[1];
 
-  const type = typeMatch[1]!;
+  if (!type && !role) return raw.slice(0, 200);
 
   // assistant/message — try to find text content
-  if (type === 'assistant' || type === 'message') {
-    const textMatch = raw.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (type === 'assistant' || type === 'message' || role === 'assistant') {
+    const textMatch = raw.match(/"text":"((?:[^"\\]|\\.)*)"/);
     if (textMatch) {
-      try { return JSON.parse(`"${textMatch[1]}"`).slice(0, 200); } catch { /* use raw */ }
-      return textMatch[1]!.slice(0, 200);
+      try { return JSON.parse(`"${textMatch[1]}"`).slice(0, 200); } catch { /* truncated escape */ }
     }
     return '\u{1F4AC} (assistant)';
   }
 
   // user/tool_result — summarize
-  if (type === 'user' || type === 'tool_result') {
+  if (type === 'user' || type === 'tool_result' || role === 'user') {
     return '\u2190 (tool result)';
   }
 
   // tool_use
   if (type === 'tool_use') {
-    const nameMatch = raw.match(/"name"\s*:\s*"([^"]+)"/);
+    const nameMatch = raw.match(/"name":"([^"]+)"/);
     return `\u2699 ${nameMatch?.[1] ?? 'tool'}()`;
   }
 
-  if (type === 'result') return '\u2713 Agent finished';
+  if (type === 'result') {
+    const resultMatch = raw.match(/"result":"((?:[^"\\]|\\.)*)"/);
+    if (resultMatch) {
+      try { return `\u2713 ${JSON.parse(`"${resultMatch[1]}"`).slice(0, 180)}`; } catch { /* truncated */ }
+    }
+    return '\u2713 Agent finished';
+  }
+
+  if (type === 'rate_limit_event') return '\u23F3 Rate limited';
 
   return `[${type}]`;
 }
