@@ -5,6 +5,8 @@
  * Hex equivalents of ANSI 256 palette for Ink compatibility.
  */
 
+import type { TaskStatus } from '../domain/task.js';
+
 export const tuiColors = {
   // Brand
   amber: '#ffaf00',      // ansi256(214) — logo, selected cursor, accents
@@ -50,7 +52,7 @@ export const LOOP = '\u27F3';
 export const DIAMOND = '\u25C6';
 
 /** Canonical task status → foreground color mapping. */
-export const TASK_STATUS_COLOR: Record<string, string> = {
+export const TASK_STATUS_COLOR: Record<TaskStatus, string> = {
   in_progress: tuiColors.green,
   retrying: tuiColors.yellow,
   review: tuiColors.blue,
