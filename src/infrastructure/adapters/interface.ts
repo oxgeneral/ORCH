@@ -6,6 +6,7 @@
  */
 
 import type { AgentConfig } from '../../domain/agent.js';
+import type { AdapterErrorKind } from '../../domain/errors.js';
 
 export interface AdapterTestResult {
   ok: boolean;
@@ -27,6 +28,7 @@ export interface AgentEvent {
   timestamp: string;
   data: unknown;
   tokens?: { input: number; output: number; total: number };
+  errorKind?: AdapterErrorKind;
 }
 
 export interface ExecuteHandle {

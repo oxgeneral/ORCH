@@ -19,7 +19,7 @@ export type OrchestratorEvent =
   | { type: 'agent:output'; runId: string; agentId: string; data: string }
   | { type: 'agent:file_changed'; runId: string; agentId: string; path: string }
   | { type: 'agent:completed'; runId: string; agentId: string; success: boolean }
-  | { type: 'agent:error'; runId: string; agentId: string; error: string }
+  | { type: 'agent:error'; runId: string; agentId: string; error: string; errorKind?: import('./errors.js').AdapterErrorKind }
   | { type: 'run:retry'; runId: string; attempt: number; delay_ms: number }
   | { type: 'orchestrator:tick'; running: number; queued: number }
   | { type: 'orchestrator:stall_detected'; runId: string }

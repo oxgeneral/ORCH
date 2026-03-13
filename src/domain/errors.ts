@@ -118,3 +118,79 @@ export class WorkspaceError extends OrchestryError {
     this.name = 'WorkspaceError';
   }
 }
+
+// ── Adapter Error Classification ──────────────────────────────────
+
+export enum AdapterErrorKind {
+  ADAPTER_NOT_FOUND = 'adapter_not_found',
+  AUTH_FAILED = 'auth_failed',
+  TIMEOUT = 'timeout',
+  RATE_LIMIT = 'rate_limit',
+  PROCESS_CRASH = 'process_crash',
+  SPAWN_FAILED = 'spawn_failed',
+  UNKNOWN = 'unknown',
+}
+
+export interface AdapterErrorHint {
+  message: string;
+  fix: string;
+  doctorHint?: boolean;
+}
+
+export const ERROR_HINTS: Record<AdapterErrorKind, AdapterErrorHint> = {
+  [AdapterErrorKind.ADAPTER_NOT_FOUND]: {
+    message: 'CLI не установлен.',
+    fix: 'Установите: npm i -g @anthropic-ai/claude-code',
+    doctorHint: true,
+  },
+  [AdapterErrorKind.AUTH_FAILED]: {
+    message: 'API ключ невалиден.',
+    fix: 'Проверьте: claude auth status',
+  },
+  [AdapterErrorKind.TIMEOUT]: {
+    message: 'Агент превысил лимит времени.',
+    fix: 'Увеличьте через: orch config set agent_timeout <ms>',
+  },
+  [AdapterErrorKind.RATE_LIMIT]: {
+    message: 'Достигнут лимит API.',
+    fix: 'Подождите и повторите: orch task retry <id>',
+  },
+  [AdapterErrorKind.PROCESS_CRASH]: {
+    message: 'Процесс агента упал.',
+    fix: 'Попробуйте: orch task retry <id>',
+  },
+  [AdapterErrorKind.SPAWN_FAILED]: {
+    message: 'Не удалось запустить процесс.',
+    fix: 'Проверьте PATH и права доступа',
+  },
+  [AdapterErrorKind.UNKNOWN]: {
+    message: 'Неизвестная ошибка.',
+    fix: 'Запустите: orch doctor',
+    doctorHint: true,
+  },
+};
+
+export function classifyAdapterError(error: string, exitCode?: number): AdapterErrorKind {
+  const lower = error.toLowerCase();
+
+  if (lower.includes('enoent') || lower.includes('spawn failed')) {
+    return AdapterErrorKind.SPAWN_FAILED;
+  }
+  if (lower.includes('not found') || lower.includes('command not found') || lower.includes('no such file')) {
+    return AdapterErrorKind.ADAPTER_NOT_FOUND;
+  }
+  if (lower.includes('auth') || lower.includes('unauthorized') || lower.includes('401') || lower.includes('invalid api key') || lower.includes('authentication')) {
+    return AdapterErrorKind.AUTH_FAILED;
+  }
+  if (lower.includes('timeout') || lower.includes('timed out') || lower.includes('etimedout')) {
+    return AdapterErrorKind.TIMEOUT;
+  }
+  if (lower.includes('rate limit') || lower.includes('429') || lower.includes('too many requests')) {
+    return AdapterErrorKind.RATE_LIMIT;
+  }
+  if (exitCode !== undefined && exitCode !== 0) {
+    return AdapterErrorKind.PROCESS_CRASH;
+  }
+
+  return AdapterErrorKind.UNKNOWN;
+}
