@@ -439,6 +439,43 @@ const DEFAULT_MESSAGE_TTL_MS = 86400000;  // 24 часа
 
 **Доставка**: Сообщения хранятся как JSON файлы в `.orchestry/messages/` и инжектируются в промпт агента при dispatch. После доставки статус меняется на `delivered`.
 
+### 5.7. GoalContext (Контекст цели для промпта)
+
+```typescript
+interface GoalContext {
+  id: string;                    // ID цели
+  title: string;                 // Название цели
+  description: string;           // Описание цели
+  status: GoalStatus;            // Статус цели
+  task_names: string[];          // Названия связанных задач
+  progress?: string;             // Текущий прогресс (из context store)
+}
+```
+
+**Использование**: GoalContext инжектируется в промпт агента через `PromptContext.goal` при dispatch задачи, связанной с целью (`task.goalId`). Агент получает полный контекст цели для принятия решений.
+
+### 5.8. ClipboardService API
+
+```typescript
+type ClipboardContentType = 'image' | 'text' | 'empty';
+
+interface ClipboardImage {
+  data: Buffer;                  // Бинарные данные изображения
+  ext: string;                   // Расширение файла ('png')
+}
+
+// Проверить наличие clipboard-утилиты (pbpaste, xclip, PowerShell)
+function isClipboardToolAvailable(): boolean;
+
+// Определить тип содержимого clipboard (image/text/empty)
+async function detectClipboardType(): Promise<ClipboardContentType>;
+
+// Извлечь изображение из clipboard (null если нет изображения)
+async function getClipboardImage(): Promise<ClipboardImage | null>;
+```
+
+**Платформы**: macOS (osascript), Linux (xclip), Windows (PowerShell). Timeout: 3s. Ошибки graceful → `'empty'`/`null`.
+
 ---
 
 ## 6. Файловая структура `.orchestry/`
