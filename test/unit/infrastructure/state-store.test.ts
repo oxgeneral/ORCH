@@ -69,6 +69,32 @@ describe('StateStore', () => {
     expect(state.stats).toEqual(DEFAULT_STATE.stats);
   });
 
+  it('defaults onboardingCompleted to false when missing from file', async () => {
+    await fs.writeFile(
+      path.join(tmpDir, '.orchestry', 'state.json'),
+      JSON.stringify({ version: 1, running: {}, claimed: [], retry_queue: [] }),
+    );
+    const state = await store.read();
+    expect(state.onboardingCompleted).toBe(false);
+  });
+
+  it('preserves onboardingCompleted true through round-trip', async () => {
+    const state = structuredClone(DEFAULT_STATE);
+    state.onboardingCompleted = true;
+    await store.write(state);
+    const loaded = await store.read();
+    expect(loaded.onboardingCompleted).toBe(true);
+  });
+
+  it('falls back to false when onboardingCompleted is non-boolean', async () => {
+    await fs.writeFile(
+      path.join(tmpDir, '.orchestry', 'state.json'),
+      JSON.stringify({ version: 1, running: {}, claimed: [], retry_queue: [], onboardingCompleted: 'yes' }),
+    );
+    const state = await store.read();
+    expect(state.onboardingCompleted).toBe(false);
+  });
+
   it('preserves valid fields while fixing corrupted ones', async () => {
     await fs.writeFile(
       path.join(tmpDir, '.orchestry', 'state.json'),

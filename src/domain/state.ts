@@ -25,6 +25,7 @@ export interface OrchestratorState {
   version: 1;
   pid?: number;
   started_at?: string;
+  onboardingCompleted?: boolean;
   running: Record<string, RunningEntry>;
   claimed: Set<string>;
   retry_queue: RetryEntry[];
@@ -39,6 +40,7 @@ export interface OrchestratorState {
 
 export const DEFAULT_STATE: OrchestratorState = {
   version: 1,
+  onboardingCompleted: false,
   running: {},
   claimed: new Set<string>(),
   retry_queue: [],

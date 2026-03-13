@@ -22,6 +22,7 @@ export class StateStore implements IStateStore {
       version: raw.version ?? defaults.version,
       pid: raw.pid,
       started_at: raw.started_at,
+      onboardingCompleted: typeof raw.onboardingCompleted === 'boolean' ? raw.onboardingCompleted : false,
       running:
         raw.running && typeof raw.running === 'object' ? raw.running : defaults.running,
       claimed: Array.isArray(raw.claimed) ? new Set<string>(raw.claimed) : new Set<string>(defaults.claimed),
