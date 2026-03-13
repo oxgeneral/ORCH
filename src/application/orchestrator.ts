@@ -310,10 +310,12 @@ export class Orchestrator {
 
   /**
    * Cancel a running task: kill agent process, clean state, mark cancelled.
-   * Requires lock ownership.
+   * Acquires lock if not already owned (standalone CLI invocation).
    */
   async cancelTask(taskId: string): Promise<void> {
-    this.requireOwnership();
+    if (!this.lockAcquired) {
+      return this.withTemporaryLock(() => this.cancelTask(taskId));
+    }
 
     await this.withStateLock(async () => {
       await this.loadState();
@@ -355,10 +357,12 @@ export class Orchestrator {
 
   /**
    * Force-stop a specific agent: kill process, clean state, release agent.
-   * Requires lock ownership.
+   * Acquires lock if not already owned (standalone CLI invocation).
    */
   async forceStopAgent(agentId: string): Promise<void> {
-    this.requireOwnership();
+    if (!this.lockAcquired) {
+      return this.withTemporaryLock(() => this.forceStopAgent(agentId));
+    }
 
     await this.withStateLock(async () => {
       await this.loadState();

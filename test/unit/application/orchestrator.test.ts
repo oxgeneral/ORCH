@@ -81,16 +81,27 @@ describe('Orchestrator', () => {
       expect(orchestrator.isOwner).toBe(false); // lock released after run
     });
 
-    it('cancelTask throws LockConflictError if lock not acquired', async () => {
+    it('cancelTask auto-acquires lock when not owned', async () => {
+      const { acquireLock, releaseLock } = await import('../../../src/infrastructure/storage/lock.js');
       deps = buildDeps();
       orchestrator = new Orchestrator(deps);
-      await expect(orchestrator.cancelTask('tsk_1')).rejects.toThrow(LockConflictError);
+      await orchestrator.cancelTask('tsk_1');
+      expect(acquireLock).toHaveBeenCalled();
+      expect(releaseLock).toHaveBeenCalled();
+      expect(orchestrator.isOwner).toBe(false);
     });
 
-    it('forceStopAgent throws LockConflictError if lock not acquired', async () => {
+    it('forceStopAgent auto-acquires lock when not owned', async () => {
+      const { acquireLock, releaseLock } = await import('../../../src/infrastructure/storage/lock.js');
+      const agent = makeAgent({ id: 'agt_1', status: 'running' });
       deps = buildDeps();
+      vi.mocked(deps.agentStore.get).mockResolvedValue(agent);
+      vi.mocked(deps.agentStore.save).mockResolvedValue();
       orchestrator = new Orchestrator(deps);
-      await expect(orchestrator.forceStopAgent('agt_1')).rejects.toThrow(LockConflictError);
+      await orchestrator.forceStopAgent('agt_1');
+      expect(acquireLock).toHaveBeenCalled();
+      expect(releaseLock).toHaveBeenCalled();
+      expect(orchestrator.isOwner).toBe(false);
     });
   });
 
