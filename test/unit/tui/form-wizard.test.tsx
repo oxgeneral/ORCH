@@ -1008,7 +1008,7 @@ describe('FormWizard clipboard paste (onPasteImage / footerExtra)', () => {
       }),
     );
     await delay(50);
-    expect(lastFrame()!).toContain('Ctrl+V paste image');
+    expect(lastFrame()!).toContain('paste image');
   });
 
   it('does NOT show paste hint when onPasteImage not provided', async () => {

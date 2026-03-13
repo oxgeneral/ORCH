@@ -1477,8 +1477,8 @@ export function App({
       onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard, launchConfigWizard]);
 
   useInput((input, key) => {
-    // ── Ctrl+S: open Agent Shop from agent wizard ──
-    if (key.ctrl && input === 's' && inputMode === 'wizard' && wizardConfig?.kind === 'agent') {
+    // ── Ctrl+S / Cmd+S: open Agent Shop from agent wizard ──
+    if ((key.ctrl || key.meta) && input === 's' && inputMode === 'wizard' && wizardConfig?.kind === 'agent') {
       launchShopWizard();
       return;
     }
@@ -2090,7 +2090,7 @@ export function App({
           height={feedH}
           onPasteImage={isPasteCapable ? handlePasteImage : undefined}
           footerExtra={
-            wizardConfig.kind === 'agent' ? 'Ctrl+S browse shop'
+            wizardConfig.kind === 'agent' ? `${process.platform === 'darwin' ? '\u2318' : 'Ctrl'}+S browse shop`
             : pendingAttachments.length > 0 && isPasteCapable ? `\uD83D\uDCCE${pendingAttachments.length}`
             : undefined
           }

@@ -226,8 +226,8 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       return;
     }
 
-    // Ctrl+V / Ctrl+I: paste image from clipboard (for text/textarea steps)
-    if (key.ctrl && (input === 'v' || input === 'i') && onPasteImage && (step.type === 'text' || step.type === 'textarea')) {
+    // Ctrl+V / Cmd+V / Ctrl+I: paste image from clipboard (for text/textarea steps)
+    if ((key.ctrl || key.meta) && (input === 'v' || input === 'i') && onPasteImage && (step.type === 'text' || step.type === 'textarea')) {
       onPasteImage();
       return;
     }
@@ -552,7 +552,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
           {visibleOptions.map((opt, i) => {
             const realIdx = i + optScrollStart;
             const isSelected = realIdx === clampedSelectIndex;
-            const numLabel = realIdx < 9 ? `${realIdx + 1}` : ' ';
+            const numLabel = String(realIdx + 1).padStart(options.length >= 10 ? 2 : 1);
             return (
               <Box key={opt.value}>
                 <Text color={isSelected ? tuiColors.amber : tuiColors.ghost}>
@@ -613,7 +613,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
               : step.type === 'textarea'
                 ? 'Shift+Enter newline  Enter confirm  \u2190\u2191\u2192\u2193 navigate'
                 : '\u2190\u2192 move  Enter confirm'}
-          {onPasteImage && (step.type === 'text' || step.type === 'textarea') ? '  Ctrl+V paste image' : ''}
+          {onPasteImage && (step.type === 'text' || step.type === 'textarea') ? `  ${process.platform === 'darwin' ? '\u2318' : 'Ctrl'}+V paste image` : ''}
           {'  Esc '}
           {currentStep > 0 ? 'back' : 'cancel'}
         </Text>
