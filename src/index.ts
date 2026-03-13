@@ -8,6 +8,7 @@
 export type { Task, TaskStatus, CreateTaskInput, WorkspaceMode, TaskProof } from './domain/task.js';
 export type { Agent, AgentStatus, AgentConfig, CreateAgentInput, ApprovalPolicy, AgentStats } from './domain/agent.js';
 export type { Run, RunStatus, RunEvent, RunEventType, TokenUsage } from './domain/run.js';
+export { createTokenUsage } from './domain/run.js';
 export type { OrchestratorConfig, ProjectConfig, SchedulingConfig } from './domain/config.js';
 export type { OrchestratorState, RunningEntry, RetryEntry } from './domain/state.js';
 export type { OrchestratorEvent, OrchestratorEventType, EventPayload } from './domain/events.js';

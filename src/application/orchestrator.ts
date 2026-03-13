@@ -1067,7 +1067,7 @@ export class Orchestrator {
     if (tokens) {
       state.stats.total_tokens.input += tokens.input;
       state.stats.total_tokens.output += tokens.output;
-      state.stats.total_tokens.total += tokens.total;
+      state.stats.total_tokens.total = state.stats.total_tokens.input + state.stats.total_tokens.output;
     }
 
     // Auto merge-back: if task used a worktree branch, merge into current branch

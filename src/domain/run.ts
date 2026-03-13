@@ -34,6 +34,11 @@ export interface TokenUsage {
   total: number;
 }
 
+/** Create TokenUsage with total always computed as input + output. */
+export function createTokenUsage(input: number, output: number): TokenUsage {
+  return { input, output, total: input + output };
+}
+
 export interface RunEvent {
   timestamp: string;
   type: RunEventType;

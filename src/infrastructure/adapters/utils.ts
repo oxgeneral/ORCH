@@ -8,6 +8,7 @@
 import type { ChildProcess } from 'node:child_process';
 import type { AgentEvent } from './interface.js';
 import { readLines } from '../process/process-manager.js';
+import { createTokenUsage } from '../../domain/run.js';
 
 export type TokenInfo = { input: number; output: number; total: number };
 
@@ -31,7 +32,7 @@ export function extractTokens(
   if (usage && typeof usage.input_tokens === 'number') {
     const input = usage.input_tokens as number;
     const output = (typeof usage.output_tokens === 'number' ? usage.output_tokens : 0) as number;
-    return { input, output, total: input + output };
+    return createTokenUsage(input, output);
   }
   return undefined;
 }
