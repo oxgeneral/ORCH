@@ -808,13 +808,37 @@ export class Orchestrator {
         ? await this.deps.messageService.drainMailbox(agent.id, task.id)
         : [];
 
+      // Load goal context if task is linked to a goal
+      let goalContext: import('../infrastructure/template/template-engine.js').GoalContext | undefined;
+      if (task.goalId && this.cachedGoalStore) {
+        try {
+          const goal = await this.cachedGoalStore.get(task.goalId);
+          if (goal) {
+            const [goalTasks, progressEntry] = await Promise.all([
+              this.cachedTaskStore.list({ goalId: task.goalId }),
+              this.deps.contextStore?.get(`${task.goalId}-progress`),
+            ]);
+            goalContext = {
+              id: goal.id,
+              title: goal.title,
+              description: goal.description ?? '',
+              status: goal.status,
+              task_names: goalTasks.map((t) => `[${t.status}] ${t.title}`),
+              progress: progressEntry?.value,
+            };
+          }
+        } catch {
+          // Goal may have been deleted — continue without context
+        }
+      }
+
       const context = buildPromptContext(
         task,
         agent,
         attempt,
         workspacePath,
         this.deps.config,
-        { allAgents, retryContext, sharedContext, feedback: task.feedback, messages: pendingMessages.length ? pendingMessages : undefined },
+        { allAgents, retryContext, sharedContext, feedback: task.feedback, messages: pendingMessages.length ? pendingMessages : undefined, goal: goalContext },
       );
       const prompt = await this.deps.templateEngine.render(template, context);
 

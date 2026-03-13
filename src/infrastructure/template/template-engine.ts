@@ -26,6 +26,15 @@ export interface RetryContext {
   previous_output: string;
 }
 
+export interface GoalContext {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  task_names: string[];
+  progress?: string;
+}
+
 export interface PromptContext {
   project: {
     name: string;
@@ -60,6 +69,7 @@ export interface PromptContext {
     sent_at: string;
     reply_to?: string;
   }>;
+  goal?: GoalContext;
 }
 
 export class LiquidTemplateEngine implements ITemplateEngine {
@@ -114,6 +124,7 @@ export interface BuildPromptOptions {
   sharedContext?: Record<string, string>;
   feedback?: string;
   messages?: import('../../domain/message.js').Message[];
+  goal?: GoalContext;
 }
 
 export function buildPromptContext(
@@ -124,7 +135,7 @@ export function buildPromptContext(
   config: OrchestratorConfig,
   options?: BuildPromptOptions,
 ): PromptContext {
-  const { allAgents, retryContext, sharedContext, feedback, messages: rawMessages } = options ?? {};
+  const { allAgents, retryContext, sharedContext, feedback, messages: rawMessages, goal } = options ?? {};
 
   // Map messages to prompt-friendly shape
   const agentById = new Map((allAgents ?? []).map((a) => [a.id, a]));
@@ -171,6 +182,7 @@ export function buildPromptContext(
     feedback,
     shared_context: sharedContext && Object.keys(sharedContext).length > 0 ? sharedContext : undefined,
     messages,
+    goal,
   };
 }
 
@@ -246,17 +258,37 @@ Manage tasks and coordinate with other agents using \`orch\`:
 **Shared context:**
 - \`orch context set <key> <value>\` / \`orch context get <key>\` / \`orch context list\`
 
+{% if goal %}
+## Goal: {{ goal.title }}
+**Status:** {{ goal.status }} · **ID:** \`{{ goal.id }}\`
+{% if goal.description != "" %}
+{{ goal.description }}
+{% endif %}
+{% if goal.task_names.size > 0 %}
+**Linked tasks ({{ goal.task_names.size }}):**
+{% for name in goal.task_names %}- {{ name }}
+{% endfor %}
+Use \`orch task list --goal-id {{ goal.id }}\` and \`orch task show <id>\` to inspect details.
+{% endif %}
+{% if goal.progress %}
+**Latest progress report:**
+{{ goal.progress }}
+{% endif %}
+{% endif %}
+
 {% if task.is_autonomous %}
 ## Autonomous Goal Mode
 This is an autonomous task driven by a goal. Work in a continuous loop until the goal is achieved:
 
-1. **Read the GOAL section** above — understand the desired outcome.
+1. **Understand the goal** — read the Goal section above.
 2. **Decompose** — break the goal into concrete subtasks via \`orch task add\`. {% if task.goal_id %}Pass \`--goal-id {{ task.goal_id }}\` so subtasks are linked to this goal. {% endif %}Assign yourself for your specialty, delegate other work to appropriate teammates by role.
 3. **Execute** — follow your standard workflow for each subtask.
 4. **Track progress** — after each iteration: \`orch context set {{ task.goal_id | default: "<goal>" }}-progress "<summary of what's done and what remains>"\`.
 5. **Be proactive** — do NOT wait for tasks from others. Create your own subtasks and keep working.
 6. **Do NOT finish** the [auto] task until the goal is achieved — keep creating subtasks.
-7. **When done** — \`orch context set {{ task.goal_id | default: "<goal>" }}-progress "ACHIEVED: <summary>"\`.
+7. **When done** — mark the goal as achieved: \`orch goal status {{ task.goal_id | default: "<goal-id>" }} achieved\`.
+
+**Deep inspection:** Use \`orch goal show {{ task.goal_id | default: "<goal-id>" }}\` to see full goal details at any time.
 {% endif %}
 
 ## Rules
