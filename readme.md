@@ -18,7 +18,7 @@
 ---
 
 <p align="center">
-  <img src="assets/screenshot-tui.png" alt="ORCH TUI Dashboard — real-time task monitoring, agent activity feed, and keyboard-driven controls" width="100%" />
+  <video src="https://github.com/oxgeneral/ORCH/raw/main/landing/demo.mp4" alt="ORCH TUI Dashboard — real-time task monitoring, agent activity feed, and keyboard-driven controls" width="100%" autoplay loop muted playsinline></video>
   <br/>
   <em>Real-time TUI dashboard: tasks running, agents working, activity streaming — all from one terminal.</em>
 </p>
