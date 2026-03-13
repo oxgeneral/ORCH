@@ -2164,6 +2164,17 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
 
 /* ── Goal Detail Panel ──────────────────────────────── */
 
+/** Task status → color, matching DetailPanel.tsx canonical colors. */
+const GOAL_TASK_STATUS_COLOR: Record<string, string> = {
+  in_progress: tuiColors.green,
+  retrying: tuiColors.yellow,
+  review: tuiColors.blue,
+  todo: tuiColors.dim,
+  done: tuiColors.green,
+  failed: tuiColors.red,
+  cancelled: tuiColors.dim,
+};
+
 function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressReport }: {
   goal: Goal;
   height: number;
@@ -2173,9 +2184,10 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
   progressReport?: string;
 }) {
   const assigneeName = goal.assignee ? (agentNameMap?.get(goal.assignee) ?? goal.assignee) : 'any';
+  const taskList = tasks ?? [];
 
   // Budget: header(1) + desc lines + tasks section + progress section
-  const taskCount = tasks?.length ?? 0;
+  const taskCount = taskList.length;
   const progressLines = progressReport ? progressReport.split('\n').slice(0, 3) : [];
   const taskRowsCap = Math.min(taskCount, Math.max(1, Math.floor((height - 4) / 3)));
   const progressCap = progressLines.length > 0 ? Math.min(progressLines.length + 1, 4) : 0;
@@ -2207,12 +2219,15 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
       {taskCount > 0 && (
         <Box flexDirection="column" marginTop={1}>
           <Text color={tuiColors.dim}>Tasks ({taskCount})</Text>
-          {tasks!.slice(0, taskRowsCap).map(t => (
-            <Text key={t.id} color={tuiColors.silver} wrap="truncate">
-              {'  '}<Text color={t.status === 'done' ? tuiColors.green : t.status === 'in_progress' ? tuiColors.amber : t.status === 'failed' ? tuiColors.red : tuiColors.dim}>{t.status.padEnd(11)}</Text>
-              {' '}{t.title.slice(0, Math.max(10, width - 20))}
-            </Text>
-          ))}
+          {taskList.slice(0, taskRowsCap).map(t => {
+            const sc = GOAL_TASK_STATUS_COLOR[t.status] ?? tuiColors.dim;
+            return (
+              <Text key={t.id} color={tuiColors.silver} wrap="truncate">
+                {'  '}<Text color={sc}>{t.status.padEnd(11)}</Text>
+                {' '}{t.title.slice(0, Math.max(10, width - 20))}
+              </Text>
+            );
+          })}
         </Box>
       )}
       {progressLines.length > 0 && (

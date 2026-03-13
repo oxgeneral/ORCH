@@ -12,7 +12,7 @@
 import { nanoid } from 'nanoid';
 import type { Goal, GoalStatus, CreateGoalInput } from '../domain/goal.js';
 import { isGoalTerminal } from '../domain/goal.js';
-import { AUTONOMOUS_LABEL } from '../domain/task.js';
+import { AUTONOMOUS_LABEL, type Task } from '../domain/task.js';
 import { GoalNotFoundError, InvalidArgumentsError } from '../domain/errors.js';
 import type { IGoalStore, IContextStore } from '../infrastructure/storage/interfaces.js';
 import type { EventBus } from './event-bus.js';
@@ -142,7 +142,7 @@ export class GoalService {
     }
   }
 
-  async listTasksForGoal(goalId: string): Promise<import('../domain/task.js').Task[]> {
+  async listTasksForGoal(goalId: string): Promise<Task[]> {
     return this.taskService?.list({ goalId }) ?? [];
   }
 
