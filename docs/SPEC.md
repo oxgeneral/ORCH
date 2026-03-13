@@ -167,7 +167,9 @@ src/
 │   │   ├── team.ts                # orch team [create|join|set-lead|add-task]
 │   │   ├── msg.ts                 # orch msg [send|broadcast|inbox]
 │   │   ├── context.ts             # orch context [set|get|list|delete]
+│   │   ├── update.ts              # orch update (проверка и установка обновлений)
 │   │   └── tui.ts                 # orch tui (запуск TUI дашборда)
+│   ├── update-check.ts            # Background version check (npm registry, 4h cache)
 │   ├── editor.ts                  # Открытие $EDITOR (task/agent edit)
 │   ├── output.ts                  # Форматирование вывода (icons, colors)
 │   └── context.ts                 # CLI context helpers
@@ -192,7 +194,7 @@ src/
 │
 ├── bin/
 │   └── cli.ts                     # Точка входа CLI
-├── container.ts                   # DI-контейнер
+├── container.ts                   # DI-контейнер (LightContainer / Container)
 ├── index.ts                       # Public API exports
 └── utils/                         # Утилиты (зарезервировано)
 ```
@@ -748,6 +750,8 @@ orchestry tui                    # То же самое (явный alias)
 orchestry init                   # Инициализация .orchestry/ в текущей директории
 orchestry status                 # Обзор: задачи, агенты, активные запуски
 orchestry doctor                 # Диагностика: проверка адаптеров, зависимостей
+orchestry update                 # Проверка обновлений и установка latest
+orchestry update --check         # Только проверить, без установки
 ```
 
 ### 8.2. Управление задачами
@@ -1136,6 +1140,63 @@ type OrchestratorEvent =
 - Задачи в `retrying` → автоматически перезапускаются по backoff-таймеру
 - Stale `state.json` с мёртвыми PID → очищается
 
+### 14.4. Система обновлений
+
+Background version check проверяет npm registry на наличие новой версии:
+
+```
+Поток:
+1. При завершении любой CLI-команды вызывается checkForUpdate(currentVersion)
+2. Проверяется кеш ~/.orchestry/update-check.json
+3. Если кеш свежий (< 4 часов) — возвращает результат из кеша
+4. Если кеш устарел — запускает background fetch (npm view, timeout 5s)
+5. Background fetch не блокирует команду — результат будет в кеше при следующем запуске
+6. Если обновление доступно — выводит уведомление в stderr после завершения команды
+```
+
+Формат кеша (`~/.orchestry/update-check.json`):
+
+```json
+{
+  "latest": "1.2.3",
+  "checked_at": 1710345600000
+}
+```
+
+Команда `orch update`:
+- `orch update` — force-check + установка (`npm install -g @oxgeneral/orch@latest`)
+- `orch update --check` — только проверка без установки
+- Таймаут npm registry: 5 секунд
+- Таймаут установки: 60 секунд
+- Ошибки сети не прерывают работу — silent fallback
+
+### 14.5. Lazy Imports и оптимизация запуска
+
+DI-контейнер разделён на два уровня для ускорения CLI startup (~40%):
+
+```
+LightContainer (быстрый):
+├── Stores (TaskStore, AgentStore, RunStore, StateStore, ConfigStore, etc.)
+├── Services (TaskService, AgentService, RunService, etc.)
+└── EventBus
+    Используется: task, agent, context, msg, goal, team, logs, status, config
+
+Container extends LightContainer (полный):
+├── ProcessManager
+├── AdapterRegistry (Claude, Codex, Cursor, Shell)
+├── WorkspaceManager
+├── LiquidTemplateEngine
+├── DoctorService
+└── Orchestrator
+    Используется: run, tui, doctor
+```
+
+CLI-команды загружаются через dynamic `import()` — каждый subcommand подгружается
+только при вызове. Тяжёлые зависимости (LiquidJS, адаптеры, Orchestrator) не загружаются
+для read-only команд (`task list`, `agent list`, `--help`).
+
+Результат: `--help` 70ms→40ms, `task list` 110ms→80ms.
+
 ---
 
 ## 15. Фазы реализации (Roadmap)
@@ -1192,6 +1253,8 @@ type OrchestratorEvent =
 - [x] Scope overlap detection (предупреждение при пересечении файлов задач)
 - [x] Task feedback (комментарии ревьюера при reject)
 - [x] OOM-оптимизации TUI (batched updates, JSONL tail read, LRU cap)
+- [x] Система обновлений (background version check, `orch update`)
+- [x] Lazy imports и LightContainer (CLI startup ~40% быстрее)
 
 ---
 
