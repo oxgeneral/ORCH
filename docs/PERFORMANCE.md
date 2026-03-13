@@ -9,7 +9,7 @@
 | CLI startup (`--help`) | 103ms (cold) / 75ms (warm) | 40ms | **-61%** |
 | CLI `task list` | 103ms | 78ms | **-24%** |
 | Build (tsup) | 2.7s | 1.6s | **-41%** |
-| Test suite (vitest) | 12.2s | 10.7s | **-12%** |
+| Test suite (vitest) | 12.2s | 11.76s / 926 tests | **-4% total, +21% per-test** |
 | TUI memory | OOM after ~27 min | Stable indefinitely | **Fixed** |
 
 All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx vitest run`.
@@ -46,10 +46,11 @@ All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx v
 
 | Metric | Before | After | Delta |
 |--------|--------|-------|-------|
-| Total time | 12.2s | 10.7s | -12% |
+| Total time | 12.2s | 11.76s | -4% |
 | Transform | 1.6s | 0.7s | -56% |
 | Collect | 4.8s | 1.75s | -64% |
-| Test count | 233 → 767+ | 767+ | — |
+| Test count | 233 → 926 | 926 | +297% |
+| Per-test avg | 52.4ms | 12.7ms | **-76%** |
 
 ### TUI Memory
 
@@ -142,6 +143,30 @@ All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx v
 - `flushStateLazy()` debounces state.json writes with 500ms delay
 - Critical transitions (shutdown, task completion) force immediate flush
 
+### 3.15 CachedAgentStore Name Cache
+**File:** `src/infrastructure/storage/cached-stores.ts`
+- `CachedAgentStore.findByName()` results cached in a `Map<string, Agent | null>`
+- Avoids repeated linear scan of agent YAML files during dispatch (agents matched by name)
+- Cache invalidated on `save()`, `delete()`, and tick boundary (`invalidate()`)
+
+### 3.16 Retry Queue filter() Instead of splice()
+**File:** `src/application/orchestrator.ts`
+- Retry queue processing now uses `Array.filter()` to build a new array of remaining entries
+- Previous `splice()` in a loop caused O(n²) array shifts; `filter()` is O(n) single pass
+- Due retries collected in a separate `dueRetries` array during the same pass
+
+### 3.17 isBlocked() O(d×1) with taskMap Lookup
+**File:** `src/domain/transitions.ts`, `src/application/orchestrator.ts`
+- `isBlocked(task, allTasks)` now accepts `Map<string, Task>` for O(1) dependency lookup
+- `dispatchAll()` builds `taskMap = new Map(allTasks.map(t => [t.id, t]))` once per tick
+- Complexity reduced from O(d×n) to O(d×1) per task, where d = dependency count
+
+### 3.18 Vitest Adaptive Thread Count
+**File:** `vitest.config.ts`
+- `maxThreads` computed via `availableParallelism()` from `node:os` (falls back to 2 in CI)
+- Automatically scales worker threads to match CPU core count
+- Previous hardcoded `maxThreads: 4` underutilized machines with 8+ cores
+
 ## 4. Architecture Decisions
 
 ### Lazy Imports
@@ -209,7 +234,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 
 - **CLI startup**: Target <50ms for `--help`, <100ms for commands
 - **Build**: Target <1.5s total wall time
-- **Tests**: Watch transform + collect phases (should be <3s combined)
+- **Tests**: Watch transform + collect phases (should be <3s combined). Per-test avg <15ms at 926 tests
 - **TUI memory**: Heap should plateau, not grow linearly
 
 ## 6. Performance Targets / SLOs
@@ -219,7 +244,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 | `orch --help` | <50ms | 40ms | PASS |
 | `orch task list` | <100ms | 78ms | PASS |
 | `npm run build` | <1.5s | 1.6s | NEAR PASS ¹ |
-| `npx vitest run` | <12s | 10.7s | PASS |
+| `npx vitest run` (926 tests) | <12s | 11.76s | PASS |
 | TUI heap (30 min) | <512 MB | ~120 MB | PASS |
 | Reactive dispatch latency | <1s | ~500ms | PASS |
 | Tick duration | <5s | <1s typical | PASS |
