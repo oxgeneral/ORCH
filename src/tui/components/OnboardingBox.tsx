@@ -58,6 +58,124 @@ function EmptyRow({ cw }: { cw: number }) {
 
 /* ── Component ───────────────────────────────────── */
 
+/* ── Onboarding Step type ─────────────────────────── */
+
+export type OnboardingStep = 'welcome' | 'task_created' | 'run_started' | 'completed' | 'dismissed';
+
+/* ── WelcomeScreen ───────────────────────────────── */
+
+export function WelcomeScreen({ width, height }: { width: number; height: number }) {
+  const boxW = Math.min(width - 4, 50);
+  const cw = boxW - 6;
+  const hLine = LIGHT_RULE.repeat(boxW - 2);
+
+  return (
+    <Box flexDirection="column" paddingX={2} marginTop={1}>
+      <Text color={tuiColors.ghost}>{TL}{hLine}{TR}</Text>
+      <Row cw={cw}>{''}</Row>
+      <Text>
+        <Text color={tuiColors.ghost}>{V}  </Text>
+        <Text color={tuiColors.amber}>{DIAMOND}</Text>
+        <Text color={tuiColors.white} bold> Welcome to Orch</Text>
+        <Text>{' '.repeat(Math.max(0, cw - 'Welcome to Orch'.length - 2))}</Text>
+        <Text>  </Text>
+        <Text color={tuiColors.ghost}>{V}</Text>
+      </Text>
+      <Row cw={cw}>{''}</Row>
+      <Text>
+        <Text color={tuiColors.ghost}>{V}  </Text>
+        <Text color={tuiColors.silver}>{'Press N to create your first task'.padEnd(cw)}</Text>
+        <Text>  </Text>
+        <Text color={tuiColors.ghost}>{V}</Text>
+      </Text>
+      <Row cw={cw}>{''}</Row>
+      <Text>
+        <Text color={tuiColors.ghost}>{V}  </Text>
+        <Text color={tuiColors.amber}>N</Text>
+        <Text color={tuiColors.gray}> new task</Text>
+        <Text>{' '.repeat(Math.max(0, cw - 'N'.length - 1 - 'new task'.length))}</Text>
+        <Text>  </Text>
+        <Text color={tuiColors.ghost}>{V}</Text>
+      </Text>
+      <Row cw={cw}>{''}</Row>
+      <Text color={tuiColors.ghost}>{BL}{hLine}{BR}</Text>
+    </Box>
+  );
+}
+
+/* ── OnboardingNudge ─────────────────────────────── */
+
+export function OnboardingNudge({ step, width }: { step: OnboardingStep; width: number }) {
+  const boxW = Math.min(width - 4, 50);
+  const cw = boxW - 6;
+  const hLine = LIGHT_RULE.repeat(boxW - 2);
+
+  let text: string;
+  let hint: { key: string; label: string } | null = null;
+
+  if (step === 'task_created') {
+    text = 'Press R to run task';
+    hint = { key: 'R', label: 'run task' };
+  } else if (step === 'run_started') {
+    text = 'Agent is running your task...';
+  } else {
+    return null;
+  }
+
+  return (
+    <Box flexDirection="column" paddingX={2} marginTop={1}>
+      <Text color={tuiColors.ghost}>{TL}{hLine}{TR}</Text>
+      <Text>
+        <Text color={tuiColors.ghost}>{V}  </Text>
+        <Text color={tuiColors.amber}>{DIAMOND}</Text>
+        <Text color={tuiColors.silver}> {text.padEnd(hint ? cw - 2 - hint.key.length - 1 - hint.label.length - 2 : cw - 2)}</Text>
+        {hint && (
+          <>
+            <Text color={tuiColors.amber}>  {hint.key}</Text>
+            <Text color={tuiColors.gray}> {hint.label}</Text>
+          </>
+        )}
+        <Text>  </Text>
+        <Text color={tuiColors.ghost}>{V}</Text>
+      </Text>
+      <Text color={tuiColors.ghost}>{BL}{hLine}{BR}</Text>
+    </Box>
+  );
+}
+
+/* ── OnboardingToast ─────────────────────────────── */
+
+export function OnboardingToast({ width }: { width: number }) {
+  const boxW = Math.min(width - 4, 50);
+  const cw = boxW - 6;
+  const hLine = LIGHT_RULE.repeat(boxW - 2);
+
+  return (
+    <Box flexDirection="column" paddingX={2} marginTop={1}>
+      <Text color={tuiColors.ghost}>{TL}{hLine}{TR}</Text>
+      <Row cw={cw}>{''}</Row>
+      <Text>
+        <Text color={tuiColors.ghost}>{V}  </Text>
+        <Text color={tuiColors.green} bold>First task completed!</Text>
+        <Text>{' '.repeat(Math.max(0, cw - 'First task completed!'.length))}</Text>
+        <Text>  </Text>
+        <Text color={tuiColors.ghost}>{V}</Text>
+      </Text>
+      <Row cw={cw}>{''}</Row>
+      <Text>
+        <Text color={tuiColors.ghost}>{V}  </Text>
+        <Text color={tuiColors.silver}>{'Type / to see all commands'.padEnd(cw)}</Text>
+        <Text>  </Text>
+        <Text color={tuiColors.ghost}>{V}</Text>
+      </Text>
+      <Row cw={cw}>{''}</Row>
+      <Text color={tuiColors.ghost}>{BL}{hLine}{BR}</Text>
+    </Box>
+  );
+}
+
+/* ── OnboardingBox (original) ────────────────────── */
+
 export function OnboardingBox({ count, config, width }: OnboardingBoxProps) {
   if (count >= 3) return null;
 

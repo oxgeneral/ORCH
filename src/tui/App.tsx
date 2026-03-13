@@ -30,7 +30,7 @@ import { CommandBar } from './components/CommandBar.js';
 import { FormWizard } from './components/FormWizard.js';
 import type { WizardStep } from './components/FormWizard.js';
 import { Spinner } from './components/Spinner.js';
-import { OnboardingBox, type OnboardingConfig } from './components/OnboardingBox.js';
+import { OnboardingBox, type OnboardingConfig, WelcomeScreen, type OnboardingStep } from './components/OnboardingBox.js';
 import {
   getAgentWizardSteps, agentWizardToInput,
   getTaskWizardSteps, taskWizardToInput,
@@ -328,6 +328,16 @@ export function App({
   // Goals state
   const [liveGoals, setLiveGoals] = useState<Goal[]>([]);
   const [goalProgressReport, setGoalProgressReport] = useState<string | undefined>(undefined);
+
+  // Onboarding step — derived from initial props
+  const onboardingStep = useMemo<OnboardingStep>(() => {
+    if (initialState.onboardingCompleted) return 'dismissed';
+    if ((initialState.stats?.total_tasks_completed ?? 0) > 0) return 'dismissed';
+    const hasRunning = Object.keys(initialState.running ?? {}).length > 0;
+    if (hasRunning) return 'run_started';
+    if (initialTasks.length > 0) return 'task_created';
+    return 'welcome';
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // View state
   const [activeView, setActiveView] = useState<ViewId>('tasks');
@@ -2023,6 +2033,11 @@ export function App({
       {/* Breathing room after header */}
       <Box height={1} />
 
+      {/* Onboarding welcome screen — replaces tasks view when step=welcome */}
+      {onboardingStep === 'welcome' && activeView === 'tasks' && (
+        <WelcomeScreen width={W} height={H} />
+      )}
+
       {/* Main content area */}
       {activeView === 'goals' && (
         <GoalsContent
@@ -2035,7 +2050,7 @@ export function App({
           agentNameMap={agentNameMap}
         />
       )}
-      {activeView === 'tasks' && (
+      {onboardingStep !== 'welcome' && activeView === 'tasks' && (
         <TasksContent
           tasks={visibleTasks}
           selectedIndex={taskSelectedIndex}
