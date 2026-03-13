@@ -17,12 +17,11 @@
 
 ---
 
+<div align="center">
+  <video src="https://github.com/oxgeneral/ORCH/raw/main/assets/demo.mp4" width="100%" controls autoplay loop muted></video>
+</div>
 <p align="center">
-  <a href="https://github.com/oxgeneral/ORCH/raw/main/landing/demo.mp4">
-    <img src="assets/screenshot-tui.png" alt="ORCH TUI Dashboard — click to watch demo video" width="100%" />
-  </a>
-  <br/>
-  <em>Real-time TUI dashboard — <a href="https://github.com/oxgeneral/ORCH/raw/main/landing/demo.mp4">▶ watch demo video</a></em>
+  <em>Real-time TUI dashboard: tasks running, agents working, activity streaming — all from one terminal.</em>
 </p>
 
 ---
