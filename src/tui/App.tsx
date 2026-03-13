@@ -458,6 +458,10 @@ export function App({
       ? opts.detail.slice(0, MAX_DETAIL_LEN) + '…[truncated]'
       : opts?.detail;
     pendingMessages.current.push({ text, color, time, ts: now.getTime(), ...opts, detail });
+    // Hard cap: drop oldest if pending buffer grows too large between flushes
+    if (pendingMessages.current.length > MAX_MESSAGES * 2) {
+      pendingMessages.current = pendingMessages.current.slice(-MAX_MESSAGES);
+    }
     // Schedule flush if not already pending
     if (messageBatchMs === 0) {
       // Immediate mode (tests) — flush synchronously

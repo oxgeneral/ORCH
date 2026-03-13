@@ -127,15 +127,16 @@ export async function readJsonlTail<T>(filePath: string, count: number): Promise
     }
 
     // Read from end in chunks to find enough lines
+    // Use larger chunks for bigger files (tool_result events can be 8KB+ per line)
     const fd = await fs.open(filePath, 'r');
     try {
-      const chunkSize = Math.min(stat.size, 16384);
+      const chunkSize = Math.min(stat.size, stat.size > 1_048_576 ? 131072 : 65536);
       let position = Math.max(0, stat.size - chunkSize);
       let earliestReadPosition = position;
       let tail = '';
 
-      // Read up to 3 chunks from the end
-      for (let attempt = 0; attempt < 3 && position >= 0; attempt++) {
+      // Read up to 4 chunks from the end
+      for (let attempt = 0; attempt < 4 && position >= 0; attempt++) {
         earliestReadPosition = position;
         const readSize = Math.min(chunkSize, stat.size - position);
         const buf = Buffer.alloc(readSize);

@@ -916,7 +916,11 @@ export class Orchestrator {
           ? event.timestamp
           : new Date().toISOString();
 
-        // Record event
+        // Truncate event data to prevent multi-MB JSONL lines from tool_result payloads
+        const MAX_EVENT_DATA_LEN = 8192;
+        const truncatedData = truncateEventData(event.data, MAX_EVENT_DATA_LEN);
+
+        // Record event (with capped data to keep JSONL files manageable)
         const runEvent: RunEvent = {
           timestamp: eventTimestamp,
           type: event.type === 'output' ? 'agent_output' :
@@ -924,7 +928,7 @@ export class Orchestrator {
                 event.type === 'command' ? 'command_run' :
                 event.type === 'tool_call' ? 'tool_call' :
                 event.type === 'error' ? 'error' : 'done',
-          data: event.data,
+          data: truncatedData,
         };
         await this.deps.runService.appendEvent(runId, runEvent);
 
@@ -934,13 +938,15 @@ export class Orchestrator {
           this.saveStateLazy();
         }
 
-        // Emit to event bus
+        // Emit to event bus — use pre-truncated data to avoid creating huge strings
+        const MAX_BUS_DATA_LEN = 4096;
         if (event.type === 'output' || event.type === 'tool_call') {
+          const raw = typeof truncatedData === 'string' ? truncatedData : JSON.stringify(truncatedData);
           this.deps.eventBus.emit({
             type: 'agent:output',
             runId,
             agentId,
-            data: typeof event.data === 'string' ? event.data : JSON.stringify(event.data),
+            data: raw.length > MAX_BUS_DATA_LEN ? raw.slice(0, MAX_BUS_DATA_LEN) + '…' : raw,
           });
         } else if (event.type === 'file_change') {
           this.deps.eventBus.emit({
@@ -950,11 +956,12 @@ export class Orchestrator {
             path: typeof event.data === 'string' ? event.data : String(event.data),
           });
         } else if (event.type === 'error') {
+          const raw = typeof truncatedData === 'string' ? truncatedData : JSON.stringify(truncatedData);
           this.deps.eventBus.emit({
             type: 'agent:error',
             runId,
             agentId,
-            error: typeof event.data === 'string' ? event.data : JSON.stringify(event.data),
+            error: raw.length > MAX_BUS_DATA_LEN ? raw.slice(0, MAX_BUS_DATA_LEN) + '…' : raw,
           });
         }
       }
@@ -1379,4 +1386,19 @@ function isValidISOTimestamp(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   const d = new Date(value);
   return !isNaN(d.getTime()) && d.toISOString() === value;
+}
+
+/**
+ * Truncate event data to prevent multi-MB allocations from tool_result payloads.
+ * Strings are sliced directly; objects are JSON-stringified and sliced, then returned as string.
+ */
+function truncateEventData(data: unknown, maxLen: number): unknown {
+  if (typeof data === 'string') {
+    return data.length > maxLen ? data.slice(0, maxLen) + '…[truncated]' : data;
+  }
+  if (data === null || data === undefined || typeof data !== 'object') return data;
+  const json = JSON.stringify(data);
+  if (json.length <= maxLen) return data;
+  // Return truncated string representation — cheaper than deep-cloning and pruning
+  return json.slice(0, maxLen) + '…[truncated]';
 }
