@@ -36,7 +36,8 @@ export async function openInEditor(
   await writeFile(filePath, initialContent, 'utf8');
 
   try {
-    const child = spawn(editor, [filePath], { stdio: 'inherit' });
+    const parts = editor.split(/\s+/);
+    const child = spawn(parts[0]!, [...parts.slice(1), filePath], { stdio: 'inherit' });
 
     await new Promise<void>((resolve, reject) => {
       child.on('close', (code) => {

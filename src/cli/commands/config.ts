@@ -59,7 +59,8 @@ export function registerConfigCommand(program: Command, container: Container): v
       await container.paths.requireInit();
 
       const editor = process.env['EDITOR'] || process.env['VISUAL'] || 'vi';
-      const child = spawn(editor, [container.paths.configPath], {
+      const parts = editor.split(/\s+/);
+      const child = spawn(parts[0]!, [...parts.slice(1), container.paths.configPath], {
         stdio: 'inherit',
       });
 
