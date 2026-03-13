@@ -2081,6 +2081,7 @@ export function App({
       {/* Bottom panel: WIZARD or SUGGESTIONS or NEW TASK or DETAIL or ACTIVITY */}
       {inputMode === 'wizard' && wizardConfig ? (
         <FormWizard
+          key={`${wizardConfig.kind}-${wizardConfig.title}`}
           title={wizardConfig.title}
           steps={wizardConfig.steps}
           onComplete={handleWizardComplete}
