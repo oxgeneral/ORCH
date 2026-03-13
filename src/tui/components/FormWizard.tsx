@@ -330,16 +330,15 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
           setTaCursorCol((c) => c - 1);
         } else {
           // Merge with previous line
+          const mergedCol = (taLines[taCursorRow - 1] ?? '').length;
           setTaLines((lines) => {
             const newLines = [...lines];
             const prevLine = newLines[taCursorRow - 1] ?? '';
             const curLine = newLines[taCursorRow] ?? '';
-            const mergedCol = prevLine.length;
             newLines.splice(taCursorRow - 1, 2, prevLine + curLine);
-            // We'll set col in the next setState
-            setTimeout(() => setTaCursorCol(mergedCol), 0);
             return newLines;
           });
+          setTaCursorCol(mergedCol);
           setTaCursorRow((r) => r - 1);
         }
         return;
