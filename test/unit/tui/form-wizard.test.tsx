@@ -844,7 +844,7 @@ describe('FormWizard clipboard paste (onPasteImage / footerExtra)', () => {
   }
 
   it('calls onPasteImage on Ctrl+I for text step', async () => {
-    const onPasteImage = vi.fn().mockResolvedValue(true);
+    const onPasteImage = vi.fn().mockResolvedValue('image');
     const { stdin } = render(
       React.createElement(FormWizard, {
         title: 'Test',
@@ -863,7 +863,7 @@ describe('FormWizard clipboard paste (onPasteImage / footerExtra)', () => {
   });
 
   it('calls onPasteImage on Ctrl+I for textarea step', async () => {
-    const onPasteImage = vi.fn().mockResolvedValue(true);
+    const onPasteImage = vi.fn().mockResolvedValue('image');
     const { stdin } = render(
       React.createElement(FormWizard, {
         title: 'Test',
@@ -882,7 +882,7 @@ describe('FormWizard clipboard paste (onPasteImage / footerExtra)', () => {
   });
 
   it('does NOT call onPasteImage on Ctrl+I for select step', async () => {
-    const onPasteImage = vi.fn().mockResolvedValue(true);
+    const onPasteImage = vi.fn().mockResolvedValue('image');
     const { stdin } = render(
       React.createElement(FormWizard, {
         title: 'Test',
@@ -1004,7 +1004,7 @@ describe('FormWizard clipboard paste (onPasteImage / footerExtra)', () => {
         onCancel: vi.fn(),
         width: 80,
         height: 20,
-        onPasteImage: vi.fn().mockResolvedValue(false),
+        onPasteImage: vi.fn().mockResolvedValue('empty'),
       }),
     );
     await delay(50);

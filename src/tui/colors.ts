@@ -6,6 +6,7 @@
  */
 
 import type { TaskStatus } from '../domain/task.js';
+import type { GoalStatus } from '../domain/goal.js';
 
 export const tuiColors = {
   // Brand
@@ -60,4 +61,12 @@ export const TASK_STATUS_COLOR: Record<TaskStatus, string> = {
   done: tuiColors.green,
   failed: tuiColors.red,
   cancelled: tuiColors.dim,
+};
+
+/** Canonical goal status → foreground color mapping. */
+export const GOAL_STATUS_COLOR: Record<GoalStatus, string> = {
+  active: tuiColors.green,
+  paused: tuiColors.dim,
+  achieved: tuiColors.amber,
+  abandoned: tuiColors.ghost,
 };

@@ -54,7 +54,7 @@ export interface DetailPanelProps {
 }
 
 /** Render a centered section divider: ─── label ───────────── */
-function SectionDivider({ label, width, color }: { label: string; width: number; color?: string }) {
+export function SectionDivider({ label, width, color }: { label: string; width: number; color?: string }) {
   const innerW = width - 4; // paddingX=2 on parent
   const labelWithSpaces = ` ${label} `;
   const leftLen = 3;
