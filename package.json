@@ -33,6 +33,7 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "postinstall": "node scripts/postinstall.js || true",
+    "benchmark": "tsx scripts/benchmark.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
