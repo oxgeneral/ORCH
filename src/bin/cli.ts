@@ -23,6 +23,8 @@ import { registerContextCommand } from '../cli/commands/context.js';
 import { registerMsgCommand } from '../cli/commands/msg.js';
 import { registerGoalCommand } from '../cli/commands/goal.js';
 import { registerTeamCommand } from '../cli/commands/team.js';
+import { registerUpdateCommand } from '../cli/commands/update.js';
+import { checkForUpdate, printUpdateNotification } from '../cli/update-check.js';
 
 const program = new Command();
 
@@ -54,6 +56,7 @@ async function main(): Promise<void> {
 
   // Commands that work without a full container
   registerInitCommand(program);
+  registerUpdateCommand(program);
 
   // Build container for other commands (requires .orchestry/ to read config)
   let container;
@@ -78,9 +81,9 @@ async function main(): Promise<void> {
         return;
       }
 
-      // Check if user is running init or doctor — let Commander handle it
+      // Check if user is running init, doctor, or update — let Commander handle it
       const sub = process.argv[2];
-      if (sub === 'init' || sub === 'doctor') {
+      if (sub === 'init' || sub === 'doctor' || sub === 'update') {
         await program.parseAsync(process.argv);
         return;
       }
@@ -111,7 +114,17 @@ async function main(): Promise<void> {
     process.argv.push('tui');
   }
 
+  // Start background update check (non-blocking)
+  const updatePromise = checkForUpdate('0.1.0');
+
   await program.parseAsync(process.argv);
+
+  // Show update notification after command completes (skip for TUI — it has its own UI)
+  const sub = process.argv[2];
+  if (sub !== 'tui' && sub !== 'update') {
+    const info = await updatePromise;
+    if (info) printUpdateNotification(info);
+  }
 }
 
 // Global error boundary
