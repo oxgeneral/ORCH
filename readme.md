@@ -10,7 +10,7 @@
     <a href="https://github.com/oxgeneral/ORCH/packages"><img src="https://img.shields.io/badge/npm-@oxgeneral/orch-cb0000" alt="GitHub Packages" /></a>
     <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-one%20command-brightgreen" alt="One command setup" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
-    <a href="#development"><img src="https://img.shields.io/badge/tests-758%20passing-brightgreen" alt="Tests" /></a>
+    <a href="#development"><img src="https://img.shields.io/badge/tests-759%20passing-brightgreen" alt="Tests" /></a>
     <a href="#architecture"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
   </p>
 </p>
@@ -225,6 +225,7 @@ src/
 │   ├── adapters/     # Claude, Codex, Cursor, Shell (pluggable)
 │   ├── storage/      # File-based (YAML/JSON/JSONL)
 │   ├── process/      # PID management, graceful kill
+│   ├── template/     # LiquidJS template engine
 │   └── workspace/    # Isolation modes (shared/worktree/isolated)
 ├── cli/              # Commander.js commands
 └── tui/              # Ink + React dashboard
@@ -235,7 +236,7 @@ src/
 ```bash
 npm run dev            # Run via tsx
 npm run build          # Build ESM + DTS
-npm test               # 758 tests via Vitest
+npm test               # 759 tests via Vitest
 npm run typecheck      # Strict TypeScript
 ```
 

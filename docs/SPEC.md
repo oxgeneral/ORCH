@@ -220,6 +220,20 @@ interface Task {
   workspace_mode?: WorkspaceMode; // Режим workspace для этой задачи (override agent/global)
   workspace?: string;            // Относительный путь workspace (заполняется автоматически)
   proof?: TaskProof;             // Доказательства выполнения
+  review_criteria?: ReviewCriterion[]; // Критерии авто-ревью (test_pass, typecheck, lint)
+  review_results?: ReviewResult[];     // Результаты проверки по каждому критерию
+  scope?: string[];              // Glob-паттерны затрагиваемых файлов (для scope overlap detection)
+  feedback?: string;             // Обратная связь от ревьюера или оркестратора
+}
+
+// Критерий авто-ревью
+type ReviewCriterion = 'test_pass' | 'typecheck' | 'lint';
+
+// Результат проверки одного критерия
+interface ReviewResult {
+  criterion: ReviewCriterion;    // Какой критерий проверялся
+  passed: boolean;               // Пройден ли
+  output: string;                // Вывод проверки (stdout/stderr)
 }
 
 // Режим изоляции workspace. Приоритет: task → agent → global default
