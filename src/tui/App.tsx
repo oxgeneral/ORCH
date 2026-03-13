@@ -1037,8 +1037,9 @@ export function App({
     activeView === 'tasks' ? visibleTasks.length + 1 + (hiddenTaskCount > 0 ? 1 : 0) : // +1 for "+ add" row, +1 for "show all" row
     activeView === 'agents' ? liveAgents.length + 1 + agentSectionRows : 0;
   const minListH = Math.min(listItemCount + 1, Math.ceil(contentH * 0.5)); // cap at 50%
+  const hasTaskFooter = activeView === 'tasks' && hiddenTaskCount > 0;
   const mainH = activeView === 'logs' ? contentH : Math.max(2, Math.min(minListH, contentH - 4));
-  const feedH = Math.max(1, contentH - mainH);
+  const feedH = Math.max(1, contentH - mainH - (hasTaskFooter ? 1 : 0));
   const ruleW = Math.max(10, W - 2);
 
   // Suggestions for command mode
@@ -2016,6 +2017,7 @@ export function App({
         width={W}
         version={version}
         latestVersion={latestVersion}
+        taskBadge={hiddenTaskCount > 0 ? sortedTasks.length : undefined}
       />
 
       {/* Breathing room after header */}
@@ -2044,6 +2046,13 @@ export function App({
           agentNameMap={agentNameMap}
           hiddenCount={hiddenTaskCount}
         />
+      )}
+      {activeView === 'tasks' && hiddenTaskCount > 0 && (
+        <Box paddingX={1} backgroundColor={tuiColors.ghost}>
+          <Text color={tuiColors.amber}>
+            showing {visibleTasks.length} of {sortedTasks.length} tasks {'\u00B7'} press <Text bold color={tuiColors.amber}>S</Text> to show all
+          </Text>
+        </Box>
       )}
       {activeView === 'agents' && (
         <AgentsContent

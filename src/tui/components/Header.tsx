@@ -152,6 +152,8 @@ export interface HeaderProps {
   sparklineData?: number[];
   version?: string;
   latestVersion?: string;
+  /** Total task count shown as badge on TASKS tab when some tasks are hidden */
+  taskBadge?: number;
 }
 
 /* Tab config imported from TabBar.tsx — single source of truth */
@@ -161,8 +163,8 @@ export interface HeaderProps {
    ══════════════════════════════════════════════════════════ */
 
 function BrandBar({
-  projectName, activeView, mode, stats, uptime, width, version, latestVersion,
-}: Pick<HeaderProps, 'projectName' | 'activeView' | 'mode' | 'stats' | 'uptime' | 'width' | 'version' | 'latestVersion'>) {
+  projectName, activeView, mode, stats, uptime, width, version, latestVersion, taskBadge,
+}: Pick<HeaderProps, 'projectName' | 'activeView' | 'mode' | 'stats' | 'uptime' | 'width' | 'version' | 'latestVersion' | 'taskBadge'>) {
   const isWatching = mode === 'watching';
 
   return (
@@ -183,19 +185,20 @@ function BrandBar({
       <Box gap={0}>
         {TABS.map((tab, i) => {
           const isActive = activeView === tab.id;
+          const badge = tab.id === 'tasks' && taskBadge != null && taskBadge > 0 ? ` (${taskBadge})` : '';
           return (
             <React.Fragment key={tab.id}>
               {i > 0 && <Text>{'  '}</Text>}
               {isActive ? (
                 // Active tab: inverted chip — amber background, dark text
                 <Text backgroundColor={tuiColors.amber} color="#0a0a0c" bold>
-                  {' '}{tab.key} {tab.label}{' '}
+                  {' '}{tab.key} {tab.label}{badge}{' '}
                 </Text>
               ) : (
                 // Inactive tab: ghost key + dim label
                 <Box gap={0}>
                   <Text color={tuiColors.ghost}>{tab.key}</Text>
-                  <Text color={tuiColors.dim}> {tab.label.toLowerCase()}</Text>
+                  <Text color={tuiColors.dim}> {tab.label.toLowerCase()}{badge}</Text>
                 </Box>
               )}
             </React.Fragment>
@@ -323,6 +326,7 @@ export const Header = React.memo(function Header(props: HeaderProps) {
         width={props.width}
         version={props.version}
         latestVersion={props.latestVersion}
+        taskBadge={props.taskBadge}
       />
       {/* Space between brand and stats */}
       <Box height={1} />
