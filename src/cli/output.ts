@@ -43,18 +43,39 @@ const asciiIcons: Record<keyof typeof icons, string> = {
   warning: '!!',
 };
 
-// ANSI 256 colors from CLI_UI_DESIGN.md
-const colors = {
-  amber: chalk.ansi256(214),
-  green: chalk.ansi256(72),
-  red: chalk.ansi256(167),
-  blue: chalk.ansi256(74),
-  yellow: chalk.ansi256(178),
-  dim: chalk.ansi256(240),
-  ghost: chalk.ansi256(236),
-  white: chalk.ansi256(255),
-  purple: chalk.ansi256(141),
-};
+// ANSI 256 colors from CLI_UI_DESIGN.md — lazy-initialized on first access
+const COLOR_CODES = {
+  amber: 214,
+  green: 72,
+  red: 167,
+  blue: 74,
+  yellow: 178,
+  dim: 240,
+  ghost: 236,
+  white: 255,
+  purple: 141,
+} as const;
+
+type ColorName = keyof typeof COLOR_CODES;
+type ChalkFn = ReturnType<typeof chalk.ansi256>;
+
+let _colors: Record<ColorName, ChalkFn> | undefined;
+
+function getColors(): Record<ColorName, ChalkFn> {
+  if (!_colors) {
+    _colors = {} as Record<ColorName, ChalkFn>;
+    for (const [name, code] of Object.entries(COLOR_CODES)) {
+      _colors[name as ColorName] = chalk.ansi256(code);
+    }
+  }
+  return _colors;
+}
+
+const colors = new Proxy({} as Record<ColorName, ChalkFn>, {
+  get(_target, prop: string) {
+    return getColors()[prop as ColorName];
+  },
+});
 
 let useAscii = false;
 
