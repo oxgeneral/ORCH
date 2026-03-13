@@ -9,7 +9,8 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import React from 'react';
 import { render } from 'ink-testing-library';
 import { App, _resetPendingDeletionSeq } from '../../../src/tui/App.js';
-import { DEFAULT_STATE } from '../../../src/domain/state.js';
+import type { Task } from '../../../src/domain/task.js';
+import { DEFAULT_STATE, type OrchestratorState } from '../../../src/domain/state.js';
 import { makeTask, makeAgent } from '../application/helpers.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -37,7 +38,7 @@ describe('Soft-delete with undo', () => {
 
     // Press D to schedule deletion
     stdin.write('d');
-    await delay(20);
+    await delay(50);
 
     const output = lastFrame()!;
     // Should show undo banner with entity name
@@ -62,12 +63,12 @@ describe('Soft-delete with undo', () => {
 
     // Schedule deletion
     stdin.write('d');
-    await delay(20);
+    await delay(50);
     expect(lastFrame()!).toContain('Undo Me');
 
     // Undo
     stdin.write('z');
-    await delay(20);
+    await delay(50);
 
     // Undo banner should be gone (no pending deletions)
     // onDeleteTask still not called
@@ -90,10 +91,10 @@ describe('Soft-delete with undo', () => {
     );
 
     stdin.write('d');
-    await delay(20);
+    await delay(50);
 
     stdin.write('Z');
-    await delay(20);
+    await delay(50);
 
     expect(onDeleteTask).not.toHaveBeenCalled();
     expect(lastFrame()!).toContain('restored');
@@ -120,8 +121,8 @@ describe('Soft-delete with undo', () => {
     // Not yet — timer hasn't expired
     expect(onDeleteTask).not.toHaveBeenCalled();
 
-    // Advance past UNDO_TIMEOUT_MS (5000ms) + timer interval (500ms) + microtask
-    await vi.advanceTimersByTimeAsync(5600);
+    // Advance past UNDO_TIMEOUT_MS (5000ms) + timer interval (1000ms) + microtask
+    await vi.advanceTimersByTimeAsync(6200);
     // queueMicrotask needs a flush
     await vi.advanceTimersByTimeAsync(100);
 
@@ -146,11 +147,11 @@ describe('Soft-delete with undo', () => {
 
     // Switch to agents view
     stdin.write('a');
-    await delay(20);
+    await delay(50);
 
     // Press D to schedule agent deletion
     stdin.write('d');
-    await delay(20);
+    await delay(50);
 
     // Undo banner visible, deletion not yet executed
     expect(lastFrame()!).toContain('Backend Bot');
@@ -182,11 +183,11 @@ describe('Soft-delete with undo', () => {
 
     // Switch to agents view
     stdin.write('a');
-    await delay(20);
+    await delay(50);
 
     // Press D on running agent — should schedule with needsForceStop
     stdin.write('d');
-    await delay(20);
+    await delay(50);
 
     // Undo banner visible
     expect(lastFrame()!).toContain('Running Bot');
@@ -214,13 +215,13 @@ describe('Soft-delete with undo', () => {
 
     // Delete first task
     stdin.write('d');
-    await delay(20);
+    await delay(50);
 
     // Navigate down and delete second
     stdin.write('j');
-    await delay(20);
+    await delay(50);
     stdin.write('d');
-    await delay(20);
+    await delay(50);
 
     const output = lastFrame()!;
     // Both should appear in undo banner
@@ -246,17 +247,17 @@ describe('Soft-delete with undo', () => {
 
     // Delete first task
     stdin.write('d');
-    await delay(20);
+    await delay(50);
 
     // Navigate down and delete second
     stdin.write('j');
-    await delay(20);
+    await delay(50);
     stdin.write('d');
-    await delay(20);
+    await delay(50);
 
     // Undo last (Second)
     stdin.write('z');
-    await delay(20);
+    await delay(50);
 
     const output = lastFrame()!;
     // First still pending
@@ -280,7 +281,7 @@ describe('Soft-delete with undo', () => {
 
     // Try to delete in_progress task
     stdin.write('d');
-    await delay(20);
+    await delay(50);
 
     // Should NOT show undo banner (deletion not scheduled)
     const output = lastFrame()!;
