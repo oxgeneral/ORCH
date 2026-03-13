@@ -53,9 +53,17 @@ export function isDispatchable(status: TaskStatus): boolean {
 
 /**
  * Check if a task is blocked by unfinished dependencies.
+ * Accepts either a Task[] (O(d×n) lookup) or a Map<string, Task> (O(d×1) lookup).
  */
-export function isBlocked(task: Task, allTasks: Task[]): boolean {
+export function isBlocked(task: Task, allTasks: Task[] | Map<string, Task>): boolean {
   if (task.depends_on.length === 0) return false;
+
+  if (allTasks instanceof Map) {
+    return task.depends_on.some((depId) => {
+      const dep = allTasks.get(depId);
+      return !dep || dep.status !== 'done';
+    });
+  }
 
   return task.depends_on.some((depId) => {
     const dep = allTasks.find((t) => t.id === depId);

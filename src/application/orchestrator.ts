@@ -668,11 +668,12 @@ export class Orchestrator {
     if (availableSlots <= 0) return;
 
     const allTasks = await this.cachedTaskStore.list();
+    const taskMap = new Map(allTasks.map((t) => [t.id, t]));
     const candidates = allTasks
       .filter(
         (t) =>
           isDispatchable(t.status) &&
-          !isBlocked(t, allTasks) &&
+          !isBlocked(t, taskMap) &&
           !state.running[t.id] &&
           !state.claimed.includes(t.id),
       )
