@@ -18,7 +18,7 @@
 ---
 
 <div align="center">
-  <video src="https://github.com/oxgeneral/ORCH/raw/main/assets/demo.mp4" width="100%" controls autoplay loop muted></video>
+  <video src="https://github.com/user-attachments/assets/c7c3ab77-e718-4e5a-a8cf-bfc446ace64e" width="100%" controls autoplay loop muted></video>
 </div>
 <p align="center">
   <em>Real-time TUI dashboard: tasks running, agents working, activity streaming — all from one terminal.</em>
