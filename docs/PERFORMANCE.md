@@ -262,7 +262,7 @@ Build varies 1.1–1.6s across runs depending on DTS phase; median ~1.35s.
 `patternsOverlap()` compares every running task's scope patterns against candidates. With `k` running tasks and `m` candidates, each having `p` patterns, complexity is `O(k × m × p²)`. At <50 concurrent tasks this is negligible; at scale, consider a trie-based approach.
 
 ### Dispatch Rate
-Default `poll_interval` is 30 seconds. Reactive dispatch (500ms debounce on `task:created`) mitigates this for new tasks, but status changes from external events still wait for the next tick.
+Default `poll_interval` is 10 seconds (changed from 30s in v0.3.0). Reactive dispatch (500ms debounce on `task:created`) mitigates this for new tasks, but status changes from external events still wait for the next tick.
 
 ### Full `readEvents` in Detail View
 TUI detail panel and some CLI paths still call `readEvents()` which loads entire JSONL files. For runs with 10K+ events, this can spike memory briefly. Mitigation: `readEventsTail(id, 30)` used in most paths; full read only for `orch logs <run-id>` without `--since`.

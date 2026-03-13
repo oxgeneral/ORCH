@@ -526,8 +526,8 @@ defaults:
     priority: 3
 
 scheduling:
-  poll_interval_ms: 30000      # Проверка новых задач каждые 30с
-  max_concurrent_agents: 3     # Максимум параллельных агентов
+  poll_interval_ms: 10000      # Проверка новых задач каждые 10с
+  max_concurrent_agents: 6     # Максимум параллельных агентов
   retry_base_delay_ms: 10000   # Базовая задержка retry (10s * 2^attempt, cap 5min)
   retry_max_delay_ms: 300000   # Максимальная задержка retry
 
