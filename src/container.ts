@@ -108,7 +108,7 @@ export async function buildLightContainer(context: CliContext): Promise<LightCon
 
   // Application — services
   const eventBus = new EventBus();
-  const taskService = new TaskService(taskStore, eventBus, config);
+  const taskService = new TaskService(taskStore, eventBus, config, paths);
   const agentService = new AgentService(agentStore, stateStore, eventBus, config);
   const runService = new RunService(runStore, eventBus);
   const messageService = new MessageService(messageStore, agentStore, teamStore, eventBus);

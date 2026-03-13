@@ -5,6 +5,8 @@
  * CLI commands call this service, not storage directly.
  */
 
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { nanoid } from 'nanoid';
 import type { Task, CreateTaskInput, TaskStatus } from '../domain/task.js';
 import { canTransition, isTerminal } from '../domain/transitions.js';
@@ -14,14 +16,17 @@ import {
   InvalidArgumentsError,
 } from '../domain/errors.js';
 import type { ITaskStore } from '../infrastructure/storage/interfaces.js';
+import type { Paths } from '../infrastructure/storage/paths.js';
 import type { OrchestratorConfig } from '../domain/config.js';
 import type { EventBus } from './event-bus.js';
+import { ensureDir } from '../infrastructure/storage/fs-utils.js';
 
 export class TaskService {
   constructor(
     private readonly taskStore: ITaskStore,
     private readonly eventBus: EventBus,
     private readonly config: OrchestratorConfig,
+    private readonly paths?: Paths,
   ) {}
 
   async create(input: CreateTaskInput): Promise<Task> {
@@ -65,6 +70,11 @@ export class TaskService {
       scope: input.scope,
       goalId: input.goalId,
     };
+
+    if (input.attachments?.length && this.paths) {
+      const attachmentNames = await this.copyAttachments(task.id, input.attachments);
+      task.attachments = attachmentNames;
+    }
 
     await this.taskStore.save(task);
     this.eventBus.emit({ type: 'task:created', task });
@@ -176,7 +186,7 @@ export class TaskService {
     return task;
   }
 
-  async update(id: string, fields: { title?: string; description?: string; priority?: number; labels?: string[] }): Promise<Task> {
+  async update(id: string, fields: { title?: string; description?: string; priority?: number; labels?: string[]; attachments?: string[] }): Promise<Task> {
     const task = await this.get(id);
 
     if (fields.title !== undefined) {
@@ -191,6 +201,10 @@ export class TaskService {
       task.priority = fields.priority;
     }
     if (fields.labels !== undefined) task.labels = fields.labels;
+    if (fields.attachments?.length && this.paths) {
+      const attachmentNames = await this.copyAttachments(id, fields.attachments);
+      task.attachments = [...(task.attachments ?? []), ...attachmentNames];
+    }
 
     task.updated_at = new Date().toISOString();
     await this.taskStore.save(task);
@@ -203,6 +217,47 @@ export class TaskService {
       throw new InvalidArgumentsError('Cannot delete a running task. Cancel it first.');
     }
     await this.taskStore.delete(id);
+
+    if (this.paths) {
+      const dir = this.paths.taskAttachmentsDir(id);
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }
+
+  getAttachmentPath(taskId: string, filename: string): string {
+    if (!this.paths) {
+      throw new InvalidArgumentsError('Paths not configured');
+    }
+    return path.join(this.paths.taskAttachmentsDir(taskId), filename);
+  }
+
+  private async copyAttachments(taskId: string, sourcePaths: string[]): Promise<string[]> {
+    if (!this.paths) return [];
+
+    const dir = this.paths.taskAttachmentsDir(taskId);
+    await ensureDir(dir);
+
+    // Validate all files exist first
+    await Promise.all(
+      sourcePaths.map(async (srcPath) => {
+        try {
+          await fs.access(srcPath);
+        } catch {
+          throw new InvalidArgumentsError(`Attachment file not found: ${srcPath}`);
+        }
+      }),
+    );
+
+    // Copy all files in parallel
+    const names = await Promise.all(
+      sourcePaths.map(async (srcPath) => {
+        const basename = path.basename(srcPath);
+        await fs.copyFile(srcPath, path.join(dir, basename));
+        return basename;
+      }),
+    );
+
+    return names;
   }
 
   async incrementAttempts(id: string): Promise<Task> {

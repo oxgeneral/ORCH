@@ -56,6 +56,7 @@ export interface Task {
   scope?: string[];
   feedback?: string;
   goalId?: string;
+  attachments?: string[];
 }
 
 export interface CreateTaskInput {
@@ -70,4 +71,5 @@ export interface CreateTaskInput {
   review_criteria?: ReviewCriterion[];
   scope?: string[];
   goalId?: string;
+  attachments?: string[];
 }

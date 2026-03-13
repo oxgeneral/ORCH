@@ -81,6 +81,14 @@ export class Paths {
     return path.join(this.root, 'teams');
   }
 
+  get attachmentsDir(): string {
+    return path.join(this.root, 'attachments');
+  }
+
+  taskAttachmentsDir(taskId: string): string {
+    return path.join(this.attachmentsDir, sanitizeId(taskId));
+  }
+
   teamPath(id: string): string {
     return path.join(this.teamsDir, `${sanitizeId(id)}.yml`);
   }
