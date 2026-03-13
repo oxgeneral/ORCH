@@ -1996,7 +1996,6 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
   agentNameMap?: Map<string, string>;
 }) {
   const addRowIndex = goals.length;
-  const totalItems = goals.length + (showAddRow ? 1 : 0);
 
   const visible = goals.slice(scrollOffset, scrollOffset + height);
   const addRowVisible = showAddRow && addRowIndex >= scrollOffset && addRowIndex < scrollOffset + height;
@@ -2072,7 +2071,6 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
   // Virtual indices: tasks[0..n-1], show-all row (optional), add row (optional)
   const showAllIndex = hasShowAll ? tasks.length : -1;
   const addRowIndex = tasks.length + (hasShowAll ? 1 : 0);
-  const totalItems = tasks.length + (hasShowAll ? 1 : 0) + (showAddRow ? 1 : 0);
 
   const visible = tasks.slice(scrollOffset, scrollOffset + height);
   // Show special rows if they fall within visible window

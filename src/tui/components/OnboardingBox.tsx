@@ -40,15 +40,12 @@ export interface OnboardingBoxProps {
 
 /* ── Helpers ─────────────────────────────────────── */
 
-/** Right-pad string to width */
-const pad = (s: string, w: number) => s + ' '.repeat(Math.max(0, w - s.length));
-
 /** Bordered row: │  content  │ */
 function Row({ children, cw }: { children: string; cw: number }) {
   return (
     <Text>
       <Text color={tuiColors.ghost}>{V}</Text>
-      <Text>  {pad(children, cw)}  </Text>
+      <Text>  {children.padEnd(cw)}  </Text>
       <Text color={tuiColors.ghost}>{V}</Text>
     </Text>
   );
@@ -83,7 +80,7 @@ export function OnboardingBox({ count, config, width }: OnboardingBoxProps) {
         <Text>
           <Text color={tuiColors.ghost}>{V}  </Text>
           <Text color={tuiColors.amber}>{DIAMOND}</Text>
-          <Text color={tuiColors.silver}> {pad(config.nudge, cw - 2 - hintSuffix.length)}</Text>
+          <Text color={tuiColors.silver}> {config.nudge.padEnd(cw - 2 - hintSuffix.length)}</Text>
           {hint && (
             <>
               <Text color={tuiColors.amber}>  {hint.key}</Text>
@@ -122,7 +119,7 @@ export function OnboardingBox({ count, config, width }: OnboardingBoxProps) {
       {config.description.map((line, i) => (
         <Text key={i}>
           <Text color={tuiColors.ghost}>{V}  </Text>
-          <Text color={tuiColors.silver}>{pad(line, cw)}</Text>
+          <Text color={tuiColors.silver}>{line.padEnd(cw)}</Text>
           <Text>  </Text>
           <Text color={tuiColors.ghost}>{V}</Text>
         </Text>
