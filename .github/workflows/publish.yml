@@ -3,7 +3,6 @@ name: Publish to npm
 on:
   push:
     tags: ['v*']
-    branches: [main]
 
 jobs:
   publish:
