@@ -24,65 +24,55 @@ export async function runInit(opts: { name?: string } = {}): Promise<void> {
     return;
   }
 
-  // Create directory structure
-  await ensureDir(paths.tasksDir);
-  await ensureDir(paths.agentsDir);
-  await ensureDir(paths.goalsDir);
-  await ensureDir(paths.runsDir);
-  await ensureDir(paths.templatesDir);
-  await ensureDir(paths.logsDir);
+  // Create directory structure (all siblings, no deps — parallel)
+  await Promise.all([
+    ensureDir(paths.tasksDir),
+    ensureDir(paths.agentsDir),
+    ensureDir(paths.goalsDir),
+    ensureDir(paths.runsDir),
+    ensureDir(paths.templatesDir),
+    ensureDir(paths.logsDir),
+  ]);
 
-  // Write config
+  // Write config + static files (independent — parallel)
   const config = { ...DEFAULT_CONFIG };
-  if (opts.name) {
-    config.project.name = opts.name;
-  } else {
-    config.project.name = path.basename(projectRoot);
-  }
-  await writeYaml(paths.configPath, config);
+  config.project.name = opts.name ?? path.basename(projectRoot);
 
-  // Write .gitignore
-  await atomicWrite(
-    paths.gitignorePath,
-    [
-      '# Runtime state',
-      'state.json',
-      '*.lock',
-      '',
-      '# Logs and runs',
-      'runs/',
-      'logs/',
-      '',
-      '# Agent workspaces',
-      'workspaces/',
-    ].join('\n') + '\n',
-  );
+  const gitignoreContent = [
+    '# Runtime state',
+    'state.json',
+    '*.lock',
+    '',
+    '# Logs and runs',
+    'runs/',
+    'logs/',
+    '',
+    '# Agent workspaces',
+    'workspaces/',
+  ].join('\n') + '\n';
 
-  // Write workspace-exclude
-  await atomicWrite(
-    paths.workspaceExcludePath,
-    [
-      '.orchestry',
-      'node_modules',
-      '.env',
-      '.env.*',
-      'dist',
-      'build',
-      '.next',
-      '__pycache__',
-      '*.pyc',
-      '.venv',
-    ].join('\n') + '\n',
-  );
+  const excludeContent = [
+    '.orchestry',
+    'node_modules',
+    '.env',
+    '.env.*',
+    'dist',
+    'build',
+    '.next',
+    '__pycache__',
+    '*.pyc',
+    '.venv',
+  ].join('\n') + '\n';
 
-  // Write default template
-  await atomicWrite(paths.defaultTemplatePath(), DEFAULT_PROMPT_TEMPLATE);
-
-  // Write default agents
   const defaultAgents = getDefaultAgents();
-  await Promise.all(
-    defaultAgents.map((agent) => writeYaml(paths.agentPath(agent.id), agent)),
-  );
+
+  await Promise.all([
+    writeYaml(paths.configPath, config),
+    atomicWrite(paths.gitignorePath, gitignoreContent),
+    atomicWrite(paths.workspaceExcludePath, excludeContent),
+    atomicWrite(paths.defaultTemplatePath(), DEFAULT_PROMPT_TEMPLATE),
+    ...defaultAgents.map((agent) => writeYaml(paths.agentPath(agent.id), agent)),
+  ]);
 
   // Output
   console.log();
@@ -107,9 +97,7 @@ export function registerInitCommand(program: Command): void {
     .option('--name <name>', 'Project name')
     .action(async (opts: { name?: string }) => {
       await runInit(opts);
-      if (!program.parent) {
-        console.log(`  Next: ${dim('orch task add "Create backend agent" --assignee agt_creator')}`);
-        console.log();
-      }
+      console.log(`  Next: ${dim('orch task add "Create backend agent" --assignee agt_creator')}`);
+      console.log();
     });
 }

@@ -111,10 +111,12 @@ async function main(): Promise<void> {
   // Decide: light or full container
   const needsFull = !sub || sub in FULL_COMMANDS;
 
+  // Pre-load container module so it's available in both try and catch paths
+  const { buildFullContainer, buildLightContainer } = await import('../container.js');
+
   try {
     if (needsFull) {
       // Full container: orchestrator + adapters + LiquidJS
-      const { buildFullContainer } = await import('../container.js');
       const container = await buildFullContainer(context);
 
       // Register requested full command (or all if unknown sub)
@@ -136,7 +138,6 @@ async function main(): Promise<void> {
       }
     } else {
       // Light container: stores + services only (no ProcessManager, no adapters, no LiquidJS)
-      const { buildLightContainer } = await import('../container.js');
       const container = await buildLightContainer(context);
 
       const lightLoader = LIGHT_COMMANDS[sub];
@@ -163,11 +164,9 @@ async function main(): Promise<void> {
         await runInit();
 
         // Build full container now that .orchestry/ exists, register only tui
-        const { buildFullContainer } = await import('../container.js');
         const freshContainer = await buildFullContainer(context);
         await FULL_COMMANDS['tui']!(program, freshContainer);
-        process.argv.push('tui');
-        await program.parseAsync(process.argv);
+        await program.parseAsync([...process.argv, 'tui']);
         return;
       }
 
