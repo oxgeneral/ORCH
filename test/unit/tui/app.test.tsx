@@ -1952,7 +1952,7 @@ describe('GoalDetailPanel', () => {
     );
     await delay(80);
     const output = await openGoalDetail(stdin, lastFrame, goal.title);
-    expect(output).toContain('any');
+    expect(output).toContain('\u2014'); // em dash for unassigned
   });
 
   it('shows created_at date in detail panel', async () => {
