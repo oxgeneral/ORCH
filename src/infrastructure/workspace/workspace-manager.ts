@@ -147,6 +147,10 @@ export class WorkspaceManager implements IWorkspaceManager {
       proc.on('error', reject);
     });
 
+    // Remove .orchestry/ from worktree to prevent recursive state/workspaces
+    const worktreeOrchestry = path.join(workspacePath, '.orchestry');
+    await fs.rm(worktreeOrchestry, { recursive: true, force: true }).catch(() => {});
+
     return { path: workspacePath, branch: branchName };
   }
 
@@ -173,6 +177,10 @@ export class WorkspaceManager implements IWorkspaceManager {
         });
         proc.on('error', reject);
       });
+
+      // Remove .orchestry/ from clone to prevent recursive workspaces
+      const clonedOrchestry = path.join(workspacePath, '.orchestry');
+      await fs.rm(clonedOrchestry, { recursive: true, force: true }).catch(() => {});
     } catch {
       // Fallback: rsync
       const excludeFile = path.join(this.orchestryDir, 'workspace-exclude');

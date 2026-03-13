@@ -8,6 +8,8 @@ import type { AdapterRegistry } from '../infrastructure/adapters/registry.js';
 import type { IProcessManager } from '../infrastructure/process/process-manager.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 const execFileAsync = promisify(execFile);
 
@@ -61,6 +63,9 @@ export class DoctorService {
     // Check git repository (required for worktree/isolated workspace modes)
     checks.push(await this.checkGitRepo());
 
+    // Check .orchestry in root .gitignore (prevents recursive worktrees)
+    checks.push(await this.checkGitignore());
+
     // Check node
     checks.push(await this.checkCommand('node', ['--version'], 'node'));
 
@@ -81,6 +86,29 @@ export class DoctorService {
       return { name, status: 'ok', detail: stdout.trim() };
     } catch {
       return { name, status: 'fail', detail: `${command}: command not found` };
+    }
+  }
+
+  private async checkGitignore(): Promise<DoctorCheck> {
+    const cwd = this.projectRoot ?? process.cwd();
+    const gitignorePath = path.join(cwd, '.gitignore');
+    try {
+      const content = await fs.readFile(gitignorePath, 'utf-8');
+      const hasEntry = content.split('\n').some((line) => line.trim() === '.orchestry');
+      if (hasEntry) {
+        return { name: '.gitignore', status: 'ok', detail: '.orchestry is excluded' };
+      }
+      return {
+        name: '.gitignore',
+        status: 'fail',
+        detail: '.orchestry not in .gitignore — worktrees will copy state recursively. Run: orch init',
+      };
+    } catch {
+      return {
+        name: '.gitignore',
+        status: 'fail',
+        detail: 'no .gitignore found — .orchestry may be committed to git. Run: orch init',
+      };
     }
   }
 

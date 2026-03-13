@@ -6,6 +6,7 @@
 
 import type { Command } from 'commander';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { Paths } from '../../infrastructure/storage/paths.js';
 import { ensureDir, pathExists } from '../../infrastructure/storage/fs-utils.js';
 import { writeYaml, atomicWrite } from '../../infrastructure/storage/fs-utils.js';
@@ -74,6 +75,9 @@ export async function runInit(opts: { name?: string } = {}): Promise<void> {
     ...defaultAgents.map((agent) => writeYaml(paths.agentPath(agent.id), agent)),
   ]);
 
+  // Ensure .orchestry is in root .gitignore (prevents recursive worktrees)
+  await ensureRootGitignore(projectRoot);
+
   // Output
   console.log();
   printSuccess('initialized');
@@ -88,6 +92,25 @@ export async function runInit(opts: { name?: string } = {}): Promise<void> {
   console.log(`  ${dim('├──')} templates/default.md`);
   console.log(`  ${dim('└──')} .gitignore`);
   console.log();
+}
+
+/**
+ * Ensure `.orchestry` is listed in the project's root `.gitignore`.
+ * Appends the entry if missing — avoids recursive worktree copies.
+ */
+async function ensureRootGitignore(projectRoot: string): Promise<void> {
+  const gitignorePath = path.join(projectRoot, '.gitignore');
+  try {
+    const content = await fs.readFile(gitignorePath, 'utf-8');
+    // Already present (as a whole line)
+    if (content.split('\n').some((line) => line.trim() === '.orchestry')) return;
+    // Append
+    const separator = content.endsWith('\n') ? '' : '\n';
+    await fs.appendFile(gitignorePath, `${separator}\n# Orchestry state\n.orchestry\n`);
+  } catch {
+    // No .gitignore yet — create one
+    await atomicWrite(gitignorePath, '# Orchestry state\n.orchestry\n');
+  }
 }
 
 export function registerInitCommand(program: Command): void {
