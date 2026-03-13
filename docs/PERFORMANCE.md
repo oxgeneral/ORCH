@@ -9,7 +9,7 @@
 | CLI startup (`--help`) | 103ms (cold) / 75ms (warm) | 40ms | **-61%** |
 | CLI `task list` | 103ms | 78ms | **-24%** |
 | Build (tsup) | 2.7s | 1.6s | **-41%** |
-| Test suite (vitest) | 12.2s | 14.6s / 969 tests | **+316% tests, 15ms/test** |
+| Test suite (vitest) | 12.2s | 14.6s / 977 tests | **+319% tests, 15ms/test** |
 | TUI memory | OOM after ~27 min | Stable indefinitely | **Fixed** |
 
 All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx vitest run`.
@@ -36,7 +36,7 @@ All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx v
 
 | Phase | Before | After | Delta |
 |-------|--------|-------|-------|
-| Total wall time | 2.7s | 1.6s | -41% |
+| Total wall time | 2.7s | 1.35s | -50% |
 | DTS generation | 2× (CLI + index) | 1× (index only) | -50% |
 | CLI bundle | — | 462ms | — |
 | Index bundle | — | 260ms | — |
@@ -47,10 +47,10 @@ All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx v
 | Metric | Before | After | Delta |
 |--------|--------|-------|-------|
 | Total time | 12.2s | 14.6s | +20% (4× more tests) |
-| Transform | 1.6s | 2.1s | +31% |
-| Collect | 4.8s | 4.5s | -6% |
-| Test count | 233 → 969 | 969 | +316% |
-| Per-test avg | 52.4ms | 15.1ms | **-71%** |
+| Transform | 1.6s | 2.0s | +25% |
+| Collect | 4.8s | 4.0s | -17% |
+| Test count | 233 → 977 | 977 | +319% |
+| Per-test avg | 52.4ms | 14.9ms | **-72%** |
 
 ### TUI Memory
 
@@ -234,7 +234,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 
 - **CLI startup**: Target <50ms for `--help`, <100ms for commands
 - **Build**: Target <1.5s total wall time
-- **Tests**: Watch transform + collect phases (should be <7s combined). Per-test avg <16ms at 969 tests
+- **Tests**: Watch transform + collect phases (should be <7s combined). Per-test avg <15ms at 977 tests
 - **TUI memory**: Heap should plateau, not grow linearly
 
 ## 6. Performance Targets / SLOs
@@ -243,8 +243,8 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 |--------|--------|--------|--------|
 | `orch --help` | <50ms | 40ms | PASS |
 | `orch task list` | <100ms | 78ms | PASS |
-| `npm run build` | <1.5s | 1.6s | NEAR PASS ¹ |
-| `npx vitest run` (969 tests) | <16s | 14.6s | PASS |
+| `npm run build` | <1.5s | 1.35s | PASS |
+| `npx vitest run` (977 tests) | <16s | 14.6s | PASS |
 | TUI heap (30 min) | <512 MB | ~120 MB | PASS |
 | Reactive dispatch latency | <1s | ~500ms | PASS |
 | Tick duration | <5s | <1s typical | PASS |
@@ -253,7 +253,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 
 | History load (TUI) | <2s | <500ms (progressive) | PASS |
 
-¹ Build 1.6s exceeds 1.5s target but within 20% margin. Varies 1.1–1.6s across runs depending on DTS phase.
+Build varies 1.1–1.6s across runs depending on DTS phase; median ~1.35s.
 
 ## 7. Known Bottlenecks
 

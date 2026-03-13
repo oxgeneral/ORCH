@@ -10,7 +10,7 @@
     <a href="https://www.npmjs.com/package/@oxgeneral/orch"><img src="https://img.shields.io/npm/v/@oxgeneral/orch?color=cb0000" alt="npm" /></a>
     <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-one%20command-brightgreen" alt="One command setup" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
-    <a href="#development"><img src="https://img.shields.io/badge/tests-969%20passing-brightgreen" alt="Tests" /></a>
+    <a href="#development"><img src="https://img.shields.io/badge/tests-977%20passing-brightgreen" alt="Tests" /></a>
     <a href="#architecture"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
   </p>
 </p>
@@ -231,7 +231,7 @@ src/
 ```bash
 npm run dev            # Run via tsx
 npm run build          # Build ESM + DTS
-npm test               # 969 tests via Vitest
+npm test               # 977 tests via Vitest
 npm run typecheck      # Strict TypeScript
 ```
 
