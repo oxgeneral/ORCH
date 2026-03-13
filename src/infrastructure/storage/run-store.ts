@@ -33,6 +33,10 @@ export class RunStore implements IRunStore {
     return readJson<Run>(this.paths.runPath(id));
   }
 
+  async listAll(): Promise<Run[]> {
+    return this.listFiltered(() => true);
+  }
+
   async listForTask(taskId: string): Promise<Run[]> {
     return this.listFiltered((run) => run.task_id === taskId);
   }
@@ -60,8 +64,9 @@ export class RunStore implements IRunStore {
   async *streamEvents(runId: string, signal?: AbortSignal): AsyncGenerator<RunEvent> {
     const filePath = this.paths.runEventsPath(runId);
 
-    // Wait for file to exist
-    while (!signal?.aborted) {
+    // Wait for file to exist (max 30s to avoid infinite polling)
+    const deadline = Date.now() + 30_000;
+    while (!signal?.aborted && Date.now() < deadline) {
       try {
         await fs.access(filePath);
         break;
@@ -70,7 +75,7 @@ export class RunStore implements IRunStore {
       }
     }
 
-    if (signal?.aborted) return;
+    if (signal?.aborted || Date.now() >= deadline) return;
 
     const stream = createReadStream(filePath);
 

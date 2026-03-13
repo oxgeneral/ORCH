@@ -105,20 +105,26 @@ const MAX_JSONL_READ_SIZE = 50 * 1024 * 1024;
  * Falls back to reading only the last 200 records if the file exceeds MAX_JSONL_READ_SIZE.
  */
 export async function readJsonl<T>(filePath: string): Promise<T[]> {
+  let fh: import('node:fs/promises').FileHandle | undefined;
   try {
-    const stat = await fs.stat(filePath);
-    if (stat.size > MAX_JSONL_READ_SIZE) {
+    fh = await fs.open(filePath, 'r');
+    const { size } = await fh.stat();
+    if (size > MAX_JSONL_READ_SIZE) {
       process.stderr.write(
-        `[readJsonl] file too large (${(stat.size / 1024 / 1024).toFixed(1)} MB), reading tail only: ${filePath}\n`,
+        `[readJsonl] file too large (${(size / 1024 / 1024).toFixed(1)} MB), reading tail only: ${filePath}\n`,
       );
+      await fh.close();
+      fh = undefined;
       return readJsonlTail<T>(filePath, 200);
     }
-    const content = await fs.readFile(filePath, 'utf-8');
+    const content = await fh.readFile({ encoding: 'utf-8' });
     const lines = content.split('\n').filter((l) => l.trim().length > 0);
     return parseJsonlLines<T>(lines);
   } catch (err) {
     if (isENOENT(err)) return [];
     throw err;
+  } finally {
+    await fh?.close();
   }
 }
 
@@ -131,10 +137,11 @@ export async function readJsonl<T>(filePath: string): Promise<T[]> {
 export async function readJsonlTail<T>(filePath: string, count: number): Promise<T[]> {
   try {
     const stat = await fs.stat(filePath);
-    // For small files, just read the whole thing and slice
+    // For small files, read directly and slice (avoid mutual recursion with readJsonl)
     if (stat.size < 32768) {
-      const all = await readJsonl<T>(filePath);
-      return all.slice(-count);
+      const content = await fs.readFile(filePath, 'utf-8');
+      const lines = content.split('\n').filter((l) => l.trim().length > 0);
+      return parseJsonlLines<T>(lines).slice(-count);
     }
 
     // Read from end in chunks to find enough lines

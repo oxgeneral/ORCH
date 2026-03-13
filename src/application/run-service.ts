@@ -86,6 +86,10 @@ export class RunService {
     await this.runStore.appendEvent(runId, event);
   }
 
+  async listAll(): Promise<Run[]> {
+    return this.runStore.listAll();
+  }
+
   async listForTask(taskId: string): Promise<Run[]> {
     return this.runStore.listForTask(taskId);
   }

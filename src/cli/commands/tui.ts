@@ -128,12 +128,11 @@ export function registerTuiCommand(program: Command, container: Container): void
         type HistoryEntry = import('../../tui/App.js').HistoryEntry;
         type Run = import('../../domain/run.js').Run;
 
-        // Collect runs from all tasks in parallel
-        const runsPerTask = await Promise.all(tasks.map((t) => container.runService.listForTask(t.id)));
-        const allRuns: Run[] = runsPerTask.flat();
+        // Load all runs once (not per-task!) to avoid N×M file reads
+        const allRuns: Run[] = await container.runService.listAll();
 
-        // Sort by start time descending (newest first)
-        allRuns.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+        // Sort by start time descending (newest first) — already sorted by listAll
+
 
         // Progressive loading: first batch = last 3 runs (fast), second = next 7
         const FIRST_BATCH = 3;

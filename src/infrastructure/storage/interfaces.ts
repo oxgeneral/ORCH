@@ -33,6 +33,7 @@ export interface IAgentStore {
 export interface IRunStore {
   save(run: Run): Promise<void>;
   get(id: string): Promise<Run | null>;
+  listAll(): Promise<Run[]>;
   listForTask(taskId: string): Promise<Run[]>;
   listForAgent(agentId: string): Promise<Run[]>;
   appendEvent(runId: string, event: RunEvent): Promise<void>;
