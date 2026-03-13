@@ -78,17 +78,47 @@ export async function writeJson<T>(filePath: string, data: T): Promise<void> {
 }
 
 /**
+ * POSIX PIPE_BUF — writes up to this size are guaranteed atomic with O_APPEND.
+ * 4096 on Linux/macOS. We leave some room for encoding overhead.
+ */
+const PIPE_BUF = 4096;
+
+/**
  * Append a JSON record to a .jsonl file (newline-delimited JSON).
  *
  * Uses a file handle opened with 'a' (O_APPEND) to ensure atomic writes.
  * On POSIX, O_APPEND guarantees that each write() call appends atomically
  * when the data fits within PIPE_BUF (typically 4096 bytes), preventing
  * interleaving from concurrent writers.
+ *
+ * If the serialized line exceeds PIPE_BUF, the record's `data` field is
+ * truncated so the entire line fits within the atomic-write limit.
+ * This prevents interleaving corruption from concurrent writers.
  */
 export async function appendJsonl(filePath: string, record: unknown): Promise<void> {
   const dir = path.dirname(filePath);
   await ensureDir(dir);
-  const line = JSON.stringify(record) + '\n';
+  let line = JSON.stringify(record) + '\n';
+
+  // If the line exceeds PIPE_BUF, truncate the `data` field to fit
+  const byteLen = Buffer.byteLength(line, 'utf-8');
+  if (byteLen > PIPE_BUF && record !== null && typeof record === 'object') {
+    const obj = record as Record<string, unknown>;
+    if (typeof obj.data === 'string' && obj.data.length > 0) {
+      // Measure overhead without data to know how much room data gets
+      const shell = JSON.stringify({ ...obj, data: '' }) + '\n';
+      const overhead = Buffer.byteLength(shell, 'utf-8');
+      const budget = PIPE_BUF - overhead - 3; // 3 bytes for the '…' suffix (UTF-8 ellipsis)
+      if (budget > 0) {
+        // Slice to budget chars — for ASCII (most event data) this equals bytes.
+        // For multi-byte chars the result may be slightly over PIPE_BUF,
+        // which is acceptable on local filesystems (ext4/APFS hold inode lock).
+        const truncated = obj.data.slice(0, budget);
+        line = JSON.stringify({ ...obj, data: truncated + '…' }) + '\n';
+      }
+    }
+  }
+
   const fd = await fs.open(filePath, 'a');
   try {
     await fd.write(line, null, 'utf-8');

@@ -96,6 +96,44 @@ describe('appendJsonl / readJsonl', () => {
     const result = await readJsonl(path.join(tmpDir, 'missing.jsonl'));
     expect(result).toEqual([]);
   });
+
+  it('truncates data field when line exceeds PIPE_BUF (4096 bytes)', async () => {
+    const filePath = path.join(tmpDir, 'large.jsonl');
+    // Create a record with data > 4096 bytes
+    const largeData = 'x'.repeat(8000);
+    await appendJsonl(filePath, { type: 'agent_output', data: largeData, timestamp: '2026-01-01T00:00:00Z' });
+
+    const raw = await fs.readFile(filePath, 'utf-8');
+    const lineBytes = Buffer.byteLength(raw.trimEnd(), 'utf-8');
+    // The written line should fit within PIPE_BUF (4096)
+    expect(lineBytes).toBeLessThanOrEqual(4096);
+    // The data should end with ellipsis indicating truncation
+    const parsed = JSON.parse(raw.trimEnd()) as { data: string };
+    expect(parsed.data.endsWith('…')).toBe(true);
+    expect(parsed.data.length).toBeLessThan(largeData.length);
+  });
+
+  it('does not truncate records that fit within PIPE_BUF', async () => {
+    const filePath = path.join(tmpDir, 'small.jsonl');
+    const smallData = 'hello world';
+    await appendJsonl(filePath, { type: 'test', data: smallData });
+
+    const records = await readJsonl<{ type: string; data: string }>(filePath);
+    expect(records).toHaveLength(1);
+    expect(records[0].data).toBe(smallData);
+  });
+
+  it('handles records without data field exceeding PIPE_BUF', async () => {
+    const filePath = path.join(tmpDir, 'nodata.jsonl');
+    // Large record with numeric data (not truncatable)
+    const record = { type: 'test', data: 12345, extra: 'y'.repeat(5000) };
+    await appendJsonl(filePath, record);
+
+    // Should still write (no crash), even if > PIPE_BUF
+    const records = await readJsonl<typeof record>(filePath);
+    expect(records).toHaveLength(1);
+    expect(records[0].data).toBe(12345);
+  });
 });
 
 describe('ensureDir', () => {
