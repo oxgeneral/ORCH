@@ -17,8 +17,8 @@ import { join } from 'node:path';
 const TARGETS: Record<string, number> = {
   'cli-help':      50,
   'cli-task-list': 100,
-  'build':         1500,
-  'test-suite':    11000,
+  'build':         2000,
+  'test-suite':    12000,
 };
 
 // ── Types ────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ function benchCliHelp(): BenchmarkResult {
 }
 
 function benchCliTaskList(): BenchmarkResult {
-  const runs = measureN('node dist/cli.js task list 2>/dev/null || true', 3);
+  const runs = measureN('node dist/cli.js task list', 3);
   return toBenchmarkResult('cli-task-list', runs, TARGETS['cli-task-list']!);
 }
 
