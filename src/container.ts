@@ -187,7 +187,7 @@ export async function buildFullContainer(context: CliContext): Promise<Container
   adapterRegistry.register(new CursorAdapter(processManager));
   adapterRegistry.register(new ShellAdapter(processManager));
 
-  const doctorService = new DoctorService(adapterRegistry, processManager);
+  const doctorService = new DoctorService(adapterRegistry, processManager, context.projectRoot);
   const orchestrator = new Orchestrator({
     taskStore: light.taskStore,
     agentStore: light.agentStore,
