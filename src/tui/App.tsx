@@ -128,7 +128,7 @@ export interface AppProps {
   onApproveTask?: (taskId: string) => Promise<void>;
   onRejectTask?: (taskId: string, feedback?: string) => Promise<void>;
   onDeleteTask?: (taskId: string) => Promise<void>;
-  onUpdateTask?: (taskId: string, fields: { title?: string; description?: string; priority?: number }) => Promise<Task>;
+  onUpdateTask?: (taskId: string, fields: { title?: string; description?: string; priority?: number; attachments?: string[] }) => Promise<Task>;
   onUpdateAgent?: (agentId: string, fields: { name?: string; role?: string; model?: string; approval_policy?: string }) => Promise<Agent>;
   onForceStopAgent?: (agentId: string) => Promise<void>;
   onCreateTeam?: (input: CreateTeamInput) => Promise<Team>;
@@ -715,19 +715,19 @@ export function App({
     setInputMode('wizard');
   }, [liveAgents]);
 
-  /** Ctrl+I handler: detect clipboard image, save temp file, add to pendingAttachments */
-  const handlePasteImage = useCallback(async (): Promise<boolean> => {
+  /** Ctrl+I handler: detect clipboard type, save image to temp file if present. Returns clipboard content type. */
+  const handlePasteImage = useCallback(async (): Promise<'image' | 'text' | 'empty'> => {
     try {
       const { detectClipboardType, getClipboardImage } = await import('../infrastructure/clipboard-service.js');
       const clipType = await detectClipboardType();
       if (clipType !== 'image') {
-        addMessage('Clipboard has no image', tuiColors.dim);
-        return false;
+        addMessage(clipType === 'text' ? 'Clipboard has text, not image' : 'Clipboard is empty', tuiColors.dim);
+        return clipType;
       }
       const img = await getClipboardImage();
       if (!img) {
         addMessage('Failed to read clipboard image', tuiColors.red);
-        return false;
+        return 'empty';
       }
       // Save to temp file
       const { mkdtemp, writeFile } = await import('node:fs/promises');
@@ -738,10 +738,10 @@ export function App({
       await writeFile(filePath, img.data);
       setPendingAttachments((prev) => [...prev, filePath]);
       addMessage(`\uD83D\uDCCE Image attached (${Math.round(img.data.length / 1024)}KB)`, tuiColors.green);
-      return true;
+      return 'image';
     } catch {
       addMessage('Clipboard paste failed', tuiColors.red);
-      return false;
+      return 'empty';
     }
   }, [addMessage]);
 
@@ -842,10 +842,12 @@ export function App({
       );
     } else if (kind === 'edit_task' && targetId && onUpdateTask) {
       const fields = editTaskWizardToFields(values);
+      const attachments = pendingAttachments.length > 0 ? [...pendingAttachments] : undefined;
+      setPendingAttachments([]);
       addMessage(`Updating task...`, tuiColors.amber);
-      onUpdateTask(targetId, fields).then(
+      onUpdateTask(targetId, { ...fields, attachments }).then(
         (task) => {
-          addMessage(`\u2713 Updated "${task.title}"`, tuiColors.green);
+          addMessage(`\u2713 Updated "${task.title}"${attachments ? ` \uD83D\uDCCE${attachments.length}` : ''}`, tuiColors.green);
           // Re-assign if changed
           if (fields.assignee && onAssignTask) {
             onAssignTask(targetId, fields.assignee).catch(() => {});
@@ -1991,8 +1993,8 @@ export function App({
           onCancel={handleWizardCancel}
           width={ruleW}
           height={feedH}
-          onPasteImage={wizardConfig.kind === 'task' ? handlePasteImage : undefined}
-          footerExtra={pendingAttachments.length > 0 && wizardConfig.kind === 'task' ? `\uD83D\uDCCE${pendingAttachments.length}` : undefined}
+          onPasteImage={wizardConfig.kind === 'task' || wizardConfig.kind === 'edit_task' ? handlePasteImage : undefined}
+          footerExtra={pendingAttachments.length > 0 && (wizardConfig.kind === 'task' || wizardConfig.kind === 'edit_task') ? `\uD83D\uDCCE${pendingAttachments.length}` : undefined}
         />
       ) : showSuggestions ? (
         <>
@@ -2214,6 +2216,26 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
 
 /* ── Goal Detail Panel ──────────────────────────────── */
 
+/** Goal status → color mapping (mirrors GoalList STATUS_CHIP). */
+const GOAL_STATUS_COLOR: Record<string, string> = {
+  active: tuiColors.green,
+  paused: tuiColors.dim,
+  achieved: tuiColors.amber,
+  abandoned: tuiColors.ghost,
+};
+
+/** Section divider consistent with DetailPanel: ─── label ──────── */
+function GoalDivider({ label, width }: { label: string; width: number }) {
+  const innerW = width - 4;
+  const labelStr = ` ${label} `;
+  const rightLen = Math.max(0, innerW - 3 - labelStr.length);
+  return (
+    <Text color={tuiColors.ghost}>
+      {'  '}{'─'.repeat(3)}{labelStr}{'─'.repeat(rightLen)}
+    </Text>
+  );
+}
+
 function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressReport, scrollOffset = 0, onClampScroll }: {
   goal: Goal;
   height: number;
@@ -2224,79 +2246,121 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
   scrollOffset?: number;
   onClampScroll?: (v: number) => void;
 }) {
-  const assigneeName = goal.assignee ? (agentNameMap?.get(goal.assignee) ?? goal.assignee) : 'any';
+  const assigneeName = goal.assignee ? (agentNameMap?.get(goal.assignee) ?? goal.assignee) : '\u2014';
   const taskList = tasks ?? [];
   const progressLines = progressReport ? progressReport.split('\n') : [];
   const descLines = goal.description ? goal.description.split('\n') : [];
+  const statusColor = GOAL_STATUS_COLOR[goal.status] ?? tuiColors.dim;
+  const col1Width = 24;
 
-  // Build virtual lines: each entry is { key, node }
+  // Task status summary counts
+  const statusCounts = new Map<string, number>();
+  for (const t of taskList) {
+    statusCounts.set(t.status, (statusCounts.get(t.status) ?? 0) + 1);
+  }
+
+  // Build virtual lines
   type VLine = { key: string; node: React.ReactNode };
   const allLines: VLine[] = [];
 
-  // Header line 1: ID + Status
-  allLines.push({ key: 'hdr-id', node: (
-    <Text>
-      <Text color={tuiColors.dim}>{goal.id}  </Text>
-      <Text color={tuiColors.dim}>Status: </Text>
-      <Text color={goal.status === 'active' ? tuiColors.green : goal.status === 'achieved' ? tuiColors.amber : tuiColors.dim} bold>
-        {goal.status.toUpperCase()}
-      </Text>
-    </Text>
+  // Row 1: status + assignee (matches DetailPanel key-value layout)
+  allLines.push({ key: 'row-status', node: (
+    <Box>
+      <Box width={col1Width}>
+        <Text color={tuiColors.dim}>  status    </Text>
+        <Text color={statusColor} bold>{goal.status}</Text>
+      </Box>
+      <Box>
+        <Text color={tuiColors.dim}>  assignee  </Text>
+        <Text color={goal.assignee ? tuiColors.green : tuiColors.dim}>{assigneeName}</Text>
+      </Box>
+    </Box>
   ) });
 
-  // Header line 2: Assignee + Created + Updated
-  const updatedDiffers = goal.updated_at && goal.updated_at !== goal.created_at;
-  allLines.push({ key: 'hdr-meta', node: (
-    <Text>
-      <Text color={tuiColors.dim}>Assignee: </Text>
-      <Text color={tuiColors.silver}>{assigneeName}</Text>
-      <Text color={tuiColors.ghost}>  {'\u2502'}  </Text>
-      <Text color={tuiColors.dim}>Created: </Text>
-      <Text color={tuiColors.silver}>{goal.created_at.slice(0, 10)}</Text>
-      {updatedDiffers && (
-        <>
-          <Text color={tuiColors.ghost}>  {'\u2502'}  </Text>
-          <Text color={tuiColors.dim}>Updated: </Text>
-          <Text color={tuiColors.silver}>{goal.updated_at!.slice(0, 10)}</Text>
-        </>
-      )}
-    </Text>
+  // Row 2: id + created
+  allLines.push({ key: 'row-id', node: (
+    <Box>
+      <Box width={col1Width}>
+        <Text color={tuiColors.dim}>  id        </Text>
+        <Text color={tuiColors.dim}>{goal.id}</Text>
+      </Box>
+      <Box>
+        <Text color={tuiColors.dim}>  created   </Text>
+        <Text>{goal.created_at.slice(0, 10)}</Text>
+      </Box>
+    </Box>
   ) });
 
-  // Description (full, no cap)
+  // Row 3: updated (only if different from created)
+  if (goal.updated_at && goal.updated_at !== goal.created_at) {
+    allLines.push({ key: 'row-updated', node: (
+      <Box>
+        <Box width={col1Width}>
+          <Text color={tuiColors.dim}>{'  '}          </Text>
+        </Box>
+        <Box>
+          <Text color={tuiColors.dim}>  Updated   </Text>
+          <Text>{goal.updated_at.slice(0, 10)}</Text>
+        </Box>
+      </Box>
+    ) });
+  }
+
+  // Task summary counts
+  if (taskList.length > 0) {
+    const parts: string[] = [];
+    for (const [status, count] of statusCounts) {
+      parts.push(`${count} ${status}`);
+    }
+    allLines.push({ key: 'row-tasks-summary', node: (
+      <Box>
+        <Box width={col1Width}>
+          <Text color={tuiColors.dim}>  tasks     </Text>
+          <Text color={tuiColors.cyan}>{taskList.length}</Text>
+        </Box>
+        <Box>
+          <Text color={tuiColors.dim}>  </Text>
+          <Text color={tuiColors.dim}>{parts.join(' \u00B7 ')}</Text>
+        </Box>
+      </Box>
+    ) });
+  }
+
+  // Description section
   if (descLines.length > 0) {
     allLines.push({ key: 'desc-gap', node: <Text>{' '}</Text> });
     for (let i = 0; i < descLines.length; i++) {
       allLines.push({ key: `desc-${i}`, node: (
-        <Text color={tuiColors.silver} wrap="truncate">{descLines[i]}</Text>
+        <Text color={tuiColors.silver} wrap="truncate">{'  '}{descLines[i]}</Text>
       ) });
     }
   } else {
-    allLines.push({ key: 'desc-empty', node: <Text color={tuiColors.ghost} dimColor>No description</Text> });
+    allLines.push({ key: 'desc-gap', node: <Text>{' '}</Text> });
+    allLines.push({ key: 'desc-empty', node: <Text color={tuiColors.dim}>  No description.</Text> });
   }
 
-  // Tasks (full, no cap)
+  // Progress report section
+  if (progressLines.length > 0) {
+    allLines.push({ key: 'prog-gap', node: <Text>{' '}</Text> });
+    allLines.push({ key: 'prog-div', node: <GoalDivider label="progress" width={width} /> });
+    for (let i = 0; i < progressLines.length; i++) {
+      allLines.push({ key: `prog-${i}`, node: (
+        <Text color={tuiColors.white} wrap="truncate">{'  '}{progressLines[i]}</Text>
+      ) });
+    }
+  }
+
+  // Tasks section with divider
   if (taskList.length > 0) {
     allLines.push({ key: 'tasks-gap', node: <Text>{' '}</Text> });
-    allLines.push({ key: 'tasks-hdr', node: <Text color={tuiColors.dim}>Tasks ({taskList.length})</Text> });
+    allLines.push({ key: 'tasks-div', node: <GoalDivider label={`tasks (${taskList.length})`} width={width} /> });
     for (const t of taskList) {
       const sc = TASK_STATUS_COLOR[t.status] ?? tuiColors.dim;
       allLines.push({ key: `task-${t.id}`, node: (
         <Text color={tuiColors.silver} wrap="truncate">
-          {'  '}<Text color={sc}>{t.status.padEnd(11)}</Text>
-          {' '}{t.title.slice(0, Math.max(10, width - 20))}
+          {'  '}<Text color={sc}>{t.status.padEnd(12)}</Text>
+          {t.title.slice(0, Math.max(10, width - 22))}
         </Text>
-      ) });
-    }
-  }
-
-  // Progress report (full, no 3-line cap)
-  if (progressLines.length > 0) {
-    allLines.push({ key: 'prog-gap', node: <Text>{' '}</Text> });
-    allLines.push({ key: 'prog-hdr', node: <Text color={tuiColors.dim}>Progress</Text> });
-    for (let i = 0; i < progressLines.length; i++) {
-      allLines.push({ key: `prog-${i}`, node: (
-        <Text color={tuiColors.silver} wrap="truncate">{'  '}{progressLines[i]}</Text>
       ) });
     }
   }
@@ -2320,7 +2384,9 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
         <Box key={line.key}>{line.node}</Box>
       ))}
       {showScrollHint && (
-        <Text color={tuiColors.ghost}>{'\u2193'} {allLines.length - clamped - visibleCount} more {'\u2014'} scroll with \u2191\u2193</Text>
+        <Text color={tuiColors.ghost}>
+          {'  '}{'\u2193'} {allLines.length - clamped - visibleCount} more {'\u2014'} {'\u2191'}{'\u2193'} to scroll
+        </Text>
       )}
     </Box>
   );

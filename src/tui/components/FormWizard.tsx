@@ -41,8 +41,8 @@ export interface FormWizardProps {
   onCancel: () => void;
   width: number;
   height: number;
-  /** Called on Ctrl+I to attempt clipboard image paste. Return true if image was found. */
-  onPasteImage?: () => Promise<boolean>;
+  /** Called on Ctrl+I to attempt clipboard image paste. Returns clipboard content type. */
+  onPasteImage?: () => Promise<'image' | 'text' | 'empty'>;
   /** Extra text shown in the hint bar footer (e.g. attachment indicator) */
   footerExtra?: string;
 }
