@@ -78,7 +78,7 @@ export class Orchestrator {
   private consecutiveTickFailures = 0;
   private readonly maxConsecutiveTickFailures = 5;
   private readonly maxRetryQueueSize = 100;
-  private signalHandlers: Array<[string, (...args: any[]) => void]> = [];
+  private signalHandlers: Array<[NodeJS.Signals, () => void]> = [];
   private immediateDispatchTimer: ReturnType<typeof setTimeout> | null = null;
   private taskCreatedUnsub: (() => void) | null = null;
   private tickInProgress = false;

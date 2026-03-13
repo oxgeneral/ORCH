@@ -103,11 +103,9 @@ export function registerTaskCommand(program: Command, container: Container): voi
 
       const headers = ['STATUS', 'PRI', 'TASK', 'AGENT', 'TIME'];
       const rows = tasks.map((t) => {
-        const time = t.status === 'in_progress' && t.updated_at
+        const time = (t.status === 'in_progress' || t.status === 'done') && t.updated_at
           ? formatDurationSince(t.updated_at)
-          : t.status === 'done' && t.updated_at
-            ? formatDurationSince(t.updated_at)
-            : dim('—');
+          : dim('—');
 
         return [
           `${statusIcon(t.status)} ${t.status}`,

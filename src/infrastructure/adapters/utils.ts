@@ -30,8 +30,8 @@ export function extractTokens(
   }
 
   if (usage && typeof usage.input_tokens === 'number') {
-    const input = usage.input_tokens as number;
-    const output = (typeof usage.output_tokens === 'number' ? usage.output_tokens : 0) as number;
+    const input = usage.input_tokens;
+    const output = typeof usage.output_tokens === 'number' ? usage.output_tokens : 0;
     return createTokenUsage(input, output);
   }
   return undefined;
