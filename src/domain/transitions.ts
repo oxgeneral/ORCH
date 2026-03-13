@@ -7,6 +7,11 @@
  *                      ↘ failed (max attempts)
  *   review → todo (rejected)
  *   * → cancelled
+ *   failed → todo | retrying (manual reactivation)
+ *   cancelled → todo (manual reactivation)
+ *
+ * Terminal statuses (done, failed, cancelled) are not auto-dispatched
+ * by the orchestrator but may have manual outgoing transitions.
  */
 
 import type { Task, TaskStatus } from './task.js';
@@ -31,7 +36,9 @@ export function canTransition(from: TaskStatus, to: TaskStatus): boolean {
 }
 
 /**
- * Check if a task status is terminal (no further transitions expected).
+ * Check if a task status is terminal — the orchestrator will not
+ * auto-dispatch or retry it. Terminal tasks may still have valid
+ * manual transitions (e.g. cancelled → todo, failed → todo).
  */
 export function isTerminal(status: TaskStatus): boolean {
   return TERMINAL_STATUSES.has(status);
