@@ -13,21 +13,27 @@ export interface CommandSpec {
   args?: string;
   /** One-line description for /help */
   help: string;
+  /** Category group for suggestions panel */
+  category?: string;
 }
 
+const CAT_MANAGE = 'УПРАВЛЕНИЕ';
+const CAT_MONITOR = 'МОНИТОРИНГ';
+const CAT_SETTINGS = 'НАСТРОЙКИ';
+
 export const COMMAND_REGISTRY: Record<string, CommandSpec> = {
-  goal:      { sub: ['add', 'list', 'show', 'status', 'delete'], help: 'Manage goals' },
-  task:      { sub: ['add', 'list', 'show', 'cancel', 'retry', 'assign', 'approve', 'reject', 'delete'], help: 'Manage tasks' },
-  agent:     { sub: ['add', 'list', 'disable', 'enable', 'delete', 'autonomous', 'shop'], help: 'Manage agents' },
-  team:      { sub: ['create', 'list', 'join', 'leave', 'disband', 'set-lead'], help: 'Manage teams' },
-  run:       { args: '[id]', help: 'Run task (or selected)' },
-  'run-all': { help: 'Run all todo tasks' },
-  watch:     { help: 'Start watch mode (auto-dispatch)' },
-  pause:     { help: 'Pause watch mode' },
-  config:    { sub: ['activity-filter', 'max-concurrent'], help: 'TUI settings' },
-  status:    { help: 'Show orchestrator status' },
-  help:      { help: 'List all commands' },
-  quit:      { help: 'Exit the TUI' },
+  task:      { sub: ['add', 'list', 'show', 'cancel', 'retry', 'assign', 'approve', 'reject', 'delete'], help: 'Manage tasks', category: CAT_MANAGE },
+  agent:     { sub: ['add', 'list', 'disable', 'enable', 'delete', 'autonomous', 'shop'], help: 'Manage agents', category: CAT_MANAGE },
+  team:      { sub: ['create', 'list', 'join', 'leave', 'disband', 'set-lead'], help: 'Manage teams', category: CAT_MANAGE },
+  goal:      { sub: ['add', 'list', 'show', 'status', 'delete'], help: 'Manage goals', category: CAT_MANAGE },
+  run:       { args: '[id]', help: 'Run task (or selected)', category: CAT_MONITOR },
+  'run-all': { help: 'Run all todo tasks', category: CAT_MONITOR },
+  watch:     { help: 'Start watch mode (auto-dispatch)', category: CAT_MONITOR },
+  pause:     { help: 'Pause watch mode', category: CAT_MONITOR },
+  status:    { help: 'Show orchestrator status', category: CAT_MONITOR },
+  config:    { sub: ['activity-filter', 'max-concurrent'], help: 'TUI settings', category: CAT_SETTINGS },
+  help:      { help: 'List all commands', category: CAT_SETTINGS },
+  quit:      { help: 'Exit the TUI', category: CAT_SETTINGS },
 };
 
 /* ── Tab Completion ───────────────────────────────────── */
@@ -88,16 +94,36 @@ export function resolveSuggestions(input: string): Suggestion[] {
     // Filter top-level commands by prefix
     const prefix = body.toLowerCase();
     const results: Suggestion[] = [];
+
+    // Empty prefix — group by category with separator headers
+    if (!prefix) {
+      const CATEGORY_ORDER = [CAT_MANAGE, CAT_MONITOR, CAT_SETTINGS];
+      for (const cat of CATEGORY_ORDER) {
+        results.push({ cmd: '', desc: `\u2500\u2500 ${cat} \u2500\u2500` });
+        for (const [verb, spec] of Object.entries(COMMAND_REGISTRY)) {
+          if (spec.category === cat) {
+            const argsHint = spec.args ? ` ${spec.args}` : '';
+            results.push({
+              cmd: `/${verb}${argsHint}`,
+              desc: spec.help,
+              subs: spec.sub?.join(' · '),
+            });
+          }
+        }
+      }
+      return results;
+    }
+
     for (const [verb, spec] of Object.entries(COMMAND_REGISTRY)) {
-      if (!prefix || verb.startsWith(prefix)) {
+      if (verb.startsWith(prefix)) {
         const argsHint = spec.args ? ` ${spec.args}` : '';
         results.push({
           cmd: `/${verb}${argsHint}`,
           desc: spec.help,
           subs: spec.sub?.join(' · '),
         });
-        // If exact match or strong prefix, also show subcommands
-        if (prefix && verb === prefix && spec.sub) {
+        // If exact match, also show subcommands
+        if (verb === prefix && spec.sub) {
           for (const sub of spec.sub) {
             results.push({ cmd: `/${verb} ${sub}`, desc: `${spec.help}: ${sub}` });
           }

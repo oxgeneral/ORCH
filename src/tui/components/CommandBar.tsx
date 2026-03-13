@@ -37,11 +37,12 @@ export interface CommandBarProps {
   itemLabel: string;
   width: number;
   hasSuggestions?: boolean;
+  onboardingCompleted?: boolean;
 }
 
 export const CommandBar = React.memo(function CommandBar({
   mode, value, completion, activeView, canRun, canNew, canApprove, canReject, canCancel, canDelete, canUndo, canEdit, canForceStop, canToggleAuto, autoActive, canPause, isPaused, canToggleShowAll, showAllActive, hasDetail,
-  itemCount, itemLabel, width, hasSuggestions,
+  itemCount, itemLabel, width, hasSuggestions, onboardingCompleted,
 }: CommandBarProps) {
   if (mode === 'command') {
     const hintText = hasSuggestions
@@ -176,6 +177,9 @@ export const CommandBar = React.memo(function CommandBar({
         {'  '}
         <Text bold color={tuiColors.gray}>Q</Text>
         {' quit'}
+        {'  '}
+        <Text bold color={onboardingCompleted === false ? tuiColors.amber : tuiColors.gray}>?</Text>
+        <Text color={onboardingCompleted === false ? tuiColors.amber : undefined}>{' help'}</Text>
       </Text>
       {itemCount > 0 && <Text color={tuiColors.dim}>{itemCount} {itemLabel}</Text>}
     </Box>
