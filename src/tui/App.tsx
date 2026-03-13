@@ -3380,13 +3380,13 @@ function summarizeToolResult(content: unknown): string {
 }
 
 /** Extract human-readable text from agent output data (which may be raw JSON from Claude CLI) */
-function formatAgentOutput(raw: string): { summary: string; detail: string } {
-  // Truncate detail early — raw can be 100KB+ for tool results with file contents
-  const detail = raw.length > MAX_DETAIL_LEN ? raw.slice(0, MAX_DETAIL_LEN) + '…' : raw;
+function formatAgentOutput(raw: string): { summary: string | null; detail: string } {
+  // Lazy detail — avoids slicing 100KB+ strings for messages that will be skipped
+  const detail = () => raw.length > MAX_DETAIL_LEN ? raw.slice(0, MAX_DETAIL_LEN) + '…' : raw;
 
   // Skip bracket-tags like [init], [hook_started], [hook_response]
   if (LIFECYCLE_TAG_RE.test(raw.trim())) {
-    return { summary: raw.trim(), detail };
+    return { summary: raw.trim(), detail: detail() };
   }
 
   try {
@@ -3395,49 +3395,49 @@ function formatAgentOutput(raw: string): { summary: string; detail: string } {
     // Claude API message: {"type":"message","role":"assistant","content":[...]}
     if (parsed.type === 'message' && parsed.role === 'assistant') {
       const text = extractTextFromContent(parsed.content);
-      if (text) return { summary: text.slice(0, 200), detail };
+      if (text) return { summary: text.slice(0, 200), detail: detail() };
       // Empty assistant messages (tool_use-only or empty content) — skip
-      return { summary: '', detail };
+      return { summary: null, detail: '' };
     }
 
     // Claude stream: {"type":"assistant","message":{"content":[...]}}
     if (parsed.type === 'assistant' || parsed.role === 'assistant') {
       const content = parsed.message?.content ?? parsed.content;
       const text = extractTextFromContent(content);
-      if (text) return { summary: text.slice(0, 200), detail };
+      if (text) return { summary: text.slice(0, 200), detail: detail() };
       // Empty assistant messages (tool_use-only or empty content) — skip
-      return { summary: '', detail };
+      return { summary: null, detail: '' };
     }
 
     // User message (tool results flowing back)
     if (parsed.type === 'user' || parsed.role === 'user') {
       const content = parsed.message?.content ?? parsed.content;
       const summary = summarizeToolResult(content);
-      return { summary: `\u2190 ${summary.slice(0, 180)}`, detail };
+      return { summary: `\u2190 ${summary.slice(0, 180)}`, detail: detail() };
     }
 
     // Tool use block
     if (parsed.type === 'tool_use') {
       const name = parsed.name ?? 'tool';
       const hint = formatToolInput(name, parsed.input);
-      return { summary: `\u2699 ${name}(${hint})`, detail };
+      return { summary: `\u2699 ${name}(${hint})`, detail: detail() };
     }
 
     // Tool result block
     if (parsed.type === 'tool_result') {
       const summary = summarizeToolResult(parsed.content);
-      return { summary: `\u2190 ${summary.slice(0, 180)}`, detail };
+      return { summary: `\u2190 ${summary.slice(0, 180)}`, detail: detail() };
     }
 
     // Result / done
     if (parsed.type === 'result') {
       const text = typeof parsed.result === 'string' ? parsed.result : null;
-      return { summary: text ? `\u2713 ${text.slice(0, 180)}` : '\u2713 Agent finished', detail };
+      return { summary: text ? `\u2713 ${text.slice(0, 180)}` : '\u2713 Agent finished', detail: detail() };
     }
 
     // Rate limit event
     if (parsed.type === 'rate_limit_event') {
-      return { summary: `\u23F3 Rate limited (${parsed.rate_limit_info?.rateLimitType ?? 'unknown'})`, detail };
+      return { summary: `\u23F3 Rate limited (${parsed.rate_limit_info?.rateLimitType ?? 'unknown'})`, detail: detail() };
     }
 
     // System event with subtype (task_progress, task_notification, etc.)
@@ -3446,23 +3446,23 @@ function formatAgentOutput(raw: string): { summary: string; detail: string } {
       if (parsed.message) {
         const content = parsed.message.content ?? parsed.message;
         const text = extractTextFromContent(content);
-        if (text) return { summary: text.slice(0, 200), detail };
+        if (text) return { summary: text.slice(0, 200), detail: detail() };
       }
-      return { summary: `[${parsed.subtype}]`, detail };
+      return { summary: `[${parsed.subtype}]`, detail: detail() };
     }
 
     // Generic: try content field
     if (parsed.content) {
       const text = extractTextFromContent(parsed.content);
-      if (text) return { summary: text.slice(0, 200), detail };
+      if (text) return { summary: text.slice(0, 200), detail: detail() };
     }
 
     // Fallback: show type or truncate
-    if (parsed.type) return { summary: `[${parsed.type}]`, detail };
-    return { summary: raw.slice(0, 150), detail };
+    if (parsed.type) return { summary: `[${parsed.type}]`, detail: detail() };
+    return { summary: raw.slice(0, 150), detail: detail() };
   } catch {
     // Truncated JSON or plain text — try regex extraction for known fields
-    return { summary: extractSummaryFromTruncated(raw), detail };
+    return { summary: extractSummaryFromTruncated(raw), detail: detail() };
   }
 }
 
