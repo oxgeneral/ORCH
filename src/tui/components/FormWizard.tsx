@@ -41,7 +41,7 @@ export interface FormWizardProps {
   onCancel: () => void;
   width: number;
   height: number;
-  /** Called on Ctrl+I to attempt clipboard image paste. Returns clipboard content type. */
+  /** Called on Ctrl+V (or Ctrl+I fallback) to attempt clipboard image paste. Returns clipboard content type. */
   onPasteImage?: () => Promise<'image' | 'text' | 'empty'>;
   /** Extra text shown in the hint bar footer (e.g. attachment indicator) */
   footerExtra?: string;
@@ -226,8 +226,8 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       return;
     }
 
-    // Ctrl+I: paste image from clipboard (for text/textarea steps)
-    if (key.ctrl && input === 'i' && onPasteImage && (step.type === 'text' || step.type === 'textarea')) {
+    // Ctrl+V / Ctrl+I: paste image from clipboard (for text/textarea steps)
+    if (key.ctrl && (input === 'v' || input === 'i') && onPasteImage && (step.type === 'text' || step.type === 'textarea')) {
       onPasteImage();
       return;
     }
@@ -613,7 +613,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
               : step.type === 'textarea'
                 ? 'Shift+Enter newline  Enter confirm  \u2190\u2191\u2192\u2193 navigate'
                 : '\u2190\u2192 move  Enter confirm'}
-          {onPasteImage && (step.type === 'text' || step.type === 'textarea') ? '  Ctrl+I paste image' : ''}
+          {onPasteImage && (step.type === 'text' || step.type === 'textarea') ? '  Ctrl+V paste image' : ''}
           {'  Esc '}
           {currentStep > 0 ? 'back' : 'cancel'}
         </Text>

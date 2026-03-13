@@ -822,6 +822,8 @@ describe('FormWizard textarea', () => {
 describe('FormWizard clipboard paste (onPasteImage / footerExtra)', () => {
   // Kitty keyboard protocol CSI u: codepoint 105 ('i'), modifier 5 (ctrl+1)
   const CTRL_I = '\x1b[105;5u';
+  // Kitty keyboard protocol CSI u: codepoint 118 ('v'), modifier 5 (ctrl+1)
+  const CTRL_V = '\x1b[118;5u';
 
   function makeTextStep(): WizardStep[] {
     return [{ id: 'title', label: 'Title', type: 'text', required: true }];
@@ -918,7 +920,82 @@ describe('FormWizard clipboard paste (onPasteImage / footerExtra)', () => {
     expect(onComplete).not.toHaveBeenCalled();
   });
 
-  it('shows Ctrl+I hint in footer when onPasteImage provided for text step', async () => {
+  it('calls onPasteImage on Ctrl+V for text step', async () => {
+    const onPasteImage = vi.fn().mockResolvedValue('image');
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextStep(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+        onPasteImage,
+      }),
+    );
+    await delay(50);
+    stdin.write(CTRL_V);
+    await delay(50);
+    expect(onPasteImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onPasteImage on Ctrl+V for textarea step', async () => {
+    const onPasteImage = vi.fn().mockResolvedValue('image');
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextareaSteps(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+        onPasteImage,
+      }),
+    );
+    await delay(50);
+    stdin.write(CTRL_V);
+    await delay(50);
+    expect(onPasteImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT call onPasteImage on Ctrl+V for select step', async () => {
+    const onPasteImage = vi.fn().mockResolvedValue('image');
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeSelectStep(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+        onPasteImage,
+      }),
+    );
+    await delay(50);
+    stdin.write(CTRL_V);
+    await delay(50);
+    expect(onPasteImage).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call onPasteImage on Ctrl+V when prop is undefined', async () => {
+    const onComplete = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextStep(),
+        onComplete,
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+    stdin.write(CTRL_V);
+    await delay(50);
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('shows Ctrl+V hint in footer when onPasteImage provided for text step', async () => {
     const { lastFrame } = render(
       React.createElement(FormWizard, {
         title: 'Test',
@@ -931,10 +1008,10 @@ describe('FormWizard clipboard paste (onPasteImage / footerExtra)', () => {
       }),
     );
     await delay(50);
-    expect(lastFrame()!).toContain('Ctrl+I paste image');
+    expect(lastFrame()!).toContain('Ctrl+V paste image');
   });
 
-  it('does NOT show Ctrl+I hint when onPasteImage not provided', async () => {
+  it('does NOT show paste hint when onPasteImage not provided', async () => {
     const { lastFrame } = render(
       React.createElement(FormWizard, {
         title: 'Test',
@@ -946,7 +1023,7 @@ describe('FormWizard clipboard paste (onPasteImage / footerExtra)', () => {
       }),
     );
     await delay(50);
-    expect(lastFrame()!).not.toContain('Ctrl+I paste image');
+    expect(lastFrame()!).not.toContain('Ctrl+V paste image');
   });
 
   it('renders footerExtra text when provided', async () => {
