@@ -167,6 +167,26 @@ describe('WorkspaceManager', () => {
       expect(result.branch).toMatch(/^orchestry\//);
     });
 
+    it('uses task id as fallback when title has only CJK characters', async () => {
+      const task = makeTask({ id: 'tsk_cjk1', title: '修复数据库连接' });
+      const result = await manager.prepare(task, makeAgent(), DEFAULT_CONFIG);
+
+      const spawnArgs = (processManager.spawn as ReturnType<typeof vi.fn>).mock.calls[0];
+      const branchArg = spawnArgs[1][spawnArgs[1].indexOf('-b') + 1];
+      // sanitizeTitle returns '' for CJK → fallback to sanitizeId(task.id)
+      expect(branchArg).toBe('orchestry/tsk_cjk1/tsk_cjk1');
+      expect(result.branch).toBe('orchestry/tsk_cjk1/tsk_cjk1');
+    });
+
+    it('uses task id as fallback when title has only emoji', async () => {
+      const task = makeTask({ id: 'tsk_emo1', title: '🚀🎉✨' });
+      const result = await manager.prepare(task, makeAgent(), DEFAULT_CONFIG);
+
+      const spawnArgs = (processManager.spawn as ReturnType<typeof vi.fn>).mock.calls[0];
+      const branchArg = spawnArgs[1][spawnArgs[1].indexOf('-b') + 1];
+      expect(branchArg).toBe('orchestry/tsk_emo1/tsk_emo1');
+    });
+
     it('throws when git worktree add fails', async () => {
       processManager = createMockProcessManager(1); // exit code 1
       manager = new WorkspaceManager(tmpDir, orchestryDir, processManager);

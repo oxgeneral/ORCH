@@ -96,7 +96,8 @@ export class WorkspaceManager implements IWorkspaceManager {
     );
     await ensureDir(path.dirname(workspacePath));
 
-    const branchName = `orchestry/${sanitizeId(task.id)}/${sanitizeTitle(task.title)}`;
+    const titleSlug = sanitizeTitle(task.title) || sanitizeId(task.id);
+    const branchName = `orchestry/${sanitizeId(task.id)}/${titleSlug}`;
 
     const { process: proc } = this.processManager.spawn(
       'git',
