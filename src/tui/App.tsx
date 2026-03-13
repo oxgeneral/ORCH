@@ -1274,6 +1274,58 @@ export function App({
         return;
       }
 
+      // ── /goal group ──
+      case 'goal': {
+        const sub = parts[1]?.toLowerCase();
+        if (sub === 'add' || sub === 'create') {
+          const title = parts.slice(2).join(' ').trim();
+          if (!title) {
+            if (!onCreateGoal) { addMessage('Goal creation not available', tuiColors.yellow); return; }
+            const steps = getGoalWizardSteps(liveAgents);
+            setWizardConfig({ title: 'New Goal', steps, kind: 'goal' });
+            setInputMode('wizard');
+            return;
+          }
+          if (!onCreateGoal) { addMessage('Goal creation not available', tuiColors.yellow); return; }
+          addMessage(`Creating goal "${title}"...`, tuiColors.amber);
+          onCreateGoal({ title }).then(
+            (goal) => { addMessage(`\u2713 Created goal "${goal.title}" (${goal.id})`, tuiColors.green); refreshAll(); },
+            (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
+          );
+        } else if (sub === 'list') {
+          const lines = sortedGoals.map((g) => `  ${g.id}  ${g.status.padEnd(8)} ${g.title}`);
+          if (lines.length === 0) addMessage('No goals', tuiColors.dim);
+          else for (const line of lines) addMessage(line, tuiColors.cyan);
+        } else if (sub === 'show') {
+          const g = parts[2] ? sortedGoals.find((x) => x.id === parts[2]) : selectedGoal;
+          if (!g) { addMessage('No goal selected or id given', tuiColors.yellow); return; }
+          addMessage(`${g.id}  ${g.status}  "${g.title}"`, tuiColors.cyan);
+          if (g.description) addMessage(`  ${g.description.slice(0, 100)}`, tuiColors.dim);
+        } else if (sub === 'status') {
+          const g = parts[2] ? sortedGoals.find((x) => x.id === parts[2]) : selectedGoal;
+          if (!g) { addMessage('No goal selected or id given', tuiColors.yellow); return; }
+          const newStatus = parts[parts[2] && sortedGoals.find((x) => x.id === parts[2]) ? 3 : 2] as GoalStatus | undefined;
+          if (!newStatus || !['active', 'paused', 'achieved', 'abandoned'].includes(newStatus)) {
+            addMessage('Usage: /goal status [id] <active|paused|achieved|abandoned>', tuiColors.yellow);
+            return;
+          }
+          if (!onUpdateGoalStatus) { addMessage('Status update not available', tuiColors.yellow); return; }
+          addMessage(`Updating goal status to ${newStatus}...`, tuiColors.amber);
+          onUpdateGoalStatus(g.id, newStatus).then(
+            (goal) => { addMessage(`\u2713 Goal "${goal.title}" → ${newStatus}`, tuiColors.green); refreshAll(); },
+            (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
+          );
+        } else if (sub === 'delete') {
+          const g = parts[2] ? sortedGoals.find((x) => x.id === parts[2]) : selectedGoal;
+          if (!g) { addMessage('No goal selected or id given', tuiColors.yellow); return; }
+          if (!onDeleteGoal) { addMessage('Goal deletion not available', tuiColors.yellow); return; }
+          scheduleDeletion('goal', g.id, g.title);
+        } else {
+          addMessage('Usage: /goal add|list|show|status|delete', tuiColors.yellow);
+        }
+        return;
+      }
+
       // ── /run, /run-all ──
       case 'run': {
         const idArg = parts[1] ?? selectedTask?.id;
