@@ -2524,6 +2524,14 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
   // Pad with empty rows so the component always renders exactly `height` rows
   const padRows = Math.max(0, height - visible.length);
 
+  // Pre-compute agent group index for zebra striping
+  let groupIdx = 0;
+  const groupIndices: number[] = [];
+  for (let j = 0; j < visible.length; j++) {
+    if (j > 0 && visible[j]!.agentId !== visible[j - 1]!.agentId) groupIdx++;
+    groupIndices.push(groupIdx);
+  }
+
   return (
     <Box flexDirection="column" paddingX={1}>
       {padRows > 0 && <Box height={padRows} />}
@@ -2547,33 +2555,35 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
         const prevMsg = i > 0 ? visible[i - 1] : undefined;
         const isContinuation = prevMsg?.agentId === msg.agentId && !!msg.agentId;
 
-        // Background for errors
-        const rowBg = msgType === 'error' ? tuiColors.errorBg : undefined;
+        // Semantic row background: zebra for groups, override for errors/tools
+        const isOddGroup = (groupIndices[i]! & 1) === 1;
+        const rowBg = msgType === 'error' ? tuiColors.errorBg
+          : msgType === 'tool' || msgType === 'result' ? tuiColors.toolBg
+          : isOddGroup ? tuiColors.void : undefined;
+
         const relTs = relativeTime(msg.ts, now);
         const displayText = msg.text.length > textW ? msg.text.slice(0, textW - 1) + '…' : msg.text;
 
         return (
           <Box key={i} backgroundColor={rowBg}>
-            {/* Left border accent */}
+            {/* Left border accent — colored stripe per agent */}
             <Text color={agentColor ?? tuiColors.ghost}>
-              {!isContinuation && agentName ? '┌' : isContinuation ? '│' : ' '}
+              {!isContinuation && agentName ? '▍' : isContinuation ? '▏' : ' '}
             </Text>
-            {/* Relative timestamp */}
+            {/* Relative timestamp — dimmed on continuation */}
             <Box width={5}>
-              <Text color={relTs === 'now' ? tuiColors.green : tuiColors.ghost}>
-                {relTs.padStart(4)}
+              <Text color={isContinuation ? tuiColors.ghost : relTs === 'now' ? tuiColors.green : tuiColors.dim}>
+                {isContinuation ? '    ' : relTs.padStart(4)}
               </Text>
             </Box>
             <Box width={9}>
               {agentName && !isContinuation ? (
                 <Text color={agentColor} bold>{' '}{agentName.slice(0, 8)}</Text>
-              ) : agentName && isContinuation ? (
-                <Text color={agentColor ?? tuiColors.ghost}>{' ·'}</Text>
               ) : (
-                <Text color={tuiColors.ghost}>{' '}</Text>
+                <Text color={tuiColors.ghost}>{' '.repeat(9)}</Text>
               )}
             </Box>
-            <Text color={msgType === 'error' ? tuiColors.red : agentColor ?? tuiColors.dim}>{icon} </Text>
+            <Text color={msgType === 'error' ? tuiColors.red : isContinuation ? tuiColors.ghost : agentColor ?? tuiColors.dim}>{icon} </Text>
             <Text color={textColor} bold={msgType === 'lifecycle'}>{displayText}</Text>
           </Box>
         );
