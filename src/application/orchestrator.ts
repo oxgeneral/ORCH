@@ -321,6 +321,7 @@ export class Orchestrator {
       const entry = state.running[taskId];
 
       if (entry) {
+        this.abortControllers.get(taskId)?.abort();
         this.abortControllers.delete(taskId);
         await this.deps.processManager.killWithGrace(entry.pid, 3_000).catch((err) => {
           this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `cancelTask kill process ${entry.pid} for task ${taskId}`, fatal: false });

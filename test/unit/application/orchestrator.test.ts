@@ -709,6 +709,46 @@ describe('Orchestrator', () => {
       expect(deps.processManager.killWithGrace).toHaveBeenCalledWith(55555, 3_000);
     });
 
+    it('calls abort() on AbortController before deleting it', async () => {
+      const task = makeTask({ id: 'tsk_abort', status: 'in_progress', attempts: 1 });
+      const agent = makeAgent();
+      const run = makeRun({ id: 'run_abort' });
+      const runStore = createMockRunStore();
+      (runStore.get as ReturnType<typeof vi.fn>).mockResolvedValue(structuredClone(run));
+
+      const stateStore = createMockStateStore({
+        running: {
+          [task.id]: {
+            run_id: run.id,
+            agent_id: agent.id,
+            task_id: task.id,
+            pid: 66666,
+            started_at: '2025-01-01T00:00:00Z',
+            last_event_at: '2025-01-01T00:00:00Z',
+          },
+        },
+      });
+
+      deps = buildDeps({
+        taskStore: createMockTaskStore([task]),
+        agentStore: createMockAgentStore([agent]),
+        runStore,
+        stateStore,
+      });
+
+      orchestrator = new Orchestrator(deps);
+      (orchestrator as any).lockAcquired = true;
+
+      const abortController = new AbortController();
+      const abortSpy = vi.spyOn(abortController, 'abort');
+      (orchestrator as any).abortControllers.set('tsk_abort', abortController);
+
+      await orchestrator.cancelTask('tsk_abort');
+
+      expect(abortSpy).toHaveBeenCalled();
+      expect((orchestrator as any).abortControllers.has('tsk_abort')).toBe(false);
+    });
+
     it('clears retry queue entries for cancelled task', async () => {
       const task = makeTask({ id: 'tsk_cr', status: 'retrying' });
 
