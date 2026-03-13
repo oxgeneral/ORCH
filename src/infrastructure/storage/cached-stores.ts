@@ -50,6 +50,7 @@ export class CachedTaskStore implements ITaskStore {
 
 export class CachedAgentStore implements IAgentStore {
   private listCache: Agent[] | null = null;
+  private nameCache: Map<string, Agent | null> = new Map();
 
   constructor(private readonly inner: IAgentStore) {}
 
@@ -68,21 +69,30 @@ export class CachedAgentStore implements IAgentStore {
   }
 
   async getByName(name: string): Promise<Agent | null> {
-    return this.inner.getByName(name);
+    if (this.nameCache.has(name)) {
+      return this.nameCache.get(name)!;
+    }
+
+    const result = await this.inner.getByName(name);
+    this.nameCache.set(name, result);
+    return result;
   }
 
   async save(agent: Agent): Promise<void> {
     await this.inner.save(agent);
     this.listCache = null;
+    this.nameCache.clear();
   }
 
   async delete(id: string): Promise<void> {
     await this.inner.delete(id);
     this.listCache = null;
+    this.nameCache.clear();
   }
 
   invalidate(): void {
     this.listCache = null;
+    this.nameCache.clear();
   }
 }
 

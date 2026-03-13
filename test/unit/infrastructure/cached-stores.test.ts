@@ -147,8 +147,29 @@ describe('CachedAgentStore', () => {
     expect(inner.get).toHaveBeenCalledTimes(2);
   });
 
-  it('delegates getByName() without caching', async () => {
+  it('caches getByName() results within tick', async () => {
     await cached.getByName('Agent a1');
+    await cached.getByName('Agent a1');
+    expect(inner.getByName).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalidates nameCache on save', async () => {
+    await cached.getByName('Agent a1');
+    await cached.save({ id: 'a1', name: 'Agent a1' } as Agent);
+    await cached.getByName('Agent a1');
+    expect(inner.getByName).toHaveBeenCalledTimes(2);
+  });
+
+  it('invalidates nameCache on delete', async () => {
+    await cached.getByName('Agent a1');
+    await cached.delete('a1');
+    await cached.getByName('Agent a1');
+    expect(inner.getByName).toHaveBeenCalledTimes(2);
+  });
+
+  it('invalidates nameCache on invalidate()', async () => {
+    await cached.getByName('Agent a1');
+    cached.invalidate();
     await cached.getByName('Agent a1');
     expect(inner.getByName).toHaveBeenCalledTimes(2);
   });

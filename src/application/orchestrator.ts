@@ -575,13 +575,17 @@ export class Orchestrator {
       }
     }
 
-    // Process retry queue — dispatchTask handles the status transition
-    for (let i = state.retry_queue.length - 1; i >= 0; i--) {
-      const retry = state.retry_queue[i]!;
+    // Process retry queue — filter builds new array instead of mutating with splice
+    const dueRetries: string[] = [];
+    state.retry_queue = state.retry_queue.filter((retry) => {
       if (now >= new Date(retry.due_at).getTime()) {
-        state.retry_queue.splice(i, 1);
-        await this.dispatchTask(retry.task_id);
+        dueRetries.push(retry.task_id);
+        return false;
       }
+      return true;
+    });
+    for (const taskId of dueRetries) {
+      await this.dispatchTask(taskId);
     }
 
     await this.saveState();
