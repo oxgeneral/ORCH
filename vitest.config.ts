@@ -1,4 +1,8 @@
+import { availableParallelism } from 'node:os';
 import { defineConfig } from 'vitest/config';
+
+const isCI = !!process.env['CI'];
+const maxThreads = isCI ? 2 : Math.max(2, availableParallelism());
 
 export default defineConfig({
   test: {
@@ -8,7 +12,7 @@ export default defineConfig({
     pool: 'threads',
     poolOptions: {
       threads: {
-        maxThreads: 4,
+        maxThreads,
       },
     },
     typecheck: {

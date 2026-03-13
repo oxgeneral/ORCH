@@ -19,6 +19,7 @@ const TARGETS: Record<string, number> = {
   'cli-task-list': 100,
   'build':         2000,
   'test-suite':    12000,
+  'tick-cycle':    50,
 };
 
 // ── Types ────────────────────────────────────────────────────
@@ -99,6 +100,114 @@ function benchTestSuite(): BenchmarkResult {
   return toBenchmarkResult('test-suite', runs, TARGETS['test-suite']!);
 }
 
+async function benchTickCycle(): Promise<BenchmarkResult> {
+  // Dynamic imports — only resolved when running via tsx
+  const { EventBus } = await import('../src/application/event-bus.js');
+  const { TaskService } = await import('../src/application/task-service.js');
+  const { AgentService } = await import('../src/application/agent-service.js');
+  const { RunService } = await import('../src/application/run-service.js');
+  const { AdapterRegistry } = await import('../src/infrastructure/adapters/registry.js');
+  const { Orchestrator } = await import('../src/application/orchestrator.js');
+  const { DEFAULT_CONFIG } = await import('../src/domain/config.js');
+  const { DEFAULT_STATE } = await import('../src/domain/state.js');
+
+  const TICK_RUNS = 100;
+  const config = { ...DEFAULT_CONFIG, scheduling: { ...DEFAULT_CONFIG.scheduling, poll_interval_ms: 999_999 } };
+
+  // Minimal in-memory mock stores
+  const taskStore = {
+    list: async () => Array.from({ length: 10 }, (_, i) => ({
+      id: `tsk_${i}`, title: `T${i}`, description: '', status: 'todo' as const,
+      priority: 2, labels: [], depends_on: [], created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-01T00:00:00Z', attempts: 0, max_attempts: 3,
+    })),
+    get: async () => null,
+    save: async () => {},
+    delete: async () => {},
+  };
+
+  const agentStore = {
+    list: async () => Array.from({ length: 3 }, (_, i) => ({
+      id: `agt_${i}`, name: `A${i}`, adapter: 'shell', status: 'idle' as const,
+      config: { approval_policy: 'auto' as const, max_turns: 50, timeout_ms: 3_600_000, stall_timeout_ms: 300_000 },
+      stats: { tasks_completed: 0, tasks_failed: 0, total_runs: 0, total_runtime_ms: 0 },
+    })),
+    get: async () => null,
+    getByName: async () => null,
+    save: async () => {},
+    delete: async () => {},
+  };
+
+  const runStore = {
+    save: async () => {},
+    get: async () => null,
+    listForTask: async () => [],
+    listForAgent: async () => [],
+    appendEvent: async () => {},
+    readEvents: async () => [],
+    readEventsTail: async () => [],
+    streamEvents: async function* () {},
+  };
+
+  let state = structuredClone(DEFAULT_STATE);
+  const stateStore = {
+    read: async () => structuredClone(state),
+    write: async (s: typeof state) => { state = structuredClone(s); },
+  };
+
+  const eventBus = new EventBus();
+  const processManager = {
+    isAlive: () => false,
+    kill: () => {},
+    killWithGrace: async () => {},
+    spawn: () => ({ process: {} as ReturnType<typeof import('node:child_process').spawn>, pid: 1 }),
+  };
+
+  const workspaceManager = {
+    prepare: async () => ({ path: '/tmp/ws' }),
+    mergeBack: async () => ({ success: true as const }),
+    cleanup: async () => {},
+    validate: () => {},
+  };
+
+  const templateEngine = { render: async () => 'prompt' };
+  const contextStore = {
+    get: async () => null, set: async () => {}, delete: async () => {},
+    list: async () => [], getAll: async () => ({}),
+  };
+
+  const deps = {
+    taskStore, agentStore, runStore, stateStore,
+    adapterRegistry: new AdapterRegistry(),
+    workspaceManager, templateEngine, processManager,
+    eventBus,
+    taskService: new TaskService(taskStore, eventBus, config),
+    agentService: new AgentService(agentStore, stateStore, eventBus, config),
+    runService: new RunService(runStore, eventBus),
+    contextStore,
+    config,
+    projectRoot: '/tmp/bench',
+    lockPath: '/tmp/bench/.orchestry/lock',
+  };
+
+  const orch = new Orchestrator(deps);
+
+  // Warm up: force internal state load
+  // Access private tick via bracket notation for benchmark purposes
+  const orchAny = orch as unknown as { tick(): Promise<void>; lockAcquired: boolean; state: typeof state };
+  orchAny.lockAcquired = true;
+  orchAny.state = structuredClone(DEFAULT_STATE);
+
+  const runs: number[] = [];
+  for (let i = 0; i < TICK_RUNS; i++) {
+    const start = performance.now();
+    await orchAny.tick();
+    runs.push(Math.round((performance.now() - start) * 100) / 100);
+  }
+
+  return toBenchmarkResult('tick-cycle', runs.map(Math.round), TARGETS['tick-cycle']!);
+}
+
 // ── Output ───────────────────────────────────────────────────
 
 function printTable(results: BenchmarkResult[]): void {
@@ -150,7 +259,7 @@ function saveReport(report: BenchmarkReport): string {
 
 // ── Main ─────────────────────────────────────────────────────
 
-function main(): void {
+async function main(): Promise<void> {
   console.log('Running benchmarks...\n');
 
   // Ensure build exists for CLI benchmarks
@@ -164,17 +273,20 @@ function main(): void {
 
   const results: BenchmarkResult[] = [];
 
-  console.log('[1/4] CLI --help (3 runs)');
+  console.log('[1/5] CLI --help (3 runs)');
   results.push(benchCliHelp());
 
-  console.log('[2/4] CLI task list (3 runs)');
+  console.log('[2/5] CLI task list (3 runs)');
   results.push(benchCliTaskList());
 
-  console.log('[3/4] Build');
+  console.log('[3/5] Build');
   results.push(benchBuild());
 
-  console.log('[4/4] Test suite');
+  console.log('[4/5] Test suite');
   results.push(benchTestSuite());
+
+  console.log('[5/5] Tick cycle (100 runs)');
+  results.push(await benchTickCycle());
 
   const report: BenchmarkReport = {
     timestamp: new Date().toISOString(),
