@@ -150,6 +150,8 @@ export interface HeaderProps {
   uptime?: string;
   width: number;
   sparklineData?: number[];
+  version?: string;
+  latestVersion?: string;
 }
 
 /* Tab config imported from TabBar.tsx — single source of truth */
@@ -159,8 +161,8 @@ export interface HeaderProps {
    ══════════════════════════════════════════════════════════ */
 
 function BrandBar({
-  projectName, activeView, mode, stats, uptime, width,
-}: Pick<HeaderProps, 'projectName' | 'activeView' | 'mode' | 'stats' | 'uptime' | 'width'>) {
+  projectName, activeView, mode, stats, uptime, width, version, latestVersion,
+}: Pick<HeaderProps, 'projectName' | 'activeView' | 'mode' | 'stats' | 'uptime' | 'width' | 'version' | 'latestVersion'>) {
   const isWatching = mode === 'watching';
 
   return (
@@ -169,6 +171,13 @@ function BrandBar({
       <Box gap={0}>
         <PulsingDiamond />
         <Text color={tuiColors.amber} bold> ORCH</Text>
+        {version && <Text color={tuiColors.ghost}> {version}</Text>}
+        {latestVersion && latestVersion !== version && (
+          <>
+            <Text> </Text>
+            <Text backgroundColor={chipBg.green} color={tuiColors.green} bold>{' '}UPDATE {latestVersion}{' '}</Text>
+          </>
+        )}
         <Text color={tuiColors.ghost}> {DOT} </Text>
         <Text color={tuiColors.silver}>{projectName}</Text>
       </Box>
@@ -315,6 +324,8 @@ export const Header = React.memo(function Header(props: HeaderProps) {
         stats={props.stats}
         uptime={props.uptime}
         width={props.width}
+        version={props.version}
+        latestVersion={props.latestVersion}
       />
       {/* Space between brand and stats */}
       <Box height={1} />

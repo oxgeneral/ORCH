@@ -217,6 +217,12 @@ export function registerTuiCommand(program: Command, container: Container): void
         await container.orchestrator.stop();
       };
 
+      // Background update check (non-blocking, fires while TUI loads)
+      const currentVersion = program.version() ?? '0.0.0';
+      const updateCheckPromise = import('../update-check.js')
+        .then((m) => m.checkForUpdate(currentVersion))
+        .catch(() => null);
+
       // Auto-start watch mode so the orchestrator is live
       let watchStarted = false;
       let watchError: string | undefined;
@@ -227,6 +233,9 @@ export function registerTuiCommand(program: Command, container: Container): void
         // Watch mode may fail if lock is held by another process — continue without it
         watchError = err instanceof Error ? err.message : String(err);
       }
+
+      // Await update info (fetch has 5s timeout, won't hang)
+      const updateInfo = await updateCheckPromise;
 
       const { waitUntilExit } = render(
         createElement(App, {
@@ -271,6 +280,8 @@ export function registerTuiCommand(program: Command, container: Container): void
           onStopWatch,
           initialWatchActive: watchStarted,
           watchError,
+          version: currentVersion,
+          latestVersion: updateInfo?.latest,
           initialActivityFilter: container.globalConfig.tui.activity_filter,
           onSaveActivityFilter: async (preset) => {
             await container.globalConfigStore.set('activity_filter', preset);

@@ -153,6 +153,10 @@ export interface AppProps {
   initialMaxConcurrent?: number;
   /** Save max concurrent agents to project config */
   onSaveMaxConcurrent?: (value: number) => Promise<void>;
+  /** Current CLI version (shown in header) */
+  version?: string;
+  /** Latest available version from npm (shown as UPDATE chip if newer) */
+  latestVersion?: string;
   /** Toggle autonomous mode on an agent */
   onToggleAutonomous?: (agentId: string, enabled: boolean) => Promise<Agent>;
   // Goal callbacks
@@ -275,6 +279,8 @@ export function App({
   onSaveActivityFilter,
   initialMaxConcurrent = DEFAULT_CONFIG.scheduling.max_concurrent_agents,
   onSaveMaxConcurrent,
+  version,
+  latestVersion,
 }: AppProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -1775,6 +1781,8 @@ export function App({
         tokens={headerTokens}
         uptime={uptime}
         width={W}
+        version={version}
+        latestVersion={latestVersion}
       />
 
       {/* Breathing room after header */}
