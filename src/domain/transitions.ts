@@ -3,7 +3,6 @@
  *
  * State diagram:
  *   todo → in_progress → review → done
- *                      ↘ done (auto-approve)
  *                      ↘ retrying → in_progress
  *                      ↘ failed (max attempts)
  *   review → todo (rejected)
@@ -14,7 +13,7 @@ import type { Task, TaskStatus } from './task.js';
 
 const VALID_TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
   todo: ['in_progress', 'cancelled'],
-  in_progress: ['done', 'review', 'retrying', 'failed', 'cancelled'],
+  in_progress: ['review', 'retrying', 'failed', 'cancelled'],
   retrying: ['in_progress', 'failed', 'cancelled'],
   review: ['done', 'todo', 'cancelled'],
   done: [],
@@ -59,14 +58,16 @@ export function isBlocked(task: Task, allTasks: Task[]): boolean {
 
 /**
  * Determine the next status after an agent completes or fails.
+ * Always goes through 'review' on success — autoApprove is handled
+ * by the orchestrator which transitions review → done immediately.
  */
 export function resolveCompletionStatus(
   task: Task,
   success: boolean,
-  autoApprove: boolean,
+  _autoApprove: boolean,
 ): TaskStatus {
   if (success) {
-    return autoApprove ? 'done' : 'review';
+    return 'review';
   }
 
   if (task.attempts < task.max_attempts) {

@@ -31,7 +31,6 @@ describe('canTransition', () => {
   const validTransitions: [TaskStatus, TaskStatus][] = [
     ['todo', 'in_progress'],
     ['todo', 'cancelled'],
-    ['in_progress', 'done'],
     ['in_progress', 'review'],
     ['in_progress', 'retrying'],
     ['in_progress', 'failed'],
@@ -56,6 +55,7 @@ describe('canTransition', () => {
     ['todo', 'review'],
     ['todo', 'failed'],
     ['todo', 'retrying'],
+    ['in_progress', 'done'],
     ['in_progress', 'todo'],
     ['in_progress', 'in_progress'],
     ['retrying', 'todo'],
@@ -137,9 +137,9 @@ describe('isBlocked', () => {
 });
 
 describe('resolveCompletionStatus', () => {
-  it('returns done on success with auto-approve', () => {
+  it('returns review on success with auto-approve (review enforced)', () => {
     const task = makeTask({ attempts: 1, max_attempts: 3 });
-    expect(resolveCompletionStatus(task, true, true)).toBe('done');
+    expect(resolveCompletionStatus(task, true, true)).toBe('review');
   });
 
   it('returns review on success without auto-approve', () => {

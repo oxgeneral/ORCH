@@ -1144,6 +1144,9 @@ export class Orchestrator {
     // Auto-review: if task landed in 'review' and has review_criteria, run them
     if (newStatus === 'review' && task.review_criteria?.length) {
       await this.runAutoReview(taskId, task.review_criteria, task.workspace ?? this.deps.projectRoot);
+    } else if (newStatus === 'review' && autoApprove) {
+      // Auto-approve: skip review and transition review → done immediately
+      await this.deps.taskService.updateStatus(taskId, 'done');
     }
 
     await this.saveState();
