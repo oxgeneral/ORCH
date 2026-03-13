@@ -39,6 +39,7 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .option('--assignee <agent-id>', 'Assign to agent')
     .option('--review-criteria <criteria>', 'Comma-separated auto-review criteria: test_pass,typecheck,lint')
     .option('--scope <patterns>', 'Comma-separated glob patterns for file scope (e.g. src/auth/**,src/session/**)')
+    .option('--goal-id <goalId>', 'Associate task with a goal')
     .option('-e, --edit', 'Open $EDITOR to write the description')
     .action(async (title: string, opts) => {
       await container.paths.requireInit();
@@ -63,6 +64,7 @@ export function registerTaskCommand(program: Command, container: LightContainer)
         assignee: opts.assignee,
         review_criteria: opts.reviewCriteria?.split(',').map((s: string) => s.trim()),
         scope: opts.scope?.split(',').map((s: string) => s.trim()),
+        goalId: opts.goalId,
       });
 
       if (container.context.json) {

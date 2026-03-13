@@ -112,7 +112,7 @@ export async function buildLightContainer(context: CliContext): Promise<LightCon
   const agentService = new AgentService(agentStore, stateStore, eventBus, config);
   const runService = new RunService(runStore, eventBus);
   const messageService = new MessageService(messageStore, agentStore, teamStore, eventBus);
-  const goalService = new GoalService(goalStore, eventBus, agentService, taskService);
+  const goalService = new GoalService(goalStore, eventBus, agentService, taskService, contextStore);
   const teamService = new TeamService(teamStore, agentStore, taskStore, eventBus);
 
   return {

@@ -63,6 +63,7 @@ export class TaskService {
       workspace_mode: input.workspace_mode,
       review_criteria: input.review_criteria,
       scope: input.scope,
+      goalId: input.goalId,
     };
 
     await this.taskStore.save(task);
@@ -71,7 +72,7 @@ export class TaskService {
     return task;
   }
 
-  async list(filter?: { status?: TaskStatus }): Promise<Task[]> {
+  async list(filter?: { status?: TaskStatus; goalId?: string }): Promise<Task[]> {
     return this.taskStore.list(filter);
   }
 

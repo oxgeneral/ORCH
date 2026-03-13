@@ -637,6 +637,7 @@ export class Orchestrator {
           assignee: agent.id,
           labels: [AUTONOMOUS_LABEL],
           priority: 3,
+          goalId: goal?.id,
         });
         anyCreated = true;
       } catch (err) {

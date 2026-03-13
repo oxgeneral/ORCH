@@ -90,8 +90,10 @@ export function createMockTaskStore(tasks: Task[] = []): ITaskStore {
   return {
     list: vi.fn(async (filter?) => {
       const all = [...store.values()];
-      if (filter?.status) return all.filter((t) => t.status === filter.status);
-      return all;
+      return all.filter((t) =>
+        (!filter?.status || t.status === filter.status) &&
+        (!filter?.goalId || t.goalId === filter.goalId),
+      );
     }),
     get: vi.fn(async (id: string) => {
       const t = store.get(id);

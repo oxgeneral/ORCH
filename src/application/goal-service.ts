@@ -14,7 +14,7 @@ import type { Goal, GoalStatus, CreateGoalInput } from '../domain/goal.js';
 import { isGoalTerminal } from '../domain/goal.js';
 import { AUTONOMOUS_LABEL } from '../domain/task.js';
 import { GoalNotFoundError, InvalidArgumentsError } from '../domain/errors.js';
-import type { IGoalStore } from '../infrastructure/storage/interfaces.js';
+import type { IGoalStore, IContextStore } from '../infrastructure/storage/interfaces.js';
 import type { EventBus } from './event-bus.js';
 import type { AgentService } from './agent-service.js';
 import type { TaskService } from './task-service.js';
@@ -32,6 +32,7 @@ export class GoalService {
     private readonly eventBus: EventBus,
     private readonly agentService?: AgentService,
     private readonly taskService?: TaskService,
+    private readonly contextStore?: IContextStore,
   ) {}
 
   async create(input: CreateGoalInput): Promise<Goal> {
@@ -139,6 +140,16 @@ export class GoalService {
     if (assignee) {
       await this.maybeDisableAutonomous(assignee);
     }
+  }
+
+  async listTasksForGoal(goalId: string): Promise<import('../domain/task.js').Task[]> {
+    return this.taskService?.list({ goalId }) ?? [];
+  }
+
+  async getProgressReport(goalId: string): Promise<string | undefined> {
+    if (!this.contextStore) return undefined;
+    const entry = await this.contextStore.get(`${goalId}-progress`);
+    return entry?.value;
   }
 
   /** Enable autonomous mode on an agent. */

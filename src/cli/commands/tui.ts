@@ -209,6 +209,10 @@ export function registerTuiCommand(program: Command, container: Container): void
         await container.goalService.delete(id);
       };
 
+      const onGetGoalProgress = async (goalId: string) => {
+        return container.goalService.getProgressReport(goalId);
+      };
+
       const onStartWatch = async () => {
         await container.orchestrator.startWatch();
       };
@@ -270,6 +274,7 @@ export function registerTuiCommand(program: Command, container: Container): void
           onUpdateGoal,
           onUpdateGoalStatus,
           onDeleteGoal,
+          onGetGoalProgress,
           onCreateTeam,
           onListTeams,
           onJoinTeam,

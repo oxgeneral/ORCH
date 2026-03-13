@@ -15,8 +15,10 @@ export class CachedTaskStore implements ITaskStore {
 
   constructor(private readonly inner: ITaskStore) {}
 
-  async list(filter?: { status?: TaskStatus }): Promise<Task[]> {
-    const key = filter?.status ?? '__all__';
+  async list(filter?: { status?: TaskStatus; goalId?: string }): Promise<Task[]> {
+    const key = filter
+      ? `${filter.status ?? ''}:${filter.goalId ?? ''}`
+      : '__all__';
 
     if (this.cache.has(key)) {
       return this.cache.get(key)!;

@@ -14,7 +14,7 @@ import fs from 'node:fs/promises';
 export class TaskStore implements ITaskStore {
   constructor(private readonly paths: Paths) {}
 
-  async list(filter?: { status?: TaskStatus }): Promise<Task[]> {
+  async list(filter?: { status?: TaskStatus; goalId?: string }): Promise<Task[]> {
     await ensureDir(this.paths.tasksDir);
     const files = await listFiles(this.paths.tasksDir, '.yml');
 
@@ -26,7 +26,9 @@ export class TaskStore implements ITaskStore {
     );
 
     const tasks = tasksResults.filter(
-      (task): task is Task => task !== null && (!filter?.status || task.status === filter.status)
+      (task): task is Task => task !== null
+        && (!filter?.status || task.status === filter.status)
+        && (!filter?.goalId || task.goalId === filter.goalId)
     );
 
     return tasks.sort((a, b) => {

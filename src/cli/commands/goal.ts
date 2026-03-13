@@ -7,7 +7,7 @@
 import type { Command } from 'commander';
 import type { LightContainer } from '../../container.js';
 import { GOAL_STATUSES, type GoalStatus } from '../../domain/goal.js';
-import { printSuccess, printError, printTable, printKeyValue, dim } from '../output.js';
+import { statusIcon, printSuccess, printError, printTable, printKeyValue, dim, agentName } from '../output.js';
 
 const STATUS_ICON: Record<GoalStatus, string> = {
   active: '\u25CF',     // ●
@@ -82,10 +82,14 @@ export function registerGoalCommand(program: Command, container: LightContainer)
     .description('Show goal details')
     .action(async (id: string) => {
       await container.paths.requireInit();
-      const g = await container.goalService.get(id);
+      const [g, tasks, progress] = await Promise.all([
+        container.goalService.get(id),
+        container.goalService.listTasksForGoal(id),
+        container.goalService.getProgressReport(id),
+      ]);
 
       if (container.context.json) {
-        console.log(JSON.stringify(g, null, 2));
+        console.log(JSON.stringify({ ...g, tasks, progress }, null, 2));
         return;
       }
 
@@ -98,6 +102,28 @@ export function registerGoalCommand(program: Command, container: LightContainer)
         ['Created', g.created_at],
         ['Updated', g.updated_at ?? dim('never')],
       ]);
+
+      if (tasks.length > 0) {
+        console.log(`\n  Tasks (${tasks.length})\n  ${'─'.repeat(42)}`);
+        const rows = tasks.map((t) => [
+          `${statusIcon(t.status)} ${t.status}`,
+          t.id,
+          t.title.slice(0, 40),
+          t.assignee ? agentName(t.assignee) : dim('—'),
+        ]);
+        printTable(['STATUS', 'ID', 'TITLE', 'AGENT'], rows);
+      } else {
+        console.log(`\n  ${dim('No tasks linked to this goal yet.')}`);
+      }
+
+      if (progress) {
+        console.log(`\n  Progress Report\n  ${'─'.repeat(42)}`);
+        for (const line of progress.split('\n')) {
+          console.log(`  ${line}`);
+        }
+      }
+
+      console.log();
     });
 
   // goal status

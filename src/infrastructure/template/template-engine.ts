@@ -39,6 +39,7 @@ export interface PromptContext {
     labels: string[];
     scope?: string[];
     is_autonomous: boolean;
+    goal_id?: string;
   };
   agent: {
     id: string;
@@ -151,6 +152,7 @@ export function buildPromptContext(
       labels: task.labels,
       scope: task.scope,
       is_autonomous: task.labels?.includes(AUTONOMOUS_LABEL) ?? false,
+      goal_id: task.goalId,
     },
     agent: {
       id: agent.id,
@@ -249,12 +251,12 @@ Manage tasks and coordinate with other agents using \`orch\`:
 This is an autonomous task driven by a goal. Work in a continuous loop until the goal is achieved:
 
 1. **Read the GOAL section** above — understand the desired outcome.
-2. **Decompose** — break the goal into concrete subtasks via \`orch task add\`. Assign yourself for your specialty, delegate other work to appropriate teammates by role.
+2. **Decompose** — break the goal into concrete subtasks via \`orch task add\`. {% if task.goal_id %}Pass \`--goal-id {{ task.goal_id }}\` so subtasks are linked to this goal. {% endif %}Assign yourself for your specialty, delegate other work to appropriate teammates by role.
 3. **Execute** — follow your standard workflow for each subtask.
-4. **Track progress** — after each iteration: \`orch context set <goal>-progress "<done, remaining>"\`.
+4. **Track progress** — after each iteration: \`orch context set {{ task.goal_id | default: "<goal>" }}-progress "<summary of what's done and what remains>"\`.
 5. **Be proactive** — do NOT wait for tasks from others. Create your own subtasks and keep working.
 6. **Do NOT finish** the [auto] task until the goal is achieved — keep creating subtasks.
-7. **When done** — \`orch context set <goal>-status "ACHIEVED: <summary>"\`.
+7. **When done** — \`orch context set {{ task.goal_id | default: "<goal>" }}-progress "ACHIEVED: <summary>"\`.
 {% endif %}
 
 ## Rules

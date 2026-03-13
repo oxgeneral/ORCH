@@ -16,7 +16,7 @@ import type { Task, TaskStatus } from '../../domain/task.js';
 import type { Team } from '../../domain/team.js';
 
 export interface ITaskStore {
-  list(filter?: { status?: TaskStatus }): Promise<Task[]>;
+  list(filter?: { status?: TaskStatus; goalId?: string }): Promise<Task[]>;
   get(id: string): Promise<Task | null>;
   save(task: Task): Promise<void>;
   delete(id: string): Promise<void>;

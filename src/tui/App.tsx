@@ -165,6 +165,7 @@ export interface AppProps {
   onUpdateGoal?: (id: string, fields: { title?: string; description?: string; assignee?: string }) => Promise<Goal>;
   onUpdateGoalStatus?: (id: string, status: GoalStatus) => Promise<Goal>;
   onDeleteGoal?: (id: string) => Promise<void>;
+  onGetGoalProgress?: (goalId: string) => Promise<string | undefined>;
 }
 
 type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
@@ -291,7 +292,7 @@ export function App({
   onCreateTeam, onListTeams, onJoinTeam, onLeaveTeam, onDisbandTeam, onSetTeamLead,
   onStartWatch, onStopWatch,
   onToggleAutonomous,
-  onRefreshGoals, onCreateGoal, onUpdateGoal, onUpdateGoalStatus, onDeleteGoal,
+  onRefreshGoals, onCreateGoal, onUpdateGoal, onUpdateGoalStatus, onDeleteGoal, onGetGoalProgress,
   initialWatchActive,
   watchError,
   messageBatchMs = process.env.VITEST ? 0 : 80,
@@ -324,6 +325,7 @@ export function App({
 
   // Goals state
   const [liveGoals, setLiveGoals] = useState<Goal[]>([]);
+  const [goalProgressReport, setGoalProgressReport] = useState<string | undefined>(undefined);
 
   // View state
   const [activeView, setActiveView] = useState<ViewId>('tasks');
@@ -466,6 +468,25 @@ export function App({
     [liveGoals],
   );
   const selectedGoal = sortedGoals[goalSelectedIndex] as Goal | undefined;
+
+  // Tasks linked to the selected goal (filtered in-memory — no I/O)
+  const selectedGoalTasks = useMemo(
+    () => selectedGoal ? liveTasks.filter(t => t.goalId === selectedGoal.id) : [],
+    [selectedGoal, liveTasks],
+  );
+
+  // Fetch goal progress report when selected goal changes
+  // onGetGoalProgress is stable by contract (defined once in tui.ts command handler)
+  const onGetGoalProgressRef = useRef(onGetGoalProgress);
+  onGetGoalProgressRef.current = onGetGoalProgress;
+  useEffect(() => {
+    if (!selectedGoal || !onGetGoalProgressRef.current) { setGoalProgressReport(undefined); return; }
+    let cancelled = false;
+    onGetGoalProgressRef.current(selectedGoal.id).then((report) => {
+      if (!cancelled) setGoalProgressReport(report);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedGoal?.id]);
 
   // Build runId → agentId and runId → taskId maps from state.running
   // Use refs so dynamic .set() calls from events persist across re-renders
@@ -1948,7 +1969,7 @@ export function App({
       ) : showGoalDetail ? (
         <>
           <SectionLabel label={`GOAL: ${selectedGoal.title}`} width={ruleW} />
-          <GoalDetailPanel goal={selectedGoal} height={feedH} width={ruleW} agentNameMap={agentNameMap} />
+          <GoalDetailPanel goal={selectedGoal} height={feedH} width={ruleW} agentNameMap={agentNameMap} tasks={selectedGoalTasks} progressReport={goalProgressReport} />
         </>
       ) : showAgentDetail ? (
         <>
@@ -2143,13 +2164,23 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
 
 /* ── Goal Detail Panel ──────────────────────────────── */
 
-function GoalDetailPanel({ goal, height, width, agentNameMap }: {
+function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressReport }: {
   goal: Goal;
   height: number;
   width: number;
   agentNameMap?: Map<string, string>;
+  tasks?: Task[];
+  progressReport?: string;
 }) {
   const assigneeName = goal.assignee ? (agentNameMap?.get(goal.assignee) ?? goal.assignee) : 'any';
+
+  // Budget: header(1) + desc lines + tasks section + progress section
+  const taskCount = tasks?.length ?? 0;
+  const progressLines = progressReport ? progressReport.split('\n').slice(0, 3) : [];
+  const taskRowsCap = Math.min(taskCount, Math.max(1, Math.floor((height - 4) / 3)));
+  const progressCap = progressLines.length > 0 ? Math.min(progressLines.length + 1, 4) : 0;
+  const descCap = Math.max(1, height - 2 - (taskCount > 0 ? taskRowsCap + 1 : 0) - progressCap);
+
   return (
     <Box flexDirection="column" height={height} paddingX={2}>
       <Text>
@@ -2166,12 +2197,31 @@ function GoalDetailPanel({ goal, height, width, agentNameMap }: {
       </Text>
       {goal.description ? (
         <Box flexDirection="column" marginTop={1}>
-          {goal.description.split('\n').slice(0, Math.max(1, height - 2)).map((line, i) => (
+          {goal.description.split('\n').slice(0, descCap).map((line, i) => (
             <Text key={i} color={tuiColors.silver} wrap="truncate">{line}</Text>
           ))}
         </Box>
       ) : (
         <Text color={tuiColors.ghost} dimColor>No description</Text>
+      )}
+      {taskCount > 0 && (
+        <Box flexDirection="column" marginTop={1}>
+          <Text color={tuiColors.dim}>Tasks ({taskCount})</Text>
+          {tasks!.slice(0, taskRowsCap).map(t => (
+            <Text key={t.id} color={tuiColors.silver} wrap="truncate">
+              {'  '}<Text color={t.status === 'done' ? tuiColors.green : t.status === 'in_progress' ? tuiColors.amber : t.status === 'failed' ? tuiColors.red : tuiColors.dim}>{t.status.padEnd(11)}</Text>
+              {' '}{t.title.slice(0, Math.max(10, width - 20))}
+            </Text>
+          ))}
+        </Box>
+      )}
+      {progressLines.length > 0 && (
+        <Box flexDirection="column" marginTop={1}>
+          <Text color={tuiColors.dim}>Progress</Text>
+          {progressLines.map((line, i) => (
+            <Text key={i} color={tuiColors.silver} wrap="truncate">{'  '}{line}</Text>
+          ))}
+        </Box>
       )}
     </Box>
   );
