@@ -43,7 +43,15 @@
     "agents",
     "claude",
     "codex",
-    "terminal"
+    "terminal",
+    "llm",
+    "multi-agent",
+    "ai-team",
+    "agent-orchestration",
+    "claude-code",
+    "openai",
+    "workflow",
+    "devops"
   ],
   "author": "Agents Organizations Contributors",
   "license": "MIT",

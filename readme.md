@@ -231,7 +231,7 @@ src/
 ```bash
 npm run dev            # Run via tsx
 npm run build          # Build ESM + DTS
-npm test               # 977 tests via Vitest
+npm test               # 987 tests via Vitest
 npm run typecheck      # Strict TypeScript
 ```
 
@@ -243,9 +243,10 @@ We just hit **10 stars** — small number, real users. Every star so far came fr
 
 **Next milestone: 25 stars** — when we get there, we'll add a public "Used by" showcase. If you're already running ORCH in your workflow, [open an issue](https://github.com/oxgeneral/ORCH/issues) and tell us — you'll be first on the list.
 
-If ORCH saves you time, let others find it too:
+**If ORCH saves you time → [⭐ Star it on GitHub](https://github.com/oxgeneral/ORCH)** — it helps other developers find the project.
 
-- **⭐ Star the repo** — helps other developers find ORCH: [github.com/oxgeneral/ORCH](https://github.com/oxgeneral/ORCH)
+[![Star History Chart](https://api.star-history.com/svg?repos=oxgeneral/ORCH&type=Date)](https://star-history.com/#oxgeneral/ORCH&Date)
+
 - **Open an issue** if something breaks or could be better
 - **Submit a PR** — see [CONTRIBUTING.md](CONTRIBUTING.md)
 
