@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.3.0 (2026-03-13)
+
+### New Features
+
+- **Goal context in agent prompts** — agents now see full goal info (title, description, status, linked tasks, progress report) and can achieve goals via `orch goal status <id> achieved`
+- **Autonomous goal mode** — agents in `[auto]` tasks get a structured loop: decompose → execute → track progress → achieve goal
+- **Clipboard image paste (Ctrl+V)** — paste images from system clipboard into task creation/edit wizards; cross-platform support (macOS/Linux/Windows)
+- **Task attachments** — `orch task add --attach <file>`, stored in `.orchestry/attachments/<taskId>/`, displayed in TUI detail panel with 📎 indicator
+- **Goal progress tracking** — `goalId` on tasks, `orch context set <goalId>-progress` for agent progress reports, visible in TUI GoalDetailPanel
+- **Scrollable GoalDetailPanel** — virtual scrolling with j/k navigation, section dividers, task summary counts, progress report display
+- **Skills display** — agent detail panel shows configured skills list
+
+### Performance
+
+- **3.5× faster per-test** (52→15ms), **60× faster dispatch** (30s→500ms), **2× faster build** (2.7→1.35s), **CLI 1.8×** (75→41ms)
+- **state.claimed Array→Set** for O(1) lookups in dispatch hot path
+- **Parallel reconcile** — `Promise.all` for task reads in reconciliation phase
+- **ScopeIndex pre-computation** — O(1) agent-skill matching instead of O(n) scan
+- **isBlocked() O(d×1)** — taskMap lookup instead of O(d×n) array scan
+- **Lazy imports** — process-manager in run-store, chalk ansi256() in output.ts
+- **Minified CLI bundle** — tsup minify enabled, reduces bundle size
+- **Parallel goal context I/O** — `Promise.all` for context/messages/goal fetch in dispatch
+- **CachedAgentStore nameCache** — avoid repeated name lookups in retry queue filter
+- **Vitest adaptive threads** — dynamic thread count based on CPU cores
+
+### Bug Fixes
+
+- **Tick interval 30s→10s** — faster task dispatch for responsive orchestration
+- **GoalDetailPanel useMemo fix** — `tasks ?? []` moved inside memo to prevent new array reference defeating memoization
+- **FormWizard paste mock types** — test mocks now return correct `'image'|'text'|'empty'` union instead of boolean
+- **Stale closure in clipboard paste** — fixed reference capture bug in handlePasteImage callback
+
+### Architecture
+
+- **TASK_STATUS_COLOR / GOAL_STATUS_COLOR** — canonical status→color maps extracted to `colors.ts` with `Record<Status, string>` type safety
+- **SectionDivider reuse** — exported from DetailPanel, replaces duplicate GoalDivider
+- **GoalContext in template engine** — `GoalContext` interface, `goal?` field in `PromptContext`, Liquid template section for goals
+- **Clipboard service** — `clipboard-service.ts` with platform detection, image extraction, and type-safe API
+
+### Tests
+
+- **987 tests** (up from 851 in 0.2.0)
+- New coverage: clipboard paste (8 cases), GoalDetailPanel (13 cases), ScopeIndex (13 cases), attachments, orchestrator perf benchmarks, lazy chalk init
+
+---
+
 ## 0.2.0 (2026-03-13)
 
 ### New Features
