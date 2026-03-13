@@ -10,7 +10,7 @@
     <a href="https://github.com/oxgeneral/ORCH/packages"><img src="https://img.shields.io/badge/npm-@oxgeneral/orch-cb0000" alt="GitHub Packages" /></a>
     <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-one%20command-brightgreen" alt="One command setup" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
-    <a href="#development"><img src="https://img.shields.io/badge/tests-737%20passing-brightgreen" alt="Tests" /></a>
+    <a href="#development"><img src="https://img.shields.io/badge/tests-758%20passing-brightgreen" alt="Tests" /></a>
     <a href="#architecture"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
   </p>
 </p>
@@ -235,7 +235,7 @@ src/
 ```bash
 npm run dev            # Run via tsx
 npm run build          # Build ESM + DTS
-npm test               # 737 tests via Vitest
+npm test               # 758 tests via Vitest
 npm run typecheck      # Strict TypeScript
 ```
 
@@ -243,11 +243,21 @@ npm run typecheck      # Strict TypeScript
 
 We just hit **10 stars** — small number, real users. Every star so far came from someone who actually runs multi-agent workflows and needed something better than tab-switching.
 
+**Next milestone: 25 stars** — when we get there, we'll add a public "Used by" showcase. If you're already running ORCH in your workflow, [open an issue](https://github.com/oxgeneral/ORCH/issues) and tell us — you'll be first on the list.
+
 If ORCH saves you time, let others find it too:
 
-- **⭐ Star the repo** — helps with discoverability: [github.com/oxgeneral/ORCH](https://github.com/oxgeneral/ORCH)
+- **⭐ Star the repo** — helps other developers find ORCH: [github.com/oxgeneral/ORCH](https://github.com/oxgeneral/ORCH)
 - **Open an issue** if something breaks or could be better
 - **Submit a PR** — see [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## Used by / Early Adopters
+
+> This section will be filled as the community grows. Using ORCH in your project? [Let us know](https://github.com/oxgeneral/ORCH/issues/new?title=Using+ORCH+in+production&body=Tell+us+about+your+setup) — we'd love to feature you here.
+
+<!-- ADOPTERS_START -->
+*Be the first to add your project here — open an issue with "Using ORCH in production".*
+<!-- ADOPTERS_END -->
 
 ## License
 
