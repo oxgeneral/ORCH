@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1200">
+  <title>ORCH OG Image</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 1200px;
+      height: 630px;
+      overflow: hidden;
+      background: #0a0a0a;
+      font-family: 'JetBrains Mono', monospace;
+      color: #f0efe9;
+    }
+
+    .card {
+      position: relative;
+      width: 1200px;
+      height: 630px;
+      overflow: hidden;
+    }
+
+    /* --- NOISE OVERLAY --- */
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      pointer-events: none;
+      opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 256px 256px;
+    }
+
+    /* --- RADIAL GLOW --- */
+    .glow {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background:
+        radial-gradient(ellipse 700px 500px at 50% 42%, rgba(255,175,0,0.07) 0%, transparent 70%),
+        radial-gradient(ellipse 400px 350px at 25% 60%, rgba(88,168,208,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse 300px 250px at 80% 70%, rgba(68,170,153,0.03) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    /* --- GRID LINES (subtle) --- */
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      opacity: 0.025;
+      background-image:
+        linear-gradient(rgba(255,175,0,0.5) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,175,0,0.5) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* --- BORDER FRAME --- */
+    .card::after {
+      content: '';
+      position: absolute;
+      inset: 16px;
+      z-index: 40;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+
+    /* --- CONTENT --- */
+    .content {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 48px 80px;
+    }
+
+    /* --- BRAND --- */
+    .brand {
+      font-size: 96px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+
+    .brand .accent { color: #ffaf00; }
+    .brand .rest { color: #f0efe9; }
+
+    /* --- TAGLINE --- */
+    .tagline {
+      font-size: 20px;
+      font-weight: 300;
+      color: #8a8a8a;
+      letter-spacing: 0.06em;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    /* --- TERMINAL WINDOW --- */
+    .terminal {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 0;
+      width: 560px;
+      margin-bottom: 40px;
+      overflow: hidden;
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .terminal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .terminal-dot.red { background: #ff5f57; }
+    .terminal-dot.yellow { background: #ffaf00; }
+    .terminal-dot.green { background: #4a9; }
+
+    .terminal-title {
+      flex: 1;
+      text-align: center;
+      font-size: 11px;
+      color: #555;
+      letter-spacing: 0.05em;
+      margin-right: 40px;
+    }
+
+    .terminal-body {
+      padding: 16px 20px;
+      font-size: 15px;
+      font-weight: 400;
+      line-height: 1.7;
+    }
+
+    .terminal-body .prompt { color: #4a9; }
+    .terminal-body .cmd { color: #f0efe9; }
+    .terminal-body .flag { color: #58a8d0; }
+    .terminal-body .cursor {
+      display: inline-block;
+      width: 9px;
+      height: 18px;
+      background: #ffaf00;
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      opacity: 0.85;
+    }
+
+    /* --- STATS --- */
+    .stats {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      font-weight: 400;
+      color: #555;
+      letter-spacing: 0.04em;
+    }
+
+    .stats .sep {
+      color: #333;
+    }
+
+    .stats .val {
+      color: #888;
+    }
+
+    /* --- URL --- */
+    .url {
+      position: absolute;
+      bottom: 28px;
+      right: 40px;
+      z-index: 20;
+      font-size: 12px;
+      font-weight: 400;
+      color: #3a3a3a;
+      letter-spacing: 0.08em;
+    }
+
+    /* --- OPEN SOURCE BADGE --- */
+    .oss-badge {
+      position: absolute;
+      top: 28px;
+      left: 40px;
+      z-index: 20;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .oss-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4a9;
+      box-shadow: 0 0 6px rgba(68,170,153,0.5);
+    }
+
+    /* --- VERSION --- */
+    .version-badge {
+      position: absolute;
+      top: 28px;
+      right: 40px;
+      z-index: 20;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #3a3a3a;
+    }
+
+    /* --- DECORATIVE CORNERS --- */
+    .corner {
+      position: absolute;
+      z-index: 30;
+      width: 24px;
+      height: 24px;
+    }
+
+    .corner.tl { top: 16px; left: 16px; border-top: 2px solid rgba(255,175,0,0.2); border-left: 2px solid rgba(255,175,0,0.2); }
+    .corner.tr { top: 16px; right: 16px; border-top: 2px solid rgba(255,175,0,0.2); border-right: 2px solid rgba(255,175,0,0.2); }
+    .corner.bl { bottom: 16px; left: 16px; border-bottom: 2px solid rgba(255,175,0,0.2); border-left: 2px solid rgba(255,175,0,0.2); }
+    .corner.br { bottom: 16px; right: 16px; border-bottom: 2px solid rgba(255,175,0,0.2); border-right: 2px solid rgba(255,175,0,0.2); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="grid-bg"></div>
+    <div class="glow"></div>
+
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <div class="oss-badge">
+      <span class="dot"></span>
+      Open Source CLI
+    </div>
+
+    <div class="version-badge">v0.3.1</div>
+
+    <div class="content">
+      <div class="brand">
+        <span class="rest">ORC</span><span class="accent">H</span>
+      </div>
+
+      <div class="tagline">Orchestrate AI Agent Teams From Your Terminal</div>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <div class="terminal-dot red"></div>
+          <div class="terminal-dot yellow"></div>
+          <div class="terminal-dot green"></div>
+          <div class="terminal-title">terminal</div>
+        </div>
+        <div class="terminal-body">
+          <span class="prompt">$</span> <span class="cmd">orch run</span> <span class="flag">--all</span> <span class="flag">--watch</span><span class="cursor"></span>
+        </div>
+      </div>
+
+      <div class="stats">
+        <span class="val">15 agents</span>
+        <span class="sep">/</span>
+        <span class="val">4 adapters</span>
+        <span class="sep">/</span>
+        <span class="val">MIT license</span>
+        <span class="sep">/</span>
+        <span class="val">Zero cloud</span>
+      </div>
+    </div>
+
+    <div class="url">www.orch.one</div>
+  </div>
+</body>
+</html>

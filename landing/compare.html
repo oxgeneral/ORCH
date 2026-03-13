@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ORCH vs CrewAI vs LangChain vs AutoGen — AI Agent Orchestrator Comparison</title>
+  <meta name="description" content="Compare ORCH with CrewAI, LangChain, AutoGen, and MetaGPT. See how a TypeScript CLI orchestrator stacks up against Python-based AI agent frameworks.">
+  <meta name="author" content="ORCH Contributors">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#0a0a0a">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="ORCH vs CrewAI vs LangChain vs AutoGen — AI Agent Orchestrator Comparison">
+  <meta property="og:description" content="Compare ORCH with CrewAI, LangChain, AutoGen, and MetaGPT. TypeScript CLI orchestrator vs Python-based AI agent frameworks.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://www.orch.one/compare/">
+  <meta property="og:site_name" content="ORCH">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:image" content="https://www.orch.one/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="ORCH vs CrewAI vs LangChain vs AutoGen — comparison table">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ORCH vs CrewAI vs LangChain vs AutoGen — AI Agent Orchestrator Comparison">
+  <meta name="twitter:description" content="Compare ORCH with CrewAI, LangChain, AutoGen, and MetaGPT. TypeScript CLI orchestrator vs Python-based AI agent frameworks.">
+  <meta name="twitter:image" content="https://www.orch.one/og-image.png">
+  <meta name="twitter:image:alt" content="ORCH vs CrewAI vs LangChain vs AutoGen — comparison table">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://www.orch.one/compare/">
+
+  <!-- Favicons -->
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+    :root {
+      --black: #0a0a0a;
+      --white: #f0efe9;
+      --gray: #6b6b6b;
+      --gray-light: #2a2a2a;
+      --accent: #ffaf00;
+      --accent-dim: rgba(255,175,0,0.12);
+      --accent-glow: rgba(255,175,0,0.06);
+      --blue: #58a8d0;
+      --green: #4a9;
+      --red: #ff5f57;
+      --mono: 'JetBrains Mono', monospace;
+      --serif: 'Instrument Serif', serif;
+    }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: var(--mono);
+      font-weight: 300;
+      line-height: 1.6;
+      overflow-x: hidden;
+      cursor: default;
+    }
+
+    ::selection {
+      background: var(--accent);
+      color: var(--black);
+    }
+
+    /* --- NOISE OVERLAY --- */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 256px 256px;
+    }
+
+    /* --- NAV --- */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 64px;
+      padding: 0 3rem;
+      backdrop-filter: blur(24px) saturate(1.2);
+      -webkit-backdrop-filter: blur(24px) saturate(1.2);
+      background: rgba(10,10,10,0.75);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      transition: background 0.3s;
+    }
+
+    nav.scrolled { background: rgba(10,10,10,0.92); }
+
+    .logo {
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .logo a {
+      color: var(--white);
+      text-decoration: none;
+    }
+
+    .logo span { color: var(--accent); }
+
+    nav a {
+      color: var(--gray);
+      text-decoration: none;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color 0.3s;
+    }
+
+    nav a:hover { color: var(--white); }
+
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+
+    .nav-npm { color: var(--accent) !important; }
+
+    .nav-cta {
+      color: var(--white) !important;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 0.45rem 1.2rem;
+      font-weight: 500;
+      transition: all 0.2s !important;
+    }
+
+    .nav-cta:hover {
+      background: rgba(255,255,255,0.12) !important;
+      border-color: rgba(255,255,255,0.2);
+      transform: translateY(-1px);
+    }
+
+    .nav-active { color: var(--white) !important; }
+
+    /* --- HERO --- */
+    .hero {
+      min-height: 50vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 10rem 3rem 5rem;
+      position: relative;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      width: 80%;
+      height: 100%;
+      transform: translateX(-50%);
+      background:
+        radial-gradient(ellipse at 50% 40%, rgba(255,175,0,0.05) 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 80%, rgba(88,168,208,0.03) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 800px;
+    }
+
+    .hero h1 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(2.4rem, 5vw, 4.2rem);
+      line-height: 1.12;
+      letter-spacing: -0.02em;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.2s forwards;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .hero-summary {
+      margin-top: 2rem;
+      font-size: 0.85rem;
+      color: var(--gray);
+      max-width: 68ch;
+      line-height: 1.8;
+      margin-left: auto;
+      margin-right: auto;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.4s forwards;
+    }
+
+    .hero-summary strong { color: var(--white); font-weight: 400; }
+
+    /* --- COMPARISON TABLE --- */
+    .comparison {
+      padding: 4rem 3rem 6rem;
+      position: relative;
+    }
+
+    .comparison-label {
+      text-align: center;
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-bottom: 2.5rem;
+    }
+
+    .table-wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+    }
+
+    .compare-table thead th {
+      padding: 1rem 1.2rem;
+      text-align: left;
+      font-weight: 500;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gray);
+      border-bottom: 1px solid var(--gray-light);
+      white-space: nowrap;
+    }
+
+    .compare-table thead th:first-child {
+      color: var(--gray);
+    }
+
+    .compare-table thead th.orch-col {
+      color: var(--accent);
+    }
+
+    .compare-table tbody td {
+      padding: 0.85rem 1.2rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--gray);
+      vertical-align: top;
+    }
+
+    .compare-table tbody tr:hover td {
+      background: rgba(255,255,255,0.02);
+    }
+
+    .compare-table tbody td:first-child {
+      color: var(--white);
+      font-weight: 400;
+      white-space: nowrap;
+    }
+
+    .compare-table tbody td.orch-col {
+      color: var(--white);
+      font-weight: 400;
+    }
+
+    .yes { color: var(--green) !important; }
+    .no { color: var(--red) !important; }
+    .partial { color: var(--accent) !important; }
+    .highlight { color: var(--accent) !important; }
+
+    /* --- WHEN-TO-USE SECTIONS --- */
+    .when-section {
+      padding: 5rem 3rem;
+      border-top: 1px solid var(--gray-light);
+    }
+
+    .when-inner {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .when-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+    }
+
+    .when-col h2 {
+      font-family: var(--serif);
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 400;
+      line-height: 1.15;
+      margin-bottom: 2rem;
+    }
+
+    .when-col h2 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .when-col h2 .alt-em {
+      font-style: italic;
+      color: var(--blue);
+    }
+
+    .when-col ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .when-col ul li {
+      font-size: 0.78rem;
+      color: var(--gray);
+      line-height: 1.7;
+      padding: 0.6rem 0;
+      padding-left: 1.4rem;
+      position: relative;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .when-col ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 1rem;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+    }
+
+    .when-use ul li::before {
+      background: var(--green);
+    }
+
+    .when-alt ul li::before {
+      background: var(--blue);
+    }
+
+    .when-col ul li strong {
+      color: var(--white);
+      font-weight: 400;
+    }
+
+    /* --- CTA / INSTALL --- */
+    .cta-section {
+      padding: 10rem 3rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      top: -20%; left: 50%;
+      width: 800px; height: 800px;
+      transform: translateX(-50%);
+      background: radial-gradient(ellipse, rgba(255,175,0,0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .cta-section::after {
+      content: '';
+      position: absolute;
+      bottom: -20%; left: 50%;
+      width: 600px; height: 600px;
+      transform: translateX(-50%);
+      background: radial-gradient(ellipse, rgba(88,168,208,0.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .cta-label {
+      display: inline-block;
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid var(--accent-dim);
+      padding: 0.35rem 0.8rem;
+      margin-bottom: 2rem;
+    }
+
+    .cta-section h2 {
+      font-family: var(--serif);
+      font-size: clamp(2.5rem, 5vw, 4.5rem);
+      font-weight: 400;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .cta-section h2 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .cta-sub {
+      color: var(--gray);
+      font-size: 0.85rem;
+      margin-bottom: 3rem;
+      max-width: 45ch;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .install-cmd {
+      display: inline-flex;
+      align-items: center;
+      gap: 1rem;
+      background: #111;
+      border: 1px solid var(--gray-light);
+      padding: 1rem 2rem;
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: border-color 0.3s;
+      position: relative;
+    }
+
+    .install-cmd:hover { border-color: var(--accent); }
+
+    .install-cmd .prompt-sign { color: var(--accent); }
+
+    .install-cmd .copy-hint {
+      font-size: 0.55rem;
+      color: var(--gray-light);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .install-cmd.copied .copy-hint { color: var(--accent); }
+
+    .install-then {
+      margin: 1.5rem 0;
+      font-size: 0.65rem;
+      color: #333;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .cta-links {
+      margin-top: 2.5rem;
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+    }
+
+    .cta-link {
+      font-size: 0.72rem;
+      color: var(--gray);
+      text-decoration: none;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.6rem 1.2rem;
+      border: 1px solid var(--gray-light);
+      transition: all 0.3s;
+    }
+
+    .cta-link:hover {
+      color: var(--white);
+      border-color: var(--white);
+    }
+
+    .cta-link.star {
+      color: var(--black);
+      background: var(--white);
+      border-color: var(--white);
+    }
+
+    .cta-link.star:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .cta-trust {
+      margin-top: 3rem;
+      display: flex;
+      justify-content: center;
+      gap: 2.5rem;
+      font-size: 0.6rem;
+      color: #333;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .cta-trust strong { color: var(--gray); font-weight: 400; }
+
+    /* --- FOOTER --- */
+    footer {
+      padding: 5rem 3rem 2rem;
+      border-top: 1px solid var(--gray-light);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr;
+      gap: 3rem;
+      max-width: 1100px;
+      margin: 0 auto 4rem;
+    }
+
+    .footer-brand .logo { margin-bottom: 1rem; }
+
+    .footer-brand p {
+      font-size: 0.72rem;
+      color: var(--gray);
+      line-height: 1.7;
+      max-width: 28ch;
+    }
+
+    .footer-social {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .footer-social a {
+      color: var(--gray-light);
+      transition: color 0.3s;
+      text-decoration: none;
+    }
+
+    .footer-social a:hover { color: var(--white); }
+
+    .footer-col h4 {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-bottom: 1.2rem;
+    }
+
+    .footer-col a {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--gray-light);
+      text-decoration: none;
+      padding: 0.3rem 0;
+      transition: color 0.3s;
+      letter-spacing: 0.03em;
+    }
+
+    .footer-col a:hover { color: var(--white); }
+
+    .footer-bottom {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding-top: 2rem;
+      border-top: 1px solid var(--gray-light);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.65rem;
+      color: #333;
+      letter-spacing: 0.05em;
+    }
+
+    /* --- ANIMATIONS --- */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* --- RESPONSIVE --- */
+    @media (max-width: 768px) {
+      nav { padding: 0 1.5rem; }
+      .nav-links { gap: 1rem; }
+      .nav-links a:not(.nav-cta):not(.nav-npm) { display: none; }
+
+      .hero { padding: 8rem 1.5rem 3rem; min-height: auto; }
+      .hero h1 { font-size: clamp(2rem, 6vw, 3rem); }
+
+      .comparison { padding: 3rem 1rem; }
+      .table-wrap { margin: 0 -0.5rem; }
+      .compare-table { font-size: 0.62rem; }
+      .compare-table thead th,
+      .compare-table tbody td { padding: 0.6rem 0.7rem; }
+
+      .when-grid { grid-template-columns: 1fr; gap: 3rem; }
+      .when-section { padding: 3rem 1.5rem; }
+
+      .cta-section { padding: 5rem 1.5rem; }
+      .install-cmd { font-size: 0.75rem; padding: 0.8rem 1.2rem; }
+      .cta-links { flex-direction: column; align-items: center; }
+      .cta-trust { flex-wrap: wrap; justify-content: center; gap: 1rem; }
+
+      footer { padding: 3rem 1.5rem 2rem; }
+      .footer-grid { grid-template-columns: 1fr 1fr; gap: 2rem; }
+      .footer-bottom { flex-direction: column; gap: 0.5rem; text-align: center; }
+    }
+
+    @media (max-width: 480px) {
+      .footer-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Skip to content */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 1rem;
+      z-index: 200;
+      background: var(--accent);
+      color: var(--black);
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    .skip-link:focus { top: 0.5rem; }
+  </style>
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "ORCH vs CrewAI vs LangChain vs AutoGen — AI Agent Orchestrator Comparison",
+    "description": "Compare ORCH with CrewAI, LangChain, AutoGen, and MetaGPT. See how a TypeScript CLI orchestrator for existing AI coding agents compares to Python-based agent frameworks.",
+    "author": {
+      "@type": "Organization",
+      "name": "ORCH Contributors",
+      "url": "https://github.com/oxgeneral/ORCH"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "@id": "https://www.orch.one/#organization",
+      "name": "ORCH",
+      "url": "https://www.orch.one/"
+    },
+    "image": "https://www.orch.one/og-image.png",
+    "mainEntityOfPage": "https://www.orch.one/compare/",
+    "url": "https://www.orch.one/compare/",
+    "datePublished": "2026-03-14",
+    "dateModified": "2026-03-14",
+    "about": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "ORCH",
+        "applicationCategory": "DeveloperApplication",
+        "url": "https://www.orch.one/"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "CrewAI",
+        "applicationCategory": "DeveloperApplication"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "LangChain",
+        "applicationCategory": "DeveloperApplication"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "AutoGen",
+        "applicationCategory": "DeveloperApplication"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "MetaGPT",
+        "applicationCategory": "DeveloperApplication"
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+
+  <a href="#main-content" class="skip-link">Skip to content</a>
+
+  <nav>
+    <div class="logo"><a href="/">ORC<span>H</span></a></div>
+    <div class="nav-links">
+      <a href="/#features">Features</a>
+      <a href="/#teams">Teams</a>
+      <a href="/#workflow">How it works</a>
+      <a href="/#faq">FAQ</a>
+      <a href="/compare" class="nav-active">Compare</a>
+      <a href="https://www.npmjs.com/package/@oxgeneral/orch" class="nav-npm">npm</a>
+      <a href="https://github.com/oxgeneral/ORCH" class="nav-cta">GitHub</a>
+    </div>
+  </nav>
+
+  <main id="main-content">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-content">
+      <h1>ORCH vs the <em>alternatives</em></h1>
+      <p class="hero-summary">
+        <strong>ORCH</strong> is a lightweight TypeScript CLI that orchestrates existing AI coding agents
+        (Claude Code, OpenAI Codex, Cursor) in parallel. Unlike Python-based frameworks like CrewAI, LangChain,
+        or AutoGen that build custom agents from scratch, ORCH coordinates your existing tools with
+        <strong>git worktree isolation</strong>, <strong>inter-agent messaging</strong>, and
+        <strong>state machine governance</strong> &mdash; all running locally with zero cloud dependencies.
+      </p>
+    </div>
+  </section>
+
+  <!-- COMPARISON TABLE -->
+  <section class="comparison">
+    <div class="comparison-label">Feature-by-feature comparison</div>
+    <div class="table-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th class="orch-col">ORCH</th>
+            <th>CrewAI</th>
+            <th>LangChain</th>
+            <th>AutoGen</th>
+            <th>MetaGPT</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Language</td>
+            <td class="orch-col highlight">TypeScript</td>
+            <td>Python</td>
+            <td>Python</td>
+            <td>Python</td>
+            <td>Python</td>
+          </tr>
+          <tr>
+            <td>Approach</td>
+            <td class="orch-col">Orchestrates existing CLI agents</td>
+            <td>Custom agent framework</td>
+            <td>LLM chain framework</td>
+            <td>Multi-agent conversations</td>
+            <td>Agent role-play</td>
+          </tr>
+          <tr>
+            <td>Parallel execution</td>
+            <td class="orch-col yes">Yes (git worktrees)</td>
+            <td class="partial">Limited</td>
+            <td class="no">No</td>
+            <td class="yes">Yes (async)</td>
+            <td class="yes">Yes</td>
+          </tr>
+          <tr>
+            <td>Git worktree isolation</td>
+            <td class="orch-col yes">Yes</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+          </tr>
+          <tr>
+            <td>Inter-agent messaging</td>
+            <td class="orch-col yes">Yes (direct + broadcast)</td>
+            <td>Yes (delegation)</td>
+            <td>Via chains</td>
+            <td>Yes (chat)</td>
+            <td>Yes (SOP)</td>
+          </tr>
+          <tr>
+            <td>State machine governance</td>
+            <td class="orch-col yes">Yes (todo&#8594;in_progress&#8594;review&#8594;done)</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+            <td class="partial">Partial</td>
+          </tr>
+          <tr>
+            <td>TUI Dashboard</td>
+            <td class="orch-col yes">Yes (real-time)</td>
+            <td class="no">No</td>
+            <td>No (web UI optional)</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+          </tr>
+          <tr>
+            <td>Cloud required</td>
+            <td class="orch-col yes">No</td>
+            <td>No</td>
+            <td>Optional</td>
+            <td>No</td>
+            <td>No</td>
+          </tr>
+          <tr>
+            <td>Pre-built agents</td>
+            <td class="orch-col highlight">15 included</td>
+            <td>Role templates</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+            <td>Role templates</td>
+          </tr>
+          <tr>
+            <td>License</td>
+            <td class="orch-col">MIT</td>
+            <td>MIT</td>
+            <td>MIT</td>
+            <td>CC-BY-4.0</td>
+            <td>MIT</td>
+          </tr>
+          <tr>
+            <td>Install</td>
+            <td class="orch-col highlight">npm install -g</td>
+            <td>pip install</td>
+            <td>pip install</td>
+            <td>pip install</td>
+            <td>pip install</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- WHEN TO USE -->
+  <section class="when-section">
+    <div class="when-inner">
+      <div class="when-grid">
+        <div class="when-col when-use">
+          <h2>When to use <em>ORCH</em></h2>
+          <ul>
+            <li>You already use <strong>Claude Code, Codex, or Cursor</strong> and want to run them in parallel</li>
+            <li>You need <strong>git-level isolation</strong> between concurrent agents</li>
+            <li>You want a <strong>terminal-first experience</strong> with zero infrastructure</li>
+            <li>You're a <strong>TypeScript / Node.js</strong> developer</li>
+            <li>You want <strong>state machine governance</strong> over agent task flow</li>
+          </ul>
+        </div>
+        <div class="when-col when-alt">
+          <h2>When to use the <span class="alt-em">alternatives</span></h2>
+          <ul>
+            <li><strong>CrewAI</strong> &mdash; You need custom Python agents with role-based delegation</li>
+            <li><strong>LangChain</strong> &mdash; You're building RAG pipelines or complex LLM chains</li>
+            <li><strong>AutoGen</strong> &mdash; You need conversational multi-agent patterns in Python</li>
+            <li><strong>MetaGPT</strong> &mdash; You want a software company simulation with SOP workflows</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA / INSTALL -->
+  <section class="cta-section" id="install">
+    <span class="cta-label">Get started in 30 seconds</span>
+    <h2>Start shipping with<br>your AI <em>team</em></h2>
+    <p class="cta-sub">One command to install. One command to orchestrate.</p>
+
+    <div class="install-cmd" id="installNpm" onclick="copyCmd('npm install -g @oxgeneral/orch', 'installNpm')">
+      <span class="prompt-sign">$</span>
+      <span>npm install -g @oxgeneral/orch</span>
+      <span class="copy-hint">click to copy</span>
+    </div>
+
+    <div class="install-then">then run</div>
+
+    <div class="install-cmd" id="installOrch" onclick="copyCmd('orch', 'installOrch')">
+      <span class="prompt-sign">$</span>
+      <span>orch</span>
+      <span class="copy-hint">click to copy</span>
+    </div>
+
+    <div class="cta-links">
+      <a href="https://github.com/oxgeneral/ORCH" class="cta-link star">Star on GitHub</a>
+      <a href="https://www.npmjs.com/package/@oxgeneral/orch" class="cta-link">View on npm</a>
+      <a href="https://github.com/oxgeneral/ORCH#full-cli-reference" class="cta-link">Read the docs</a>
+    </div>
+
+    <div class="cta-trust">
+      <span><strong>MIT</strong> licensed</span>
+      <span><strong>15</strong> agents included</span>
+      <span><strong>Zero</strong> cloud deps</span>
+      <span><strong>1 cmd</strong> to start</span>
+    </div>
+  </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="logo"><a href="/">ORC<span>H</span></a></div>
+        <p>The open-source CLI orchestrator for AI agent teams. Built with TypeScript. Runs on macOS, Linux, and Windows.</p>
+        <div class="footer-social">
+          <a href="https://github.com/oxgeneral/ORCH" aria-label="GitHub">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#features">Features</a>
+        <a href="/#teams">Agent Teams</a>
+        <a href="/#workflow">How it works</a>
+        <a href="/#install">Install</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="https://github.com/oxgeneral/ORCH#full-cli-reference">Documentation</a>
+        <a href="https://github.com/oxgeneral/ORCH/blob/main/CHANGELOG.md">Changelog</a>
+        <a href="https://www.npmjs.com/package/@oxgeneral/orch">npm Package</a>
+        <a href="https://github.com/oxgeneral/ORCH/issues">Report a Bug</a>
+      </div>
+      <div class="footer-col">
+        <h4>Community</h4>
+        <a href="https://github.com/oxgeneral/ORCH">GitHub</a>
+        <a href="https://github.com/oxgeneral/ORCH/discussions">Discussions</a>
+        <a href="https://github.com/oxgeneral/ORCH/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/oxgeneral/ORCH/blob/main/LICENSE">MIT License</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 ORCH &mdash; Open Source, MIT License</span>
+      <span>v0.3.1 &mdash; Built with TypeScript &mdash; Last updated March 2026</span>
+    </div>
+  </footer>
+
+  <script>
+    // Scroll-aware nav
+    window.addEventListener('scroll', () => {
+      document.querySelector('nav').classList.toggle('scrolled', window.scrollY > 50);
+    });
+
+    // Copy command
+    function copyCmd(text, elId) {
+      navigator.clipboard.writeText(text).then(() => {
+        const el = document.getElementById(elId);
+        el.classList.add('copied');
+        el.querySelector('.copy-hint').textContent = 'copied!';
+        setTimeout(() => {
+          el.classList.remove('copied');
+          el.querySelector('.copy-hint').textContent = 'click to copy';
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
