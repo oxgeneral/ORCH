@@ -1322,8 +1322,16 @@ export class Orchestrator {
     task.updated_at = new Date().toISOString();
     await this.deps.taskStore.save(task);
     await this.deps.agentService.setStatus(agentId, 'idle').catch((err) => {
-      this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `runAutoReview setStatus idle for agent ${agentId}`, fatal: false });
+      this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `forceTaskToReview setStatus idle for agent ${agentId}`, fatal: false });
     });
+
+    // Clear current_task — agent is now idle
+    const agentAfter = await this.deps.agentStore.get(agentId);
+    if (agentAfter) {
+      agentAfter.current_task = undefined;
+      await this.deps.agentStore.save(agentAfter);
+    }
+
     await this.saveState();
   }
 
