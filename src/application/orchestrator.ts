@@ -1186,13 +1186,13 @@ export class Orchestrator {
       await this.deps.agentStore.save(agentAfterIdle);
     }
 
-    // Update agent stats
+    // Compute runtime once — used for both agent stats and global stats
     const agent = await this.deps.agentStore.get(entry.agent_id);
-    const failRuntimeMs = Date.now() - new Date(entry.started_at).getTime();
+    const runtimeMs = Date.now() - new Date(entry.started_at).getTime();
     await this.deps.agentService.updateStats(entry.agent_id, {
       tasks_failed: (agent?.stats.tasks_failed ?? 0) + 1,
       total_runs: (agent?.stats.total_runs ?? 0) + 1,
-      total_runtime_ms: (agent?.stats.total_runtime_ms ?? 0) + failRuntimeMs,
+      total_runtime_ms: (agent?.stats.total_runtime_ms ?? 0) + runtimeMs,
     });
 
     // Determine retry or fail via domain function
@@ -1231,8 +1231,7 @@ export class Orchestrator {
       state.stats.total_tasks_failed++;
     }
 
-    // Track runtime
-    const runtimeMs = Date.now() - new Date(entry.started_at).getTime();
+    // Track runtime (reuse runtimeMs computed above)
     state.stats.total_runtime_ms += runtimeMs;
 
     // Clean up running entry
