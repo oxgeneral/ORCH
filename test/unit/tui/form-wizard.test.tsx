@@ -616,6 +616,92 @@ describe('FormWizard textarea', () => {
     });
   });
 
+  /* ── Multiline paste ── */
+
+  it('paste multiline text splits into separate lines', async () => {
+    const onComplete = vi.fn();
+    const onCancel = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextareaSteps(),
+        onComplete,
+        onCancel,
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    // Paste multiline text (simulates Ctrl+V with newlines)
+    stdin.write('line1\nline2\nline3');
+    await delay(50);
+
+    stdin.write('\r'); // Enter → confirm
+    await delay(50);
+
+    expect(onComplete).toHaveBeenCalledWith({ body: 'line1\nline2\nline3' });
+  });
+
+  it('paste multiline text in the middle of existing text', async () => {
+    const onComplete = vi.fn();
+    const onCancel = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextareaSteps(),
+        onComplete,
+        onCancel,
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    stdin.write('HelloWorld');
+    await delay(50);
+
+    // Move cursor left 5 chars (between Hello and World)
+    for (let i = 0; i < 5; i++) {
+      stdin.write('\x1B[D');
+      await delay(20);
+    }
+
+    // Paste multiline in the middle
+    stdin.write('A\nB\nC');
+    await delay(50);
+
+    stdin.write('\r');
+    await delay(50);
+
+    // Expected: "HelloA\nB\nCWorld"
+    expect(onComplete).toHaveBeenCalledWith({ body: 'HelloA\nB\nCWorld' });
+  });
+
+  it('paste with Windows-style \\r\\n line endings', async () => {
+    const onComplete = vi.fn();
+    const onCancel = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextareaSteps(),
+        onComplete,
+        onCancel,
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    stdin.write('first\r\nsecond\r\nthird');
+    await delay(50);
+
+    stdin.write('\r');
+    await delay(50);
+
+    expect(onComplete).toHaveBeenCalledWith({ body: 'first\nsecond\nthird' });
+  });
+
   it('Backspace merge sets taCursorCol to prevLine.length (no setTimeout race)', async () => {
     // Verify fix for ed11250: mergedCol computed outside setTaLines updater,
     // setTaCursorCol called synchronously after setTaLines (not via setTimeout).

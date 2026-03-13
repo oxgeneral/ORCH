@@ -343,15 +343,40 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height }
         }
         return;
       }
-      // Regular character input
+      // Regular character input (handles paste with newlines)
       if (input && !key.ctrl && !key.meta && !key.escape) {
-        setTaLines((lines) => {
-          const newLines = [...lines];
-          const line = newLines[taCursorRow] ?? '';
-          newLines[taCursorRow] = line.slice(0, taCursorCol) + input + line.slice(taCursorCol);
-          return newLines;
-        });
-        setTaCursorCol((c) => c + input.length);
+        const parts = input.split(/\r?\n/);
+        if (parts.length === 1) {
+          // Single line — fast path
+          setTaLines((lines) => {
+            const newLines = [...lines];
+            const line = newLines[taCursorRow] ?? '';
+            newLines[taCursorRow] = line.slice(0, taCursorCol) + input + line.slice(taCursorCol);
+            return newLines;
+          });
+          setTaCursorCol((c) => c + input.length);
+        } else {
+          // Multiline paste
+          const row = taCursorRow;
+          const col = taCursorCol;
+          setTaLines((lines) => {
+            const newLines = [...lines];
+            const line = newLines[row] ?? '';
+            const before = line.slice(0, col);
+            const after = line.slice(col);
+            const firstPart = parts[0] ?? '';
+            const lastPart = parts[parts.length - 1] ?? '';
+            const insertLines = [
+              before + firstPart,
+              ...parts.slice(1, -1),
+              lastPart + after,
+            ];
+            newLines.splice(row, 1, ...insertLines);
+            return newLines;
+          });
+          setTaCursorRow(row + parts.length - 1);
+          setTaCursorCol((parts[parts.length - 1] ?? '').length);
+        }
       }
       return;
     }
