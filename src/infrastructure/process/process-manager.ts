@@ -72,6 +72,10 @@ export class ProcessManager implements IProcessManager {
       throw new Error(`Failed to spawn process: ${command}`);
     }
 
+    // Allow parent to exit without waiting for this child.
+    // Pipes (stdout/stderr) still hold refs while being read — that's intentional.
+    proc.unref();
+
     return { process: proc, pid: proc.pid };
   }
 }
