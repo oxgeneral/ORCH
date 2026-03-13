@@ -818,3 +818,166 @@ describe('FormWizard textarea', () => {
     expect(onComplete).toHaveBeenCalledWith({ body: 'HelloXWorld' });
   });
 });
+
+describe('FormWizard clipboard paste (onPasteImage / footerExtra)', () => {
+  // Kitty keyboard protocol CSI u: codepoint 105 ('i'), modifier 5 (ctrl+1)
+  const CTRL_I = '\x1b[105;5u';
+
+  function makeTextStep(): WizardStep[] {
+    return [{ id: 'title', label: 'Title', type: 'text', required: true }];
+  }
+
+  function makeSelectStep(): WizardStep[] {
+    return [
+      {
+        id: 'priority',
+        label: 'Priority',
+        type: 'select',
+        options: [
+          { label: 'High', value: '1' },
+          { label: 'Medium', value: '2' },
+        ],
+      },
+    ];
+  }
+
+  it('calls onPasteImage on Ctrl+I for text step', async () => {
+    const onPasteImage = vi.fn().mockResolvedValue(true);
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextStep(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+        onPasteImage,
+      }),
+    );
+    await delay(50);
+    stdin.write(CTRL_I);
+    await delay(50);
+    expect(onPasteImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onPasteImage on Ctrl+I for textarea step', async () => {
+    const onPasteImage = vi.fn().mockResolvedValue(true);
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextareaSteps(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+        onPasteImage,
+      }),
+    );
+    await delay(50);
+    stdin.write(CTRL_I);
+    await delay(50);
+    expect(onPasteImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT call onPasteImage on Ctrl+I for select step', async () => {
+    const onPasteImage = vi.fn().mockResolvedValue(true);
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeSelectStep(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+        onPasteImage,
+      }),
+    );
+    await delay(50);
+    stdin.write(CTRL_I);
+    await delay(50);
+    expect(onPasteImage).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call onPasteImage when prop is undefined', async () => {
+    const onComplete = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextStep(),
+        onComplete,
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+        // onPasteImage not provided
+      }),
+    );
+    await delay(50);
+    stdin.write(CTRL_I);
+    await delay(50);
+    // No crash — test passes if we get here
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('shows Ctrl+I hint in footer when onPasteImage provided for text step', async () => {
+    const { lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextStep(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 80,
+        height: 20,
+        onPasteImage: vi.fn().mockResolvedValue(false),
+      }),
+    );
+    await delay(50);
+    expect(lastFrame()!).toContain('Ctrl+I paste image');
+  });
+
+  it('does NOT show Ctrl+I hint when onPasteImage not provided', async () => {
+    const { lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextStep(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 80,
+        height: 20,
+      }),
+    );
+    await delay(50);
+    expect(lastFrame()!).not.toContain('Ctrl+I paste image');
+  });
+
+  it('renders footerExtra text when provided', async () => {
+    const { lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextStep(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 80,
+        height: 20,
+        footerExtra: '📎2',
+      }),
+    );
+    await delay(50);
+    expect(lastFrame()!).toContain('📎2');
+  });
+
+  it('does NOT render footerExtra when not provided', async () => {
+    const { lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextStep(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 80,
+        height: 20,
+      }),
+    );
+    await delay(50);
+    // Should not contain the 📎 indicator
+    expect(lastFrame()!).not.toContain('📎');
+  });
+});
