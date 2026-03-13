@@ -41,7 +41,7 @@ vi.mock('../../../src/infrastructure/storage/paths.js', () => ({
 }));
 
 vi.mock('../../../src/domain/config.js', () => ({
-  DEFAULT_CONFIG: { project: { name: '' }, scheduling: { poll_interval_ms: 30000 } },
+  DEFAULT_CONFIG: { project: { name: '' }, scheduling: { poll_interval_ms: 10000 } },
 }));
 
 vi.mock('../../../src/infrastructure/template/template-engine.js', () => ({
