@@ -37,6 +37,11 @@ import type { AgentService } from './agent-service.js';
 import type { RunService } from './run-service.js';
 import { ReviewRunner } from './review-runner.js';
 
+/** Max serialized event data written to JSONL (8 KB) */
+const MAX_EVENT_DATA_LEN = 8192;
+/** Max event data sent to TUI via event bus (4 KB) */
+const MAX_BUS_DATA_LEN = 4096;
+
 export interface OrchestratorDeps {
   taskStore: ITaskStore;
   agentStore: IAgentStore;
@@ -916,11 +921,10 @@ export class Orchestrator {
           ? event.timestamp
           : new Date().toISOString();
 
-        // Truncate event data to prevent multi-MB JSONL lines from tool_result payloads
-        const MAX_EVENT_DATA_LEN = 8192;
-        const truncatedData = truncateEventData(event.data, MAX_EVENT_DATA_LEN);
+        // Serialize + truncate once — reused for JSONL write and event bus
+        const serialized = serializeEventData(event.data, MAX_EVENT_DATA_LEN);
 
-        // Record event (with capped data to keep JSONL files manageable)
+        // Record event (pre-serialized string keeps JSONL lines manageable)
         const runEvent: RunEvent = {
           timestamp: eventTimestamp,
           type: event.type === 'output' ? 'agent_output' :
@@ -928,7 +932,7 @@ export class Orchestrator {
                 event.type === 'command' ? 'command_run' :
                 event.type === 'tool_call' ? 'tool_call' :
                 event.type === 'error' ? 'error' : 'done',
-          data: truncatedData,
+          data: serialized,
         };
         await this.deps.runService.appendEvent(runId, runEvent);
 
@@ -938,15 +942,14 @@ export class Orchestrator {
           this.saveStateLazy();
         }
 
-        // Emit to event bus — use pre-truncated data to avoid creating huge strings
-        const MAX_BUS_DATA_LEN = 4096;
+        // Emit to event bus — further cap for TUI consumption
+        const busData = serializeEventData(serialized, MAX_BUS_DATA_LEN);
         if (event.type === 'output' || event.type === 'tool_call') {
-          const raw = typeof truncatedData === 'string' ? truncatedData : JSON.stringify(truncatedData);
           this.deps.eventBus.emit({
             type: 'agent:output',
             runId,
             agentId,
-            data: raw.length > MAX_BUS_DATA_LEN ? raw.slice(0, MAX_BUS_DATA_LEN) + '…' : raw,
+            data: busData,
           });
         } else if (event.type === 'file_change') {
           this.deps.eventBus.emit({
@@ -956,12 +959,11 @@ export class Orchestrator {
             path: typeof event.data === 'string' ? event.data : String(event.data),
           });
         } else if (event.type === 'error') {
-          const raw = typeof truncatedData === 'string' ? truncatedData : JSON.stringify(truncatedData);
           this.deps.eventBus.emit({
             type: 'agent:error',
             runId,
             agentId,
-            error: raw.length > MAX_BUS_DATA_LEN ? raw.slice(0, MAX_BUS_DATA_LEN) + '…' : raw,
+            error: busData,
           });
         }
       }
@@ -1389,16 +1391,10 @@ function isValidISOTimestamp(value: unknown): value is string {
 }
 
 /**
- * Truncate event data to prevent multi-MB allocations from tool_result payloads.
- * Strings are sliced directly; objects are JSON-stringified and sliced, then returned as string.
+ * Serialize event data to a string, truncating if it exceeds maxLen.
+ * Always returns a string — avoids double-stringify by callers (appendJsonl, event bus).
  */
-function truncateEventData(data: unknown, maxLen: number): unknown {
-  if (typeof data === 'string') {
-    return data.length > maxLen ? data.slice(0, maxLen) + '…[truncated]' : data;
-  }
-  if (data === null || data === undefined || typeof data !== 'object') return data;
-  const json = JSON.stringify(data);
-  if (json.length <= maxLen) return data;
-  // Return truncated string representation — cheaper than deep-cloning and pruning
-  return json.slice(0, maxLen) + '…[truncated]';
+function serializeEventData(data: unknown, maxLen: number): string {
+  const str = typeof data === 'string' ? data : JSON.stringify(data);
+  return str.length > maxLen ? str.slice(0, maxLen) + '…' : str;
 }
