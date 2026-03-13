@@ -48,7 +48,7 @@ All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx v
 |--------|--------|-------|-------|
 | Total time | 12.2s | 10.7s | -12% |
 | Transform | 1.6s | 0.7s | -56% |
-| Collect | 4.8s | 1.9s | -60% |
+| Collect | 4.8s | 1.75s | -64% |
 | Test count | 233 → 767+ | 767+ | — |
 
 ### TUI Memory
@@ -208,7 +208,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 ### Reading Results
 
 - **CLI startup**: Target <50ms for `--help`, <100ms for commands
-- **Build**: Target <2s total wall time
+- **Build**: Target <2.0s total wall time
 - **Tests**: Watch transform + collect phases (should be <3s combined)
 - **TUI memory**: Heap should plateau, not grow linearly
 
@@ -225,7 +225,9 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 | Tick duration | <5s | <1s typical | PASS |
 | `appendJsonl` atomicity | ≤PIPE_BUF | 4096 bytes | PASS |
 | State save (debounced) | <100ms | ~10ms | PASS |
+
 | History load (TUI) | <2s | <500ms (progressive) | PASS |
+
 
 ## 7. Known Bottlenecks
 
