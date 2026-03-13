@@ -53,7 +53,7 @@ const MAX_RUN_MAP_SIZE = 500;
 /** Max characters for detail strings in status messages (prevents multi-MB objects) */
 const MAX_DETAIL_LEN = 2048;
 /** Max status messages kept in the activity feed */
-const MAX_MESSAGES = 200;
+const MAX_MESSAGES = 500;
 
 /** Statuses that allow R (run) action */
 const RUNNABLE: Set<TaskStatus> = new Set(['todo', 'failed', 'cancelled']);
