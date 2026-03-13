@@ -40,6 +40,7 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .option('--review-criteria <criteria>', 'Comma-separated auto-review criteria: test_pass,typecheck,lint')
     .option('--scope <patterns>', 'Comma-separated glob patterns for file scope (e.g. src/auth/**,src/session/**)')
     .option('--goal-id <goalId>', 'Associate task with a goal')
+    .option('--attach <paths>', 'Comma-separated file paths to attach (screenshots, docs)')
     .option('-e, --edit', 'Open $EDITOR to write the description')
     .action(async (title: string, opts) => {
       await container.paths.requireInit();
@@ -65,6 +66,7 @@ export function registerTaskCommand(program: Command, container: LightContainer)
         review_criteria: opts.reviewCriteria?.split(',').map((s: string) => s.trim()),
         scope: opts.scope?.split(',').map((s: string) => s.trim()),
         goalId: opts.goalId,
+        attachments: opts.attach?.split(',').map((s: string) => s.trim()),
       });
 
       if (container.context.json) {
@@ -161,6 +163,13 @@ export function registerTaskCommand(program: Command, container: LightContainer)
 
       printKeyValue(pairs);
 
+      if (t.attachments?.length) {
+        console.log(`\n  Attachments (${t.attachments.length})\n  ${'─'.repeat(42)}`);
+        for (const a of t.attachments) {
+          console.log(`    ${filePath(a)}`);
+        }
+      }
+
       if (t.description) {
         console.log(`\n  Description\n  ${'─'.repeat(42)}`);
         for (const line of t.description.split('\n')) {
@@ -216,11 +225,14 @@ export function registerTaskCommand(program: Command, container: LightContainer)
       await container.paths.requireInit();
 
       const existing = await container.taskService.get(id);
+      const attachmentNote = existing.attachments?.length
+        ? `\n# Attachments: ${existing.attachments.join(', ')}`
+        : '';
       const initial = toEditorContent({
         title: existing.title,
         priority: existing.priority,
         description: existing.description,
-      });
+      }) + attachmentNote;
 
       const content = await openInEditor(initial);
       const parsed = fromEditorContent(content);
