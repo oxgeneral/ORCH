@@ -7,13 +7,13 @@
  */
 
 import type { Command } from 'commander';
-import type { Container } from '../../container.js';
+import type { LightContainer } from '../../container.js';
 import type { RunEvent } from '../../domain/run.js';
 import type { OrchestratorEvent } from '../../domain/events.js';
 import { printError, dim, getIcon } from '../output.js';
 import { InvalidArgumentsError } from '../../domain/errors.js';
 
-export function registerLogsCommand(program: Command, container: Container): void {
+export function registerLogsCommand(program: Command, container: LightContainer): void {
   program
     .command('logs [run-id]')
     .description('View run logs')
@@ -64,7 +64,7 @@ function filterBySince(events: RunEvent[], sinceMs: number | undefined): RunEven
   return events.filter((e) => new Date(e.timestamp).getTime() >= cutoff);
 }
 
-async function showRunLogs(container: Container, runId: string, sinceMs?: number): Promise<void> {
+async function showRunLogs(container: LightContainer, runId: string, sinceMs?: number): Promise<void> {
   let events = sinceMs
     ? filterBySince(await container.runService.readEventsTail(runId, 500), sinceMs)
     : await container.runService.readEventsTail(runId, 50);
@@ -86,7 +86,7 @@ async function showRunLogs(container: Container, runId: string, sinceMs?: number
   console.log();
 }
 
-async function showTaskLogs(container: Container, taskId: string, sinceMs?: number): Promise<void> {
+async function showTaskLogs(container: LightContainer, taskId: string, sinceMs?: number): Promise<void> {
   const runs = await container.runService.listForTask(taskId);
 
   if (container.context.json) {
@@ -119,7 +119,7 @@ async function showTaskLogs(container: Container, taskId: string, sinceMs?: numb
   console.log();
 }
 
-async function showAgentLogs(container: Container, agentId: string, sinceMs?: number): Promise<void> {
+async function showAgentLogs(container: LightContainer, agentId: string, sinceMs?: number): Promise<void> {
   const runs = await container.runService.listForAgent(agentId);
 
   if (container.context.json) {
@@ -157,7 +157,7 @@ async function showAgentLogs(container: Container, agentId: string, sinceMs?: nu
  * Blocks until SIGINT/SIGTERM.
  */
 async function followLive(
-  container: Container,
+  container: LightContainer,
   filter: { runId?: string; taskId?: string; agentId?: string },
 ): Promise<void> {
   // Build lookup sets for filtering

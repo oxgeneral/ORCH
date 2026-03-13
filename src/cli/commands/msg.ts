@@ -3,10 +3,10 @@
  */
 
 import type { Command } from 'commander';
-import type { Container } from '../../container.js';
+import type { LightContainer } from '../../container.js';
 import { printSuccess, printTable, dim, formatDurationSince } from '../output.js';
 
-export function registerMsgCommand(program: Command, container: Container): void {
+export function registerMsgCommand(program: Command, container: LightContainer): void {
   const msg = program
     .command('msg')
     .description('Inter-agent messaging');

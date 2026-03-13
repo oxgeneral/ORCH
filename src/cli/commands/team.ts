@@ -3,10 +3,10 @@
  */
 
 import type { Command } from 'commander';
-import type { Container } from '../../container.js';
+import type { LightContainer } from '../../container.js';
 import { printSuccess, printTable, printKeyValue, dim } from '../output.js';
 
-export function registerTeamCommand(program: Command, container: Container): void {
+export function registerTeamCommand(program: Command, container: LightContainer): void {
   const team = program
     .command('team')
     .description('Manage agent teams');

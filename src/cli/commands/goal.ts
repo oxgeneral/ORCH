@@ -5,7 +5,7 @@
  */
 
 import type { Command } from 'commander';
-import type { Container } from '../../container.js';
+import type { LightContainer } from '../../container.js';
 import { GOAL_STATUSES, type GoalStatus } from '../../domain/goal.js';
 import { printSuccess, printError, printTable, printKeyValue, dim } from '../output.js';
 
@@ -16,7 +16,7 @@ const STATUS_ICON: Record<GoalStatus, string> = {
   abandoned: '\u2715',  // ✕
 };
 
-export function registerGoalCommand(program: Command, container: Container): void {
+export function registerGoalCommand(program: Command, container: LightContainer): void {
   const goal = program
     .command('goal')
     .description('Manage goals');

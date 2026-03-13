@@ -6,7 +6,7 @@
  */
 
 import type { Command } from 'commander';
-import type { Container } from '../../container.js';
+import type { LightContainer } from '../../container.js';
 import {
   printError,
   printSuccess,
@@ -15,7 +15,7 @@ import {
   formatDurationSince,
 } from '../output.js';
 
-export function registerContextCommand(program: Command, container: Container): void {
+export function registerContextCommand(program: Command, container: LightContainer): void {
   const ctx = program
     .command('context')
     .description('Shared context store for inter-agent data exchange');

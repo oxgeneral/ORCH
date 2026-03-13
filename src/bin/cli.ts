@@ -2,29 +2,35 @@
  * CLI entry point.
  *
  * Builds the container, registers all commands, handles global errors.
+ * Uses light container (stores + services) for read-only commands,
+ * full container (+ orchestrator + adapters + LiquidJS) for run/tui/doctor.
  */
 
 import { Command } from 'commander';
 import { createContext } from '../cli/context.js';
-import { buildContainer } from '../container.js';
+import type { LightContainer, Container } from '../container.js';
 import { OrchestryError, NotInitializedError } from '../domain/errors.js';
 import { printError, setAsciiMode, setNoColor } from '../cli/output.js';
 
-import { registerInitCommand } from '../cli/commands/init.js';
-import { registerTaskCommand } from '../cli/commands/task.js';
-import { registerAgentCommand } from '../cli/commands/agent.js';
-import { registerRunCommand } from '../cli/commands/run.js';
-import { registerStatusCommand } from '../cli/commands/status.js';
-import { registerLogsCommand } from '../cli/commands/logs.js';
-import { registerConfigCommand } from '../cli/commands/config.js';
-import { registerDoctorCommand } from '../cli/commands/doctor.js';
-import { registerTuiCommand } from '../cli/commands/tui.js';
-import { registerContextCommand } from '../cli/commands/context.js';
-import { registerMsgCommand } from '../cli/commands/msg.js';
-import { registerGoalCommand } from '../cli/commands/goal.js';
-import { registerTeamCommand } from '../cli/commands/team.js';
-import { registerUpdateCommand } from '../cli/commands/update.js';
-import { checkForUpdate, printUpdateNotification } from '../cli/update-check.js';
+/** Commands that only need stores + services (fast path). */
+const LIGHT_COMMANDS: Record<string, (program: Command, container: LightContainer) => Promise<void>> = {
+  task:    async (p, c) => { const m = await import('../cli/commands/task.js');    m.registerTaskCommand(p, c); },
+  agent:   async (p, c) => { const m = await import('../cli/commands/agent.js');   m.registerAgentCommand(p, c); },
+  status:  async (p, c) => { const m = await import('../cli/commands/status.js');  m.registerStatusCommand(p, c); },
+  logs:    async (p, c) => { const m = await import('../cli/commands/logs.js');    m.registerLogsCommand(p, c); },
+  config:  async (p, c) => { const m = await import('../cli/commands/config.js');  m.registerConfigCommand(p, c); },
+  context: async (p, c) => { const m = await import('../cli/commands/context.js'); m.registerContextCommand(p, c); },
+  msg:     async (p, c) => { const m = await import('../cli/commands/msg.js');     m.registerMsgCommand(p, c); },
+  goal:    async (p, c) => { const m = await import('../cli/commands/goal.js');    m.registerGoalCommand(p, c); },
+  team:    async (p, c) => { const m = await import('../cli/commands/team.js');    m.registerTeamCommand(p, c); },
+};
+
+/** Commands that need orchestrator + adapters + template engine (heavy path). */
+const FULL_COMMANDS: Record<string, (program: Command, container: Container) => Promise<void>> = {
+  run:     async (p, c) => { const m = await import('../cli/commands/run.js');     m.registerRunCommand(p, c); },
+  doctor:  async (p, c) => { const m = await import('../cli/commands/doctor.js');  m.registerDoctorCommand(p, c); },
+  tui:     async (p, c) => { const m = await import('../cli/commands/tui.js');     m.registerTuiCommand(p, c); },
+};
 
 const program = new Command();
 
@@ -50,24 +56,72 @@ async function main(): Promise<void> {
   const context = createContext({
     json: globalOpts.json,
     quiet: globalOpts.quiet,
-    noColor: globalOpts.color === false, // Commander handles --no-color as color=false
+    noColor: globalOpts.color === false,
     ascii: globalOpts.ascii,
   });
 
-  // Commands that work without a full container
-  registerInitCommand(program);
-  registerUpdateCommand(program);
+  // Determine which subcommand the user wants (before loading anything heavy)
+  const sub = process.argv[2];
 
-  // Build container for other commands (requires .orchestry/ to read config)
-  let container;
+  // Commands that work without a container (lazy-loaded)
+  if (sub === 'init') {
+    const { registerInitCommand } = await import('../cli/commands/init.js');
+    registerInitCommand(program);
+  } else if (sub === 'update') {
+    const { registerUpdateCommand } = await import('../cli/commands/update.js');
+    registerUpdateCommand(program);
+  }
+
+  // Decide: light or full container
+  const needsFull = !sub || sub in FULL_COMMANDS;
+
   try {
-    container = await buildContainer(context);
+    if (needsFull) {
+      // Full container: orchestrator + adapters + LiquidJS
+      const { buildFullContainer } = await import('../container.js');
+      const container = await buildFullContainer(context);
+
+      // Register requested full command (or all if unknown sub)
+      const fullLoader = sub ? FULL_COMMANDS[sub] : undefined;
+      if (fullLoader) {
+        await fullLoader(program, container);
+      } else {
+        // No sub → TUI, register all full commands
+        await Promise.all(
+          Object.values(FULL_COMMANDS).map((fn) => fn(program, container)),
+        );
+      }
+
+      // Also register light commands that may be needed (help, unknown sub fallback)
+      // Full container extends LightContainer, so it works
+      const lightLoader = sub ? LIGHT_COMMANDS[sub] : undefined;
+      if (lightLoader) {
+        await lightLoader(program, container);
+      }
+    } else {
+      // Light container: stores + services only (no ProcessManager, no adapters, no LiquidJS)
+      const { buildLightContainer } = await import('../container.js');
+      const container = await buildLightContainer(context);
+
+      const lightLoader = LIGHT_COMMANDS[sub];
+      if (lightLoader) {
+        await lightLoader(program, container);
+      } else {
+        // Unknown subcommand — register all light commands so Commander can show help/error
+        await Promise.all(
+          Object.values(LIGHT_COMMANDS).map((fn) => fn(program, container)),
+        );
+      }
+    }
   } catch (err) {
     if (err instanceof NotInitializedError) {
-      // Not initialized — only init and doctor work without container
-      registerDoctorCommand(program);
+      // Not initialized — only init, doctor, and update work without container
+      if (sub === 'doctor') {
+        const { registerDoctorCommand } = await import('../cli/commands/doctor.js');
+        registerDoctorCommand(program);
+      }
 
-      // No args → show welcome message instead of cryptic error
+      // No args → show welcome message
       if (process.argv.length <= 2) {
         const { dim } = await import('../cli/output.js');
         console.log();
@@ -82,7 +136,6 @@ async function main(): Promise<void> {
       }
 
       // Check if user is running init, doctor, or update — let Commander handle it
-      const sub = process.argv[2];
       if (sub === 'init' || sub === 'doctor' || sub === 'update') {
         await program.parseAsync(process.argv);
         return;
@@ -95,35 +148,25 @@ async function main(): Promise<void> {
     throw err;
   }
 
-  // Register all commands
-  registerTaskCommand(program, container);
-  registerAgentCommand(program, container);
-  registerRunCommand(program, container);
-  registerStatusCommand(program, container);
-  registerLogsCommand(program, container);
-  registerConfigCommand(program, container);
-  registerContextCommand(program, container);
-  registerMsgCommand(program, container);
-  registerGoalCommand(program, container);
-  registerTeamCommand(program, container);
-  registerDoctorCommand(program, container);
-  registerTuiCommand(program, container);
-
   // Default command (no args) → TUI dashboard
   if (process.argv.length <= 2) {
     process.argv.push('tui');
   }
 
-  // Start background update check (non-blocking)
-  const updatePromise = checkForUpdate('0.1.0');
+  // Start background update check (non-blocking, lazy import)
+  let updateMod: typeof import('../cli/update-check.js') | undefined;
+  const updateCheck = import('../cli/update-check.js').then((m) => {
+    updateMod = m;
+    return m.checkForUpdate(program.version() ?? '0.0.0');
+  });
 
   await program.parseAsync(process.argv);
 
   // Show update notification after command completes (skip for TUI — it has its own UI)
-  const sub = process.argv[2];
-  if (sub !== 'tui' && sub !== 'update') {
-    const info = await updatePromise;
-    if (info) printUpdateNotification(info);
+  const actualSub = process.argv[2];
+  if (actualSub !== 'tui' && actualSub !== 'update') {
+    const info = await updateCheck;
+    if (info && updateMod) updateMod.printUpdateNotification(info);
   }
 }
 

@@ -5,7 +5,7 @@
  */
 
 import type { Command } from 'commander';
-import type { Container } from '../../container.js';
+import type { LightContainer } from '../../container.js';
 import {
   statusIcon,
   priorityLabel,
@@ -21,7 +21,7 @@ import {
 } from '../output.js';
 import { openInEditor, toEditorContent, fromEditorContent } from '../editor.js';
 
-export function registerTaskCommand(program: Command, container: Container): void {
+export function registerTaskCommand(program: Command, container: LightContainer): void {
   const task = program
     .command('task')
     .description('Manage tasks');
@@ -256,7 +256,7 @@ export function registerTaskCommand(program: Command, container: Container): voi
     .description('Cancel a task')
     .action(async (id: string) => {
       await container.paths.requireInit();
-      await container.orchestrator.cancelTask(id);
+      await container.taskService.cancel(id);
       printSuccess(`Cancelled ${id}`);
     });
 

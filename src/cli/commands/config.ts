@@ -5,14 +5,14 @@
  */
 
 import type { Command } from 'commander';
-import type { Container } from '../../container.js';
+import type { LightContainer } from '../../container.js';
 import type { ActivityFilterPreset } from '../../domain/global-config.js';
 import { printSuccess, printError, dim } from '../output.js';
 import { spawn } from 'node:child_process';
 
 const VALID_FILTER_PRESETS: ActivityFilterPreset[] = ['all', 'text', 'tools', 'errors', 'events'];
 
-export function registerConfigCommand(program: Command, container: Container): void {
+export function registerConfigCommand(program: Command, container: LightContainer): void {
   const config = program
     .command('config')
     .description('Manage configuration');

@@ -5,7 +5,7 @@
  * task, agent, project, and run context variables.
  */
 
-import { Liquid } from 'liquidjs';
+import type { Liquid } from 'liquidjs';
 import type { Agent } from '../../domain/agent.js';
 import type { OrchestratorConfig } from '../../domain/config.js';
 import { AUTONOMOUS_LABEL, type Task } from '../../domain/task.js';
@@ -62,19 +62,27 @@ export interface PromptContext {
 }
 
 export class LiquidTemplateEngine implements ITemplateEngine {
-  private readonly engine: Liquid;
+  private engine: Liquid | undefined;
   private readonly renderTimeoutMs: number;
 
   constructor(options?: { renderTimeoutMs?: number }) {
-    this.engine = new Liquid({
-      strictFilters: false,
-      strictVariables: false,
-    });
     this.renderTimeoutMs = options?.renderTimeoutMs ?? 5_000;
   }
 
+  private async getEngine(): Promise<Liquid> {
+    if (!this.engine) {
+      const { Liquid } = await import('liquidjs');
+      this.engine = new Liquid({
+        strictFilters: false,
+        strictVariables: false,
+      });
+    }
+    return this.engine;
+  }
+
   async render(template: string, context: PromptContext): Promise<string> {
-    const renderPromise = this.engine.parseAndRender(template, context);
+    const engine = await this.getEngine();
+    const renderPromise = engine.parseAndRender(template, context);
 
     if (this.renderTimeoutMs <= 0) {
       return renderPromise;

@@ -5,7 +5,7 @@
  */
 
 import type { Command } from 'commander';
-import type { Container } from '../../container.js';
+import type { LightContainer } from '../../container.js';
 import {
   statusIcon,
   printSuccess,
@@ -17,7 +17,7 @@ import {
 } from '../output.js';
 import { openInEditor, agentToEditorContent, agentFromEditorContent } from '../editor.js';
 
-export function registerAgentCommand(program: Command, container: Container): void {
+export function registerAgentCommand(program: Command, container: LightContainer): void {
   const agent = program
     .command('agent')
     .description('Manage agents');

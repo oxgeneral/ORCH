@@ -43,25 +43,24 @@ async function readCache(): Promise<UpdateCache | null> {
   return null;
 }
 
-/** Write cache file. */
+/** Write cache file atomically (temp → rename). */
 async function writeCache(latest: string): Promise<void> {
   await fs.mkdir(CACHE_DIR, { recursive: true });
   const data: UpdateCache = { latest, checked_at: Date.now() };
-  await fs.writeFile(CACHE_FILE, JSON.stringify(data), 'utf-8');
+  const tmp = `${CACHE_FILE}.tmp.${process.pid}`;
+  await fs.writeFile(tmp, JSON.stringify(data), 'utf-8');
+  await fs.rename(tmp, CACHE_FILE);
 }
 
 /** Fetch latest version from npm registry via `npm view`. */
 function fetchLatestVersion(): Promise<string | null> {
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(null), 5000);
     execFile('npm', ['view', PACKAGE_NAME, 'version', '--json'], { timeout: 5000 }, (err, stdout) => {
-      clearTimeout(timeout);
       if (err) return resolve(null);
       try {
-        const version = JSON.parse(stdout.trim()) as string;
-        return resolve(version);
+        resolve(JSON.parse(stdout.trim()) as string);
       } catch {
-        return resolve(null);
+        resolve(null);
       }
     });
   });

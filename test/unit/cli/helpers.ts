@@ -3,7 +3,7 @@
  * Provides a base makeContainer factory with sensible defaults.
  */
 import { vi } from 'vitest';
-import type { Container } from '../../../src/container.js';
+import type { Container, LightContainer } from '../../../src/container.js';
 
 export function makeContainer(overrides: Partial<Container> = {}): Container {
   return {

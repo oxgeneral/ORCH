@@ -27,5 +27,5 @@ export type { IAgentAdapter, AgentEvent, ExecuteParams, AdapterTestResult } from
 export { AdapterRegistry } from './infrastructure/adapters/registry.js';
 
 // Container
-export { buildContainer } from './container.js';
-export type { Container } from './container.js';
+export { buildContainer, buildLightContainer, buildFullContainer } from './container.js';
+export type { Container, LightContainer } from './container.js';
