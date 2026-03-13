@@ -915,7 +915,7 @@ export function App({
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
     }
-  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onLeaveTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter, onSaveMaxConcurrent, liveTeams]);
+  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onLeaveTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter, onSaveMaxConcurrent, liveTeams, pendingAttachments]);
 
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');
@@ -1991,8 +1991,8 @@ export function App({
           onCancel={handleWizardCancel}
           width={ruleW}
           height={feedH}
-          onPasteImage={(wizardConfig.kind === 'task' || wizardConfig.kind === 'edit_task') ? handlePasteImage : undefined}
-          footerExtra={pendingAttachments.length > 0 && (wizardConfig.kind === 'task' || wizardConfig.kind === 'edit_task') ? `\uD83D\uDCCE${pendingAttachments.length}` : undefined}
+          onPasteImage={wizardConfig.kind === 'task' ? handlePasteImage : undefined}
+          footerExtra={pendingAttachments.length > 0 && wizardConfig.kind === 'task' ? `\uD83D\uDCCE${pendingAttachments.length}` : undefined}
         />
       ) : showSuggestions ? (
         <>
