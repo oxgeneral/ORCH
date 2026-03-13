@@ -4,7 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ORCH — AI Agent Orchestrator</title>
-  <meta name="description" content="Lightweight CLI orchestrator for managing teams of AI agents. Inter-agent messaging, scope isolation, auto merge-back. Zero cloud dependencies.">
+  <meta name="description" content="The open-source CLI orchestrator for managing teams of AI agents. Inter-agent messaging, git worktree isolation, auto merge-back. Zero cloud dependencies.">
+  <meta name="keywords" content="AI agents, orchestrator, CLI, multi-agent, developer tools, open source">
+  <meta property="og:title" content="ORCH — Orchestrate AI Agent Teams From Your Terminal">
+  <meta property="og:description" content="Run coordinated teams of AI agents in parallel with git worktree isolation, inter-agent messaging, and state machine governance. Zero cloud dependencies.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -18,8 +25,10 @@
       --gray-light: #2a2a2a;
       --accent: #ffaf00;
       --accent-dim: rgba(255,175,0,0.12);
+      --accent-glow: rgba(255,175,0,0.06);
       --blue: #58a8d0;
       --green: #4a9;
+      --red: #ff5f57;
       --mono: 'JetBrains Mono', monospace;
       --serif: 'Instrument Serif', serif;
     }
@@ -41,22 +50,37 @@
       color: var(--black);
     }
 
+    /* --- NOISE OVERLAY --- */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 256px 256px;
+    }
+
     /* --- NAV --- */
     nav {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
+      top: 0; left: 0; right: 0;
       z-index: 100;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1.5rem 3rem;
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      background: rgba(10,10,10,0.7);
-      border-bottom: 1px solid var(--gray-light);
+      height: 64px;
+      padding: 0 3rem;
+      backdrop-filter: blur(24px) saturate(1.2);
+      -webkit-backdrop-filter: blur(24px) saturate(1.2);
+      background: rgba(10,10,10,0.75);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      transition: background 0.3s;
     }
+
+    nav.scrolled { background: rgba(10,10,10,0.92); }
 
     .logo {
       font-size: 0.85rem;
@@ -70,7 +94,7 @@
     nav a {
       color: var(--gray);
       text-decoration: none;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       transition: color 0.3s;
@@ -80,25 +104,30 @@
 
     .nav-links { display: flex; gap: 2rem; align-items: center; }
 
+    .nav-npm { color: var(--accent) !important; }
+
     .nav-cta {
-      color: var(--black) !important;
-      background: var(--accent);
-      padding: 0.5rem 1.2rem;
+      color: var(--white) !important;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 0.45rem 1.2rem;
       font-weight: 500;
-      transition: transform 0.2s, background 0.3s !important;
+      transition: all 0.2s !important;
     }
 
     .nav-cta:hover {
+      background: rgba(255,255,255,0.12) !important;
+      border-color: rgba(255,255,255,0.2);
       transform: translateY(-1px);
-      background: #ffc44d !important;
     }
 
     /* --- HERO --- */
     .hero {
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: 4rem;
       padding: 8rem 3rem 4rem;
       position: relative;
     }
@@ -106,33 +135,46 @@
     .hero::after {
       content: '';
       position: absolute;
-      top: 0;
-      right: 0;
-      width: 50%;
+      top: 0; right: 0;
+      width: 60%;
       height: 100%;
       background:
-        radial-gradient(ellipse at 80% 30%, rgba(255,175,0,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 30%, rgba(255,175,0,0.05) 0%, transparent 60%),
         radial-gradient(ellipse at 60% 70%, rgba(88,168,208,0.03) 0%, transparent 50%);
       pointer-events: none;
     }
 
-    .hero-label {
-      font-size: 0.7rem;
-      letter-spacing: 0.2em;
+    .hero-content { position: relative; z-index: 2; }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
       text-transform: uppercase;
-      color: var(--gray);
+      color: var(--accent);
+      border: 1px solid var(--accent-dim);
+      padding: 0.4rem 1rem;
       margin-bottom: 2rem;
       opacity: 0;
       animation: fadeUp 0.8s 0.2s forwards;
     }
 
+    .hero-badge .pulse {
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
     .hero h1 {
       font-family: var(--serif);
       font-weight: 400;
-      font-size: clamp(3rem, 8vw, 7rem);
-      line-height: 1.05;
+      font-size: clamp(2.8rem, 5.5vw, 5rem);
+      line-height: 1.08;
       letter-spacing: -0.02em;
-      max-width: 16ch;
+      max-width: 14ch;
       opacity: 0;
       animation: fadeUp 0.8s 0.4s forwards;
     }
@@ -143,17 +185,19 @@
     }
 
     .hero-sub {
-      margin-top: 2.5rem;
-      font-size: 0.9rem;
+      margin-top: 2rem;
+      font-size: 0.85rem;
       color: var(--gray);
-      max-width: 52ch;
+      max-width: 48ch;
       line-height: 1.8;
       opacity: 0;
       animation: fadeUp 0.8s 0.6s forwards;
     }
 
+    .hero-sub strong { color: var(--white); font-weight: 400; }
+
     .hero-actions {
-      margin-top: 3rem;
+      margin-top: 2.5rem;
       display: flex;
       gap: 1rem;
       align-items: center;
@@ -164,9 +208,9 @@
     .btn-primary {
       background: var(--accent);
       color: var(--black);
-      padding: 0.8rem 2rem;
+      padding: 0.75rem 1.8rem;
       font-family: var(--mono);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 500;
       letter-spacing: 0.05em;
       text-decoration: none;
@@ -178,17 +222,17 @@
 
     .btn-primary:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(255,175,0,0.15);
+      box-shadow: 0 8px 30px rgba(255,175,0,0.2);
     }
 
     .btn-ghost {
       color: var(--gray);
       font-family: var(--mono);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       text-decoration: none;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      padding: 0.8rem 1.5rem;
+      padding: 0.75rem 1.5rem;
       border: 1px solid var(--gray-light);
       transition: color 0.3s, border-color 0.3s;
     }
@@ -198,39 +242,147 @@
       border-color: var(--white);
     }
 
+    .hero-meta {
+      margin-top: 2.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--gray-light);
+      display: flex;
+      gap: 2rem;
+      font-size: 0.65rem;
+      color: var(--gray);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      opacity: 0;
+      animation: fadeUp 0.8s 1s forwards;
+    }
+
+    .hero-meta strong {
+      color: var(--white);
+      font-weight: 500;
+    }
+
+    /* Hero Terminal */
+    .hero-visual {
+      position: relative;
+      z-index: 2;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.6s forwards;
+    }
+
+    .hero-visual::before {
+      content: '';
+      position: absolute;
+      inset: -40px;
+      background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-terminal {
+      background: #111;
+      border: 1px solid var(--gray-light);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    .term-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 16px;
+      background: #1a1a1a;
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .term-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .term-dot:nth-child(1) { background: #ff5f57; }
+    .term-dot:nth-child(2) { background: #febc2e; }
+    .term-dot:nth-child(3) { background: #28c840; }
+
+    .term-title {
+      margin-left: auto;
+      font-size: 0.6rem;
+      color: #444;
+      letter-spacing: 0.08em;
+    }
+
+    .term-body {
+      padding: 1.2rem 1.5rem;
+      font-size: 0.75rem;
+      line-height: 2;
+      color: var(--gray);
+    }
+
+    .term-body .prompt { color: var(--accent); }
+    .term-body .cmd { color: var(--white); }
+    .term-body .flag { color: #7aa2f7; }
+    .term-body .str { color: #9ece6a; }
+    .term-body .dim { color: #3a3a3a; }
+    .term-body .ok { color: #28c840; }
+    .term-body .agent { color: var(--blue); }
+    .term-body .branch { color: #7aa2f7; font-size: 0.65rem; }
+
+    .term-line {
+      opacity: 0;
+      animation: termReveal 0.4s forwards;
+    }
+
     .hero-version {
       position: absolute;
       bottom: 3rem;
       right: 3rem;
-      font-size: 0.65rem;
-      color: var(--gray-light);
+      font-size: 0.6rem;
+      color: #333;
       letter-spacing: 0.1em;
       writing-mode: vertical-rl;
       text-transform: uppercase;
     }
 
+    .scroll-hint {
+      position: absolute;
+      bottom: 3rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.55rem;
+      color: #333;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .scroll-hint::after {
+      content: '';
+      width: 1px;
+      height: 30px;
+      background: linear-gradient(var(--accent), transparent);
+      animation: scrollPulse 2s infinite;
+    }
+
     /* --- STATS BAR --- */
     .stats-bar {
-      padding: 2rem 3rem;
+      padding: 2.5rem 3rem;
       border-top: 1px solid var(--gray-light);
       border-bottom: 1px solid var(--gray-light);
       display: flex;
       justify-content: center;
-      gap: 4rem;
+      gap: 5rem;
       opacity: 0;
-      animation: fadeUp 0.8s 1s forwards;
+      animation: fadeUp 0.8s 1.2s forwards;
     }
 
-    .stat-item {
-      text-align: center;
-    }
+    .stat-item { text-align: center; }
 
     .stat-value {
-      font-size: 1.8rem;
+      font-size: 2rem;
       font-weight: 700;
       color: var(--accent);
       letter-spacing: -0.02em;
     }
+
+    .stat-value.green { color: var(--green); }
 
     .stat-label {
       font-size: 0.6rem;
@@ -240,18 +392,321 @@
       margin-top: 0.3rem;
     }
 
+    /* --- SOCIAL PROOF --- */
+    .social-proof {
+      padding: 4rem 3rem;
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .sp-adapters {
+      max-width: 800px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .sp-label {
+      font-size: 0.6rem;
+      color: var(--gray);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+    }
+
+    .sp-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--gray-light);
+    }
+
+    .sp-card {
+      background: var(--black);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      transition: background 0.3s;
+    }
+
+    .sp-card:hover { background: #111; }
+
+    .sp-card-name {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--white);
+      margin-bottom: 0.3rem;
+    }
+
+    .sp-card-org {
+      font-size: 0.6rem;
+      color: var(--gray);
+      letter-spacing: 0.1em;
+    }
+
+    .sp-card-badge {
+      display: inline-block;
+      font-size: 0.5rem;
+      padding: 2px 6px;
+      margin-top: 0.6rem;
+      border: 1px solid var(--gray-light);
+      color: var(--gray);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .sp-card-badge.native { border-color: var(--green); color: var(--green); }
+    .sp-card-badge.universal { border-color: var(--blue); color: var(--blue); }
+
+    .sp-logos {
+      margin-top: 3rem;
+      text-align: center;
+    }
+
+    .sp-logos-label {
+      font-size: 0.6rem;
+      color: var(--gray-light);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+
+    .sp-logos-row {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .sp-logo-placeholder {
+      width: 120px;
+      height: 44px;
+      border: 1px dashed var(--gray-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      color: #333;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      transition: border-color 0.3s;
+    }
+
+    .sp-logo-placeholder:hover { border-color: var(--gray); }
+
+    .sp-cred {
+      margin-top: 2.5rem;
+      display: flex;
+      justify-content: center;
+      gap: 3rem;
+      font-size: 0.6rem;
+      color: var(--gray);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .sp-cred strong {
+      color: var(--white);
+      font-weight: 500;
+    }
+
+    /* --- PROBLEM-SOLUTION --- */
+    .problem-solution {
+      padding: 8rem 3rem;
+      border-bottom: 1px solid var(--gray-light);
+      position: relative;
+    }
+
+    .problem-solution::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, var(--red), transparent 50%, var(--green));
+      opacity: 0.5;
+    }
+
+    .ps-header {
+      text-align: center;
+      margin-bottom: 5rem;
+    }
+
+    .ps-header .label {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-bottom: 1rem;
+    }
+
+    .ps-header h2 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      font-weight: 400;
+      line-height: 1.1;
+    }
+
+    .ps-header h2 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .ps-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      max-width: 1000px;
+      margin: 0 auto;
+      gap: 0;
+      position: relative;
+    }
+
+    .ps-grid::before {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      left: 50%;
+      width: 1px;
+      background: var(--gray-light);
+    }
+
+    .ps-col-header {
+      padding: 1.5rem 2rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .ps-col-header .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+
+    .ps-col-header.problem { color: var(--red); }
+    .ps-col-header.problem .dot { background: var(--red); }
+    .ps-col-header.solution { color: var(--green); }
+    .ps-col-header.solution .dot { background: var(--green); }
+
+    .ps-item {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--gray-light);
+      opacity: 0;
+      transform: translateY(15px);
+      transition: opacity 0.5s, transform 0.5s;
+    }
+
+    .ps-item.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .ps-item h4 {
+      font-family: var(--serif);
+      font-size: 1.1rem;
+      font-weight: 400;
+      margin-bottom: 0.5rem;
+    }
+
+    .ps-item p {
+      font-size: 0.75rem;
+      color: var(--gray);
+      line-height: 1.7;
+    }
+
+    .ps-item.problem { background: rgba(255,95,87,0.03); }
+    .ps-item.solution { background: rgba(68,170,153,0.03); }
+
+    .ps-item .tag {
+      display: inline-block;
+      font-size: 0.5rem;
+      padding: 2px 6px;
+      margin-top: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .ps-item.problem .tag { border: 1px solid rgba(255,95,87,0.3); color: var(--red); }
+    .ps-item.solution .tag { border: 1px solid rgba(68,170,153,0.3); color: var(--green); }
+
+    .ps-item p code {
+      color: var(--accent);
+      background: var(--accent-dim);
+      padding: 1px 4px;
+      font-size: 0.7rem;
+    }
+
+    .ps-cta {
+      text-align: center;
+      margin-top: 3rem;
+      font-size: 0.8rem;
+    }
+
+    .ps-cta a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid var(--accent-dim);
+      transition: border-color 0.3s;
+    }
+
+    .ps-cta a:hover { border-color: var(--accent); }
+
     /* --- TERMINAL DEMO --- */
     .terminal-section {
       padding: 6rem 3rem;
       position: relative;
     }
 
+    .terminal-section::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 600px; height: 600px;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .section-header .label {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-bottom: 0.8rem;
+    }
+
+    .section-header h2 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      font-weight: 400;
+    }
+
+    .section-header h2 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .section-header > p {
+      color: var(--gray);
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      max-width: 55ch;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
     .terminal {
-      max-width: 780px;
+      max-width: 820px;
       margin: 0 auto;
       background: #111;
       border: 1px solid var(--gray-light);
+      border-radius: 10px;
       overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
       opacity: 0;
       transform: translateY(30px);
       transition: opacity 0.8s, transform 0.8s;
@@ -271,20 +726,21 @@
       border-bottom: 1px solid var(--gray-light);
     }
 
-    .terminal-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--gray-light);
-    }
-
+    .terminal-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--gray-light); }
     .terminal-dot:first-child { background: #ff5f57; }
     .terminal-dot:nth-child(2) { background: #febc2e; }
     .terminal-dot:nth-child(3) { background: #28c840; }
 
+    .terminal-title {
+      margin-left: auto;
+      font-size: 0.6rem;
+      color: #444;
+      letter-spacing: 0.08em;
+    }
+
     .terminal-body {
       padding: 1.5rem;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       line-height: 2;
       color: var(--gray);
     }
@@ -295,38 +751,20 @@
     .terminal-body .str { color: #9ece6a; }
     .terminal-body .dim { color: #3a3a3a; }
     .terminal-body .ok { color: #28c840; }
-    .terminal-body .blue { color: #58a8d0; }
+    .terminal-body .agent { color: var(--blue); }
+    .terminal-body .branch { color: #7aa2f7; font-size: 0.7rem; }
 
     .terminal-line {
       opacity: 0;
-      animation: typeLine 0.4s forwards;
+      animation: termReveal 0.4s forwards;
     }
+
+    .terminal-spacer { height: 0.5rem; }
 
     /* --- SCREENSHOTS --- */
     .screenshots {
-      padding: 8rem 3rem;
+      padding: 6rem 3rem;
       border-top: 1px solid var(--gray-light);
-    }
-
-    .screenshots-header {
-      text-align: center;
-      margin-bottom: 4rem;
-    }
-
-    .screenshots-header h2 {
-      font-family: var(--serif);
-      font-size: clamp(2rem, 4vw, 3.5rem);
-      font-weight: 400;
-      line-height: 1.1;
-    }
-
-    .screenshots-header p {
-      color: var(--gray);
-      font-size: 0.85rem;
-      margin-top: 1rem;
-      max-width: 55ch;
-      margin-left: auto;
-      margin-right: auto;
     }
 
     .screenshot-card {
@@ -334,7 +772,9 @@
       margin: 0 auto;
       background: #111;
       border: 1px solid var(--gray-light);
+      border-radius: 10px;
       overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
       opacity: 0;
       transform: translateY(20px);
       transition: opacity 0.6s, transform 0.6s;
@@ -354,34 +794,42 @@
       border-bottom: 1px solid var(--gray-light);
     }
 
-    .ss-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-    }
-
+    .ss-dot { width: 8px; height: 8px; border-radius: 50%; }
     .ss-dot:nth-child(1) { background: #ff5f57; }
     .ss-dot:nth-child(2) { background: #febc2e; }
     .ss-dot:nth-child(3) { background: #28c840; }
+    .ss-title { margin-left: auto; font-size: 0.6rem; color: #444; letter-spacing: 0.1em; text-transform: uppercase; }
 
-    .ss-title {
-      margin-left: auto;
-      font-size: 0.6rem;
-      color: #444;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
+    /* --- MID-PAGE CTA --- */
+    .mid-cta {
+      padding: 4rem 3rem;
+      text-align: center;
+      border-top: 1px solid var(--gray-light);
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .mid-cta p {
+      font-size: 0.85rem;
+      color: var(--gray);
+      margin-bottom: 1.5rem;
+    }
+
+    .mid-cta p strong {
+      color: var(--white);
+      font-weight: 400;
     }
 
     /* --- FEATURES --- */
     .features {
       padding: 8rem 3rem;
-      border-top: 1px solid var(--gray-light);
+      border-bottom: 1px solid var(--gray-light);
     }
 
     .features-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      margin-bottom: 5rem;
+      margin-bottom: 4rem;
     }
 
     .features-header h2 {
@@ -392,83 +840,122 @@
     }
 
     .features-header .count {
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       color: var(--gray);
       letter-spacing: 0.15em;
       text-transform: uppercase;
     }
 
-    .features-grid {
+    .features-categories {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 1px;
       background: var(--gray-light);
     }
 
-    .feature {
+    .feature-category {
       background: var(--black);
-      padding: 3rem 2rem;
-      position: relative;
+      padding: 2.5rem;
       opacity: 0;
       transform: translateY(20px);
-      transition: opacity 0.6s, transform 0.6s;
+      transition: opacity 0.6s, transform 0.6s, background 0.3s;
     }
 
-    .feature.visible {
+    .feature-category.visible {
       opacity: 1;
       transform: translateY(0);
     }
 
-    .feature:hover {
-      background: #111;
+    .feature-category:hover { background: #0e0e0e; }
+
+    .feature-category.is-new {
+      border-top: 2px solid var(--accent);
     }
 
-    .feature-num {
-      font-size: 0.65rem;
-      color: var(--gray-light);
-      letter-spacing: 0.1em;
+    .fc-top {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
       margin-bottom: 1.5rem;
     }
 
-    .feature-icon {
-      font-size: 1.6rem;
-      margin-bottom: 1rem;
-      display: block;
+    .fc-icon {
+      width: 36px; height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .feature h3 {
-      font-family: var(--serif);
-      font-size: 1.4rem;
-      font-weight: 400;
-      margin-bottom: 1rem;
+    .fc-icon svg {
+      width: 24px; height: 24px;
+      stroke: var(--gray);
+      stroke-width: 1.5;
+      fill: none;
     }
 
-    .feature p {
-      font-size: 0.78rem;
+    .feature-category.is-new .fc-icon svg { stroke: var(--accent); }
+
+    .fc-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
       color: var(--gray);
-      line-height: 1.8;
     }
 
-    .feature .tag {
-      display: inline-block;
-      font-size: 0.55rem;
-      padding: 2px 6px;
-      margin-top: 1rem;
-      border: 1px solid var(--gray-light);
-      color: var(--gray);
+    .feature-category.is-new .fc-label { color: var(--accent); }
+
+    .fc-badge {
+      font-size: 0.5rem;
+      padding: 1px 5px;
+      border: 1px solid var(--accent);
+      color: var(--accent);
       letter-spacing: 0.08em;
       text-transform: uppercase;
+      margin-left: auto;
     }
 
-    .feature .tag.new {
-      border-color: var(--accent);
+    .fc-title {
+      font-family: var(--serif);
+      font-size: 1.5rem;
+      font-weight: 400;
+      margin-bottom: 0.8rem;
+    }
+
+    .fc-desc {
+      font-size: 0.75rem;
+      color: var(--gray);
+      line-height: 1.7;
+      margin-bottom: 1.5rem;
+    }
+
+    .fc-items { list-style: none; }
+
+    .fc-items li {
+      padding: 0.6rem 0;
+      border-top: 1px solid var(--gray-light);
+      font-size: 0.75rem;
+      color: var(--gray);
+      display: flex;
+      gap: 0.6rem;
+      align-items: baseline;
+    }
+
+    .fc-items li::before {
+      content: '>';
       color: var(--accent);
+      font-weight: 700;
+      flex-shrink: 0;
     }
 
-    /* --- AGENT TEAMS SECTION --- */
+    .fc-items li strong {
+      color: var(--white);
+      font-weight: 500;
+    }
+
+    /* --- TEAMS --- */
     .teams {
       padding: 8rem 3rem;
-      border-top: 1px solid var(--gray-light);
+      border-bottom: 1px solid var(--gray-light);
       position: relative;
       overflow: hidden;
     }
@@ -476,59 +963,87 @@
     .teams::before {
       content: '';
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
+      top: 0; left: 0; right: 0;
       height: 1px;
       background: linear-gradient(90deg, transparent, var(--accent), transparent);
       opacity: 0.3;
     }
+
+    .teams-header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .teams-header .label {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.8rem;
+    }
+
+    .teams-header h2 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      font-weight: 400;
+    }
+
+    .teams-header h2 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .teams-header > p {
+      color: var(--gray);
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      max-width: 55ch;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .teams-topology {
+      max-width: 500px;
+      margin: 0 auto 4rem;
+      position: relative;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s, transform 0.6s;
+    }
+
+    .teams-topology.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .teams-topology svg { width: 100%; height: auto; }
 
     .teams-inner {
       max-width: 1100px;
       margin: 0 auto;
       display: grid;
       grid-template-columns: 1fr 1.2fr;
-      gap: 5rem;
-      align-items: center;
+      gap: 4rem;
+      align-items: start;
     }
 
-    .teams-text h2 {
-      font-family: var(--serif);
-      font-size: clamp(2rem, 4vw, 3.5rem);
-      font-weight: 400;
-      line-height: 1.1;
-      margin-bottom: 1.5rem;
-    }
-
-    .teams-text h2 em {
-      font-style: italic;
-      color: var(--accent);
-    }
-
-    .teams-text > p {
-      color: var(--gray);
-      font-size: 0.85rem;
-      line-height: 1.8;
-      margin-bottom: 2rem;
-    }
-
-    .teams-features {
-      list-style: none;
-    }
+    .teams-features { list-style: none; }
 
     .teams-features li {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: var(--gray);
-      padding: 0.6rem 0;
+      padding: 0.7rem 0;
       border-bottom: 1px solid var(--gray-light);
       display: flex;
       gap: 0.8rem;
       align-items: baseline;
+      transition: padding-left 0.2s;
     }
 
+    .teams-features li:hover { padding-left: 0.5rem; }
+
     .teams-features li::before {
-      content: '→';
+      content: '\2192';
       color: var(--accent);
       font-weight: 700;
       flex-shrink: 0;
@@ -542,6 +1057,7 @@
     .teams-demo {
       background: #111;
       border: 1px solid var(--gray-light);
+      border-radius: 10px;
       overflow: hidden;
       opacity: 0;
       transform: translateY(20px);
@@ -566,14 +1082,7 @@
     .td-dot:nth-child(1) { background: #ff5f57; }
     .td-dot:nth-child(2) { background: #febc2e; }
     .td-dot:nth-child(3) { background: #28c840; }
-
-    .td-title {
-      margin-left: auto;
-      font-size: 0.55rem;
-      color: #444;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
+    .td-title { margin-left: auto; font-size: 0.55rem; color: #444; letter-spacing: 0.1em; text-transform: uppercase; }
 
     .teams-demo-body {
       padding: 1.2rem 1.5rem;
@@ -586,63 +1095,88 @@
     .teams-demo-body .cmd { color: var(--white); }
     .teams-demo-body .flag { color: #58a8d0; }
     .teams-demo-body .str { color: #9ece6a; }
-    .teams-demo-body .out { color: #555; }
     .teams-demo-body .ok { color: #28c840; }
+    .teams-demo-body .comment { color: #333; }
 
     /* --- WORKFLOW --- */
     .workflow {
       padding: 8rem 3rem;
-      border-top: 1px solid var(--gray-light);
-    }
-
-    .workflow h2 {
-      font-family: var(--serif);
-      font-size: clamp(2rem, 4vw, 3.5rem);
-      font-weight: 400;
-      text-align: center;
-      margin-bottom: 5rem;
-    }
-
-    .workflow-steps {
-      display: flex;
-      justify-content: center;
-      gap: 0;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-
-    .workflow-step {
-      flex: 1;
-      text-align: center;
-      padding: 2rem 1.5rem;
+      border-bottom: 1px solid var(--gray-light);
       position: relative;
     }
 
-    .workflow-step::after {
-      content: '→';
+    .workflow::before {
+      content: '';
       position: absolute;
-      right: -0.5rem;
-      top: 2.8rem;
-      color: var(--gray-light);
-      font-size: 1.2rem;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.2;
     }
 
-    .workflow-step:last-child::after { display: none; }
+    .workflow-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      max-width: 1000px;
+      margin: 0 auto;
+      position: relative;
+    }
 
-    .step-label {
-      display: inline-block;
-      font-size: 0.6rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
+    .workflow-steps::before {
+      content: '';
+      position: absolute;
+      top: 26px;
+      left: 12.5%;
+      right: 12.5%;
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-dim));
+    }
+
+    .workflow-step {
+      text-align: center;
+      padding: 0 1.5rem;
+      position: relative;
+      opacity: 0;
+      transform: translateY(15px);
+      transition: opacity 0.6s, transform 0.6s;
+    }
+
+    .workflow-step.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .step-num {
+      width: 52px; height: 52px;
+      border: 1px solid var(--gray-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.2rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--gray);
+      background: var(--black);
+      position: relative;
+      z-index: 2;
+      transition: border-color 0.3s, color 0.3s;
+    }
+
+    .workflow-step:first-child .step-num {
+      border-color: var(--accent);
       color: var(--accent);
-      border: 1px solid var(--accent);
-      padding: 0.3rem 0.8rem;
-      margin-bottom: 1.2rem;
+    }
+
+    .workflow-step:hover .step-num {
+      border-color: var(--accent);
+      color: var(--accent);
     }
 
     .workflow-step h4 {
       font-family: var(--serif);
-      font-size: 1.2rem;
+      font-size: 1.15rem;
       font-weight: 400;
       margin-bottom: 0.5rem;
     }
@@ -653,29 +1187,301 @@
       line-height: 1.7;
     }
 
-    /* --- INSTALL --- */
-    .install {
-      padding: 8rem 3rem;
-      border-top: 1px solid var(--gray-light);
-      text-align: center;
+    .step-cmd {
+      display: inline-block;
+      font-size: 0.6rem;
+      color: var(--accent);
+      background: var(--accent-dim);
+      padding: 0.2rem 0.6rem;
+      margin-top: 0.8rem;
+      letter-spacing: 0.03em;
     }
 
-    .install h2 {
+    /* --- TESTIMONIALS --- */
+    .testimonials {
+      padding: 8rem 3rem;
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--gray-light);
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .testimonial-card {
+      background: var(--black);
+      padding: 2.5rem 2rem;
+      position: relative;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s, transform 0.6s, background 0.3s;
+    }
+
+    .testimonial-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .testimonial-card:hover { background: #0e0e0e; }
+
+    .testimonial-quote-mark {
+      font-family: var(--serif);
+      font-size: 4rem;
+      color: var(--accent);
+      opacity: 0.15;
+      line-height: 1;
+      margin-bottom: -1rem;
+    }
+
+    .testimonial-text {
+      font-size: 0.82rem;
+      color: var(--gray);
+      line-height: 1.8;
+      margin-bottom: 1.5rem;
+      font-style: italic;
+    }
+
+    .testimonial-author {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .testimonial-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--gray-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.5rem;
+      color: #444;
+    }
+
+    .testimonial-name {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--white);
+    }
+
+    .testimonial-role {
+      font-size: 0.6rem;
+      color: var(--gray);
+      letter-spacing: 0.05em;
+    }
+
+    /* --- USE CASES --- */
+    .use-cases {
+      padding: 8rem 3rem;
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .use-cases-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--gray-light);
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .use-case-card {
+      background: var(--black);
+      padding: 2.5rem 2rem;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s, transform 0.6s, background 0.3s;
+    }
+
+    .use-case-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .use-case-card:hover { background: #0e0e0e; }
+
+    .uc-persona {
+      font-size: 0.5rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border: 1px solid var(--gray-light);
+      color: var(--gray);
+      display: inline-block;
+      margin-bottom: 1rem;
+    }
+
+    .uc-persona.highlight { border-color: var(--accent); color: var(--accent); }
+
+    .use-case-card h3 {
+      font-family: var(--serif);
+      font-size: 1.25rem;
+      font-weight: 400;
+      margin-bottom: 0.8rem;
+      line-height: 1.3;
+    }
+
+    .use-case-card p {
+      font-size: 0.73rem;
+      color: var(--gray);
+      line-height: 1.8;
+    }
+
+    .uc-agents {
+      margin-top: 1rem;
+      font-size: 0.55rem;
+      color: #333;
+      letter-spacing: 0.05em;
+    }
+
+    .uc-agents span {
+      color: var(--blue);
+    }
+
+    /* --- FAQ --- */
+    .faq {
+      padding: 8rem 3rem;
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .faq-list {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .faq-item {
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .faq-item summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 0;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 400;
+      color: var(--white);
+      list-style: none;
+      transition: color 0.3s;
+    }
+
+    .faq-item summary::-webkit-details-marker { display: none; }
+
+    .faq-item summary:hover { color: var(--accent); }
+
+    .faq-item[open] summary { color: var(--accent); }
+
+    .faq-toggle {
+      position: relative;
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    .faq-toggle::before,
+    .faq-toggle::after {
+      content: '';
+      position: absolute;
+      background: var(--gray);
+      transition: transform 0.3s, opacity 0.3s;
+    }
+
+    .faq-toggle::before {
+      top: 50%; left: 0;
+      width: 100%; height: 1px;
+      transform: translateY(-50%);
+    }
+
+    .faq-toggle::after {
+      top: 0; left: 50%;
+      width: 1px; height: 100%;
+      transform: translateX(-50%);
+    }
+
+    .faq-item[open] .faq-toggle::after {
+      transform: translateX(-50%) rotate(90deg);
+      opacity: 0;
+    }
+
+    .faq-answer {
+      padding: 0 0 1.5rem;
+      font-size: 0.78rem;
+      color: var(--gray);
+      line-height: 1.8;
+      max-width: 90%;
+    }
+
+    .faq-answer code {
+      color: var(--accent);
+      background: var(--accent-dim);
+      padding: 1px 5px;
+      font-size: 0.72rem;
+    }
+
+    /* --- CTA / INSTALL --- */
+    .cta-section {
+      padding: 10rem 3rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      top: -20%; left: 50%;
+      width: 800px; height: 800px;
+      transform: translateX(-50%);
+      background: radial-gradient(ellipse, rgba(255,175,0,0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .cta-section::after {
+      content: '';
+      position: absolute;
+      bottom: -20%; left: 50%;
+      width: 600px; height: 600px;
+      transform: translateX(-50%);
+      background: radial-gradient(ellipse, rgba(88,168,208,0.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .cta-label {
+      display: inline-block;
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid var(--accent-dim);
+      padding: 0.35rem 0.8rem;
+      margin-bottom: 2rem;
+    }
+
+    .cta-section h2 {
       font-family: var(--serif);
       font-size: clamp(2.5rem, 5vw, 4.5rem);
       font-weight: 400;
       margin-bottom: 1rem;
+      position: relative;
     }
 
-    .install h2 em {
+    .cta-section h2 em {
       font-style: italic;
       color: var(--accent);
     }
 
-    .install-sub {
+    .cta-sub {
       color: var(--gray);
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       margin-bottom: 3rem;
+      max-width: 45ch;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .install-cmd {
@@ -697,7 +1503,7 @@
     .install-cmd .prompt-sign { color: var(--accent); }
 
     .install-cmd .copy-hint {
-      font-size: 0.6rem;
+      font-size: 0.55rem;
       color: var(--gray-light);
       text-transform: uppercase;
       letter-spacing: 0.1em;
@@ -705,48 +1511,129 @@
 
     .install-cmd.copied .copy-hint { color: var(--accent); }
 
+    .install-then {
+      margin: 1.5rem 0;
+      font-size: 0.65rem;
+      color: #333;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .cta-links {
+      margin-top: 2.5rem;
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+    }
+
+    .cta-link {
+      font-size: 0.72rem;
+      color: var(--gray);
+      text-decoration: none;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.6rem 1.2rem;
+      border: 1px solid var(--gray-light);
+      transition: all 0.3s;
+    }
+
+    .cta-link:hover {
+      color: var(--white);
+      border-color: var(--white);
+    }
+
+    .cta-link.star {
+      color: var(--black);
+      background: var(--white);
+      border-color: var(--white);
+    }
+
+    .cta-link.star:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .cta-trust {
+      margin-top: 3rem;
+      display: flex;
+      justify-content: center;
+      gap: 2.5rem;
+      font-size: 0.6rem;
+      color: #333;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .cta-trust strong { color: var(--gray); font-weight: 400; }
+
     /* --- FOOTER --- */
     footer {
-      padding: 3rem;
+      padding: 5rem 3rem 2rem;
+      border-top: 1px solid var(--gray-light);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr;
+      gap: 3rem;
+      max-width: 1100px;
+      margin: 0 auto 4rem;
+    }
+
+    .footer-brand .logo { margin-bottom: 1rem; }
+
+    .footer-brand p {
+      font-size: 0.72rem;
+      color: var(--gray);
+      line-height: 1.7;
+      max-width: 28ch;
+    }
+
+    .footer-social {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .footer-social a {
+      color: var(--gray-light);
+      transition: color 0.3s;
+      text-decoration: none;
+    }
+
+    .footer-social a:hover { color: var(--white); }
+
+    .footer-col h4 {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-bottom: 1.2rem;
+    }
+
+    .footer-col a {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--gray-light);
+      text-decoration: none;
+      padding: 0.3rem 0;
+      transition: color 0.3s;
+      letter-spacing: 0.03em;
+    }
+
+    .footer-col a:hover { color: var(--white); }
+
+    .footer-bottom {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding-top: 2rem;
       border-top: 1px solid var(--gray-light);
       display: flex;
       justify-content: space-between;
       align-items: center;
-    }
-
-    footer .left {
-      font-size: 0.7rem;
-      color: var(--gray-light);
+      font-size: 0.65rem;
+      color: #333;
       letter-spacing: 0.05em;
-    }
-
-    footer .right {
-      display: flex;
-      gap: 2rem;
-    }
-
-    footer a {
-      color: var(--gray);
-      text-decoration: none;
-      font-size: 0.7rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      transition: color 0.3s;
-    }
-
-    footer a:hover { color: var(--white); }
-
-    /* --- NOISE OVERLAY --- */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      pointer-events: none;
-      opacity: 0.03;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-      background-repeat: repeat;
-      background-size: 256px 256px;
     }
 
     /* --- ANIMATIONS --- */
@@ -755,33 +1642,93 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    @keyframes typeLine {
-      from { opacity: 0; transform: translateX(-8px); }
-      to { opacity: 1; transform: translateX(0); }
+    @keyframes termReveal {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.5); }
+    }
+
+    @keyframes scrollPulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
     }
 
     /* --- RESPONSIVE --- */
+    @media (max-width: 1024px) {
+      .hero {
+        grid-template-columns: 1fr;
+        padding: 7rem 2rem 3rem;
+      }
+      .hero-visual { display: none; }
+      .hero h1 { font-size: clamp(2.5rem, 6vw, 4rem); }
+    }
+
     @media (max-width: 768px) {
-      nav { padding: 1rem 1.5rem; }
+      nav { padding: 0 1.5rem; }
       .nav-links a:not(.nav-cta) { display: none; }
+
       .hero { padding: 7rem 1.5rem 3rem; }
       .hero-version { display: none; }
+      .scroll-hint { display: none; }
+      .hero-meta { flex-wrap: wrap; gap: 1rem; }
+
       .stats-bar { gap: 1.5rem; padding: 1.5rem; flex-wrap: wrap; }
-      .stat-value { font-size: 1.3rem; }
+      .stat-value { font-size: 1.4rem; }
+
+      .social-proof { padding: 3rem 1.5rem; }
+      .sp-grid { grid-template-columns: repeat(2, 1fr); }
+      .sp-cred { flex-wrap: wrap; gap: 1rem; justify-content: center; }
+
+      .problem-solution { padding: 4rem 1.5rem; }
+      .ps-grid { grid-template-columns: 1fr; }
+      .ps-grid::before { display: none; }
+
+      .terminal-section { padding: 3rem 1.5rem; }
+
+      .screenshots { padding: 3rem 1.5rem; }
+
+      .mid-cta { padding: 3rem 1.5rem; }
+
       .features { padding: 4rem 1.5rem; }
       .features-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
-      .features-grid { grid-template-columns: 1fr !important; }
+      .features-categories { grid-template-columns: 1fr; }
+
       .teams { padding: 4rem 1.5rem; }
       .teams-inner { grid-template-columns: 1fr; gap: 2rem; }
+      .teams-topology { max-width: 320px; }
+
       .workflow { padding: 4rem 1.5rem; }
-      .workflow-steps { flex-direction: column; gap: 0; }
-      .workflow-step::after { display: none; }
-      .workflow-step { text-align: left; padding: 1.5rem 0; border-bottom: 1px solid var(--gray-light); }
-      .install { padding: 4rem 1.5rem; }
+      .workflow-steps { grid-template-columns: 1fr 1fr; gap: 2rem; }
+      .workflow-steps::before { display: none; }
+      .workflow-step { text-align: left; }
+      .workflow-step .step-num { margin: 0 0 0.8rem; }
+
+      .testimonials { padding: 4rem 1.5rem; }
+      .testimonials-grid { grid-template-columns: 1fr; }
+
+      .use-cases { padding: 4rem 1.5rem; }
+      .use-cases-grid { grid-template-columns: 1fr !important; }
+
+      .faq { padding: 4rem 1.5rem; }
+
+      .cta-section { padding: 5rem 1.5rem; }
       .install-cmd { font-size: 0.75rem; padding: 0.8rem 1.2rem; }
-      footer { flex-direction: column; gap: 1.5rem; text-align: center; padding: 2rem 1.5rem; }
-      .terminal-section { padding: 3rem 1.5rem; }
-      .screenshots { padding: 4rem 1.5rem; }
+      .cta-links { flex-direction: column; align-items: center; }
+      .cta-trust { flex-wrap: wrap; justify-content: center; gap: 1rem; }
+
+      footer { padding: 3rem 1.5rem 2rem; }
+      .footer-grid { grid-template-columns: 1fr 1fr; gap: 2rem; }
+      .footer-bottom { flex-direction: column; gap: 0.5rem; text-align: center; }
+    }
+
+    @media (max-width: 480px) {
+      .sp-grid { grid-template-columns: 1fr; }
+      .workflow-steps { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -794,81 +1741,262 @@
       <a href="#features">Features</a>
       <a href="#teams">Teams</a>
       <a href="#workflow">How it works</a>
-      <a href="https://www.npmjs.com/package/@oxgeneral/orch" style="color:var(--accent);">npm</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://www.npmjs.com/package/@oxgeneral/orch" class="nav-npm">npm</a>
       <a href="https://github.com/oxgeneral/ORCH" class="nav-cta">GitHub</a>
     </div>
   </nav>
 
   <!-- HERO -->
   <section class="hero">
-    <p class="hero-label">CLI-first agent orchestration</p>
-    <h1>Coordinate <em>AI agent teams</em> from your terminal</h1>
-    <p class="hero-sub">
-      A lightweight CLI orchestrator for managing teams of AI agents.
-      Inter-agent messaging, scope isolation with git worktrees, auto merge-back,
-      shared context, and review governance. Zero cloud dependencies.
-    </p>
-    <div class="hero-actions">
-      <a href="#install" class="btn-primary">Get Started</a>
-      <a href="#features" class="btn-ghost">Learn more</a>
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="pulse"></span>
+        Open source &middot; v0.3.1
+      </div>
+      <h1>Orchestrate <em>AI agent teams</em> from your terminal</h1>
+      <p class="hero-sub">
+        Run a coordinated team of AI agents in parallel &mdash; with
+        <strong>git worktree isolation</strong>, <strong>inter-agent messaging</strong>,
+        and state machine governance. No cloud. No config files. One npm install.
+      </p>
+      <div class="hero-actions">
+        <a href="#install" class="btn-primary">Install in 10 seconds</a>
+        <a href="#demo" class="btn-ghost">See how it works</a>
+      </div>
+      <div class="hero-meta">
+        <span><strong>15</strong> ready-made agents</span>
+        <span><strong>4</strong> AI providers</span>
+        <span><strong>MIT</strong> license</span>
+      </div>
     </div>
-    <div class="hero-version">v0.3.1 — open source — MIT</div>
+    <div class="hero-visual">
+      <div class="hero-terminal">
+        <div class="term-bar">
+          <div class="term-dot"></div>
+          <div class="term-dot"></div>
+          <div class="term-dot"></div>
+          <span class="term-title">zsh &mdash; my-project</span>
+        </div>
+        <div class="term-body">
+          <div class="term-line" style="animation-delay:0.8s">
+            <span class="prompt">$</span> <span class="cmd">orch run</span> <span class="flag">--all --watch</span>
+          </div>
+          <div class="term-line" style="animation-delay:1.2s">
+            <span class="ok">&nbsp;&nbsp;&#9679; Running</span> <span class="dim">&mdash; 3 agents dispatched</span>
+          </div>
+          <div class="term-line" style="animation-delay:1.6s">&nbsp;</div>
+          <div class="term-line" style="animation-delay:2.0s">
+            <span class="dim">&nbsp;&nbsp;</span><span class="agent">backend-a</span> <span class="dim">implementing auth module</span> <span class="branch">[feature/auth]</span>
+          </div>
+          <div class="term-line" style="animation-delay:2.3s">
+            <span class="dim">&nbsp;&nbsp;</span><span class="agent">qa-a</span> <span class="dim">writing test suite</span> <span class="branch">[test/auth]</span>
+          </div>
+          <div class="term-line" style="animation-delay:2.6s">
+            <span class="dim">&nbsp;&nbsp;</span><span class="agent">reviewer</span> <span class="dim">awaiting review tasks</span>
+          </div>
+          <div class="term-line" style="animation-delay:3.0s">&nbsp;</div>
+          <div class="term-line" style="animation-delay:3.3s">
+            <span class="dim">&nbsp;&nbsp;&#9993;</span> <span class="agent">backend-a</span> <span class="dim">&rarr;</span> <span class="agent">qa-a</span> <span class="dim">"Auth module ready for testing"</span>
+          </div>
+          <div class="term-line" style="animation-delay:3.7s">
+            <span class="ok">&nbsp;&nbsp;&#10003;</span> <span class="dim">tsk_a1b &mdash; review complete &mdash; merging</span> <span class="branch">[feature/auth]</span> <span class="dim">&rarr; main</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="scroll-hint">Scroll</div>
+    <div class="hero-version">v0.3.1 &mdash; MIT</div>
   </section>
 
   <!-- STATS BAR -->
   <div class="stats-bar">
     <div class="stat-item">
-      <div class="stat-value">165</div>
-      <div class="stat-label">User Stories</div>
+      <div class="stat-value">N+</div>
+      <div class="stat-label">Parallel Agents</div>
     </div>
     <div class="stat-item">
-      <div class="stat-value">851</div>
-      <div class="stat-label">Tests</div>
+      <div class="stat-value">15</div>
+      <div class="stat-label">Ready-Made Agents</div>
     </div>
     <div class="stat-item">
-      <div class="stat-value">4</div>
-      <div class="stat-label">Agent Adapters</div>
+      <div class="stat-value">1</div>
+      <div class="stat-label">Command to Start</div>
     </div>
     <div class="stat-item">
-      <div class="stat-value">0</div>
+      <div class="stat-value green">0</div>
       <div class="stat-label">Cloud Dependencies</div>
     </div>
   </div>
 
+  <!-- SOCIAL PROOF -->
+  <section class="social-proof">
+    <div class="sp-adapters">
+      <p class="sp-label">Plug into the tools you already use</p>
+      <div class="sp-grid">
+        <div class="sp-card">
+          <div class="sp-card-name">Claude</div>
+          <div class="sp-card-org">Anthropic</div>
+          <span class="sp-card-badge native">native</span>
+        </div>
+        <div class="sp-card">
+          <div class="sp-card-name">Codex</div>
+          <div class="sp-card-org">OpenAI</div>
+          <span class="sp-card-badge native">native</span>
+        </div>
+        <div class="sp-card">
+          <div class="sp-card-name">Cursor</div>
+          <div class="sp-card-org">Cursor CLI</div>
+          <span class="sp-card-badge native">native</span>
+        </div>
+        <div class="sp-card">
+          <div class="sp-card-name">Shell</div>
+          <div class="sp-card-org">Any CLI Tool</div>
+          <span class="sp-card-badge universal">universal</span>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="sp-cred">
+      <span><strong>MIT</strong> licensed</span>
+      <span><strong>90</strong> source files</span>
+      <span><strong>100%</strong> TypeScript</span>
+      <span><strong>Zero</strong> runtime deps</span>
+    </div>
+  </section>
+
+  <!-- PROBLEM-SOLUTION -->
+  <section class="problem-solution">
+    <div class="ps-header">
+      <p class="label">The coordination problem</p>
+      <h2>One agent is a toy.<br>A team is a <em>force</em></h2>
+    </div>
+
+    <div class="ps-grid">
+      <div class="ps-col-header problem"><span class="dot"></span> Without orchestration</div>
+      <div class="ps-col-header solution"><span class="dot"></span> With ORCH</div>
+
+      <div class="ps-item problem">
+        <h4>Manual juggling</h4>
+        <p>You copy-paste output between AI tools manually. Context gets lost. Mistakes compound.</p>
+        <span class="tag">productivity killer</span>
+      </div>
+      <div class="ps-item solution">
+        <h4>Automatic context flow</h4>
+        <p>Agents message each other directly. Context flows through shared store and prompt injection.</p>
+        <span class="tag">coordinated</span>
+      </div>
+
+      <div class="ps-item problem">
+        <h4>Agents in silos</h4>
+        <p>Parallel agents overwrite each other's files. Merge conflicts pile up. Work gets lost.</p>
+        <span class="tag">wasted effort</span>
+      </div>
+      <div class="ps-item solution">
+        <h4>Worktree isolation</h4>
+        <p>Each agent gets its own git worktree. Parallel execution without file conflicts. Auto merge-back.</p>
+        <span class="tag">safe parallelism</span>
+      </div>
+
+      <div class="ps-item problem">
+        <h4>Zero governance</h4>
+        <p>No review process. No state tracking. A failed run leaves broken state with no way back.</p>
+        <span class="tag">high risk</span>
+      </div>
+      <div class="ps-item solution">
+        <h4>State machine governance</h4>
+        <p>Every task flows through <code>todo</code> &rarr; <code>in_progress</code> &rarr; <code>review</code> &rarr; <code>done</code>. Nothing gets lost.</p>
+        <span class="tag">auditable</span>
+      </div>
+
+      <div class="ps-item problem">
+        <h4>Cloud lock-in</h4>
+        <p>Most tools require cloud accounts and send your code to external servers. No control over your data.</p>
+        <span class="tag">vendor dependency</span>
+      </div>
+      <div class="ps-item solution">
+        <h4>Zero cloud, fully local</h4>
+        <p>Everything runs on your machine. State stored in <code>.orchestry/</code> as YAML, JSON, JSONL. Git clone and run.</p>
+        <span class="tag">private</span>
+      </div>
+
+      <div class="ps-item problem">
+        <h4>Constant babysitting</h4>
+        <p>You wait for each AI run to finish. No parallel execution. No automatic retries when things fail.</p>
+        <span class="tag">time sink</span>
+      </div>
+      <div class="ps-item solution">
+        <h4>Autonomous execution</h4>
+        <p>The orchestrator dispatches, monitors, retries with backoff, and merges &mdash; unattended. You review the results.</p>
+        <span class="tag">automated</span>
+      </div>
+    </div>
+
+    <div class="ps-cta">
+      <a href="#install">Stop babysitting agents. Start orchestrating them &rarr;</a>
+    </div>
+  </section>
+
   <!-- TERMINAL DEMO -->
-  <section class="terminal-section">
+  <section class="terminal-section" id="demo">
+    <div class="section-header">
+      <p class="label">See for yourself</p>
+      <h2>Five commands to full <em>orchestration</em></h2>
+    </div>
     <div class="terminal" id="terminal">
       <div class="terminal-bar">
         <div class="terminal-dot"></div>
         <div class="terminal-dot"></div>
         <div class="terminal-dot"></div>
+        <span class="terminal-title">zsh &mdash; my-project</span>
       </div>
       <div class="terminal-body">
         <div class="terminal-line" style="animation-delay:0.1s">
           <span class="prompt">$</span> <span class="cmd">npm install -g @oxgeneral/orch</span>
         </div>
-        <div class="terminal-line" style="animation-delay:0.4s">
-          <span class="ok">  ✓</span> <span class="dim">orchestry installed</span>
+        <div class="terminal-line" style="animation-delay:0.5s">
+          <span class="ok">&nbsp;&nbsp;&#10003;</span> <span class="dim">orchestry installed</span>
         </div>
-        <div class="terminal-line" style="animation-delay:0.7s">&nbsp;</div>
+        <div class="terminal-spacer"></div>
         <div class="terminal-line" style="animation-delay:0.9s">
           <span class="prompt">$</span> <span class="cmd">cd ~/my-project && orch</span>
         </div>
-        <div class="terminal-line" style="animation-delay:1.2s">
-          <span class="ok">  ✓</span> <span class="dim">initialized · Created .orchestry/</span>
+        <div class="terminal-line" style="animation-delay:1.3s">
+          <span class="ok">&nbsp;&nbsp;&#10003;</span> <span class="dim">initialized &middot; Created .orchestry/</span>
         </div>
-        <div class="terminal-line" style="animation-delay:1.5s">
-          <span class="dim">  → Launching TUI dashboard…</span>
+        <div class="terminal-line" style="animation-delay:1.6s">
+          <span class="dim">&nbsp;&nbsp;&rarr; Launching TUI dashboard&#8230;</span>
         </div>
-        <div class="terminal-line" style="animation-delay:1.8s">&nbsp;</div>
+        <div class="terminal-spacer"></div>
         <div class="terminal-line" style="animation-delay:2.0s">
           <span class="prompt">$</span> <span class="cmd">orch task add</span> <span class="str">"Implement auth module"</span> <span class="flag">-p 1</span>
         </div>
-        <div class="terminal-line" style="animation-delay:2.3s">
+        <div class="terminal-line" style="animation-delay:2.4s">
+          <span class="ok">&nbsp;&nbsp;&#10003;</span> <span class="dim">Created tsk_a1b &mdash; priority 1</span>
+        </div>
+        <div class="terminal-spacer"></div>
+        <div class="terminal-line" style="animation-delay:2.8s">
           <span class="prompt">$</span> <span class="cmd">orch run</span> <span class="flag">--all --watch</span>
         </div>
-        <div class="terminal-line" style="animation-delay:2.6s">
-          <span class="ok">  ● Running</span> <span class="dim">— 3 agents active · scope isolation · auto merge-back</span>
+        <div class="terminal-line" style="animation-delay:3.2s">
+          <span class="ok">&nbsp;&nbsp;&#9679; Running</span> <span class="dim">&mdash; 3 agents active &middot; scope isolation &middot; auto merge-back</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:3.5s">
+          <span class="dim">&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="agent">backend-a</span><span class="dim">: implementing auth module</span> <span class="branch">[feature/auth]</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:3.8s">
+          <span class="dim">&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="agent">qa-a</span><span class="dim">: writing test suite</span> <span class="branch">[test/auth]</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:4.1s">
+          <span class="dim">&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="agent">reviewer</span><span class="dim">: waiting for review tasks</span>
+        </div>
+        <div class="terminal-spacer"></div>
+        <div class="terminal-line" style="animation-delay:4.5s">
+          <span class="prompt">$</span> <span class="cmd">orch task review</span> <span class="str">tsk_a1b</span> <span class="flag">--approve</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:4.9s">
+          <span class="ok">&nbsp;&nbsp;&#10003;</span> <span class="dim">Task approved &middot; merging</span> <span class="branch">[feature/auth]</span> <span class="dim">&rarr; main</span>
         </div>
       </div>
     </div>
@@ -876,111 +2004,153 @@
 
   <!-- SCREENSHOT -->
   <section class="screenshots" id="screenshots">
-    <div class="screenshots-header">
-      <h2>See it in action</h2>
-      <p>Real-time TUI dashboard with task management, agent activity feed, team coordination, and inter-agent messaging — all from your terminal.</p>
+    <div class="section-header">
+      <h2>See it in <em>action</em></h2>
+      <p>Real-time TUI dashboard with task management, agent activity feed, team coordination, and inter-agent messaging.</p>
     </div>
     <div class="screenshot-card">
-      <div class="ss-bar"><div class="ss-dot"></div><div class="ss-dot"></div><div class="ss-dot"></div><span class="ss-title">TUI Dashboard — Live Demo</span></div>
+      <div class="ss-bar"><div class="ss-dot"></div><div class="ss-dot"></div><div class="ss-dot"></div><span class="ss-title">TUI Dashboard</span></div>
       <div style="padding:0;">
         <video autoplay loop muted playsinline style="width:100%;display:block;" poster="screenshot-tui.png">
           <source src="demo.mp4" type="video/mp4">
-          <img src="screenshot-tui.png" alt="ORCH TUI Dashboard — real-time task monitoring, agent activity feed, team coordination" style="width:100%;display:block;" />
+          <img src="screenshot-tui.png" alt="ORCH TUI Dashboard" style="width:100%;display:block;" />
         </video>
       </div>
     </div>
   </section>
 
+  <!-- MID-PAGE CTA -->
+  <div class="mid-cta">
+    <p><strong>Ready to orchestrate?</strong> One command to install. One command to start.</p>
+    <a href="#install" class="btn-primary">Get Started</a>
+  </div>
+
   <!-- FEATURES -->
   <section class="features" id="features">
     <div class="features-header">
       <h2>Built for<br>precision</h2>
-      <span class="count">12 features</span>
+      <span class="count">12 features &middot; 4 categories</span>
     </div>
-    <div class="features-grid">
-      <div class="feature">
-        <div class="feature-num">01</div>
-        <h3>Agent Teams</h3>
-        <p>Create teams with a lead agent and members. Broadcast messages, share context, coordinate work across specialized agents.</p>
-        <span class="tag new">new</span>
+    <div class="features-categories">
+      <div class="feature-category is-new">
+        <div class="fc-top">
+          <div class="fc-icon"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><path d="M7 12h4m2-3 4-2.5M13 15l4 2.5"/></svg></div>
+          <span class="fc-label">Coordination</span>
+          <span class="fc-badge">new</span>
+        </div>
+        <h3 class="fc-title">Team Intelligence</h3>
+        <p class="fc-desc">Agents that communicate, coordinate, and build on each other's work &mdash; like a real engineering team.</p>
+        <ul class="fc-items">
+          <li><strong>Agent Teams</strong> &mdash; group agents under a lead, broadcast context, coordinate work</li>
+          <li><strong>Inter-agent Messaging</strong> &mdash; direct messages, broadcasts, injected into prompts at dispatch</li>
+          <li><strong>Shared Context</strong> &mdash; key-value store readable by all agents, LiquidJS templates</li>
+        </ul>
       </div>
-      <div class="feature">
-        <div class="feature-num">02</div>
-        <h3>Inter-agent messaging</h3>
-        <p>Direct messages, broadcasts, and lead-channel routing. TTL-based expiry. Messages injected into agent prompts at dispatch time.</p>
-        <span class="tag new">new</span>
+
+      <div class="feature-category is-new">
+        <div class="fc-top">
+          <div class="fc-icon"><svg viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/><circle cx="12" cy="12" r="4"/></svg></div>
+          <span class="fc-label">Intelligence</span>
+          <span class="fc-badge">new</span>
+        </div>
+        <h3 class="fc-title">Autonomous Execution</h3>
+        <p class="fc-desc">Set a high-level goal. Agents decompose it into tasks and execute without hand-holding.</p>
+        <ul class="fc-items">
+          <li><strong>Goals & Autonomy</strong> &mdash; define goals, agents generate and execute tasks autonomously</li>
+          <li><strong>Reactive Dispatch</strong> &mdash; sub-second task pickup, no polling, events trigger agents immediately</li>
+          <li><strong>Smart Retries</strong> &mdash; exponential backoff, stall detection, zombie cleanup</li>
+        </ul>
       </div>
-      <div class="feature">
-        <div class="feature-num">03</div>
-        <h3>Goals & Autonomous mode</h3>
-        <p>Define high-level goals and let agents autonomously generate tasks to achieve them. Pause, resume, track progress — all from the Goals tab.</p>
-        <span class="tag new">new</span>
+
+      <div class="feature-category">
+        <div class="fc-top">
+          <div class="fc-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <span class="fc-label">Safety</span>
+        </div>
+        <h3 class="fc-title">Bulletproof Execution</h3>
+        <p class="fc-desc">Every transition validated. Every agent isolated. Every change reviewed before merge.</p>
+        <ul class="fc-items">
+          <li><strong>State Machine</strong> &mdash; <code style="font-size:0.68rem;color:var(--accent)">todo</code> &rarr; <code style="font-size:0.68rem;color:var(--accent)">in_progress</code> &rarr; <code style="font-size:0.68rem;color:var(--accent)">review</code> &rarr; <code style="font-size:0.68rem;color:var(--accent)">done</code></li>
+          <li><strong>Worktree Isolation</strong> &mdash; each agent gets its own git worktree, parallel without conflicts</li>
+          <li><strong>Auto Merge-back</strong> &mdash; agent finishes, changes merge to main, no manual git juggling</li>
+        </ul>
       </div>
-      <div class="feature">
-        <div class="feature-num">04</div>
-        <h3>Reactive dispatch</h3>
-        <p>No more waiting for the next 30-second poll. When a task is created or completed, agents pick up work in under a second.</p>
-        <span class="tag new">new</span>
-      </div>
-      <div class="feature">
-        <div class="feature-num">05</div>
-        <h3>State machine</h3>
-        <p>Tasks flow through todo → in_progress → review → done. Every transition validated. No task gets lost.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-num">06</div>
-        <h3>Safe parallel execution</h3>
-        <p>Run multiple agents with scope isolation — each agent gets its own git worktree. File conflicts detected before they happen.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-num">07</div>
-        <h3>Auto merge-back</h3>
-        <p>When an agent finishes in a worktree, changes are automatically merged back to the main branch. No manual git juggling.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-num">08</div>
-        <h3>Rework loop</h3>
-        <p>Reject a task with feedback — the agent retries with your notes as context. Iterate until it's right.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-num">09</div>
-        <h3>TUI dashboard</h3>
-        <p>Full-screen React/Ink terminal UI. Live tasks, agent activity feed, token tracking — keyboard-driven.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-num">10</div>
-        <h3>Smart retries</h3>
-        <p>Exponential backoff for failures. Stall detection kills zombies. Your tasks finish even when individual runs fail.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-num">11</div>
-        <h3>Shared context</h3>
-        <p>Agents publish context that other agents can read. LiquidJS templates inject project info, scope, and retry history into prompts.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-num">12</div>
-        <h3>Zero infrastructure</h3>
-        <p>No cloud. No database. All state in .orchestry/ — YAML configs, JSON state, JSONL logs. Git clone and run.</p>
+
+      <div class="feature-category">
+        <div class="fc-top">
+          <div class="fc-icon"><svg viewBox="0 0 24 24"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
+          <span class="fc-label">Developer Experience</span>
+        </div>
+        <h3 class="fc-title">Your Terminal, Your Rules</h3>
+        <p class="fc-desc">Full-screen TUI, rework loops, and zero infrastructure. Clone and run.</p>
+        <ul class="fc-items">
+          <li><strong>TUI Dashboard</strong> &mdash; live tasks, agent activity, token usage, keyboard-driven</li>
+          <li><strong>Rework Loop</strong> &mdash; reject with feedback, the agent retries with your notes</li>
+          <li><strong>Zero Infrastructure</strong> &mdash; no cloud, no DB, YAML + JSON in <code style="font-size:0.68rem;color:var(--accent)">.orchestry/</code></li>
+        </ul>
       </div>
     </div>
   </section>
 
   <!-- AGENT TEAMS -->
   <section class="teams" id="teams">
+    <div class="teams-header">
+      <p class="label">Only in ORCH</p>
+      <h2>Agent <em>collaboration,</em> not just execution</h2>
+      <p>Stop running agents in isolation. Build coordinated teams where agents communicate, share discoveries, and delegate subtasks &mdash; minus the standups.</p>
+    </div>
+
+    <!-- Topology Diagram -->
+    <div class="teams-topology" id="teamsTopology">
+      <svg viewBox="0 0 500 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="250" y1="60" x2="100" y2="180" stroke="#2a2a2a" stroke-width="1" stroke-dasharray="6 4">
+          <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="2s" repeatCount="indefinite"/>
+        </line>
+        <line x1="250" y1="60" x2="250" y2="200" stroke="#2a2a2a" stroke-width="1" stroke-dasharray="6 4">
+          <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="2.3s" repeatCount="indefinite"/>
+        </line>
+        <line x1="250" y1="60" x2="400" y2="180" stroke="#2a2a2a" stroke-width="1" stroke-dasharray="6 4">
+          <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1.8s" repeatCount="indefinite"/>
+        </line>
+        <line x1="100" y1="180" x2="250" y2="200" stroke="#2a2a2a" stroke-width="1" stroke-dasharray="4 6"/>
+        <line x1="250" y1="200" x2="400" y2="180" stroke="#2a2a2a" stroke-width="1" stroke-dasharray="4 6"/>
+
+        <circle cx="250" cy="50" r="30" fill="rgba(255,175,0,0.08)" stroke="#ffaf00" stroke-width="1.5">
+          <animate attributeName="r" values="30;33;30" dur="3s" repeatCount="indefinite"/>
+        </circle>
+        <text x="250" y="47" fill="#f0efe9" font-family="JetBrains Mono, monospace" font-size="11" text-anchor="middle" font-weight="500">CTO</text>
+        <text x="250" y="60" fill="#ffaf00" font-family="JetBrains Mono, monospace" font-size="7" text-anchor="middle">LEAD</text>
+
+        <circle cx="100" cy="180" r="26" fill="rgba(88,168,208,0.06)" stroke="#58a8d0" stroke-width="1"/>
+        <text x="100" y="183" fill="#f0efe9" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle">Backend</text>
+
+        <circle cx="250" cy="210" r="26" fill="rgba(68,170,153,0.06)" stroke="#4a9" stroke-width="1"/>
+        <text x="250" y="213" fill="#f0efe9" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle">QA</text>
+
+        <circle cx="400" cy="180" r="26" fill="rgba(122,162,247,0.06)" stroke="#7aa2f7" stroke-width="1"/>
+        <text x="400" y="183" fill="#f0efe9" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle">Reviewer</text>
+
+        <circle r="3" fill="#ffaf00">
+          <animateMotion dur="2.5s" repeatCount="indefinite" path="M250,50 L100,180"/>
+        </circle>
+        <circle r="3" fill="#4a9">
+          <animateMotion dur="3s" repeatCount="indefinite" path="M250,50 L250,200"/>
+        </circle>
+        <circle r="3" fill="#7aa2f7">
+          <animateMotion dur="2.2s" repeatCount="indefinite" path="M250,50 L400,180"/>
+        </circle>
+      </svg>
+    </div>
+
     <div class="teams-inner">
-      <div class="teams-text">
-        <h2>Agent <em>Teams</em></h2>
-        <p>
-          Move beyond isolated agents. Create coordinated teams where agents communicate,
-          share discoveries, and delegate subtasks — just like a real engineering team.
-        </p>
+      <div>
         <ul class="teams-features">
-          <li><strong>Teams with leads</strong> — assign a lead agent who coordinates the team's work</li>
-          <li><strong>Direct messaging</strong> — agents send messages to specific teammates</li>
-          <li><strong>Broadcasts</strong> — announce to all agents or team-scoped groups</li>
-          <li><strong>Mailbox delivery</strong> — messages injected into prompts at task dispatch</li>
-          <li><strong>Shared context store</strong> — key-value pairs readable by all agents</li>
-          <li><strong>Task pools</strong> — teams claim and distribute work automatically</li>
+          <li><strong>Team leads</strong> &mdash; assign a lead agent who routes work and resolves conflicts</li>
+          <li><strong>Direct messaging</strong> &mdash; agents send targeted instructions to specific teammates</li>
+          <li><strong>Broadcasts</strong> &mdash; push announcements to the full team or scoped groups</li>
+          <li><strong>Mailbox delivery</strong> &mdash; messages land in agent prompts at dispatch time</li>
+          <li><strong>Shared context store</strong> &mdash; key-value pairs any agent can read or write</li>
+          <li><strong>Automatic work distribution</strong> &mdash; teams claim tasks from a shared pool</li>
         </ul>
       </div>
       <div class="teams-demo" id="teamsDemo">
@@ -989,20 +2159,25 @@
           <span class="td-title">Agent Teams CLI</span>
         </div>
         <div class="teams-demo-body">
+          <span class="comment"># Create a team with a lead</span><br>
           <span class="prompt">$</span> <span class="cmd">orch team create</span> <span class="str">platform</span> <span class="flag">--lead</span> <span class="str">architect</span><br>
-          <span class="ok">  ✓ Created team "platform" → team_k2m</span><br><br>
+          <span class="ok">&nbsp;&nbsp;&#10003; Created team "platform" &rarr; team_k2m</span><br><br>
 
+          <span class="comment"># Add a member</span><br>
           <span class="prompt">$</span> <span class="cmd">orch team join</span> <span class="str">team_k2m</span> <span class="str">backend</span><br>
-          <span class="ok">  ✓ Agent backend joined team platform</span><br><br>
+          <span class="ok">&nbsp;&nbsp;&#10003; Agent backend joined team platform</span><br><br>
 
-          <span class="prompt">$</span> <span class="cmd">orch msg send</span> <span class="str">backend</span> <span class="str">"Use PostgreSQL for the new schema"</span> <span class="flag">-s</span> <span class="str">"DB decision"</span><br>
-          <span class="ok">  ✓ Message sent → backend</span><br><br>
+          <span class="comment"># Direct message</span><br>
+          <span class="prompt">$</span> <span class="cmd">orch msg send</span> <span class="str">backend</span> <span class="str">"Use PostgreSQL for the new schema"</span><br>
+          <span class="ok">&nbsp;&nbsp;&#10003; Message sent &rarr; backend</span><br><br>
 
+          <span class="comment"># Broadcast to team</span><br>
           <span class="prompt">$</span> <span class="cmd">orch msg broadcast</span> <span class="str">"API v2 spec is ready"</span> <span class="flag">--team</span> <span class="str">team_k2m</span><br>
-          <span class="ok">  ✓ Broadcast sent to 3 agent(s)</span><br><br>
+          <span class="ok">&nbsp;&nbsp;&#10003; Broadcast sent to 3 agent(s)</span><br><br>
 
+          <span class="comment"># Share context</span><br>
           <span class="prompt">$</span> <span class="cmd">orch context set</span> <span class="str">db_schema</span> <span class="str">"users(id,email,role)"</span><br>
-          <span class="out">  → Shared with all agents</span>
+          <span class="dim">&nbsp;&nbsp;&rarr; Shared with all agents</span>
         </div>
       </div>
     </div>
@@ -1010,57 +2185,225 @@
 
   <!-- WORKFLOW -->
   <section class="workflow" id="workflow">
-    <h2>Four steps</h2>
+    <div class="section-header">
+      <p class="label">How it works</p>
+      <h2>Four steps to <em>orchestration</em></h2>
+    </div>
     <div class="workflow-steps">
       <div class="workflow-step">
-        <div class="step-label">01</div>
-        <h4>Install & run</h4>
-        <p><code>npm i -g @oxgeneral/orch</code> then <code>orch</code>. Auto-initializes and opens the dashboard.</p>
+        <div class="step-num">01</div>
+        <h4>Install</h4>
+        <p>One package, no dependencies. Ready in seconds.</p>
+        <span class="step-cmd">npm i -g @oxgeneral/orch</span>
       </div>
       <div class="workflow-step">
-        <div class="step-label">02</div>
-        <h4>Create tasks</h4>
-        <p>Add tasks with scopes, priorities, and dependencies. Assign to agents or let the orchestrator decide.</p>
+        <div class="step-num">02</div>
+        <h4>Define work</h4>
+        <p>Add tasks with scopes, priorities, and agent assignments &mdash; or let ORCH auto-assign.</p>
+        <span class="step-cmd">orch task add</span>
       </div>
       <div class="workflow-step">
-        <div class="step-label">03</div>
-        <h4>Run & coordinate</h4>
-        <p>Agents work in parallel on isolated worktrees. They message each other and share context.</p>
+        <div class="step-num">03</div>
+        <h4>Run</h4>
+        <p>Agents execute in parallel on isolated worktrees, messaging and sharing context.</p>
+        <span class="step-cmd">orch run --all --watch</span>
       </div>
       <div class="workflow-step">
-        <div class="step-label">04</div>
-        <h4>Review & merge</h4>
-        <p>Review results, approve or reject with feedback. Auto merge-back to main branch.</p>
+        <div class="step-num">04</div>
+        <h4>Review & ship</h4>
+        <p>Approve, reject with feedback, or let auto merge-back close the loop.</p>
+        <span class="step-cmd">orch task review --approve</span>
       </div>
     </div>
   </section>
 
-  <!-- INSTALL -->
-  <section class="install" id="install">
-    <h2>Start <em>now</em></h2>
-    <p class="install-sub">One command to install, one command to start.</p>
-    <div class="install-cmd" id="installNpm" onclick="copyCmd('npm install -g @oxgeneral/orch', 'installNpm')" style="margin-bottom: 1.5rem;">
+
+  <!-- USE CASES -->
+  <section class="use-cases" id="use-cases">
+    <div class="section-header">
+      <p class="label">Built for every workflow</p>
+      <h2>What teams build with <em>ORCH</em></h2>
+    </div>
+    <div class="use-cases-grid">
+      <div class="use-case-card">
+        <span class="uc-persona highlight">Startup</span>
+        <h3>Weekend MVP Sprint</h3>
+        <p>Define your vision as a goal. ORCH spins up backend, frontend, QA, and reviewer agents that build your API, UI, tests, and landing page in parallel. Ship a tested MVP in 48 hours, not 3 weeks.</p>
+        <div class="uc-agents">Agents: <span>Backend A/B, Front-End, QA, Reviewer, Marketer</span></div>
+      </div>
+      <div class="use-case-card">
+        <span class="uc-persona">Engineering Team</span>
+        <h3>Sprint Backlog Blitz</h3>
+        <p>Load 18 sprint tasks with dependencies. ORCH dispatches agents across isolated worktrees, respects ordering, retries failures, and auto-merges. Engineers wake up to draft PRs, not empty boards.</p>
+        <div class="uc-agents">Agents: <span>Backend A/B, Front-End, QA A/B, Reviewer</span></div>
+      </div>
+      <div class="use-case-card">
+        <span class="uc-persona">Migration</span>
+        <h3>JS &rarr; TypeScript at Scale</h3>
+        <p>Agents convert modules in parallel, each in its own worktree. QA runs <code style="font-size:0.65rem;color:var(--accent)">tsc --noEmit</code> after each merge. Reviewer rejects any <code style="font-size:0.65rem;color:var(--accent)">any</code> usage. Main branch stays green at every step.</p>
+        <div class="uc-agents">Agents: <span>CTO, Backend A/B, QA, Reviewer</span></div>
+      </div>
+      <div class="use-case-card">
+        <span class="uc-persona">DevOps</span>
+        <h3>Automated PR Review Pipeline</h3>
+        <p>Four agents review every PR in parallel: security scanning, performance analysis, style enforcement, and test coverage. A CTO agent synthesizes a single merge verdict in under 10 minutes.</p>
+        <div class="uc-agents">Agents: <span>Security, Performance, Style, QA, CTO</span></div>
+      </div>
+      <div class="use-case-card">
+        <span class="uc-persona highlight">Creative</span>
+        <h3>Product Launch War Room</h3>
+        <p>Ship code and content simultaneously. Engineering team closes features while Marketing team writes blog posts, social threads, and docs &mdash; all from the same goal, with agents sharing context across teams.</p>
+        <div class="uc-agents">Agents: <span>Backend, Front-End, Content Creator, Marketer, Growth Hacker</span></div>
+      </div>
+      <div class="use-case-card">
+        <span class="uc-persona">Security</span>
+        <h3>Multi-Layer Security Scanning</h3>
+        <p>Chain SAST, dependency audit, and secret detection into one pipeline. Agents correlate findings across layers, deduplicate, assign severity, and auto-fix high-priority items in isolated worktrees.</p>
+        <div class="uc-agents">Agents: <span>Shell (Semgrep, Trivy, Gitleaks), Bug Hunter, Reviewer</span></div>
+      </div>
+      <div class="use-case-card">
+        <span class="uc-persona">Open Source</span>
+        <h3>Contributor PRs at Scale</h3>
+        <p>25 open PRs from first-time contributors? ORCH checks CLA, runs tests, reviews logic, and posts structured feedback within hours. You focus only on PRs that are ready for a human judgment call.</p>
+        <div class="uc-agents">Agents: <span>Shell (gh), QA, Reviewer, CTO</span></div>
+      </div>
+      <div class="use-case-card">
+        <span class="uc-persona">QA</span>
+        <h3>Test Coverage Blitz</h3>
+        <p>From 40% to 80% coverage without a dedicated sprint. Agents claim uncovered modules, generate meaningful tests in parallel, and QA rejects tautological assertions. You review, not write.</p>
+        <div class="uc-agents">Agents: <span>Shell (c8), Backend A/B, QA A/B, Reviewer</span></div>
+      </div>
+      <div class="use-case-card">
+        <span class="uc-persona highlight">Data</span>
+        <h3>Analytics Pipeline</h3>
+        <p>Drop three CSVs, get an executive report by morning. Shell agents clean data, DuckDB joins and computes KPIs, matplotlib generates charts, and a Content Creator writes the narrative with anomaly callouts.</p>
+        <div class="uc-agents">Agents: <span>Shell (pandas, duckdb, matplotlib), Content Creator</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq" id="faq">
+    <div class="section-header">
+      <p class="label">Frequently asked</p>
+      <h2><em>Questions</em></h2>
+    </div>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>Is ORCH free? <span class="faq-toggle"></span></summary>
+        <div class="faq-answer">Yes, completely free and open source under MIT license. No premium tiers, no usage limits, no cloud accounts needed.</div>
+      </details>
+      <details class="faq-item">
+        <summary>What AI models does it support? <span class="faq-toggle"></span></summary>
+        <div class="faq-answer">ORCH ships with 4 adapters: Claude (Anthropic), Codex (OpenAI), Cursor, and a universal Shell adapter that works with any CLI tool. If it takes a prompt and returns output, ORCH can orchestrate it.</div>
+      </details>
+      <details class="faq-item">
+        <summary>Will agents mess up my codebase? <span class="faq-toggle"></span></summary>
+        <div class="faq-answer">Each agent runs in an isolated git worktree on its own branch. Changes go through a review step before merging. You approve or reject every change.</div>
+      </details>
+      <details class="faq-item">
+        <summary>Does my code leave my machine? <span class="faq-toggle"></span></summary>
+        <div class="faq-answer">Only when communicating with AI APIs (same as using any AI tool directly). ORCH itself stores everything locally in <code>.orchestry/</code> &mdash; no telemetry, no cloud state, no external dependencies.</div>
+      </details>
+      <details class="faq-item">
+        <summary>How is this different from running Claude/Cursor directly? <span class="faq-toggle"></span></summary>
+        <div class="faq-answer">ORCH coordinates multiple agents simultaneously: state machine tracking, inter-agent messaging, shared context, automatic retries, worktree isolation, and merge-back. It's the orchestration layer on top of your existing AI tools.</div>
+      </details>
+      <details class="faq-item">
+        <summary>Can I use it with my existing project? <span class="faq-toggle"></span></summary>
+        <div class="faq-answer">Yes. Run <code>orch</code> in any git repository. It creates a <code>.orchestry/</code> directory and you're ready to go. No configuration required &mdash; sensible defaults and pre-configured agent templates included.</div>
+      </details>
+      <details class="faq-item">
+        <summary>What happens when an agent fails? <span class="faq-toggle"></span></summary>
+        <div class="faq-answer">ORCH retries with exponential backoff. If an agent stalls, the process is killed and the task is re-queued. Failed runs preserve full event logs. No state is lost.</div>
+      </details>
+    </div>
+  </section>
+
+  <!-- CTA / INSTALL -->
+  <section class="cta-section" id="install">
+    <span class="cta-label">Get started in 30 seconds</span>
+    <h2>Start shipping with<br>your AI <em>team</em></h2>
+    <p class="cta-sub">One command to install. One command to orchestrate.</p>
+
+    <div class="install-cmd" id="installNpm" onclick="copyCmd('npm install -g @oxgeneral/orch', 'installNpm')">
       <span class="prompt-sign">$</span>
       <span>npm install -g @oxgeneral/orch</span>
       <span class="copy-hint">click to copy</span>
     </div>
+
+    <div class="install-then">then run</div>
+
     <div class="install-cmd" id="installOrch" onclick="copyCmd('orch', 'installOrch')">
       <span class="prompt-sign">$</span>
       <span>orch</span>
       <span class="copy-hint">click to copy</span>
     </div>
+
+    <div class="cta-links">
+      <a href="https://github.com/oxgeneral/ORCH" class="cta-link star">Star on GitHub</a>
+      <a href="https://www.npmjs.com/package/@oxgeneral/orch" class="cta-link">View on npm</a>
+      <a href="https://github.com/oxgeneral/ORCH#full-cli-reference" class="cta-link">Read the docs</a>
+    </div>
+
+    <div class="cta-trust">
+      <span><strong>MIT</strong> licensed</span>
+      <span><strong>15</strong> agents included</span>
+      <span><strong>Zero</strong> cloud deps</span>
+      <span><strong>1 cmd</strong> to start</span>
+    </div>
   </section>
 
   <!-- FOOTER -->
   <footer>
-    <div class="left">© 2026 ORCH — Open Source, MIT License</div>
-    <div class="right">
-      <a href="https://github.com/oxgeneral/ORCH">GitHub</a>
-      <a href="https://github.com/oxgeneral/ORCH#full-cli-reference">Docs</a>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="logo">ORC<span>H</span></div>
+        <p>The open-source CLI orchestrator for AI agent teams. Built with TypeScript, runs everywhere.</p>
+        <div class="footer-social">
+          <a href="https://github.com/oxgeneral/ORCH" aria-label="GitHub">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          </a>
+          <a href="#" aria-label="Discord">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="#features">Features</a>
+        <a href="#teams">Agent Teams</a>
+        <a href="#workflow">How it works</a>
+        <a href="#install">Install</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="https://github.com/oxgeneral/ORCH#full-cli-reference">Documentation</a>
+        <a href="https://github.com/oxgeneral/ORCH/blob/main/CHANGELOG.md">Changelog</a>
+        <a href="https://www.npmjs.com/package/@oxgeneral/orch">npm Package</a>
+        <a href="https://github.com/oxgeneral/ORCH/issues">Report a Bug</a>
+      </div>
+      <div class="footer-col">
+        <h4>Community</h4>
+        <a href="https://github.com/oxgeneral/ORCH">GitHub</a>
+        <a href="https://github.com/oxgeneral/ORCH/discussions">Discussions</a>
+        <a href="https://github.com/oxgeneral/ORCH/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/oxgeneral/ORCH/blob/main/LICENSE">MIT License</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 ORCH &mdash; Open Source, MIT License</span>
+      <span>v0.3.1 &mdash; Built with TypeScript</span>
     </div>
   </footer>
 
   <script>
+    // Scroll-aware nav
+    window.addEventListener('scroll', () => {
+      document.querySelector('nav').classList.toggle('scrolled', window.scrollY > 50);
+    });
+
+    // Intersection Observer for scroll reveal
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -1069,12 +2412,32 @@
       });
     }, { threshold: 0.15 });
 
-    document.querySelectorAll('.terminal, .feature, .screenshot-card, .teams-demo').forEach(el => observer.observe(el));
+    document.querySelectorAll(
+      '.terminal, .screenshot-card, .feature-category, .teams-topology, .teams-demo, .ps-item, .workflow-step, .testimonial-card, .use-case-card'
+    ).forEach(el => observer.observe(el));
 
-    document.querySelectorAll('.feature').forEach((el, i) => {
+    // Stagger animation delays
+    document.querySelectorAll('.feature-category').forEach((el, i) => {
+      el.style.transitionDelay = `${i * 0.15}s`;
+    });
+
+    document.querySelectorAll('.ps-item').forEach((el, i) => {
       el.style.transitionDelay = `${i * 0.08}s`;
     });
 
+    document.querySelectorAll('.workflow-step').forEach((el, i) => {
+      el.style.transitionDelay = `${i * 0.15}s`;
+    });
+
+    document.querySelectorAll('.testimonial-card').forEach((el, i) => {
+      el.style.transitionDelay = `${i * 0.12}s`;
+    });
+
+    document.querySelectorAll('.use-case-card').forEach((el, i) => {
+      el.style.transitionDelay = `${i * 0.08}s`;
+    });
+
+    // Copy to clipboard
     function copyCmd(text, elId) {
       navigator.clipboard.writeText(text);
       const cmd = document.getElementById(elId);

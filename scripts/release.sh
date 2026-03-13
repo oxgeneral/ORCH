@@ -14,8 +14,8 @@ VERSION="${NEW_VERSION#v}"
 sed -i.bak "s/\.version('[^']*')/\.version('${VERSION}')/" src/bin/cli.ts
 rm -f src/bin/cli.ts.bak
 
-# Sync version into landing
-sed -i.bak "s/v[0-9]*\.[0-9]*\.[0-9]* — open source/v${VERSION} — open source/" landing/index.html
+# Sync version into landing (hero badge, hero sidebar, footer)
+sed -i.bak "s/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/v${VERSION}/g" landing/index.html
 rm -f landing/index.html.bak
 
 # Commit and tag
