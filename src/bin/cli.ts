@@ -196,10 +196,7 @@ async function main(): Promise<void> {
     ? Promise.resolve(null)
     : import('../cli/update-check.js').then((m) => {
         updateMod = m;
-        // Cache-only: returns instantly. Triggers background refresh for next run.
-        const ver = program.version() ?? '0.0.0';
-        m.checkForUpdate(ver).catch(() => {}); // fire-and-forget refresh
-        return m.checkForUpdateCached(ver);
+        return m.checkForUpdateSWR(program.version() ?? '0.0.0');
       });
 
   await program.parseAsync(process.argv);

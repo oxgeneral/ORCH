@@ -55,7 +55,7 @@ async function writeCache(latest: string): Promise<void> {
 /** Fetch latest version from npm registry via `npm view`. */
 function fetchLatestVersion(): Promise<string | null> {
   return new Promise((resolve) => {
-    execFile('npm', ['view', PACKAGE_NAME, 'version', '--json'], { timeout: 5000 }, (err, stdout) => {
+    const child = execFile('npm', ['view', PACKAGE_NAME, 'version', '--json'], { timeout: 5000 }, (err, stdout) => {
       if (err) return resolve(null);
       try {
         resolve(JSON.parse(stdout.trim()) as string);
@@ -63,6 +63,7 @@ function fetchLatestVersion(): Promise<string | null> {
         resolve(null);
       }
     });
+    child.unref(); // don't keep the event loop alive for fire-and-forget callers
   });
 }
 
@@ -126,6 +127,30 @@ export async function checkForUpdateNow(currentVersion: string): Promise<UpdateI
     latest,
     updateAvailable: compareSemver(latest, currentVersion) > 0,
   };
+}
+
+/**
+ * Stale-while-revalidate: returns cached result instantly (single cache read),
+ * fires a background refresh so the next invocation has fresh data.
+ */
+export async function checkForUpdateSWR(currentVersion: string): Promise<UpdateInfo | null> {
+  try {
+    const cached = await readCache();
+    if (!cached) {
+      // No cache — kick off refresh for next run, return null now
+      checkForUpdateNow(currentVersion).catch(() => {});
+      return null;
+    }
+    // Cache fresh — still refresh in background if close to expiry
+    checkForUpdateNow(currentVersion).catch(() => {});
+    return {
+      current: currentVersion,
+      latest: cached.latest,
+      updateAvailable: compareSemver(cached.latest, currentVersion) > 0,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Print update notification to stderr (non-intrusive). */

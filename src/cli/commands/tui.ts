@@ -220,11 +220,7 @@ export function registerTuiCommand(program: Command, container: Container): void
       // Update check: read cache instantly, trigger background refresh for next run
       const currentVersion = program.version() ?? '0.0.0';
       const updateCheckPromise = import('../update-check.js')
-        .then(async (m) => {
-          const cached = await m.checkForUpdateCached(currentVersion);
-          m.checkForUpdate(currentVersion).catch(() => {}); // fire-and-forget refresh
-          return cached;
-        })
+        .then((m) => m.checkForUpdateSWR(currentVersion))
         .catch(() => null);
 
       // Auto-start watch mode so the orchestrator is live
@@ -285,7 +281,7 @@ export function registerTuiCommand(program: Command, container: Container): void
           initialWatchActive: watchStarted,
           watchError,
           version: currentVersion,
-          latestVersion: updateInfo?.latest,
+          latestVersion: updateInfo?.updateAvailable ? updateInfo.latest : undefined,
           initialActivityFilter: container.globalConfig.tui.activity_filter,
           onSaveActivityFilter: async (preset) => {
             await container.globalConfigStore.set('activity_filter', preset);
