@@ -684,6 +684,134 @@ describe('Orchestrator', () => {
     });
   });
 
+  describe('dispatch ordering (priority + goals)', () => {
+    it('dispatches higher-priority tasks first (P1 before P3)', async () => {
+      const p3 = makeTask({ id: 'tsk_p3', priority: 3, updated_at: '2025-01-02T00:00:00Z' });
+      const p1 = makeTask({ id: 'tsk_p1', priority: 1, updated_at: '2025-01-01T00:00:00Z' });
+      const agent1 = makeAgent({ id: 'agt_1', name: 'A1' });
+      const agent2 = makeAgent({ id: 'agt_2', name: 'A2' });
+      const config = {
+        ...DEFAULT_CONFIG,
+        scheduling: { ...DEFAULT_CONFIG.scheduling, max_concurrent_agents: 1, poll_interval_ms: 100_000 },
+      };
+      const registry = new AdapterRegistry();
+      registry.register(createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'done' } },
+      ]));
+
+      deps = buildDeps({
+        taskStore: createMockTaskStore([p3, p1]),
+        agentStore: createMockAgentStore([agent1, agent2]),
+        adapterRegistry: registry,
+        config,
+      });
+
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+      await new Promise((r) => setTimeout(r, 100));
+
+      const taskSaves = (deps.taskStore.save as ReturnType<typeof vi.fn>).mock.calls;
+      const p1Dispatched = taskSaves.find(([t]: [Task]) => t.id === 'tsk_p1' && t.status === 'in_progress');
+      const p3Dispatched = taskSaves.find(([t]: [Task]) => t.id === 'tsk_p3' && t.status === 'in_progress');
+      expect(p1Dispatched).toBeDefined();
+      expect(p3Dispatched).toBeUndefined();
+    });
+
+    it('dispatches goal-linked tasks before unlinked at same priority', async () => {
+      const noGoal = makeTask({ id: 'tsk_nogoal', priority: 2, updated_at: '2025-01-02T00:00:00Z' });
+      const withGoal = makeTask({ id: 'tsk_goal', priority: 2, goalId: 'goal_abc', updated_at: '2025-01-01T00:00:00Z' });
+      const agent1 = makeAgent({ id: 'agt_1', name: 'A1' });
+      const agent2 = makeAgent({ id: 'agt_2', name: 'A2' });
+      const config = {
+        ...DEFAULT_CONFIG,
+        scheduling: { ...DEFAULT_CONFIG.scheduling, max_concurrent_agents: 1, poll_interval_ms: 100_000 },
+      };
+      const registry = new AdapterRegistry();
+      registry.register(createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'done' } },
+      ]));
+
+      deps = buildDeps({
+        taskStore: createMockTaskStore([noGoal, withGoal]),
+        agentStore: createMockAgentStore([agent1, agent2]),
+        adapterRegistry: registry,
+        config,
+      });
+
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+      await new Promise((r) => setTimeout(r, 100));
+
+      const taskSaves = (deps.taskStore.save as ReturnType<typeof vi.fn>).mock.calls;
+      const goalDispatched = taskSaves.find(([t]: [Task]) => t.id === 'tsk_goal' && t.status === 'in_progress');
+      const noGoalDispatched = taskSaves.find(([t]: [Task]) => t.id === 'tsk_nogoal' && t.status === 'in_progress');
+      expect(goalDispatched).toBeDefined();
+      expect(noGoalDispatched).toBeUndefined();
+    });
+
+    it('priority trumps goal-linking (P1 no goal beats P2 with goal)', async () => {
+      const p2Goal = makeTask({ id: 'tsk_p2g', priority: 2, goalId: 'goal_abc' });
+      const p1NoGoal = makeTask({ id: 'tsk_p1', priority: 1 });
+      const agent1 = makeAgent({ id: 'agt_1', name: 'A1' });
+      const agent2 = makeAgent({ id: 'agt_2', name: 'A2' });
+      const config = {
+        ...DEFAULT_CONFIG,
+        scheduling: { ...DEFAULT_CONFIG.scheduling, max_concurrent_agents: 1, poll_interval_ms: 100_000 },
+      };
+      const registry = new AdapterRegistry();
+      registry.register(createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'done' } },
+      ]));
+
+      deps = buildDeps({
+        taskStore: createMockTaskStore([p2Goal, p1NoGoal]),
+        agentStore: createMockAgentStore([agent1, agent2]),
+        adapterRegistry: registry,
+        config,
+      });
+
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+      await new Promise((r) => setTimeout(r, 100));
+
+      const taskSaves = (deps.taskStore.save as ReturnType<typeof vi.fn>).mock.calls;
+      const p1Dispatched = taskSaves.find(([t]: [Task]) => t.id === 'tsk_p1' && t.status === 'in_progress');
+      const p2Dispatched = taskSaves.find(([t]: [Task]) => t.id === 'tsk_p2g' && t.status === 'in_progress');
+      expect(p1Dispatched).toBeDefined();
+      expect(p2Dispatched).toBeUndefined();
+    });
+
+    it('recency breaks ties within same priority and goal status', async () => {
+      const older = makeTask({ id: 'tsk_old', priority: 2, updated_at: '2025-01-01T00:00:00Z' });
+      const newer = makeTask({ id: 'tsk_new', priority: 2, updated_at: '2025-01-02T00:00:00Z' });
+      const agent1 = makeAgent({ id: 'agt_1', name: 'A1' });
+      const agent2 = makeAgent({ id: 'agt_2', name: 'A2' });
+      const config = {
+        ...DEFAULT_CONFIG,
+        scheduling: { ...DEFAULT_CONFIG.scheduling, max_concurrent_agents: 1, poll_interval_ms: 100_000 },
+      };
+      const registry = new AdapterRegistry();
+      registry.register(createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'done' } },
+      ]));
+
+      deps = buildDeps({
+        taskStore: createMockTaskStore([older, newer]),
+        agentStore: createMockAgentStore([agent1, agent2]),
+        adapterRegistry: registry,
+        config,
+      });
+
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+      await new Promise((r) => setTimeout(r, 100));
+
+      const taskSaves = (deps.taskStore.save as ReturnType<typeof vi.fn>).mock.calls;
+      const newerDispatched = taskSaves.find(([t]: [Task]) => t.id === 'tsk_new' && t.status === 'in_progress');
+      expect(newerDispatched).toBeDefined();
+    });
+  });
+
   describe('cancelTask', () => {
     it('kills running agent and marks task cancelled', async () => {
       const task = makeTask({ id: 'tsk_cancel', status: 'in_progress', attempts: 1 });

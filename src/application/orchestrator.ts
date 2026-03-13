@@ -685,6 +685,14 @@ export class Orchestrator {
           !state.claimed.has(t.id),
       )
       .sort((a, b) => {
+        // 1. Priority: lower number = higher urgency (P1 before P4)
+        const priDiff = (a.priority ?? 3) - (b.priority ?? 3);
+        if (priDiff !== 0) return priDiff;
+        // 2. Goal-linked tasks first (goalId present beats absent)
+        const aGoal = a.goalId ? 0 : 1;
+        const bGoal = b.goalId ? 0 : 1;
+        if (aGoal !== bGoal) return aGoal - bGoal;
+        // 3. Recency tiebreaker: most recently updated first
         const bTime = b.updated_at ?? '';
         const aTime = a.updated_at ?? '';
         return bTime < aTime ? -1 : bTime > aTime ? 1 : 0;
