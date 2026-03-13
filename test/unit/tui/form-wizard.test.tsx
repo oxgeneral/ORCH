@@ -615,4 +615,52 @@ describe('FormWizard textarea', () => {
       body: 'Line A\nLine B',
     });
   });
+
+  it('Backspace merge sets taCursorCol to prevLine.length (no setTimeout race)', async () => {
+    // Verify fix for ed11250: mergedCol computed outside setTaLines updater,
+    // setTaCursorCol called synchronously after setTaLines (not via setTimeout).
+    // After merging "Hello" + "World" with cursor at col 0 of line 2,
+    // typing a character should insert at col 5 (after "Hello"), not at col 0.
+    const onComplete = vi.fn();
+    const onCancel = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextareaSteps(),
+        onComplete,
+        onCancel,
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    // Type "Hello", add new line, type "World"
+    stdin.write('Hello');
+    await delay(50);
+    stdin.write(SHIFT_ENTER);
+    await delay(50);
+    stdin.write('World');
+    await delay(50);
+
+    // Move to start of "World" line (5x left)
+    for (let i = 0; i < 5; i++) {
+      stdin.write('\x1B[D');
+      await delay(20);
+    }
+
+    // Backspace at col 0 → merge lines, cursor lands at col 5 ("Hello".length)
+    stdin.write('\x7F');
+    await delay(100);
+
+    // Type "X" — cursor at col 5 gives "HelloXWorld"
+    // Old bug (setTimeout race): cursor at col 0 would give "XHelloWorld"
+    stdin.write('X');
+    await delay(50);
+
+    stdin.write('\r');
+    await delay(50);
+
+    expect(onComplete).toHaveBeenCalledWith({ body: 'HelloXWorld' });
+  });
 });
