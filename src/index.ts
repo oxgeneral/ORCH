@@ -26,6 +26,10 @@ export { Orchestrator } from './application/orchestrator.js';
 export type { IAgentAdapter, AgentEvent, ExecuteParams, AdapterTestResult } from './infrastructure/adapters/interface.js';
 export { AdapterRegistry } from './infrastructure/adapters/registry.js';
 
+// Clipboard
+export { detectClipboardType, getClipboardImage, isClipboardToolAvailable } from './infrastructure/clipboard-service.js';
+export type { ClipboardContentType, ClipboardImage } from './infrastructure/clipboard-service.js';
+
 // Container
 export { buildContainer, buildLightContainer, buildFullContainer } from './container.js';
 export type { Container, LightContainer } from './container.js';
