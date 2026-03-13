@@ -10,7 +10,7 @@
     <a href="https://github.com/oxgeneral/ORCH/packages"><img src="https://img.shields.io/badge/npm-@oxgeneral/orch-cb0000" alt="GitHub Packages" /></a>
     <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-one%20command-brightgreen" alt="One command setup" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
-    <a href="#development"><img src="https://img.shields.io/badge/tests-759%20passing-brightgreen" alt="Tests" /></a>
+    <a href="#development"><img src="https://img.shields.io/badge/tests-823%20passing-brightgreen" alt="Tests" /></a>
     <a href="#architecture"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
   </p>
 </p>
@@ -195,6 +195,9 @@ orch tui                           # Interactive dashboard
 
 # Config
 orch config edit                   # Open in $EDITOR
+
+# Updates
+orch update                        # Check for and install latest version
 ```
 
 **Aliases:** `orchestry`, `orch`, `ao`
@@ -236,9 +239,11 @@ src/
 ```bash
 npm run dev            # Run via tsx
 npm run build          # Build ESM + DTS
-npm test               # 759 tests via Vitest
+npm test               # 823 tests via Vitest
 npm run typecheck      # Strict TypeScript
 ```
+
+**Performance:** CLI startup is ~40% faster thanks to lazy command imports — heavy dependencies (orchestrator, adapters, LiquidJS) are loaded only when the relevant subcommand is invoked. `--help` and lightweight commands like `task list` skip the full container entirely.
 
 ## Community
 
