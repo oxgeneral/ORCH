@@ -1201,7 +1201,7 @@ export class Orchestrator {
 
     if (failureStatus === 'retrying') {
       const delay = calculateRetryDelay(
-        task.attempts,
+        task.attempts - 1,
         this.deps.config.scheduling.retry_base_delay_ms,
         this.deps.config.scheduling.retry_max_delay_ms,
       );
