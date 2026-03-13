@@ -256,7 +256,16 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .description('Cancel a task')
     .action(async (id: string) => {
       await container.paths.requireInit();
-      await container.taskService.cancel(id);
+      const task = await container.taskService.get(id);
+
+      if (task.status === 'in_progress') {
+        // Running task — need orchestrator to kill agent process, clean state, finish run
+        const { buildFullContainer } = await import('../../container.js');
+        const full = await buildFullContainer(container.context);
+        await full.orchestrator.cancelTask(id);
+      } else {
+        await container.taskService.cancel(id);
+      }
       printSuccess(`Cancelled ${id}`);
     });
 
