@@ -175,7 +175,7 @@ export const TaskRow = React.memo(function TaskRow({ task, selected, width, agen
         </Text>
       </Box>
 
-      {/* Title (truncated to column width) */}
+      {/* Title (truncated to column width) + attachment indicator */}
       <Box width={titleWidth}>
         <Text
           wrap="truncate"
@@ -184,6 +184,9 @@ export const TaskRow = React.memo(function TaskRow({ task, selected, width, agen
         >
           {task.title.length > titleWidth ? task.title.slice(0, titleWidth - 1) + '\u2026' : task.title}
         </Text>
+        {(task.attachments?.length ?? 0) > 0 && (
+          <Text color={tuiColors.dim}> {'\uD83D\uDCCE'}{task.attachments!.length}</Text>
+        )}
       </Box>
 
       {/* Assignee chip (truncated to column width) */}

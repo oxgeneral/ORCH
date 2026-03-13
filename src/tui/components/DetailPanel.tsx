@@ -75,13 +75,18 @@ export function DetailPanel({ task, height, width, taskLogs, agentNameMap }: Det
   const hasSummary = !!task.proof?.agent_summary;
   const hasFiles = (task.proof?.files_changed?.length ?? 0) > 0;
   const hasLogs = (taskLogs?.length ?? 0) > 0;
+  const hasAttachments = (task.attachments?.length ?? 0) > 0;
 
   // Count fixed rows: 3 meta + description/summary sections
   const descLines = hasDescription ? task.description.split('\n') : [];
   const summaryLines = hasSummary ? task.proof!.agent_summary!.split('\n') : [];
 
-  // Fixed meta rows: 3 key-value rows
+  // Fixed meta rows: 3 key-value rows + optional attachments section
   let usedRows = 3;
+
+  if (hasAttachments) {
+    usedRows += 2 + task.attachments!.length; // blank + divider + file lines
+  }
 
   // Description section (blank + lines) or "No description" if no summary either
   if (hasDescription) {
@@ -169,6 +174,17 @@ export function DetailPanel({ task, height, width, taskLogs, agentNameMap }: Det
           </Text>
         </Box>
       </Box>
+
+      {/* Attachments */}
+      {hasAttachments && (
+        <>
+          <Text>{' '}</Text>
+          <SectionDivider label={`attachments (${task.attachments!.length})`} width={width} color={tuiColors.dim} />
+          {task.attachments!.map((name, i) => (
+            <Text key={`a${i}`} color={tuiColors.cyan} wrap="truncate">{'    '}{name}</Text>
+          ))}
+        </>
+      )}
 
       {/* Description */}
       {hasDescription && (
