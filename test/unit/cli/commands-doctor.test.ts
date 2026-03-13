@@ -9,6 +9,7 @@ const MOCK_REPORT: DoctorReport = {
     { name: 'claude', status: 'ok', detail: '1.0.0' },
     { name: 'shell', status: 'ok' },
     { name: 'git', status: 'ok', detail: 'git version 2.40' },
+    { name: 'git repo', status: 'ok', detail: 'git repository detected' },
     { name: 'node', status: 'ok', detail: 'v20.0.0' },
   ],
   adaptersReady: 2,

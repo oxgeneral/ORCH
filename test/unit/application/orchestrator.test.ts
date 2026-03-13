@@ -1283,9 +1283,16 @@ describe('Orchestrator', () => {
       (orchestrator as any).scheduleImmediateDispatch();
       await new Promise((r) => setTimeout(r, 700));
 
-      // No extra writes because tickInProgress was true
+      // No extra writes because tickInProgress was true — dispatch deferred
       const writesAfter = (deps.stateStore.write as ReturnType<typeof vi.fn>).mock.calls.length;
       expect(writesAfter).toBe(writesBefore);
+
+      // Once tick finishes, deferred dispatch retries and succeeds
+      (orchestrator as any).tickInProgress = false;
+      await new Promise((r) => setTimeout(r, 700));
+
+      const writesAfterRetry = (deps.stateStore.write as ReturnType<typeof vi.fn>).mock.calls.length;
+      expect(writesAfterRetry).toBeGreaterThan(writesBefore);
     });
   });
 });

@@ -27,6 +27,7 @@ export class DoctorService {
   constructor(
     private readonly adapterRegistry: AdapterRegistry,
     private readonly processManager: IProcessManager,
+    private readonly projectRoot?: string,
   ) {}
 
   async runAll(): Promise<DoctorReport> {
@@ -57,6 +58,9 @@ export class DoctorService {
     // Check git
     checks.push(await this.checkCommand('git', ['--version'], 'git'));
 
+    // Check git repository (required for worktree/isolated workspace modes)
+    checks.push(await this.checkGitRepo());
+
     // Check node
     checks.push(await this.checkCommand('node', ['--version'], 'node'));
 
@@ -77,6 +81,20 @@ export class DoctorService {
       return { name, status: 'ok', detail: stdout.trim() };
     } catch {
       return { name, status: 'fail', detail: `${command}: command not found` };
+    }
+  }
+
+  private async checkGitRepo(): Promise<DoctorCheck> {
+    const cwd = this.projectRoot ?? process.cwd();
+    try {
+      await execFileAsync('git', ['rev-parse', '--is-inside-work-tree'], { cwd });
+      return { name: 'git repo', status: 'ok', detail: 'git repository detected' };
+    } catch {
+      return {
+        name: 'git repo',
+        status: 'fail',
+        detail: 'not a git repository — worktree/isolated modes will fail. Run: git init',
+      };
     }
   }
 }

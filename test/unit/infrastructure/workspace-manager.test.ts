@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { WorkspaceManager } from '../../../src/infrastructure/workspace/workspace-manager.js';
 import type { IProcessManager } from '../../../src/infrastructure/process/process-manager.js';
 import type { Task } from '../../../src/domain/task.js';
 import type { Agent } from '../../../src/domain/agent.js';
 import { DEFAULT_CONFIG, type OrchestratorConfig } from '../../../src/domain/config.js';
+import { WorkspaceError } from '../../../src/domain/errors.js';
 import type { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
@@ -60,16 +61,43 @@ function createMockProcess(exitCode = 0): ChildProcess {
   return proc;
 }
 
+/**
+ * Creates a mock process manager.
+ * git rev-parse always succeeds (simulates being inside a git repo).
+ * All other commands use the provided exitCode.
+ */
 function createMockProcessManager(exitCode = 0): IProcessManager {
   return {
     isAlive: vi.fn(() => false),
     kill: vi.fn(),
     killWithGrace: vi.fn(async () => {}),
-    spawn: vi.fn(() => ({
-      process: createMockProcess(exitCode),
+    spawn: vi.fn((_cmd: string, args?: string[]) => {
+      // git rev-parse (repo check) always succeeds
+      if (args?.[0] === 'rev-parse') {
+        return { process: createMockProcess(0), pid: 12345 };
+      }
+      return { process: createMockProcess(exitCode), pid: 12345 };
+    }),
+  };
+}
+
+/** Process manager where git rev-parse fails (not a git repo) */
+function createNoGitRepoProcessManager(): IProcessManager {
+  return {
+    isAlive: vi.fn(() => false),
+    kill: vi.fn(),
+    killWithGrace: vi.fn(async () => {}),
+    spawn: vi.fn((_cmd: string, args?: string[]) => ({
+      process: createMockProcess(args?.[0] === 'rev-parse' ? 128 : 0),
       pid: 12345,
     })),
   };
+}
+
+/** Filter spawn calls, excluding git rev-parse checks */
+function nonRevParseCalls(pm: IProcessManager): any[][] {
+  return (pm.spawn as ReturnType<typeof vi.fn>).mock.calls
+    .filter((c: any[]) => c[1]?.[0] !== 'rev-parse');
 }
 
 describe('WorkspaceManager', () => {
@@ -153,8 +181,9 @@ describe('WorkspaceManager', () => {
         expect.objectContaining({ cwd: tmpDir }),
       );
 
-      // Branch should be sanitized
-      const spawnArgs = (processManager.spawn as ReturnType<typeof vi.fn>).mock.calls[0];
+      // Branch should be sanitized (skip rev-parse call)
+      const worktreeCalls = nonRevParseCalls(processManager);
+      const spawnArgs = worktreeCalls[0]!;
       const branchArg = spawnArgs[1][spawnArgs[1].indexOf('-b') + 1];
       expect(branchArg).toMatch(/^orchestry\//);
       expect(branchArg).toContain('my-cool-feature');
@@ -171,7 +200,8 @@ describe('WorkspaceManager', () => {
       const task = makeTask({ id: 'tsk_cjk1', title: '修复数据库连接' });
       const result = await manager.prepare(task, makeAgent(), DEFAULT_CONFIG);
 
-      const spawnArgs = (processManager.spawn as ReturnType<typeof vi.fn>).mock.calls[0];
+      const worktreeCalls = nonRevParseCalls(processManager);
+      const spawnArgs = worktreeCalls[0]!;
       const branchArg = spawnArgs[1][spawnArgs[1].indexOf('-b') + 1];
       // sanitizeTitle returns '' for CJK → fallback to sanitizeId(task.id)
       expect(branchArg).toBe('orchestry/tsk_cjk1/tsk_cjk1');
@@ -182,13 +212,14 @@ describe('WorkspaceManager', () => {
       const task = makeTask({ id: 'tsk_emo1', title: '🚀🎉✨' });
       const result = await manager.prepare(task, makeAgent(), DEFAULT_CONFIG);
 
-      const spawnArgs = (processManager.spawn as ReturnType<typeof vi.fn>).mock.calls[0];
+      const worktreeCalls = nonRevParseCalls(processManager);
+      const spawnArgs = worktreeCalls[0]!;
       const branchArg = spawnArgs[1][spawnArgs[1].indexOf('-b') + 1];
       expect(branchArg).toBe('orchestry/tsk_emo1/tsk_emo1');
     });
 
     it('throws when git worktree add fails', async () => {
-      processManager = createMockProcessManager(1); // exit code 1
+      processManager = createMockProcessManager(1); // exit code 1 for non-rev-parse
       manager = new WorkspaceManager(tmpDir, orchestryDir, processManager);
 
       const task = makeTask();
@@ -210,24 +241,30 @@ describe('WorkspaceManager', () => {
     });
 
     it('falls back to rsync when git clone fails', async () => {
-      let callCount = 0;
-      (processManager.spawn as ReturnType<typeof vi.fn>).mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          // git clone fails
-          return { process: createMockProcess(1), pid: 12345 };
-        }
-        // rsync succeeds
-        return { process: createMockProcess(0), pid: 12346 };
-      });
+      let nonRevParseCount = 0;
+      (processManager.spawn as ReturnType<typeof vi.fn>).mockImplementation(
+        (_cmd: string, args?: string[]) => {
+          // rev-parse always succeeds
+          if (args?.[0] === 'rev-parse') {
+            return { process: createMockProcess(0), pid: 12345 };
+          }
+          nonRevParseCount++;
+          if (nonRevParseCount === 1) {
+            // git clone fails
+            return { process: createMockProcess(1), pid: 12345 };
+          }
+          // rsync succeeds
+          return { process: createMockProcess(0), pid: 12346 };
+        },
+      );
 
       const task = makeTask({ workspace_mode: 'isolated' });
       await manager.prepare(task, makeAgent(), DEFAULT_CONFIG);
 
-      // Should have called spawn twice: git clone + rsync
-      expect(processManager.spawn).toHaveBeenCalledTimes(2);
-      const secondCall = (processManager.spawn as ReturnType<typeof vi.fn>).mock.calls[1];
-      expect(secondCall[0]).toBe('rsync');
+      // Should have called spawn for: rev-parse + git clone + rsync
+      const calls = nonRevParseCalls(processManager);
+      expect(calls).toHaveLength(2);
+      expect(calls[1]![0]).toBe('rsync');
     });
   });
 
@@ -260,6 +297,66 @@ describe('WorkspaceManager', () => {
       const result = await manager.mergeBack('orchestry/tsk_1/test-branch');
       // Our mock process exits with code 0 → success
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe('git repo check', () => {
+    it('throws WorkspaceError for worktree mode when not a git repo', async () => {
+      processManager = createNoGitRepoProcessManager();
+      manager = new WorkspaceManager(tmpDir, orchestryDir, processManager);
+
+      const task = makeTask();
+      await expect(manager.prepare(task, makeAgent(), DEFAULT_CONFIG))
+        .rejects.toThrow(WorkspaceError);
+    });
+
+    it('throws WorkspaceError for isolated mode when not a git repo', async () => {
+      processManager = createNoGitRepoProcessManager();
+      manager = new WorkspaceManager(tmpDir, orchestryDir, processManager);
+
+      const task = makeTask({ workspace_mode: 'isolated' });
+      await expect(manager.prepare(task, makeAgent(), DEFAULT_CONFIG))
+        .rejects.toThrow(WorkspaceError);
+    });
+
+    it('includes helpful hint in WorkspaceError', async () => {
+      processManager = createNoGitRepoProcessManager();
+      manager = new WorkspaceManager(tmpDir, orchestryDir, processManager);
+
+      const task = makeTask();
+      try {
+        await manager.prepare(task, makeAgent(), DEFAULT_CONFIG);
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(WorkspaceError);
+        expect((err as WorkspaceError).hint).toContain('git init');
+        expect((err as WorkspaceError).hint).toContain('workspace_mode: shared');
+      }
+    });
+
+    it('does not check git repo for shared mode', async () => {
+      processManager = createNoGitRepoProcessManager();
+      manager = new WorkspaceManager(tmpDir, orchestryDir, processManager);
+
+      const task = makeTask({ workspace_mode: 'shared' });
+      const result = await manager.prepare(task, makeAgent(), DEFAULT_CONFIG);
+      expect(result.path).toBe(tmpDir);
+    });
+
+    it('caches git repo check result', async () => {
+      // Fresh manager with standard mock
+      processManager = createMockProcessManager();
+      manager = new WorkspaceManager(tmpDir, orchestryDir, processManager);
+
+      const task1 = makeTask({ id: 'tsk_a' });
+      const task2 = makeTask({ id: 'tsk_b' });
+      await manager.prepare(task1, makeAgent(), DEFAULT_CONFIG);
+      await manager.prepare(task2, makeAgent(), DEFAULT_CONFIG);
+
+      // git rev-parse called once (cached), git worktree add called twice
+      const revParseCalls = (processManager.spawn as ReturnType<typeof vi.fn>).mock.calls
+        .filter((c: any[]) => c[1]?.[0] === 'rev-parse');
+      expect(revParseCalls).toHaveLength(1);
     });
   });
 });

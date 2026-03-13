@@ -35,7 +35,7 @@ export function registerDoctorCommand(program: Command, container?: Container): 
         const registry = new AdapterRegistry();
         registry.register(new ClaudeAdapter(pm));
         registry.register(new ShellAdapter(pm));
-        doctorService = new DoctorService(registry, pm);
+        doctorService = new DoctorService(registry, pm, process.cwd());
         paths = new Paths(process.cwd());
       }
 

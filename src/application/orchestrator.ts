@@ -21,7 +21,7 @@ import {
   resolveFailureStatus,
   calculateRetryDelay,
 } from '../domain/transitions.js';
-import { NoAgentsError, TaskAlreadyRunningError, LockConflictError } from '../domain/errors.js';
+import { NoAgentsError, TaskAlreadyRunningError, LockConflictError, WorkspaceError } from '../domain/errors.js';
 import { scopesOverlap } from '../domain/scope.js';
 import { acquireLock, releaseLock } from '../infrastructure/storage/lock.js';
 import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IContextStore, IGoalStore } from '../infrastructure/storage/interfaces.js';
@@ -118,9 +118,22 @@ export class Orchestrator {
   }
 
   /**
-   * Run a single task by ID. Acquires lock for the duration of the run.
+   * Run a single task by ID.
+   * If watch mode is active (lock already held), dispatches inline via stateMutex.
+   * Otherwise acquires a temporary lock for the duration of the run.
    */
   async runTask(taskId: string): Promise<void> {
+    if (this.lockAcquired) {
+      // Watch mode active — dispatch inline, no lock dance
+      await this.withStateLock(async () => {
+        this.cachedTaskStore.invalidate();
+        this.cachedAgentStore.invalidate();
+        await this.loadState();
+        await this.dispatchTask(taskId);
+        await this.saveState();
+      });
+      return;
+    }
     await this.withTemporaryLock(async () => {
       await this.loadState();
       await this.dispatchTask(taskId);
@@ -128,9 +141,22 @@ export class Orchestrator {
   }
 
   /**
-   * Run all dispatchable tasks. Acquires lock for the duration of the run.
+   * Run all dispatchable tasks.
+   * If watch mode is active (lock already held), dispatches inline via stateMutex.
+   * Otherwise acquires a temporary lock for the duration of the run.
    */
   async runAll(): Promise<void> {
+    if (this.lockAcquired) {
+      // Watch mode active — dispatch inline, no lock dance
+      await this.withStateLock(async () => {
+        this.cachedTaskStore.invalidate();
+        this.cachedAgentStore.invalidate();
+        await this.loadState();
+        await this.dispatchAll();
+        await this.saveState();
+      });
+      return;
+    }
     await this.withTemporaryLock(async () => {
       await this.loadState();
       await this.dispatchAll();
@@ -429,6 +455,8 @@ export class Orchestrator {
   /**
    * Schedule an immediate dispatch with 500ms debounce.
    * Called on task:created to avoid waiting for the next 30s tick.
+   * If a tick is in progress when the timer fires, retries after 500ms
+   * instead of silently dropping the dispatch.
    */
   private scheduleImmediateDispatch(): void {
     if (this.shuttingDown) return;
@@ -436,7 +464,12 @@ export class Orchestrator {
 
     this.immediateDispatchTimer = setTimeout(() => {
       this.immediateDispatchTimer = null;
-      if (this.shuttingDown || this.tickInProgress) return;
+      if (this.shuttingDown) return;
+      if (this.tickInProgress) {
+        // Tick running — retry after it finishes instead of dropping
+        this.scheduleImmediateDispatch();
+        return;
+      }
       this.immediateDispatch().catch((err) => {
         this.deps.eventBus.emit({
           type: 'orchestrator:error',
@@ -692,6 +725,15 @@ export class Orchestrator {
       try {
         await this.dispatchTask(task.id);
       } catch (err) {
+        // Workspace errors are permanent — fail the task to prevent infinite retry loop
+        if (err instanceof WorkspaceError) {
+          try {
+            await this.deps.taskService.updateStatus(task.id, 'failed');
+          } catch {
+            // Task may already be in a terminal state
+          }
+        }
+
         // Log but don't stop dispatching other tasks
         this.deps.eventBus.emit({
           type: 'orchestrator:error',

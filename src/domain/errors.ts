@@ -111,3 +111,10 @@ export class MessageNotFoundError extends OrchestryError {
     this.name = 'MessageNotFoundError';
   }
 }
+
+export class WorkspaceError extends OrchestryError {
+  constructor(message: string, hint?: string) {
+    super(message, 6, hint);
+    this.name = 'WorkspaceError';
+  }
+}

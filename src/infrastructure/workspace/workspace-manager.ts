@@ -15,9 +15,12 @@ import { validateWorkspacePath, sanitizeId } from '../storage/paths.js';
 import { ensureDir } from '../storage/fs-utils.js';
 import type { IWorkspaceManager, PrepareResult } from './interface.js';
 import { MergeStrategy, type MergeResult } from './merge-strategy.js';
+import { WorkspaceError } from '../../domain/errors.js';
 
 export class WorkspaceManager implements IWorkspaceManager {
   private readonly mergeStrategy: MergeStrategy;
+  private gitRepoChecked = false;
+  private isGitRepo = false;
 
   constructor(
     private readonly projectRoot: string,
@@ -29,6 +32,10 @@ export class WorkspaceManager implements IWorkspaceManager {
 
   async prepare(task: Task, agent: Agent, config: OrchestratorConfig): Promise<PrepareResult> {
     const mode = this.resolveMode(task, agent, config);
+
+    if (mode !== 'shared') {
+      await this.requireGitRepo(mode);
+    }
 
     switch (mode) {
       case 'shared':
@@ -42,6 +49,33 @@ export class WorkspaceManager implements IWorkspaceManager {
 
       default:
         return { path: this.projectRoot };
+    }
+  }
+
+  private async requireGitRepo(mode: WorkspaceMode): Promise<void> {
+    if (!this.gitRepoChecked) {
+      try {
+        const { process: proc } = this.processManager.spawn(
+          'git',
+          ['rev-parse', '--is-inside-work-tree'],
+          { cwd: this.projectRoot },
+        );
+        const code = await new Promise<number | null>((resolve) => {
+          proc.on('close', resolve);
+          proc.on('error', () => resolve(1));
+        });
+        this.isGitRepo = code === 0;
+      } catch {
+        this.isGitRepo = false;
+      }
+      this.gitRepoChecked = true;
+    }
+
+    if (!this.isGitRepo) {
+      throw new WorkspaceError(
+        `workspace_mode "${mode}" requires a git repository`,
+        'Run: git init && git add -A && git commit -m "Initial commit"\n         Or set workspace_mode: shared in .orchestry/config.yml',
+      );
     }
   }
 
