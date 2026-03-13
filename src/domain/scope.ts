@@ -5,6 +5,8 @@
  * Two tasks overlap if any pattern pair shares a common path prefix.
  */
 
+import { dirname } from 'node:path';
+
 /**
  * Returns true if two scope arrays have at least one overlapping pattern pair.
  * Tasks with no scope never overlap (they are unconstrained by convention).
@@ -30,5 +32,15 @@ function patternsOverlap(a: string, b: string): boolean {
   const aBase = a.split('*')[0]!;
   const bBase = b.split('*')[0]!;
 
-  return aBase.startsWith(bBase) || bBase.startsWith(aBase);
+  if (aBase.startsWith(bBase) || bBase.startsWith(aBase)) return true;
+
+  // Sibling files in the same directory overlap (e.g. src/auth/login.ts & src/auth/logout.ts)
+  // Only compare dirname when both bases are file-like (not ending with /)
+  if (!aBase.endsWith('/') && !bBase.endsWith('/')) {
+    const aDir = dirname(aBase);
+    const bDir = dirname(bBase);
+    return aDir === bDir && aDir !== '.';
+  }
+
+  return false;
 }
