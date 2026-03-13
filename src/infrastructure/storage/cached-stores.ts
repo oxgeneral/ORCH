@@ -70,7 +70,7 @@ export class CachedAgentStore implements IAgentStore {
 
   async getByName(name: string): Promise<Agent | null> {
     if (this.nameCache.has(name)) {
-      return this.nameCache.get(name)!;
+      return this.nameCache.get(name) ?? null;
     }
 
     const result = await this.inner.getByName(name);

@@ -22,7 +22,7 @@ export default defineConfig([
     outDir: 'dist',
     sourcemap: true,
     dts: true,
-    minify: true,
+    minify: false,
     treeshake: true,
     define: { 'process.env.NODE_ENV': '"production"' },
     external: ['ink', 'react'],
