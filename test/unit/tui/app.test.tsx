@@ -14,6 +14,7 @@ import { TaskList } from '../../../src/tui/components/TaskList.js';
 import { Footer } from '../../../src/tui/components/Footer.js';
 import type { Task } from '../../../src/domain/task.js';
 import type { Agent } from '../../../src/domain/agent.js';
+import type { Goal } from '../../../src/domain/goal.js';
 import type { OrchestratorState } from '../../../src/domain/state.js';
 import { DEFAULT_STATE } from '../../../src/domain/state.js';
 
@@ -1862,5 +1863,295 @@ describe('Attachments display', () => {
 
     expect(output).toContain('DETAIL');
     expect(output).not.toContain('attachments');
+  });
+});
+
+/* ── GoalDetailPanel ─────────────────────────────────── */
+
+function makeGoal(overrides: Partial<Goal> & { id: string; title: string }): Goal {
+  return {
+    description: '',
+    status: 'active',
+    created_at: '2026-03-13T10:00:00.000Z',
+    ...overrides,
+  };
+}
+
+async function openGoalDetail(stdin: NodeJS.WritableStream, lastFrame: () => string | undefined, goalTitle: string) {
+  // Navigate to goals view
+  stdin.write('g');
+  await delay(80);
+  // Open detail panel
+  stdin.write('\r');
+  await delay(80);
+  const output = lastFrame()!;
+  return output;
+}
+
+describe('GoalDetailPanel', () => {
+  it('shows goal ID in detail panel', async () => {
+    const goal = makeGoal({ id: 'goal_abc123', title: 'Launch feature' });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        state,
+        onRefreshGoals: async () => [goal],
+      }),
+    );
+    await delay(80);
+    const output = await openGoalDetail(stdin, lastFrame, goal.title);
+    expect(output).toContain('goal_abc123');
+  });
+
+  it('shows goal status in detail panel', async () => {
+    const goal = makeGoal({ id: 'goal_1', title: 'Active goal', status: 'active' });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        state,
+        onRefreshGoals: async () => [goal],
+      }),
+    );
+    await delay(80);
+    const output = await openGoalDetail(stdin, lastFrame, goal.title);
+    expect(output).toContain('ACTIVE');
+  });
+
+  it('shows assignee name in detail panel when assignee is set', async () => {
+    const goal = makeGoal({ id: 'goal_2', title: 'Assigned goal', assignee: 'agt_backend' });
+    const agent = makeAgent({ id: 'agt_backend', name: 'Backend Dev' });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        agents: [agent],
+        state,
+        onRefreshGoals: async () => [goal],
+      }),
+    );
+    await delay(80);
+    const output = await openGoalDetail(stdin, lastFrame, goal.title);
+    expect(output).toContain('Backend Dev');
+  });
+
+  it('shows "any" when goal has no assignee', async () => {
+    const goal = makeGoal({ id: 'goal_3', title: 'Unassigned goal' });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        state,
+        onRefreshGoals: async () => [goal],
+      }),
+    );
+    await delay(80);
+    const output = await openGoalDetail(stdin, lastFrame, goal.title);
+    expect(output).toContain('any');
+  });
+
+  it('shows created_at date in detail panel', async () => {
+    const goal = makeGoal({ id: 'goal_4', title: 'Dated goal', created_at: '2026-03-01T08:00:00.000Z' });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        state,
+        onRefreshGoals: async () => [goal],
+      }),
+    );
+    await delay(80);
+    const output = await openGoalDetail(stdin, lastFrame, goal.title);
+    expect(output).toContain('2026-03-01');
+  });
+
+  it('shows updated_at date when it differs from created_at', async () => {
+    const goal = makeGoal({
+      id: 'goal_5',
+      title: 'Updated goal',
+      created_at: '2026-03-01T08:00:00.000Z',
+      updated_at: '2026-03-10T12:00:00.000Z',
+    });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        state,
+        onRefreshGoals: async () => [goal],
+      }),
+    );
+    await delay(80);
+    const output = await openGoalDetail(stdin, lastFrame, goal.title);
+    expect(output).toContain('Updated');
+    expect(output).toContain('2026-03-10');
+  });
+
+  it('does not show updated_at when equal to created_at', async () => {
+    const goal = makeGoal({
+      id: 'goal_6',
+      title: 'Same date goal',
+      created_at: '2026-03-01T08:00:00.000Z',
+      updated_at: '2026-03-01T08:00:00.000Z',
+    });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        state,
+        onRefreshGoals: async () => [goal],
+      }),
+    );
+    await delay(80);
+    const output = await openGoalDetail(stdin, lastFrame, goal.title);
+    expect(output).not.toContain('Updated');
+  });
+
+  it('shows full description without truncation', async () => {
+    const goal = makeGoal({
+      id: 'goal_7',
+      title: 'Detailed goal',
+      description: 'Line one of description\nLine two of description\nLine three of description\nLine four of description',
+    });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        state,
+        onRefreshGoals: async () => [goal],
+        height: 40,
+      }),
+    );
+    await delay(80);
+    const output = await openGoalDetail(stdin, lastFrame, goal.title);
+    expect(output).toContain('Line one of description');
+    expect(output).toContain('Line four of description');
+  });
+
+  it('shows all tasks linked to the goal', async () => {
+    const goal = makeGoal({ id: 'goal_8', title: 'Goal with tasks' });
+    const tasks = [
+      makeTask({ id: 'tsk_1', title: 'Task Alpha', goalId: 'goal_8', status: 'todo' }),
+      makeTask({ id: 'tsk_2', title: 'Task Beta', goalId: 'goal_8', status: 'done' }),
+      makeTask({ id: 'tsk_3', title: 'Task Gamma', goalId: 'goal_8', status: 'in_progress' }),
+      makeTask({ id: 'tsk_4', title: 'Unrelated task' }),
+    ];
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks,
+        state,
+        onRefreshGoals: async () => [goal],
+        height: 40,
+      }),
+    );
+    await delay(80);
+    const output = await openGoalDetail(stdin, lastFrame, goal.title);
+    expect(output).toContain('Task Alpha');
+    expect(output).toContain('Task Beta');
+    expect(output).toContain('Task Gamma');
+    expect(output).not.toContain('Unrelated task');
+  });
+
+  it('shows full progress report without 3-line cap', async () => {
+    const goal = makeGoal({ id: 'goal_9', title: 'Goal with progress' });
+    const progressLines = [
+      'Progress line 1',
+      'Progress line 2',
+      'Progress line 3',
+      'Progress line 4',
+      'Progress line 5',
+    ];
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        state,
+        onRefreshGoals: async () => [goal],
+        onGetGoalProgress: async () => progressLines.join('\n'),
+        height: 40,
+      }),
+    );
+    await delay(80);
+    const output = await openGoalDetail(stdin, lastFrame, goal.title);
+    expect(output).toContain('Progress line 1');
+    expect(output).toContain('Progress line 4');
+    expect(output).toContain('Progress line 5');
+  });
+
+  it('shows "No description" when goal has empty description', async () => {
+    const goal = makeGoal({ id: 'goal_10', title: 'Empty desc goal', description: '' });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        state,
+        onRefreshGoals: async () => [goal],
+      }),
+    );
+    await delay(80);
+    const output = await openGoalDetail(stdin, lastFrame, goal.title);
+    expect(output).toContain('No description');
+  });
+
+  it('closes goal detail panel on Escape and resets scroll', async () => {
+    const goal = makeGoal({ id: 'goal_11', title: 'Scrollable goal' });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        state,
+        onRefreshGoals: async () => [goal],
+      }),
+    );
+    await delay(80);
+
+    // Navigate to goals and open detail
+    stdin.write('g');
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+    expect(lastFrame()!).toContain('GOAL:');
+
+    // Escape closes detail
+    stdin.write('\x1B');
+    await delay(50);
+    expect(lastFrame()!).not.toContain('GOAL:');
+    expect(lastFrame()!).toContain('GOALS');
+  });
+
+  it('GoalList regression: goals display correctly in list view', async () => {
+    const goals = [
+      makeGoal({ id: 'goal_a', title: 'Goal Alpha', status: 'active' }),
+      makeGoal({ id: 'goal_b', title: 'Goal Beta', status: 'achieved' }),
+    ];
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        state,
+        onRefreshGoals: async () => goals,
+      }),
+    );
+    await delay(80);
+
+    stdin.write('g');
+    await delay(50);
+    const output = lastFrame()!;
+    expect(output).toContain('Goal Alpha');
+    expect(output).toContain('Goal Beta');
   });
 });

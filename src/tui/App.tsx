@@ -108,7 +108,7 @@ export interface AppProps {
   agents?: Agent[];
   state: OrchestratorState;
   onRunTask?: (taskId: string) => Promise<void>;
-  onCreateTask?: (title: string, opts?: { priority?: number; description?: string }) => Promise<Task>;
+  onCreateTask?: (title: string, opts?: { priority?: number; description?: string; attachments?: string[] }) => Promise<Task>;
   onCancelTask?: (taskId: string) => Promise<void>;
   onRetryTask?: (taskId: string) => Promise<void>;
   onAssignTask?: (taskId: string, agentId: string) => Promise<void>;
@@ -339,6 +339,8 @@ export function App({
   const [inputMode, setInputMode] = useState<InputMode>('none');
   const [inputValue, setInputValue] = useState('');
   const [wizardConfig, setWizardConfig] = useState<WizardConfig | null>(null);
+  /** Temp file paths for images pasted via Ctrl+I during task wizard */
+  const [pendingAttachments, setPendingAttachments] = useState<string[]>([]);
 
   // Logs view: agent filter (0 = all, 1-9 = agent by index), type filter, selection, scroll
   const [logFilter, setLogFilter] = useState(0);
@@ -369,6 +371,7 @@ export function App({
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [agentScrollOffset, setAgentScrollOffset] = useState(0);
   const [goalScrollOffset, setGoalScrollOffset] = useState(0);
+  const [goalDetailScroll, setGoalDetailScroll] = useState(0);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
 
   // Teams state (refreshed alongside other data)
@@ -703,6 +706,7 @@ export function App({
   }, []);
 
   const launchTaskWizard = useCallback(() => {
+    setPendingAttachments([]);
     setWizardConfig({
       title: 'NEW TASK',
       steps: getTaskWizardSteps(liveAgents),
@@ -710,6 +714,36 @@ export function App({
     });
     setInputMode('wizard');
   }, [liveAgents]);
+
+  /** Ctrl+I handler: detect clipboard image, save temp file, add to pendingAttachments */
+  const handlePasteImage = useCallback(async (): Promise<boolean> => {
+    try {
+      const { detectClipboardType, getClipboardImage } = await import('../infrastructure/clipboard-service.js');
+      const clipType = await detectClipboardType();
+      if (clipType !== 'image') {
+        addMessage('Clipboard has no image', tuiColors.dim);
+        return false;
+      }
+      const img = await getClipboardImage();
+      if (!img) {
+        addMessage('Failed to read clipboard image', tuiColors.red);
+        return false;
+      }
+      // Save to temp file
+      const { mkdtemp, writeFile } = await import('node:fs/promises');
+      const { tmpdir } = await import('node:os');
+      const { join } = await import('node:path');
+      const dir = await mkdtemp(join(tmpdir(), 'orch-paste-'));
+      const filePath = join(dir, `clipboard-${Date.now()}.${img.ext}`);
+      await writeFile(filePath, img.data);
+      setPendingAttachments((prev) => [...prev, filePath]);
+      addMessage(`\uD83D\uDCCE Image attached (${Math.round(img.data.length / 1024)}KB)`, tuiColors.green);
+      return true;
+    } catch {
+      addMessage('Clipboard paste failed', tuiColors.red);
+      return false;
+    }
+  }, [addMessage]);
 
   const launchEditTaskWizard = useCallback((task: Task) => {
     setWizardConfig({
@@ -789,13 +823,16 @@ export function App({
       );
     } else if (kind === 'task' && onCreateTask) {
       const input = taskWizardToInput(values);
+      const attachments = pendingAttachments.length > 0 ? [...pendingAttachments] : undefined;
+      setPendingAttachments([]);
       addMessage(`Creating "${input.title}"...`, tuiColors.amber);
       onCreateTask(input.title, {
         priority: input.priority,
         description: input.description,
+        attachments,
       }).then(
         (task) => {
-          addMessage(`\u2713 Created "${task.title}" (${task.id})`, tuiColors.green);
+          addMessage(`\u2713 Created "${task.title}" (${task.id})${attachments ? ` \uD83D\uDCCE${attachments.length}` : ''}`, tuiColors.green);
           if (input.assignee && onAssignTask) {
             onAssignTask(task.id, input.assignee).catch(() => {});
           }
@@ -883,6 +920,7 @@ export function App({
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');
     setWizardConfig(null);
+    setPendingAttachments([]);
   }, []);
 
   // Live event subscription — update activity feed AND refresh data
@@ -1460,6 +1498,7 @@ export function App({
     if (key.escape) {
       if (detailOpen) {
         setDetailOpen(false);
+        setGoalDetailScroll(0);
         return;
       }
       if (activeView === 'logs' && logSelectedIndex >= 0) {
@@ -1723,6 +1762,7 @@ export function App({
       }
       if (activeView === 'goals' && selectedGoal) {
         setDetailOpen((prev) => !prev);
+        setGoalDetailScroll(0);
         return;
       }
       if (activeView === 'tasks' && selectedTask) {
@@ -1755,6 +1795,10 @@ export function App({
 
     // Navigation with scroll offset (functional updaters to avoid stale closures)
     if (key.upArrow || input === 'k') {
+      if (activeView === 'goals' && detailOpen) {
+        setGoalDetailScroll((s) => Math.max(0, s - 1));
+        return;
+      }
       if (activeView === 'goals') {
         setGoalSelectedIndex((i) => {
           const next = Math.max(0, i - 1);
@@ -1788,6 +1832,10 @@ export function App({
       }
     }
     if (key.downArrow || input === 'j') {
+      if (activeView === 'goals' && detailOpen) {
+        setGoalDetailScroll((s) => s + 1); // GoalDetailPanel clamps internally
+        return;
+      }
       if (activeView === 'goals') {
         const maxIdx = sortedGoals.length + (onCreateGoal ? 1 : 0) - 1;
         setGoalSelectedIndex((i) => {
@@ -1943,6 +1991,8 @@ export function App({
           onCancel={handleWizardCancel}
           width={ruleW}
           height={feedH}
+          onPasteImage={(wizardConfig.kind === 'task' || wizardConfig.kind === 'edit_task') ? handlePasteImage : undefined}
+          footerExtra={pendingAttachments.length > 0 && (wizardConfig.kind === 'task' || wizardConfig.kind === 'edit_task') ? `\uD83D\uDCCE${pendingAttachments.length}` : undefined}
         />
       ) : showSuggestions ? (
         <>
@@ -1969,7 +2019,7 @@ export function App({
       ) : showGoalDetail ? (
         <>
           <SectionLabel label={`GOAL: ${selectedGoal.title}`} width={ruleW} />
-          <GoalDetailPanel goal={selectedGoal} height={feedH} width={ruleW} agentNameMap={agentNameMap} tasks={selectedGoalTasks} progressReport={goalProgressReport} />
+          <GoalDetailPanel goal={selectedGoal} height={feedH} width={ruleW} agentNameMap={agentNameMap} tasks={selectedGoalTasks} progressReport={goalProgressReport} scrollOffset={goalDetailScroll} onClampScroll={setGoalDetailScroll} />
         </>
       ) : showAgentDetail ? (
         <>
@@ -2164,68 +2214,113 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
 
 /* ── Goal Detail Panel ──────────────────────────────── */
 
-function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressReport }: {
+function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressReport, scrollOffset = 0, onClampScroll }: {
   goal: Goal;
   height: number;
   width: number;
   agentNameMap?: Map<string, string>;
   tasks?: Task[];
   progressReport?: string;
+  scrollOffset?: number;
+  onClampScroll?: (v: number) => void;
 }) {
   const assigneeName = goal.assignee ? (agentNameMap?.get(goal.assignee) ?? goal.assignee) : 'any';
   const taskList = tasks ?? [];
+  const progressLines = progressReport ? progressReport.split('\n') : [];
+  const descLines = goal.description ? goal.description.split('\n') : [];
 
-  // Budget: header(1) + desc lines + tasks section + progress section
-  const taskCount = taskList.length;
-  const progressLines = progressReport ? progressReport.split('\n').slice(0, 3) : [];
-  const taskRowsCap = Math.min(taskCount, Math.max(1, Math.floor((height - 4) / 3)));
-  const progressCap = progressLines.length > 0 ? Math.min(progressLines.length + 1, 4) : 0;
-  const descCap = Math.max(1, height - 2 - (taskCount > 0 ? taskRowsCap + 1 : 0) - progressCap);
+  // Build virtual lines: each entry is { key, node }
+  type VLine = { key: string; node: React.ReactNode };
+  const allLines: VLine[] = [];
+
+  // Header line 1: ID + Status
+  allLines.push({ key: 'hdr-id', node: (
+    <Text>
+      <Text color={tuiColors.dim}>{goal.id}  </Text>
+      <Text color={tuiColors.dim}>Status: </Text>
+      <Text color={goal.status === 'active' ? tuiColors.green : goal.status === 'achieved' ? tuiColors.amber : tuiColors.dim} bold>
+        {goal.status.toUpperCase()}
+      </Text>
+    </Text>
+  ) });
+
+  // Header line 2: Assignee + Created + Updated
+  const updatedDiffers = goal.updated_at && goal.updated_at !== goal.created_at;
+  allLines.push({ key: 'hdr-meta', node: (
+    <Text>
+      <Text color={tuiColors.dim}>Assignee: </Text>
+      <Text color={tuiColors.silver}>{assigneeName}</Text>
+      <Text color={tuiColors.ghost}>  {'\u2502'}  </Text>
+      <Text color={tuiColors.dim}>Created: </Text>
+      <Text color={tuiColors.silver}>{goal.created_at.slice(0, 10)}</Text>
+      {updatedDiffers && (
+        <>
+          <Text color={tuiColors.ghost}>  {'\u2502'}  </Text>
+          <Text color={tuiColors.dim}>Updated: </Text>
+          <Text color={tuiColors.silver}>{goal.updated_at!.slice(0, 10)}</Text>
+        </>
+      )}
+    </Text>
+  ) });
+
+  // Description (full, no cap)
+  if (descLines.length > 0) {
+    allLines.push({ key: 'desc-gap', node: <Text>{' '}</Text> });
+    for (let i = 0; i < descLines.length; i++) {
+      allLines.push({ key: `desc-${i}`, node: (
+        <Text color={tuiColors.silver} wrap="truncate">{descLines[i]}</Text>
+      ) });
+    }
+  } else {
+    allLines.push({ key: 'desc-empty', node: <Text color={tuiColors.ghost} dimColor>No description</Text> });
+  }
+
+  // Tasks (full, no cap)
+  if (taskList.length > 0) {
+    allLines.push({ key: 'tasks-gap', node: <Text>{' '}</Text> });
+    allLines.push({ key: 'tasks-hdr', node: <Text color={tuiColors.dim}>Tasks ({taskList.length})</Text> });
+    for (const t of taskList) {
+      const sc = TASK_STATUS_COLOR[t.status] ?? tuiColors.dim;
+      allLines.push({ key: `task-${t.id}`, node: (
+        <Text color={tuiColors.silver} wrap="truncate">
+          {'  '}<Text color={sc}>{t.status.padEnd(11)}</Text>
+          {' '}{t.title.slice(0, Math.max(10, width - 20))}
+        </Text>
+      ) });
+    }
+  }
+
+  // Progress report (full, no 3-line cap)
+  if (progressLines.length > 0) {
+    allLines.push({ key: 'prog-gap', node: <Text>{' '}</Text> });
+    allLines.push({ key: 'prog-hdr', node: <Text color={tuiColors.dim}>Progress</Text> });
+    for (let i = 0; i < progressLines.length; i++) {
+      allLines.push({ key: `prog-${i}`, node: (
+        <Text color={tuiColors.silver} wrap="truncate">{'  '}{progressLines[i]}</Text>
+      ) });
+    }
+  }
+
+  // Clamp scroll offset
+  const maxScroll = Math.max(0, allLines.length - height);
+  const clamped = Math.min(scrollOffset, maxScroll);
+  React.useEffect(() => {
+    if (onClampScroll && clamped !== scrollOffset) {
+      onClampScroll(clamped);
+    }
+  }, [clamped, scrollOffset, onClampScroll]);
+
+  const showScrollHint = allLines.length > height && clamped < maxScroll;
+  const visibleCount = showScrollHint ? height - 1 : height;
+  const visible = allLines.slice(clamped, clamped + visibleCount);
 
   return (
     <Box flexDirection="column" height={height} paddingX={2}>
-      <Text>
-        <Text color={tuiColors.dim}>Status: </Text>
-        <Text color={goal.status === 'active' ? tuiColors.green : goal.status === 'achieved' ? tuiColors.amber : tuiColors.dim} bold>
-          {goal.status.toUpperCase()}
-        </Text>
-        <Text color={tuiColors.ghost}>  {'\u2502'}  </Text>
-        <Text color={tuiColors.dim}>Assignee: </Text>
-        <Text color={tuiColors.silver}>{assigneeName}</Text>
-        <Text color={tuiColors.ghost}>  {'\u2502'}  </Text>
-        <Text color={tuiColors.dim}>Created: </Text>
-        <Text color={tuiColors.silver}>{goal.created_at.slice(0, 10)}</Text>
-      </Text>
-      {goal.description ? (
-        <Box flexDirection="column" marginTop={1}>
-          {goal.description.split('\n').slice(0, descCap).map((line, i) => (
-            <Text key={i} color={tuiColors.silver} wrap="truncate">{line}</Text>
-          ))}
-        </Box>
-      ) : (
-        <Text color={tuiColors.ghost} dimColor>No description</Text>
-      )}
-      {taskCount > 0 && (
-        <Box flexDirection="column" marginTop={1}>
-          <Text color={tuiColors.dim}>Tasks ({taskCount})</Text>
-          {taskList.slice(0, taskRowsCap).map(t => {
-            const sc = TASK_STATUS_COLOR[t.status] ?? tuiColors.dim;
-            return (
-              <Text key={t.id} color={tuiColors.silver} wrap="truncate">
-                {'  '}<Text color={sc}>{t.status.padEnd(11)}</Text>
-                {' '}{t.title.slice(0, Math.max(10, width - 20))}
-              </Text>
-            );
-          })}
-        </Box>
-      )}
-      {progressLines.length > 0 && (
-        <Box flexDirection="column" marginTop={1}>
-          <Text color={tuiColors.dim}>Progress</Text>
-          {progressLines.map((line, i) => (
-            <Text key={i} color={tuiColors.silver} wrap="truncate">{'  '}{line}</Text>
-          ))}
-        </Box>
+      {visible.map((line) => (
+        <Box key={line.key}>{line.node}</Box>
+      ))}
+      {showScrollHint && (
+        <Text color={tuiColors.ghost}>{'\u2193'} {allLines.length - clamped - visibleCount} more {'\u2014'} scroll with \u2191\u2193</Text>
       )}
     </Box>
   );
