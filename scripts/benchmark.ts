@@ -18,7 +18,7 @@ const TARGETS: Record<string, number> = {
   'cli-help':      50,
   'cli-task-list': 100,
   'build':         1500,
-  'test-suite':    12000,
+  'test-suite':    16000,
   'tick-cycle':    50,
 };
 

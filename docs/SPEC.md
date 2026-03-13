@@ -148,6 +148,7 @@ src/
 │   │   └── process-manager.ts     # Управление подпроцессами (spawn, kill, grace)
 │   ├── template/
 │   │   └── template-engine.ts     # LiquidJS шаблонизатор промптов (с timeout)
+│   ├── clipboard-service.ts       # Clipboard integration (detect type, get image; macOS/Linux/Windows)
 │   └── workspace/
 │       ├── interface.ts           # WorkspaceManager интерфейс
 │       ├── workspace-manager.ts   # Git worktree / isolated / shared
@@ -190,6 +191,7 @@ src/
 │       ├── Footer.tsx             # Подвал со статусом
 │       ├── FormWizard.tsx         # Wizard-формы (add task/agent/goal)
 │       ├── Spinner.tsx            # Анимированный спиннер
+│       ├── OnboardingBox.tsx      # Onboarding wizard для новых пользователей
 │       └── useAnimTick.ts         # Hook для анимации (shared interval)
 │
 ├── bin/
@@ -226,6 +228,8 @@ interface Task {
   review_results?: ReviewResult[];     // Результаты проверки по каждому критерию
   scope?: string[];              // Glob-паттерны затрагиваемых файлов (для scope overlap detection)
   feedback?: string;             // Обратная связь от ревьюера или оркестратора
+  goalId?: string;               // ID цели, если задача создана автономным агентом
+  attachments?: string[];        // Имена прикреплённых файлов (basename, хранятся в .orchestry/attachments/{taskId}/)
 }
 
 // Критерий авто-ревью
