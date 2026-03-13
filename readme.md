@@ -18,9 +18,11 @@
 ---
 
 <p align="center">
-  <video src="https://github.com/oxgeneral/ORCH/raw/main/landing/demo.mp4" alt="ORCH TUI Dashboard — real-time task monitoring, agent activity feed, and keyboard-driven controls" width="100%" autoplay loop muted playsinline></video>
+  <a href="https://github.com/oxgeneral/ORCH/raw/main/landing/demo.mp4">
+    <img src="assets/screenshot-tui.png" alt="ORCH TUI Dashboard — click to watch demo video" width="100%" />
+  </a>
   <br/>
-  <em>Real-time TUI dashboard: tasks running, agents working, activity streaming — all from one terminal.</em>
+  <em>Real-time TUI dashboard — <a href="https://github.com/oxgeneral/ORCH/raw/main/landing/demo.mp4">▶ watch demo video</a></em>
 </p>
 
 ---
