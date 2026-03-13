@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { acquireLock, releaseLock } from '../../../src/infrastructure/storage/lock.js';
+import { acquireLock, releaseLock, _resetAcquireMutex } from '../../../src/infrastructure/storage/lock.js';
 
 let tmpDir: string;
 let lockPath: string;
@@ -13,6 +13,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  _resetAcquireMutex();
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -45,13 +46,14 @@ describe('acquireLock TOCTOU race conditions', () => {
     expect(winners[0]!.pid).toBe(process.pid);
   });
 
-  it('.bak file is cleaned up after stale lock recovery', async () => {
+  it('stale lock file is removed after recovery', async () => {
     await fs.writeFile(lockPath, '999999999', 'utf-8');
     const result = await acquireLock(lockPath);
     expect(result.acquired).toBe(true);
 
-    const bakExists = await fs.access(lockPath + '.bak').then(() => true).catch(() => false);
-    expect(bakExists).toBe(false);
+    // Lock file should contain our PID, not the stale one
+    const content = await fs.readFile(lockPath, 'utf-8');
+    expect(parseInt(content.trim(), 10)).toBe(process.pid);
   });
 
   it('lock file contains correct PID after stale recovery', async () => {

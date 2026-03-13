@@ -13,41 +13,49 @@ export interface LockResult {
   pid?: number;
 }
 
+// In-process mutex: serializes acquireLock calls to prevent
+// concurrent async calls from racing on the same lock file.
+let acquireMutex = Promise.resolve();
+
+/** Reset the in-process mutex — for tests only. */
+export function _resetAcquireMutex(): void { acquireMutex = Promise.resolve(); }
+
 /**
  * Try to acquire the lock file. Checks for stale locks (dead PIDs).
+ * Serialized within the process to prevent intra-process races.
  */
 export async function acquireLock(lockPath: string): Promise<LockResult> {
-  const bakPath = lockPath + '.bak';
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  const prev = acquireMutex;
+  acquireMutex = gate;
+  await prev;
+  try {
+    return await doAcquire(lockPath);
+  } finally {
+    release();
+  }
+}
 
-  // Check for stale lock first
+async function doAcquire(lockPath: string): Promise<LockResult> {
+  // Check for existing lock
   const existing = await readLockPid(lockPath);
   if (existing !== null) {
     if (isProcessAlive(existing)) {
       return { acquired: false, pid: existing };
     }
-    // Stale lock — atomically rename to .bak instead of unlink to close TOCTOU window.
-    // If rename succeeds, we hold the .bak and can safely try open('wx').
-    // If rename fails (another process already renamed it), fall through to open('wx').
-    try {
-      await fs.rename(lockPath, bakPath);
-    } catch {
-      // Another process already removed/renamed the stale lock — proceed to open('wx')
-    }
+    // Stale lock — remove it; open('wx') below is the true atomicity guard
+    await fs.unlink(lockPath).catch(() => {});
   }
 
-  // Atomic create: 'wx' flag fails if file already exists
+  // Atomic create: O_CREAT|O_EXCL fails if file already exists
   try {
     const fd = await fs.open(lockPath, 'wx');
     await fd.writeFile(String(process.pid), 'utf-8');
     await fd.close();
-    // Clean up .bak file (best effort)
-    await fs.unlink(bakPath).catch(() => {});
     return { acquired: true, pid: process.pid };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
-      // Another process created the lock between our rename and open.
-      // Restore .bak so the stale lock isn't lost (best effort).
-      await fs.rename(bakPath, lockPath).catch(() => {});
       const pid = await readLockPid(lockPath);
       return { acquired: false, pid: pid ?? undefined };
     }
