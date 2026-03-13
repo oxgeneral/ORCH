@@ -2,15 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TaskService } from '../../../src/application/task-service.js';
 import { EventBus } from '../../../src/application/event-bus.js';
 import { DEFAULT_CONFIG } from '../../../src/domain/config.js';
-import { DEFAULT_STATE } from '../../../src/domain/state.js';
 import {
   TaskNotFoundError,
   InvalidTransitionError,
   InvalidArgumentsError,
-  TaskAlreadyRunningError,
 } from '../../../src/domain/errors.js';
 import type { Task } from '../../../src/domain/task.js';
-import type { ITaskStore, IStateStore } from '../../../src/infrastructure/storage/interfaces.js';
+import type { ITaskStore } from '../../../src/infrastructure/storage/interfaces.js';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -50,25 +48,15 @@ function createMockTaskStore(tasks: Task[] = []): ITaskStore {
   };
 }
 
-function createMockStateStore(): IStateStore {
-  let state = structuredClone(DEFAULT_STATE);
-  return {
-    read: vi.fn(async () => structuredClone(state)),
-    write: vi.fn(async (s) => { state = structuredClone(s); }),
-  };
-}
-
 describe('TaskService', () => {
   let taskStore: ITaskStore;
-  let stateStore: IStateStore;
   let eventBus: EventBus;
   let service: TaskService;
 
   beforeEach(() => {
     taskStore = createMockTaskStore();
-    stateStore = createMockStateStore();
     eventBus = new EventBus();
-    service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+    service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
   });
 
   describe('create', () => {
@@ -121,7 +109,7 @@ describe('TaskService', () => {
       it('accepts valid existing task IDs', async () => {
         const existing = makeTask({ id: 'tsk_dep1' });
         taskStore = createMockTaskStore([existing]);
-        service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+        service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
         const task = await service.create({ title: 'Dependent', depends_on: ['tsk_dep1'] });
         expect(task.depends_on).toEqual(['tsk_dep1']);
@@ -142,7 +130,7 @@ describe('TaskService', () => {
       it('rejects when only some IDs are missing', async () => {
         const existing = makeTask({ id: 'tsk_real' });
         taskStore = createMockTaskStore([existing]);
-        service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+        service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
         await expect(
           service.create({ title: 'Task', depends_on: ['tsk_real', 'tsk_fake'] }),
@@ -153,7 +141,7 @@ describe('TaskService', () => {
         const dep1 = makeTask({ id: 'tsk_dep1' });
         const dep2 = makeTask({ id: 'tsk_dep2' });
         taskStore = createMockTaskStore([dep1, dep2]);
-        service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+        service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
         const task = await service.create({
           title: 'Multi-dep',
@@ -168,7 +156,7 @@ describe('TaskService', () => {
     it('returns task when found', async () => {
       const existing = makeTask();
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
       const task = await service.get('tsk_test1');
       expect(task.id).toBe('tsk_test1');
     });
@@ -182,7 +170,7 @@ describe('TaskService', () => {
     it('transitions valid status and emits event', async () => {
       const existing = makeTask({ status: 'todo' });
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
       const handler = vi.fn();
       eventBus.on('task:status_changed', handler);
@@ -200,7 +188,7 @@ describe('TaskService', () => {
     it('throws InvalidTransitionError for invalid transition', async () => {
       const existing = makeTask({ status: 'todo' });
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
       await expect(service.updateStatus('tsk_test1', 'done')).rejects.toThrow(
         InvalidTransitionError,
@@ -212,7 +200,7 @@ describe('TaskService', () => {
     it('sets assignee and emits event', async () => {
       const existing = makeTask();
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
       const handler = vi.fn();
       eventBus.on('task:assigned', handler);
@@ -231,7 +219,7 @@ describe('TaskService', () => {
     it('cancels a todo task', async () => {
       const existing = makeTask({ status: 'todo' });
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
       const task = await service.cancel('tsk_test1');
       expect(task.status).toBe('cancelled');
@@ -240,28 +228,18 @@ describe('TaskService', () => {
     it('throws on terminal task', async () => {
       const existing = makeTask({ status: 'done' });
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
       await expect(service.cancel('tsk_test1')).rejects.toThrow(InvalidTransitionError);
     });
 
-    it('throws TaskAlreadyRunningError if task is in_progress with active run', async () => {
+    it('cancels an in_progress task (process cleanup is orchestrator responsibility)', async () => {
       const existing = makeTask({ id: 'tsk_test1', status: 'in_progress' });
       taskStore = createMockTaskStore([existing]);
-      const mockState = createMockStateStore();
-      const stateWithRunning = structuredClone(DEFAULT_STATE);
-      stateWithRunning.running['tsk_test1'] = {
-        run_id: 'run_1',
-        agent_id: 'agt_1',
-        task_id: 'tsk_test1',
-        pid: 123,
-        started_at: '2025-01-01T00:00:00Z',
-        last_event_at: '2025-01-01T00:00:00Z',
-      };
-      mockState.read = vi.fn(async () => stateWithRunning);
-      service = new TaskService(taskStore, mockState, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
-      await expect(service.cancel('tsk_test1')).rejects.toThrow(TaskAlreadyRunningError);
+      const task = await service.cancel('tsk_test1');
+      expect(task.status).toBe('cancelled');
     });
   });
 
@@ -269,7 +247,7 @@ describe('TaskService', () => {
     it('resets failed task to todo with attempts=0', async () => {
       const existing = makeTask({ status: 'failed', attempts: 3 });
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
       const handler = vi.fn();
       eventBus.on('task:status_changed', handler);
@@ -288,7 +266,7 @@ describe('TaskService', () => {
     it('resets cancelled task to todo', async () => {
       const existing = makeTask({ status: 'cancelled' });
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
       const task = await service.retry('tsk_test1');
       expect(task.status).toBe('todo');
@@ -297,7 +275,7 @@ describe('TaskService', () => {
     it('throws on non-failed/cancelled task', async () => {
       const existing = makeTask({ status: 'todo' });
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
       await expect(service.retry('tsk_test1')).rejects.toThrow(InvalidTransitionError);
     });
@@ -307,7 +285,7 @@ describe('TaskService', () => {
     it('deletes a non-running task', async () => {
       const existing = makeTask({ status: 'done' });
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
       await service.delete('tsk_test1');
       expect(taskStore.delete).toHaveBeenCalledWith('tsk_test1');
@@ -316,7 +294,7 @@ describe('TaskService', () => {
     it('throws on running task', async () => {
       const existing = makeTask({ status: 'in_progress' });
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
       await expect(service.delete('tsk_test1')).rejects.toThrow(InvalidArgumentsError);
     });
@@ -326,7 +304,7 @@ describe('TaskService', () => {
     it('increments attempts by 1', async () => {
       const existing = makeTask({ attempts: 1 });
       taskStore = createMockTaskStore([existing]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
 
       const task = await service.incrementAttempts('tsk_test1');
       expect(task.attempts).toBe(2);

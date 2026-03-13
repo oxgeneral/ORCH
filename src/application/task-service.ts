@@ -11,18 +11,15 @@ import { canTransition, isTerminal } from '../domain/transitions.js';
 import {
   TaskNotFoundError,
   InvalidTransitionError,
-  TaskAlreadyRunningError,
   InvalidArgumentsError,
 } from '../domain/errors.js';
 import type { ITaskStore } from '../infrastructure/storage/interfaces.js';
-import type { IStateStore } from '../infrastructure/storage/interfaces.js';
 import type { OrchestratorConfig } from '../domain/config.js';
 import type { EventBus } from './event-bus.js';
 
 export class TaskService {
   constructor(
     private readonly taskStore: ITaskStore,
-    private readonly stateStore: IStateStore,
     private readonly eventBus: EventBus,
     private readonly config: OrchestratorConfig,
   ) {}
@@ -126,15 +123,6 @@ export class TaskService {
 
     if (isTerminal(task.status)) {
       throw new InvalidTransitionError(id, task.status, 'cancelled');
-    }
-
-    // If task is running, check state
-    if (task.status === 'in_progress') {
-      const state = await this.stateStore.read();
-      const running = state.running[id];
-      if (running) {
-        throw new TaskAlreadyRunningError(id, running.run_id, running.agent_id);
-      }
     }
 
     return this.updateStatus(id, 'cancelled');

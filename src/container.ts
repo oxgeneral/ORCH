@@ -114,7 +114,7 @@ export async function buildContainer(context: CliContext): Promise<Container> {
 
   // Application
   const eventBus = new EventBus();
-  const taskService = new TaskService(taskStore, stateStore, eventBus, config);
+  const taskService = new TaskService(taskStore, eventBus, config);
   const agentService = new AgentService(agentStore, stateStore, eventBus, config);
   const runService = new RunService(runStore, eventBus);
   const doctorService = new DoctorService(adapterRegistry, processManager);

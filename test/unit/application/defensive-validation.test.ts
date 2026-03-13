@@ -32,16 +32,14 @@ import {
 // ============================================================
 
 describe('Fix #1: TaskService priority validation [1-4]', () => {
-  let taskStore: ITaskStore;
-  let stateStore: IStateStore;
+  let taskStore: ReturnType<typeof createMockTaskStore>;
   let eventBus: EventBus;
   let service: TaskService;
 
   beforeEach(() => {
     taskStore = createMockTaskStore();
-    stateStore = createMockStateStore();
     eventBus = new EventBus();
-    service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+    service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
   });
 
   describe('create()', () => {
@@ -89,35 +87,35 @@ describe('Fix #1: TaskService priority validation [1-4]', () => {
   describe('update()', () => {
     it('accepts valid priority update to 1', async () => {
       taskStore = createMockTaskStore([makeTask()]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
       const task = await service.update('tsk_test1', { priority: 1 });
       expect(task.priority).toBe(1);
     });
 
     it('accepts valid priority update to 4', async () => {
       taskStore = createMockTaskStore([makeTask()]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
       const task = await service.update('tsk_test1', { priority: 4 });
       expect(task.priority).toBe(4);
     });
 
     it('rejects priority 0 in update', async () => {
       taskStore = createMockTaskStore([makeTask()]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
       await expect(service.update('tsk_test1', { priority: 0 }))
         .rejects.toThrow(InvalidArgumentsError);
     });
 
     it('rejects priority 5 in update', async () => {
       taskStore = createMockTaskStore([makeTask()]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
       await expect(service.update('tsk_test1', { priority: 5 }))
         .rejects.toThrow(InvalidArgumentsError);
     });
 
     it('rejects fractional priority in update', async () => {
       taskStore = createMockTaskStore([makeTask()]);
-      service = new TaskService(taskStore, stateStore, eventBus, DEFAULT_CONFIG);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
       await expect(service.update('tsk_test1', { priority: 1.5 }))
         .rejects.toThrow(InvalidArgumentsError);
     });
