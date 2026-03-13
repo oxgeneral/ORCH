@@ -2234,8 +2234,23 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
   const allLines = React.useMemo<VLine[]>(() => {
     const taskList = tasks ?? [];
     const assigneeName = goal.assignee ? (agentNameMap?.get(goal.assignee) ?? goal.assignee) : '\u2014';
-    const progressLines = progressReport ? progressReport.split('\n') : [];
-    const descLines = goal.description ? goal.description.split('\n') : [];
+    // Effective text width: panel width minus paddingX(2*2) minus indent(2)
+    const textWidth = Math.max(20, width - 6);
+    /** Split a long line into chunks that fit within maxW columns. */
+    const wrapLine = (line: string, maxW: number): string[] => {
+      if (line.length <= maxW) return [line];
+      const wrapped: string[] = [];
+      for (let i = 0; i < line.length; i += maxW) {
+        wrapped.push(line.slice(i, i + maxW));
+      }
+      return wrapped;
+    };
+    const progressLines = progressReport
+      ? progressReport.split('\n').flatMap((l) => wrapLine(l, textWidth))
+      : [];
+    const descLines = goal.description
+      ? goal.description.split('\n').flatMap((l) => wrapLine(l, textWidth))
+      : [];
     const statusColor = GOAL_STATUS_COLOR[goal.status] ?? tuiColors.dim;
 
     // Task status summary counts
