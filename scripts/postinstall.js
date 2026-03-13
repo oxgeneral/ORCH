@@ -8,6 +8,7 @@
 // Skip in CI or non-interactive environments
 if (process.env.CI || !process.stderr.isTTY) process.exit(0);
 
+// Color values synced with src/cli/output.ts colors map
 const dim = (s) => `\x1b[38;5;240m${s}\x1b[0m`;
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
 const green = (s) => `\x1b[38;5;72m${s}\x1b[0m`;

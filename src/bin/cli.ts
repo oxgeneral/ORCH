@@ -159,18 +159,13 @@ async function main(): Promise<void> {
 
       // No args → auto-init then launch TUI
       if (process.argv.length <= 2) {
-        const { registerInitCommand } = await import('../cli/commands/init.js');
-        registerInitCommand(program);
-        process.argv.push('init');
-        await program.parseAsync(process.argv);
-        process.argv.pop();
+        const { runInit } = await import('../cli/commands/init.js');
+        await runInit();
 
-        // Re-build full container now that .orchestry/ exists
+        // Build full container now that .orchestry/ exists, register only tui
         const { buildFullContainer } = await import('../container.js');
         const freshContainer = await buildFullContainer(context);
-        await Promise.all(
-          Object.values(FULL_COMMANDS).map((fn) => fn(program, freshContainer)),
-        );
+        await FULL_COMMANDS['tui']!(program, freshContainer);
         process.argv.push('tui');
         await program.parseAsync(process.argv);
         return;
