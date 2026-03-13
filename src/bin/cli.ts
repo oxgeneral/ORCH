@@ -81,8 +81,9 @@ async function main(): Promise<void> {
     ascii: globalOpts.ascii,
   });
 
-  // Determine which subcommand the user wants (before loading anything heavy)
-  const sub = process.argv[2];
+  // Determine which subcommand the user wants (before loading anything heavy).
+  // Skip leading flags like --json/--quiet to find the real subcommand name.
+  const sub = process.argv.slice(2).find((arg) => !arg.startsWith('-'));
 
   // Fast path: --help/--version without a real subcommand skip container init entirely
   const hasRealSub = sub !== undefined && ALL_KNOWN_COMMANDS.has(sub);

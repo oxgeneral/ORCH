@@ -183,66 +183,101 @@ describe('LiquidTemplateEngine lazy loading', () => {
 // ── --help fast path (skip container init) ────────────────────────────────────
 
 describe('CLI routing logic', () => {
+  /** Mirror the real CLI logic: skip leading flags to find the subcommand. */
+  function findSub(argv: string[]): string | undefined {
+    return argv.slice(2).find((arg) => !arg.startsWith('-'));
+  }
+
   it('--help without real subcommand triggers fast path (no container)', () => {
     const LIGHT_COMMANDS = { task: 1, agent: 1, status: 1, logs: 1, config: 1, context: 1, msg: 1, goal: 1, team: 1 };
     const FULL_COMMANDS = { run: 1, doctor: 1, tui: 1 };
     const allKnown = new Set([...Object.keys(LIGHT_COMMANDS), ...Object.keys(FULL_COMMANDS), 'init', 'update']);
 
-    const sub = '--help';
+    const sub = findSub(['node', 'cli.js', '--help']);
     const hasRealSub = sub !== undefined && allKnown.has(sub);
-    const isHelpOrVersion = ['--help', '-h', '--version', '-V'].includes(sub);
+    const isHelpOrVersion = true; // --help is in argv
 
+    expect(sub).toBeUndefined();
     expect(hasRealSub).toBe(false);
-    expect(isHelpOrVersion).toBe(true);
-    // Fast path: stubs registered, no container init
+    expect(isHelpOrVersion && !hasRealSub).toBe(true);
   });
 
   it('--version without real subcommand triggers fast path', () => {
     const allKnown = new Set(['task', 'agent', 'run', 'init', 'update']);
-    const sub = '--version';
+    const sub = findSub(['node', 'cli.js', '--version']);
     const hasRealSub = sub !== undefined && allKnown.has(sub);
-    const isHelpOrVersion = ['--help', '-h', '--version', '-V'].includes(sub);
+    const isHelpOrVersion = true;
 
+    expect(sub).toBeUndefined();
     expect(hasRealSub).toBe(false);
     expect(isHelpOrVersion).toBe(true);
   });
 
   it('task --help still goes through container (has real subcommand)', () => {
     const allKnown = new Set(['task', 'agent', 'run', 'init', 'update']);
-    const sub = 'task'; // argv[2] = 'task', argv[3] = '--help'
+    const sub = findSub(['node', 'cli.js', 'task', '--help']);
     const hasRealSub = sub !== undefined && allKnown.has(sub);
     const isHelpOrVersion = true; // --help is in argv
 
     // Fast path does NOT trigger because hasRealSub is true
+    expect(sub).toBe('task');
     expect(hasRealSub).toBe(true);
     expect(isHelpOrVersion && !hasRealSub).toBe(false);
   });
 
   it('sub=undefined (plain orch) takes full path', () => {
     const FULL_COMMANDS = { run: 1, doctor: 1, tui: 1 };
-    const sub = undefined;
-    const needsFull = !sub || (sub! in FULL_COMMANDS);
+    const sub = findSub(['node', 'cli.js']);
+    const needsFull = !sub || (sub in FULL_COMMANDS);
+    expect(sub).toBeUndefined();
     expect(needsFull).toBe(true);
   });
 
   it('sub=run takes full path', () => {
     const FULL_COMMANDS = { run: 1, doctor: 1, tui: 1 };
-    const sub = 'run';
+    const sub = findSub(['node', 'cli.js', 'run']);
     const needsFull = !sub || (sub in FULL_COMMANDS);
+    expect(sub).toBe('run');
     expect(needsFull).toBe(true);
   });
 
   it('sub=task takes light path', () => {
     const FULL_COMMANDS = { run: 1, doctor: 1, tui: 1 };
-    const sub = 'task';
+    const sub = findSub(['node', 'cli.js', 'task']);
     const needsFull = !sub || (sub in FULL_COMMANDS);
+    expect(sub).toBe('task');
     expect(needsFull).toBe(false);
   });
 
   it('sub=tui takes full path', () => {
     const FULL_COMMANDS = { run: 1, doctor: 1, tui: 1 };
-    const sub = 'tui';
+    const sub = findSub(['node', 'cli.js', 'tui']);
     const needsFull = !sub || (sub in FULL_COMMANDS);
+    expect(sub).toBe('tui');
+    expect(needsFull).toBe(true);
+  });
+
+  it('--json run routes to full path (flag before subcommand)', () => {
+    const FULL_COMMANDS = { run: 1, doctor: 1, tui: 1 };
+    const sub = findSub(['node', 'cli.js', '--json', 'run', 'tsk_1']);
+    const needsFull = !sub || (sub in FULL_COMMANDS);
+    expect(sub).toBe('run');
+    expect(needsFull).toBe(true);
+  });
+
+  it('--quiet --json task routes to light path (multiple flags before subcommand)', () => {
+    const FULL_COMMANDS = { run: 1, doctor: 1, tui: 1 };
+    const sub = findSub(['node', 'cli.js', '--quiet', '--json', 'task', 'list']);
+    const needsFull = !sub || (sub in FULL_COMMANDS);
+    expect(sub).toBe('task');
+    expect(needsFull).toBe(false);
+  });
+
+  it('--no-color doctor routes to full path', () => {
+    const FULL_COMMANDS = { run: 1, doctor: 1, tui: 1 };
+    const sub = findSub(['node', 'cli.js', '--no-color', 'doctor']);
+    const needsFull = !sub || (sub in FULL_COMMANDS);
+    expect(sub).toBe('doctor');
     expect(needsFull).toBe(true);
   });
 });
