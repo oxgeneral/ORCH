@@ -1899,11 +1899,11 @@ export function App({
           <ActivityFeed messages={activityFilteredMessages} height={Math.max(1, feedH - 1)} width={ruleW}
             agents={sortedAgents} agentNameMap={agentNameMap} />
         </>
-      ) : activeView === 'goals' && sortedGoals.length < 3 ? (
+      ) : activeView === 'goals' ? (
         <OnboardingBox count={sortedGoals.length} config={ONBOARDING_GOALS} width={ruleW} />
-      ) : activeView === 'tasks' && sortedTasks.length < 3 ? (
+      ) : activeView === 'tasks' ? (
         <OnboardingBox count={sortedTasks.length} config={ONBOARDING_TASKS} width={ruleW} />
-      ) : activeView === 'agents' && sortedAgents.length < 3 ? (
+      ) : activeView === 'agents' ? (
         <OnboardingBox count={sortedAgents.length} config={ONBOARDING_AGENTS} width={ruleW} />
       ) : null}
 

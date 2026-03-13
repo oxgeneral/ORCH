@@ -7,11 +7,9 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import { tuiColors, DOT } from '../colors.js';
+import { tuiColors, DOT, DIAMOND } from '../colors.js';
 
 export type ViewId = 'goals' | 'tasks' | 'agents' | 'logs';
-
-const DIAMOND = '\u25C6'; // ◆
 
 const TABS: Array<{ key: string; id: ViewId; label: string }> = [
   { key: 'G', id: 'goals', label: 'GOALS' },

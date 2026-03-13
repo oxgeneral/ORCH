@@ -18,7 +18,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import { tuiColors, HEAVY_RULE, DOT, LOZENGE } from '../colors.js';
+import { tuiColors, HEAVY_RULE, DOT, LOZENGE, DIAMOND } from '../colors.js';
 import { TABS } from './TabBar.js';
 import type { ViewId } from './TabBar.js';
 import { useAnimTick } from './useAnimTick.js';
@@ -26,8 +26,6 @@ import { useAnimTick } from './useAnimTick.js';
 /* ══════════════════════════════════════════════════════════
    CONSTANTS & GLYPHS
    ══════════════════════════════════════════════════════════ */
-
-const DIAMOND = '\u25C6';            // ◆
 const FILLED_CIRCLE = '\u25CF';      // ●
 const EMPTY_CIRCLE = '\u25CB';       // ○
 const CHECK = '\u2713';              // ✓

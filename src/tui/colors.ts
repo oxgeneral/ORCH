@@ -46,3 +46,5 @@ export const LOZENGE = '\u25C8';
 export const STAR = '\u2605';
 /** Loop arrow (⟳) — autonomous mode */
 export const LOOP = '\u27F3';
+/** Filled diamond (◆) — brand marker, onboarding */
+export const DIAMOND = '\u25C6';

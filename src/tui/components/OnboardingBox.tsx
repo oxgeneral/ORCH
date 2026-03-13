@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import { tuiColors } from '../colors.js';
+import { tuiColors, LIGHT_RULE, DIAMOND } from '../colors.js';
 
 /* ── Box-drawing characters ─────────────────────── */
 
@@ -16,9 +16,7 @@ const TL = '\u256D'; // ╭
 const TR = '\u256E'; // ╮
 const BL = '\u2570'; // ╰
 const BR = '\u256F'; // ╯
-const H  = '\u2500'; // ─
 const V  = '\u2502'; // │
-const DIAMOND = '\u25C6'; // ◆
 
 /* ── Types ───────────────────────────────────────── */
 
@@ -70,15 +68,14 @@ export function OnboardingBox({ count, config, width }: OnboardingBoxProps) {
   const boxW = Math.min((width ?? 44) - 4, 50); // -4 for paddingX on outer Box
   const cw = boxW - 6; // content width between "│  " and "  │"
 
-  const topBorder = <Text color={tuiColors.ghost}>{TL}{H.repeat(boxW - 2)}{TR}</Text>;
-  const botBorder = <Text color={tuiColors.ghost}>{BL}{H.repeat(boxW - 2)}{BR}</Text>;
+  const hLine = LIGHT_RULE.repeat(boxW - 2);
+  const topBorder = <Text color={tuiColors.ghost}>{TL}{hLine}{TR}</Text>;
+  const botBorder = <Text color={tuiColors.ghost}>{BL}{hLine}{BR}</Text>;
 
   if (count > 0) {
     // Compact nudge variant
     const hint = config.hints[0];
     const hintSuffix = hint ? `  ${hint.key} ${hint.label}` : '';
-    const nudgeLine = `${DIAMOND} ${config.nudge}`;
-    const fullLine = pad(nudgeLine, cw - hintSuffix.length) + hintSuffix;
 
     return (
       <Box flexDirection="column" paddingX={2} marginTop={1}>
@@ -101,8 +98,8 @@ export function OnboardingBox({ count, config, width }: OnboardingBoxProps) {
     );
   }
 
-  // Full empty variant — build hints string for padding calc
-  const hintsStr = config.hints.map((h) => `${h.key} ${h.label}`).join('   ');
+  // Full empty variant
+  const hintsLen = config.hints.reduce((acc, h, i) => acc + h.key.length + 1 + h.label.length + (i > 0 ? 3 : 0), 0);
 
   return (
     <Box flexDirection="column" paddingX={2} marginTop={1}>
@@ -143,7 +140,7 @@ export function OnboardingBox({ count, config, width }: OnboardingBoxProps) {
             <Text color={tuiColors.gray}> {h.label}</Text>
           </React.Fragment>
         ))}
-        <Text>{' '.repeat(Math.max(0, cw - hintsStr.length))}</Text>
+        <Text>{' '.repeat(Math.max(0, cw - hintsLen))}</Text>
         <Text>  </Text>
         <Text color={tuiColors.ghost}>{V}</Text>
       </Text>
