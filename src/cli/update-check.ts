@@ -14,6 +14,8 @@ const PACKAGE_NAME = '@oxgeneral/orch';
 const CACHE_DIR = path.join(os.homedir(), '.orchestry');
 const CACHE_FILE = path.join(CACHE_DIR, 'update-check.json');
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
+/** Revalidate when cache is past 75% of its TTL */
+const REVALIDATE_AFTER_MS = CHECK_INTERVAL_MS * 0.75;
 
 interface UpdateCache {
   latest: string;
@@ -73,45 +75,9 @@ export interface UpdateInfo {
   updateAvailable: boolean;
 }
 
-/**
- * Check for updates. Non-blocking, returns quickly from cache.
- * Triggers a background fetch if cache is stale.
- */
-export async function checkForUpdate(currentVersion: string): Promise<UpdateInfo | null> {
-  try {
-    // Try cache first
-    const cached = await readCache();
-    if (cached) {
-      return {
-        current: currentVersion,
-        latest: cached.latest,
-        updateAvailable: compareSemver(cached.latest, currentVersion) > 0,
-      };
-    }
-
-    // Cache stale — fetch and wait (5s timeout in fetchLatestVersion)
-    return await checkForUpdateNow(currentVersion);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Check for updates synchronously from cache only (for fast startup).
- * Returns null if no cached data.
- */
-export async function checkForUpdateCached(currentVersion: string): Promise<UpdateInfo | null> {
-  try {
-    const cached = await readCache();
-    if (!cached) return null;
-    return {
-      current: currentVersion,
-      latest: cached.latest,
-      updateAvailable: compareSemver(cached.latest, currentVersion) > 0,
-    };
-  } catch {
-    return null;
-  }
+/** Build an UpdateInfo from current and latest version strings. */
+function buildUpdateInfo(current: string, latest: string): UpdateInfo {
+  return { current, latest, updateAvailable: compareSemver(latest, current) > 0 };
 }
 
 /**
@@ -122,16 +88,12 @@ export async function checkForUpdateNow(currentVersion: string): Promise<UpdateI
   const latest = await fetchLatestVersion();
   if (!latest) return null;
   await writeCache(latest).catch(() => {});
-  return {
-    current: currentVersion,
-    latest,
-    updateAvailable: compareSemver(latest, currentVersion) > 0,
-  };
+  return buildUpdateInfo(currentVersion, latest);
 }
 
 /**
  * Stale-while-revalidate: returns cached result instantly (single cache read),
- * fires a background refresh so the next invocation has fresh data.
+ * fires a background refresh only when cache is absent or near expiry (>75% TTL).
  */
 export async function checkForUpdateSWR(currentVersion: string): Promise<UpdateInfo | null> {
   try {
@@ -141,13 +103,12 @@ export async function checkForUpdateSWR(currentVersion: string): Promise<UpdateI
       checkForUpdateNow(currentVersion).catch(() => {});
       return null;
     }
-    // Cache fresh — still refresh in background if close to expiry
-    checkForUpdateNow(currentVersion).catch(() => {});
-    return {
-      current: currentVersion,
-      latest: cached.latest,
-      updateAvailable: compareSemver(cached.latest, currentVersion) > 0,
-    };
+    // Revalidate only when cache is past 75% of its 4-hour TTL
+    const age = Date.now() - cached.checked_at;
+    if (age >= REVALIDATE_AFTER_MS) {
+      checkForUpdateNow(currentVersion).catch(() => {});
+    }
+    return buildUpdateInfo(currentVersion, cached.latest);
   } catch {
     return null;
   }
