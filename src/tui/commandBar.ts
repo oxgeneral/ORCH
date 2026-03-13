@@ -24,7 +24,7 @@ export const COMMAND_REGISTRY: Record<string, CommandSpec> = {
   'run-all': { help: 'Run all todo tasks' },
   watch:     { help: 'Start watch mode (auto-dispatch)' },
   pause:     { help: 'Pause watch mode' },
-  config:    { sub: ['activity-filter'], help: 'TUI settings' },
+  config:    { sub: ['activity-filter', 'max-concurrent'], help: 'TUI settings' },
   status:    { help: 'Show orchestrator status' },
   help:      { help: 'List all commands' },
   quit:      { help: 'Exit the TUI' },

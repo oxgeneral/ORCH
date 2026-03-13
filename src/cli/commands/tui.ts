@@ -269,6 +269,7 @@ export function registerTuiCommand(program: Command, container: Container): void
           initialMaxConcurrent: container.config.scheduling.max_concurrent_agents,
           onSaveMaxConcurrent: async (value) => {
             await container.configStore.set('scheduling.max_concurrent_agents', value);
+            container.config.scheduling.max_concurrent_agents = value;
           },
         }),
         { kittyKeyboard: { mode: 'auto', flags: ['disambiguateEscapeCodes'] } },

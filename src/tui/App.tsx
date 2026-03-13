@@ -41,6 +41,7 @@ import {
   getEditGoalWizardSteps, editGoalWizardToFields,
 } from './wizardConfigs.js';
 import type { ActivityFilterPreset } from '../domain/global-config.js';
+import { DEFAULT_CONFIG } from '../domain/config.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
 
 /** Max tasks visible in collapsed mode; press S to show all */
@@ -220,7 +221,7 @@ export function App({
   messageBatchMs = process.env.VITEST ? 0 : 80,
   initialActivityFilter = 'all',
   onSaveActivityFilter,
-  initialMaxConcurrent = 6,
+  initialMaxConcurrent = DEFAULT_CONFIG.scheduling.max_concurrent_agents,
   onSaveMaxConcurrent,
 }: AppProps) {
   const { exit } = useApp();
@@ -494,7 +495,8 @@ export function App({
           const { summary } = formatAgentOutput(raw);
           text = summary;
           // Reclassify by content prefix (same logic as live formatEvent)
-          if (text.startsWith('\u2699')) { msgType = 'tool'; color = tuiColors.cyan; }
+          if (/^\[[\w_]+\]$/.test(text)) { msgType = 'lifecycle'; color = tuiColors.green; }
+          else if (text.startsWith('\u2699')) { msgType = 'tool'; color = tuiColors.cyan; }
           else if (text.startsWith('\u2190')) { msgType = 'result'; color = tuiColors.dim; }
           else if (text.startsWith('\u2713')) { msgType = 'lifecycle'; color = tuiColors.green; }
           else if (text.startsWith('\u23F3')) { msgType = 'info'; }
@@ -1122,6 +1124,14 @@ export function App({
             addMessage(`Activity filter: ${next.label}`, tuiColors.amber);
             return new Set(next.types);
           });
+        } else if (sub === 'max-concurrent') {
+          // Open wizard pre-selecting max_concurrent setting
+          setWizardConfig({
+            title: 'SETTINGS',
+            steps: getConfigWizardSteps(activityFilterLabel, maxConcurrent),
+            kind: 'config',
+          });
+          setInputMode('wizard');
         } else {
           // No subcommand → open interactive settings wizard
           launchConfigWizard();
@@ -3095,11 +3105,12 @@ function formatEvent(
     case 'agent:output': {
       const { summary, detail } = formatAgentOutput(event.data);
       let msgType: MsgType = 'output';
-      if (summary.startsWith('\u2699')) msgType = 'tool';
+      if (/^\[[\w_]+\]$/.test(summary)) msgType = 'lifecycle';
+      else if (summary.startsWith('\u2699')) msgType = 'tool';
       else if (summary.startsWith('\u2190')) msgType = 'result';
       else if (summary.startsWith('\u2713')) msgType = 'lifecycle';
       else if (summary.startsWith('\u23F3')) msgType = 'info';
-      addMsg(summary, tuiColors.silver,
+      addMsg(summary, msgType === 'lifecycle' ? tuiColors.green : tuiColors.silver,
         { agentId: event.agentId, taskId: resolveTask(event.runId), detail, msgType });
       break;
     }
