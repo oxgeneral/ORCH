@@ -2956,6 +2956,14 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
         </Box>
       )}
 
+      {/* Row 5: skills */}
+      {agent.config.skills && agent.config.skills.length > 0 && (
+        <Box>
+          <Text color={tuiColors.dim}>  skills    </Text>
+          <Text color={tuiColors.cyan} wrap="truncate">{agent.config.skills.join(', ')}</Text>
+        </Box>
+      )}
+
       {/* Blank separator */}
       <Text> </Text>
 
