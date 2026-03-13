@@ -4,6 +4,7 @@ import {
   isTerminal,
   isDispatchable,
   isBlocked,
+  resolveFailureStatus,
   resolveCompletionStatus,
   calculateRetryDelay,
 } from '../../../src/domain/transitions.js';
@@ -136,6 +137,33 @@ describe('isBlocked', () => {
   });
 });
 
+describe('resolveFailureStatus', () => {
+  it('returns retrying when attempts < max_attempts', () => {
+    const task = makeTask({ attempts: 1, max_attempts: 3 });
+    expect(resolveFailureStatus(task)).toBe('retrying');
+  });
+
+  it('returns failed when attempts equals max_attempts', () => {
+    const task = makeTask({ attempts: 3, max_attempts: 3 });
+    expect(resolveFailureStatus(task)).toBe('failed');
+  });
+
+  it('returns failed when attempts exceed max_attempts', () => {
+    const task = makeTask({ attempts: 5, max_attempts: 3 });
+    expect(resolveFailureStatus(task)).toBe('failed');
+  });
+
+  it('returns retrying on first attempt (0 of 3)', () => {
+    const task = makeTask({ attempts: 0, max_attempts: 3 });
+    expect(resolveFailureStatus(task)).toBe('retrying');
+  });
+
+  it('returns failed when max_attempts is 1 and attempts is 1', () => {
+    const task = makeTask({ attempts: 1, max_attempts: 1 });
+    expect(resolveFailureStatus(task)).toBe('failed');
+  });
+});
+
 describe('resolveCompletionStatus', () => {
   it('returns review on success with auto-approve (review enforced)', () => {
     const task = makeTask({ attempts: 1, max_attempts: 3 });
@@ -160,6 +188,11 @@ describe('resolveCompletionStatus', () => {
   it('returns failed when attempts exceed max', () => {
     const task = makeTask({ attempts: 5, max_attempts: 3 });
     expect(resolveCompletionStatus(task, false, false)).toBe('failed');
+  });
+
+  it('delegates to resolveFailureStatus on failure — consistent results', () => {
+    const task = makeTask({ attempts: 2, max_attempts: 3 });
+    expect(resolveCompletionStatus(task, false, false)).toBe(resolveFailureStatus(task));
   });
 });
 
