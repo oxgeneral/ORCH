@@ -689,9 +689,8 @@ export class Orchestrator {
         const priDiff = (a.priority ?? 3) - (b.priority ?? 3);
         if (priDiff !== 0) return priDiff;
         // 2. Goal-linked tasks first (goalId present beats absent)
-        const aGoal = a.goalId ? 0 : 1;
-        const bGoal = b.goalId ? 0 : 1;
-        if (aGoal !== bGoal) return aGoal - bGoal;
+        const goalDiff = (a.goalId ? 0 : 1) - (b.goalId ? 0 : 1);
+        if (goalDiff !== 0) return goalDiff;
         // 3. Recency tiebreaker: most recently updated first
         const bTime = b.updated_at ?? '';
         const aTime = a.updated_at ?? '';
