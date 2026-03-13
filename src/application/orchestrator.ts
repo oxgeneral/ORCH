@@ -18,6 +18,7 @@ import {
   isBlocked,
   isTerminal,
   resolveCompletionStatus,
+  resolveFailureStatus,
   calculateRetryDelay,
 } from '../domain/transitions.js';
 import { NoAgentsError, TaskAlreadyRunningError, LockConflictError } from '../domain/errors.js';
@@ -281,8 +282,8 @@ export class Orchestrator {
 
           // Mark task for retry if possible
           const task = await this.deps.taskStore.get(taskId);
-          if (task && task.attempts < task.max_attempts) {
-            await this.deps.taskService.updateStatus(taskId, 'retrying');
+          if (task) {
+            await this.deps.taskService.updateStatus(taskId, resolveFailureStatus(task));
           }
 
           // Release agent
@@ -1193,10 +1194,11 @@ export class Orchestrator {
       total_runtime_ms: (agent?.stats.total_runtime_ms ?? 0) + failRuntimeMs,
     });
 
-    // Determine retry or fail
-    if (task.attempts < task.max_attempts) {
-      await this.deps.taskService.updateStatus(taskId, 'retrying');
+    // Determine retry or fail via domain function
+    const failureStatus = resolveFailureStatus(task);
+    await this.deps.taskService.updateStatus(taskId, failureStatus);
 
+    if (failureStatus === 'retrying') {
       const delay = calculateRetryDelay(
         task.attempts,
         this.deps.config.scheduling.retry_base_delay_ms,
@@ -1225,7 +1227,6 @@ export class Orchestrator {
         delay_ms: delay,
       });
     } else {
-      await this.deps.taskService.updateStatus(taskId, 'failed');
       state.stats.total_tasks_failed++;
     }
 

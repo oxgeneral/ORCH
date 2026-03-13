@@ -57,6 +57,17 @@ export function isBlocked(task: Task, allTasks: Task[]): boolean {
 }
 
 /**
+ * Determine the next status after a task failure (run error or shutdown).
+ * Returns 'retrying' if attempts remain, 'failed' otherwise.
+ */
+export function resolveFailureStatus(task: Task): TaskStatus {
+  if (task.attempts < task.max_attempts) {
+    return 'retrying';
+  }
+  return 'failed';
+}
+
+/**
  * Determine the next status after an agent completes or fails.
  * Always goes through 'review' on success — autoApprove is handled
  * by the orchestrator which transitions review → done immediately.
@@ -70,11 +81,7 @@ export function resolveCompletionStatus(
     return 'review';
   }
 
-  if (task.attempts < task.max_attempts) {
-    return 'retrying';
-  }
-
-  return 'failed';
+  return resolveFailureStatus(task);
 }
 
 /**

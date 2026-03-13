@@ -13,7 +13,7 @@ export type { OrchestratorConfig, ProjectConfig, SchedulingConfig } from './doma
 export type { OrchestratorState, RunningEntry, RetryEntry } from './domain/state.js';
 export type { OrchestratorEvent, OrchestratorEventType, EventPayload } from './domain/events.js';
 export { OrchestryError, NotInitializedError, TaskNotFoundError, AgentNotFoundError } from './domain/errors.js';
-export { canTransition, isTerminal, isDispatchable, isBlocked } from './domain/transitions.js';
+export { canTransition, isTerminal, isDispatchable, isBlocked, resolveFailureStatus } from './domain/transitions.js';
 
 // Application
 export { EventBus } from './application/event-bus.js';
