@@ -187,6 +187,9 @@ function getAgentColor(agentId: string, agents: Agent[]): string {
   return AGENT_COLORS[idx >= 0 ? idx % AGENT_COLORS.length : 0]!;
 }
 
+/** Blank indent for continuation rows in activity feed (matches agent column width) */
+const AGENT_INDENT = ' '.repeat(9);
+
 /** Icons for message types */
 const MSG_ICONS: Record<MsgType, string> = {
   system: '\u2666',    // ◆
@@ -2238,13 +2241,28 @@ function buildSparkline(messages: StatusMessage[], buckets: number, bucketMs: nu
   return counts.map((c) => SPARK_CHARS[Math.round((c / max) * 8)]!).join('');
 }
 
-/** Get background color for message type (for highlighted rows) */
+/** Get background color for message type */
 function getMsgBg(msgType: MsgType): string | undefined {
   switch (msgType) {
     case 'error': return tuiColors.errorBg;
     case 'tool': return tuiColors.toolBg;
+    case 'result': return tuiColors.toolBg;
     case 'lifecycle': return tuiColors.successBg;
     default: return undefined;
+  }
+}
+
+/** Get text color for message type, falling back to the provided color. */
+function getMsgTextColor(msgType: MsgType, fallback: string): string {
+  switch (msgType) {
+    case 'output': return tuiColors.white;
+    case 'tool': return tuiColors.cyan;
+    case 'result': return tuiColors.dim;
+    case 'file': return tuiColors.purple;
+    case 'error': return tuiColors.red;
+    case 'lifecycle': return tuiColors.green;
+    case 'system': return tuiColors.dim;
+    default: return fallback;
   }
 }
 
@@ -2418,15 +2436,7 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
           const showAgentBadge = !isContinuation && !!agentName;
           const showConnector = isContinuation && !!agentName;
 
-          // Type-specific text colors
-          let textColor = msg.color;
-          if (msgType === 'output') textColor = tuiColors.white;
-          else if (msgType === 'tool') textColor = tuiColors.cyan;
-          else if (msgType === 'result') textColor = tuiColors.dim;
-          else if (msgType === 'file') textColor = tuiColors.purple;
-          else if (msgType === 'error') textColor = tuiColors.red;
-          else if (msgType === 'lifecycle') textColor = tuiColors.green;
-          else if (msgType === 'system') textColor = tuiColors.dim;
+          const textColor = getMsgTextColor(msgType, msg.color);
 
           // Background highlight for errors and selected items
           const rowBg = isSelected ? tuiColors.infoBg : (msgType === 'error' ? tuiColors.errorBg : undefined);
@@ -2541,25 +2551,15 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
         const msgType = msg.msgType ?? 'info';
         const icon = MSG_ICONS[msgType] ?? '│';
 
-        // Type-specific text colors
-        let textColor = msg.color;
-        if (msgType === 'output') textColor = tuiColors.white;
-        else if (msgType === 'tool') textColor = tuiColors.cyan;
-        else if (msgType === 'result') textColor = tuiColors.dim;
-        else if (msgType === 'file') textColor = tuiColors.purple;
-        else if (msgType === 'error') textColor = tuiColors.red;
-        else if (msgType === 'lifecycle') textColor = tuiColors.green;
-        else if (msgType === 'system') textColor = tuiColors.dim;
+        const textColor = getMsgTextColor(msgType, msg.color);
 
         // Continuation: same agent as previous
         const prevMsg = i > 0 ? visible[i - 1] : undefined;
         const isContinuation = prevMsg?.agentId === msg.agentId && !!msg.agentId;
 
-        // Semantic row background: zebra for groups, override for errors/tools
+        // Semantic row background: type override, then zebra for groups
         const isOddGroup = (groupIndices[i]! & 1) === 1;
-        const rowBg = msgType === 'error' ? tuiColors.errorBg
-          : msgType === 'tool' || msgType === 'result' ? tuiColors.toolBg
-          : isOddGroup ? tuiColors.void : undefined;
+        const rowBg = getMsgBg(msgType) ?? (isOddGroup ? tuiColors.void : undefined);
 
         const relTs = relativeTime(msg.ts, now);
         const displayText = msg.text.length > textW ? msg.text.slice(0, textW - 1) + '…' : msg.text;
@@ -2580,7 +2580,7 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
               {agentName && !isContinuation ? (
                 <Text color={agentColor} bold>{' '}{agentName.slice(0, 8)}</Text>
               ) : (
-                <Text color={tuiColors.ghost}>{' '.repeat(9)}</Text>
+                <Text color={tuiColors.ghost}>{AGENT_INDENT}</Text>
               )}
             </Box>
             <Text color={msgType === 'error' ? tuiColors.red : isContinuation ? tuiColors.ghost : agentColor ?? tuiColors.dim}>{icon} </Text>
