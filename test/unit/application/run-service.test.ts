@@ -162,8 +162,8 @@ describe('RunService.getLastFailedRunContext', () => {
         finished_at: '2025-01-01T00:00:00Z',
       }),
     ]);
-    // Make readEvents throw (used by getLastFailedRunContext)
-    (runStore.readEvents as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('ENOENT'));
+    // Make readEventsTail throw (used by getLastFailedRunContext)
+    (runStore.readEventsTail as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('ENOENT'));
 
     const service = new RunService(runStore, eventBus);
     const result = await service.getLastFailedRunContext('tsk_1');
