@@ -3941,9 +3941,9 @@ function formatAgentOutput(raw: string): { summary: string | null; detail: strin
       return { summary: `\u2190 ${summary.slice(0, 180)}`, detail: detail() };
     }
 
-    // Tool use block
-    if (parsed.type === 'tool_use') {
-      const name = parsed.name ?? 'tool';
+    // Tool use block (Claude: type === 'tool_use'; OpenCode: name + input without type)
+    if (parsed.type === 'tool_use' || (typeof parsed.name === 'string' && 'input' in parsed)) {
+      const name = (parsed.name as string) ?? 'tool';
       const hint = formatToolInput(name, parsed.input);
       return { summary: `\u2699 ${name}(${hint})`, detail: detail() };
     }
