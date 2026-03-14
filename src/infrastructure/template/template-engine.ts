@@ -126,6 +126,127 @@ function truncateRole(role: string | undefined): string | undefined {
   return firstLine.length > 80 ? firstLine.slice(0, 77) + '...' : firstLine;
 }
 
+/** Max number of context entries injected into a single prompt. */
+const MAX_CONTEXT_ENTRIES = 15;
+
+/** Max length per context value (chars). */
+const MAX_CONTEXT_VALUE_LENGTH = 500;
+
+export interface ContextFilterInput {
+  agentName: string;
+  agentRole?: string;
+  goalId?: string;
+  taskScope?: string[];
+}
+
+/**
+ * Score and filter shared context entries by relevance to the current agent/task.
+ * Returns at most MAX_CONTEXT_ENTRIES entries, sorted by relevance then freshness.
+ * Each value is truncated to MAX_CONTEXT_VALUE_LENGTH chars.
+ */
+export function filterRelevantContext(
+  allContext: Record<string, string>,
+  filter: ContextFilterInput,
+): Record<string, string> {
+  const entries = Object.entries(allContext);
+  if (entries.length === 0) return {};
+
+  const agentLower = filter.agentName.toLowerCase();
+  // Derive role keyword(s) from agent name — e.g. "Backend A" → "backend"
+  const roleKeywords = extractRoleKeywords(agentLower, filter.agentRole);
+
+  type Scored = { key: string; value: string; score: number };
+  const scored: Scored[] = [];
+
+  for (const [key, value] of entries) {
+    let score = 0;
+    const keyLower = key.toLowerCase();
+
+    // 1. Goal match (highest priority)
+    if (filter.goalId && keyLower.startsWith(filter.goalId.toLowerCase())) {
+      score += 10;
+    }
+
+    // 2. Agent name match — context key or value mentions this agent
+    if (keyLower.includes(agentLower) || value.toLowerCase().includes(agentLower)) {
+      score += 8;
+    }
+
+    // 3. Scope path match — context mentions paths from task scope
+    if (filter.taskScope?.length) {
+      for (const scopePattern of filter.taskScope) {
+        const scopeBase = scopePattern.replace(/\*+/g, '').replace(/\/+$/, '');
+        if (scopeBase && (keyLower.includes(scopeBase.toLowerCase()) || value.toLowerCase().includes(scopeBase.toLowerCase()))) {
+          score += 6;
+          break;
+        }
+      }
+    }
+
+    // 4. Role-prefix match — e.g. "backend-*" keys for backend agents
+    for (const kw of roleKeywords) {
+      if (keyLower.startsWith(kw + '-') || keyLower.startsWith(kw + '_')) {
+        score += 4;
+        break;
+      }
+    }
+
+    // 5. Generic project-wide context (bug-, perf-, stability-, docs-) gets a small boost
+    if (/^(bug|perf|stability|docs|arch|spec)-/i.test(key)) {
+      score += 1;
+    }
+
+    scored.push({ key, value, score });
+  }
+
+  // Sort by score desc; entries with score 0 are excluded unless we have fewer than limit
+  scored.sort((a, b) => b.score - a.score);
+
+  // Take top entries: all with score > 0, then pad with score-0 up to limit
+  const relevant = scored.filter((e) => e.score > 0).slice(0, MAX_CONTEXT_ENTRIES);
+  if (relevant.length < MAX_CONTEXT_ENTRIES) {
+    const remaining = scored.filter((e) => e.score === 0).slice(0, MAX_CONTEXT_ENTRIES - relevant.length);
+    relevant.push(...remaining);
+  }
+
+  // Build result with truncated values
+  const result: Record<string, string> = {};
+  for (const { key, value } of relevant) {
+    result[key] = value.length > MAX_CONTEXT_VALUE_LENGTH
+      ? value.slice(0, MAX_CONTEXT_VALUE_LENGTH - 1) + '…'
+      : value;
+  }
+  return result;
+}
+
+/**
+ * Extract role keywords from agent name and role for prefix matching.
+ * "Backend A" → ["backend"], "QA B" → ["qa"], "Front-End" → ["front-end", "frontend", "tui"]
+ */
+function extractRoleKeywords(agentNameLower: string, role?: string): string[] {
+  const keywords: string[] = [];
+  // First word of agent name (e.g. "backend", "qa", "reviewer", "cto")
+  const firstWord = agentNameLower.split(/[\s_-]/)[0];
+  if (firstWord && firstWord.length > 1) {
+    keywords.push(firstWord);
+  }
+  // Special mappings
+  if (agentNameLower.includes('front') || agentNameLower.includes('tui')) {
+    keywords.push('front-end', 'frontend', 'tui');
+  }
+  if (agentNameLower.includes('market') || agentNameLower.includes('cmo')) {
+    keywords.push('marketer', 'marketing', 'cmo');
+  }
+  // Extract from role first line
+  if (role) {
+    const roleFirstWord = role.toLowerCase().split(/[\s_-]/)[0];
+    if (roleFirstWord && roleFirstWord.length > 2 && !keywords.includes(roleFirstWord)) {
+      keywords.push(roleFirstWord);
+    }
+  }
+  return keywords;
+}
+
 /**
  * Build prompt context from domain objects.
  */
@@ -191,7 +312,14 @@ export function buildPromptContext(
     workspace_path: workspacePath,
     retry: attempt > 1 ? retryContext : undefined,
     feedback,
-    shared_context: sharedContext && Object.keys(sharedContext).length > 0 ? sharedContext : undefined,
+    shared_context: sharedContext && Object.keys(sharedContext).length > 0
+      ? filterRelevantContext(sharedContext, {
+          agentName: agent.name,
+          agentRole: agent.role,
+          goalId: task.goalId,
+          taskScope: task.scope,
+        })
+      : undefined,
     messages,
     goal,
   };

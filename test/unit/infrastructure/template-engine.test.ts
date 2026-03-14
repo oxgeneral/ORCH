@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   LiquidTemplateEngine,
   buildPromptContext,
+  filterRelevantContext,
   DEFAULT_PROMPT_TEMPLATE,
   type RetryContext,
 } from '../../../src/infrastructure/template/template-engine.js';
@@ -305,5 +306,158 @@ describe('LiquidTemplateEngine with retry context', () => {
     expect(result).toContain('Attempt: 3');
     // Empty output should not render "Last output" block
     expect(result).not.toContain('Last output');
+  });
+});
+
+describe('filterRelevantContext', () => {
+  it('returns empty object for empty context', () => {
+    const result = filterRelevantContext({}, { agentName: 'Backend A' });
+    expect(result).toEqual({});
+  });
+
+  it('prioritizes goal_id prefix match', () => {
+    const ctx: Record<string, string> = {
+      'goal_abc-progress': 'done 3/5 tasks',
+      'unrelated-key': 'some value',
+      'other-goal-key': 'other value',
+    };
+    const result = filterRelevantContext(ctx, { agentName: 'Backend A', goalId: 'goal_abc' });
+    const keys = Object.keys(result);
+    expect(keys[0]).toBe('goal_abc-progress');
+  });
+
+  it('prioritizes agent name match in key', () => {
+    const ctx: Record<string, string> = {
+      'backend-a-status': 'ready',
+      'qa-status': 'waiting',
+    };
+    const result = filterRelevantContext(ctx, { agentName: 'Backend A' });
+    const keys = Object.keys(result);
+    // backend a matches agent name, should be first
+    expect(keys[0]).toBe('backend-a-status');
+  });
+
+  it('matches agent name in value', () => {
+    const ctx: Record<string, string> = {
+      'some-result': 'Backend A completed the fix',
+      'other-result': 'QA passed all tests',
+    };
+    const result = filterRelevantContext(ctx, { agentName: 'Backend A' });
+    const keys = Object.keys(result);
+    expect(keys[0]).toBe('some-result');
+  });
+
+  it('matches scope paths', () => {
+    const ctx: Record<string, string> = {
+      'tui-fix': 'fixed TUI rendering',
+      'api-refactor': 'refactored src/api endpoints',
+    };
+    const result = filterRelevantContext(ctx, {
+      agentName: 'Backend A',
+      taskScope: ['src/api/**'],
+    });
+    const keys = Object.keys(result);
+    expect(keys[0]).toBe('api-refactor');
+  });
+
+  it('matches role-prefix keywords', () => {
+    const ctx: Record<string, string> = {
+      'backend-dedup-done': 'dedup completed',
+      'frontend-fix': 'UI fix applied',
+      'qa-result': 'tests passed',
+    };
+    const result = filterRelevantContext(ctx, { agentName: 'Backend A' });
+    const keys = Object.keys(result);
+    expect(keys[0]).toBe('backend-dedup-done');
+  });
+
+  it('limits to MAX_CONTEXT_ENTRIES (15)', () => {
+    const ctx: Record<string, string> = {};
+    for (let i = 0; i < 30; i++) {
+      ctx[`key-${i}`] = `value-${i}`;
+    }
+    const result = filterRelevantContext(ctx, { agentName: 'Backend A' });
+    expect(Object.keys(result).length).toBeLessThanOrEqual(15);
+  });
+
+  it('truncates values longer than 500 chars', () => {
+    const longValue = 'x'.repeat(600);
+    const ctx: Record<string, string> = {
+      'long-entry': longValue,
+    };
+    const result = filterRelevantContext(ctx, { agentName: 'Backend A' });
+    expect(result['long-entry']!.length).toBe(500);
+    expect(result['long-entry']).toMatch(/…$/);
+  });
+
+  it('does not truncate values under 500 chars', () => {
+    const shortValue = 'short value';
+    const ctx: Record<string, string> = {
+      'short-entry': shortValue,
+    };
+    const result = filterRelevantContext(ctx, { agentName: 'Backend A' });
+    expect(result['short-entry']).toBe(shortValue);
+  });
+
+  it('includes zero-score entries when under limit', () => {
+    const ctx: Record<string, string> = {
+      'random-key-1': 'value1',
+      'random-key-2': 'value2',
+    };
+    const result = filterRelevantContext(ctx, { agentName: 'Backend A' });
+    expect(Object.keys(result).length).toBe(2);
+  });
+
+  it('front-end agent matches tui- and frontend- prefixes', () => {
+    const ctx: Record<string, string> = {
+      'tui-fix': 'TUI fix applied',
+      'frontend-design': 'new design',
+      'backend-status': 'ready',
+    };
+    const result = filterRelevantContext(ctx, { agentName: 'Front-End' });
+    const keys = Object.keys(result);
+    // tui- and frontend- should score higher than backend-
+    expect(keys.indexOf('tui-fix')).toBeLessThan(keys.indexOf('backend-status'));
+    expect(keys.indexOf('frontend-design')).toBeLessThan(keys.indexOf('backend-status'));
+  });
+
+  it('buildPromptContext applies filtering to shared_context', () => {
+    const ctx: Record<string, string> = {};
+    for (let i = 0; i < 30; i++) {
+      ctx[`unrelated-${i}`] = 'x'.repeat(600);
+    }
+    ctx['goal_test-progress'] = 'goal progress';
+
+    const result = buildPromptContext(
+      makeTask({ goalId: 'goal_test' }),
+      makeAgent({ name: 'Backend A' }),
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+      { sharedContext: ctx },
+    );
+
+    // Should be filtered and truncated
+    expect(Object.keys(result.shared_context!).length).toBeLessThanOrEqual(15);
+    // Goal context should be prioritized
+    expect(result.shared_context!['goal_test-progress']).toBe('goal progress');
+    // Long values should be truncated
+    const unrelatedKey = Object.keys(result.shared_context!).find((k) => k.startsWith('unrelated-'));
+    if (unrelatedKey) {
+      expect(result.shared_context![unrelatedKey]!.length).toBeLessThanOrEqual(500);
+    }
+  });
+
+  it('boosts bug-/perf-/docs- prefix entries slightly', () => {
+    const ctx: Record<string, string> = {
+      'bug-123': 'critical bug found',
+      'perf-baseline': 'CLI 40ms',
+      'random-stuff': 'nothing relevant',
+    };
+    const result = filterRelevantContext(ctx, { agentName: 'Reviewer' });
+    const keys = Object.keys(result);
+    // bug- and perf- should come before random-stuff
+    expect(keys.indexOf('bug-123')).toBeLessThan(keys.indexOf('random-stuff'));
+    expect(keys.indexOf('perf-baseline')).toBeLessThan(keys.indexOf('random-stuff'));
   });
 });
