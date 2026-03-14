@@ -15,7 +15,8 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { Task, TaskStatus } from '../../domain/task.js';
-import { tuiColors, DOT, LOZENGE } from '../colors.js';
+import type { Goal } from '../../domain/goal.js';
+import { tuiColors, DOT, LOZENGE, capLine } from '../colors.js';
 import { Spinner } from './Spinner.js';
 import { formatDuration } from '../../cli/output.js';
 
@@ -112,9 +113,14 @@ export interface TaskRowProps {
   width?: number;
   /** Map agent ID → agent name for display */
   agentNameMap?: Map<string, string>;
+  /** Map goal ID → Goal for badge display */
+  goalMap?: Map<string, Goal>;
 }
 
-export const TaskRow = React.memo(function TaskRow({ task, selected, width, agentNameMap }: TaskRowProps) {
+const GOAL_BADGE_WIDTH = 18; // " ⊕ TRUNCATED_TITLE " = up to 18 chars
+const goalBadgeBg = '#2d1f0a'; // amber dim background
+
+export const TaskRow = React.memo(function TaskRow({ task, selected, width, agentNameMap, goalMap }: TaskRowProps) {
   const chip = STATUS_CHIP[task.status];
   const isRunning = task.status === 'in_progress' || task.status === 'retrying';
   const priConf = PRIORITY_CONFIG[task.priority] ?? { color: tuiColors.ghost, label: DOT };
@@ -139,12 +145,17 @@ export const TaskRow = React.memo(function TaskRow({ task, selected, width, agen
 
   const cursor = selected ? '\u25B8' : ' '; // ▸ or space
 
+  // Goal badge
+  const goal = task.goalId ? goalMap?.get(task.goalId) : undefined;
+  const hasGoalBadge = !!goal;
+
   // Column widths
   const chipWidth = 10;     // " ▶ RUN  " = 10 chars with padding
   const priWidth = 4;       // "!!! " or "·   "
   const assigneeWidth = 14;
+  const goalBadgeW = hasGoalBadge ? GOAL_BADGE_WIDTH : 0;
   const timeWidth = 7;
-  const fixedCols = 2 + chipWidth + priWidth + assigneeWidth + timeWidth; // cursor(2) + chip + pri + assignee + time
+  const fixedCols = 2 + chipWidth + priWidth + assigneeWidth + goalBadgeW + timeWidth;
   const titleWidth = width ? Math.max(10, width - fixedCols) : 40;
 
   // Assignee display
@@ -199,6 +210,15 @@ export const TaskRow = React.memo(function TaskRow({ task, selected, width, agen
           <Text color={tuiColors.ghost}>{'\u2014'}</Text>
         )}
       </Box>
+
+      {/* Goal badge */}
+      {hasGoalBadge && (
+        <Box width={goalBadgeW}>
+          <Text backgroundColor={goalBadgeBg} color={tuiColors.amberDim} wrap="truncate">
+            {' \u2295 '}{capLine(goal.title, 13)}{' '}
+          </Text>
+        </Box>
+      )}
 
       {/* Time / status */}
       <Box width={timeWidth} justifyContent="flex-end">

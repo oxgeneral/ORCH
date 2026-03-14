@@ -12,6 +12,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { GOAL_STATUS_ORDER, type Goal, type GoalStatus } from '../../domain/goal.js';
+import type { Task } from '../../domain/task.js';
 import { tuiColors, DOT } from '../colors.js';
 
 /* ── Glyphs ───────────────────────────────────────── */
@@ -52,23 +53,36 @@ export { GOAL_STATUS_ORDER } from '../../domain/goal.js';
 
 /* ── GoalRow ──────────────────────────────────────── */
 
+const FILLED_BLOCK = '\u2588';  // █
+const EMPTY_BLOCK = '\u2591';   // ░
+
 export interface GoalRowProps {
   goal: Goal;
   selected?: boolean;
   width?: number;
   agentNameMap?: Map<string, string>;
+  /** Linked tasks for progress bar */
+  tasksByGoal?: Task[];
 }
 
-export const GoalRow = React.memo(function GoalRow({ goal, selected, width, agentNameMap }: GoalRowProps) {
+const PROGRESS_WIDTH = 14; // " ████░░ 4/6 " = 14 chars
+
+export const GoalRow = React.memo(function GoalRow({ goal, selected, width, agentNameMap, tasksByGoal }: GoalRowProps) {
   const chip = STATUS_CHIP[goal.status];
 
   const cursor = selected ? '\u25B8' : ' '; // ▸ or space
 
+  // Progress bar data
+  const totalTasks = tasksByGoal?.length ?? 0;
+  const doneTasks = tasksByGoal?.filter(t => t.status === 'done').length ?? 0;
+  const hasProgress = totalTasks > 0;
+
   // Column widths
   const chipWidth = 11;
+  const progressW = hasProgress ? PROGRESS_WIDTH : 0;
   const assigneeWidth = 14;
   const timeWidth = 7;
-  const fixedCols = 2 + chipWidth + assigneeWidth + timeWidth;
+  const fixedCols = 2 + chipWidth + progressW + assigneeWidth + timeWidth;
   const titleWidth = width ? Math.max(10, width - fixedCols) : 40;
 
   // Assignee display
@@ -115,6 +129,15 @@ export const GoalRow = React.memo(function GoalRow({ goal, selected, width, agen
           {goal.title.length > titleWidth ? goal.title.slice(0, titleWidth - 1) + '\u2026' : goal.title}
         </Text>
       </Box>
+
+      {/* Progress bar */}
+      {hasProgress && (
+        <Box width={progressW}>
+          <Text color={tuiColors.green}>{FILLED_BLOCK.repeat(Math.min(doneTasks, 6))}</Text>
+          <Text color={tuiColors.ghost}>{EMPTY_BLOCK.repeat(Math.max(0, Math.min(totalTasks, 6) - doneTasks))}</Text>
+          <Text color={tuiColors.dim}>{` ${doneTasks}/${totalTasks}`}</Text>
+        </Box>
+      )}
 
       {/* Assignee chip */}
       <Box width={assigneeWidth}>

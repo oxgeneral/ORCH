@@ -28,6 +28,8 @@ import { resolveCompletion, resolveSuggestions, CommandHistory, COMMAND_REGISTRY
 import type { Suggestion } from './commandBar.js';
 import { CommandBar } from './components/CommandBar.js';
 import { FormWizard } from './components/FormWizard.js';
+import { LogsFilterPicker } from './components/LogsFilterPicker.js';
+import { LogsTypeFilterPicker } from './components/LogsTypeFilterPicker.js';
 import type { WizardStep } from './components/FormWizard.js';
 import { Spinner } from './components/Spinner.js';
 import { OnboardingBox, type OnboardingConfig, WelcomeScreen, OnboardingNudge, OnboardingToast, type OnboardingStep } from './components/OnboardingBox.js';
@@ -376,8 +378,10 @@ export function App({
   // Help overlay (? or F1 to toggle)
   const [showHelpOverlay, setShowHelpOverlay] = useState(false);
 
-  // Logs view: agent filter (0 = all, 1-9 = agent by index), type filter, selection, scroll
-  const [logFilter, setLogFilter] = useState(0);
+  // Logs view: agent filter (empty Set = all), type filter, selection, scroll
+  const [logAgentFilter, setLogAgentFilter] = useState<Set<string>>(() => new Set());
+  const [showAgentPicker, setShowAgentPicker] = useState(false);
+  const [showTypePicker, setShowTypePicker] = useState(false);
   const [logTypeFilter, setLogTypeFilter] = useState<Set<MsgType>>(() => new Set(ALL_MSG_TYPES));
   const [logSelectedIndex, setLogSelectedIndex] = useState(-1); // -1 = follow tail (no selection)
   const [logScrollOffset, setLogScrollOffset] = useState(0);
@@ -405,6 +409,11 @@ export function App({
   // Toast notification queue
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastSeq = useRef(0);
+
+  // Tab flash state — flash the TASKS tab pill when a task event fires on another tab
+  const [flashTab, setFlashTab] = useState<{ tab: ViewId; color: string } | undefined>();
+  const activeViewRef = useRef(activeView);
+  activeViewRef.current = activeView;
 
   // Refs for live data — used in event handler to avoid stale closures
   const liveTasksRef = useRef(liveTasks);
@@ -516,6 +525,26 @@ export function App({
     return map;
   }, [liveAgents]);
 
+  // Build goal ID → Goal map for TaskRow badges
+  const goalMap = useMemo(() => {
+    const map = new Map<string, Goal>();
+    for (const g of liveGoals) map.set(g.id, g);
+    return map;
+  }, [liveGoals]);
+
+  // Build goal ID → linked tasks for GoalRow progress bars
+  const tasksByGoalMap = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const t of liveTasks) {
+      if (t.goalId) {
+        let arr = map.get(t.goalId);
+        if (!arr) { arr = []; map.set(t.goalId, arr); }
+        arr.push(t);
+      }
+    }
+    return map;
+  }, [liveTasks]);
+
   // Build agent ID → color map to avoid O(n) findIndex per message row during render
   const agentColorMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -524,6 +553,25 @@ export function App({
     }
     return map;
   }, [liveAgents]);
+
+  // Count messages per agent (for LogsFilterPicker)
+  const agentMsgCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const m of messages) {
+      if (m.agentId) counts.set(m.agentId, (counts.get(m.agentId) ?? 0) + 1);
+    }
+    return counts;
+  }, [messages]);
+
+  /** Message count per type — for LogsTypeFilterPicker badges. */
+  const typeMsgCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const m of messages) {
+      const mt = m.msgType ?? 'info';
+      counts[mt] = (counts[mt] ?? 0) + 1;
+    }
+    return counts;
+  }, [messages]);
 
   // Build agent ID → team name map, lead set, and active team count in one pass
   const { agentTeamMap, activeTeamCount, teamLeadSet } = useMemo(() => {
@@ -1101,6 +1149,15 @@ export function App({
         if (event.to === 'done') addToast('done', event.taskId);
         else if (event.to === 'failed') addToast('failed', event.taskId);
         else if (event.to === 'review') addToast('review', event.taskId);
+
+        // ── Tab flash: blink TASKS pill when on another tab ──
+        if (notificationsRef.current.toast && activeViewRef.current !== 'tasks') {
+          const fc = event.to === 'done' ? tuiColors.green
+            : event.to === 'failed' ? tuiColors.red
+            : event.to === 'review' ? tuiColors.blue
+            : undefined;
+          if (fc) setFlashTab({ tab: 'tasks', color: fc });
+        }
       }
 
       // Refresh on state-changing events
@@ -1634,6 +1691,9 @@ export function App({
       // Other keys: dismiss AND execute their action (fall through)
     }
 
+    // ── Agent filter picker open: block App keys ──
+    if (showAgentPicker) return;
+
     // ── Ctrl+S / Cmd+S: open Agent Shop from agent wizard ──
     if ((key.ctrl || key.meta) && input === 's' && inputMode === 'wizard' && wizardConfig?.kind === 'agent') {
       launchShopWizard();
@@ -1808,14 +1868,20 @@ export function App({
       return;
     }
 
-    // 0-9: agent filter in Logs view (US-9.9)
-    if (activeView === 'logs' && !detailOpen && input >= '0' && input <= '9') {
-      setLogFilter(parseInt(input, 10));
+    // a: open agent filter picker in Logs view (US-9.9)
+    if ((input === 'a' || input === 'A') && activeView === 'logs' && !detailOpen && !showAgentPicker && !showTypePicker) {
+      setShowAgentPicker(true);
       return;
     }
 
-    // F: cycle type filter in Logs view
-    if ((input === 'f' || input === 'F') && activeView === 'logs' && !detailOpen) {
+    // f: open type filter picker popup in Logs view
+    if (input === 'f' && activeView === 'logs' && !detailOpen && !showAgentPicker && !showTypePicker) {
+      setShowTypePicker(true);
+      return;
+    }
+
+    // F (uppercase): quick cycle type filter presets (backward compat)
+    if (input === 'F' && activeView === 'logs' && !detailOpen && !showAgentPicker && !showTypePicker) {
       setLogTypeFilter((prev) => new Set(cyclePreset(prev).types));
       return;
     }
@@ -2221,6 +2287,9 @@ export function App({
         version={version}
         latestVersion={latestVersion}
         taskBadge={hiddenTaskCount > 0 ? sortedTasks.length : undefined}
+        flashTab={flashTab?.tab}
+        flashColor={flashTab?.color}
+        onFlashComplete={flashTab ? () => setFlashTab(undefined) : undefined}
       />
 
       {/* Breathing room after header */}
@@ -2246,6 +2315,7 @@ export function App({
           width={ruleW}
           showAddRow={!!onCreateGoal}
           agentNameMap={agentNameMap}
+          tasksByGoalMap={tasksByGoalMap}
         />
       )}
       {!showHelpOverlay && onboardingStep !== 'welcome' && activeView === 'tasks' && (
@@ -2258,6 +2328,7 @@ export function App({
           showAddRow={!!onCreateTask}
           agentNameMap={agentNameMap}
           hiddenCount={hiddenTaskCount}
+          goalMap={goalMap}
         />
       )}
       {/* Onboarding nudge — shown under task list for task_created/run_started */}
@@ -2291,19 +2362,45 @@ export function App({
         />
       )}
 {!showHelpOverlay && activeView === 'logs' && (
+        <>
         <LogsContent
           messages={messages}
-          height={mainH}
+          height={(showAgentPicker || showTypePicker) ? Math.max(3, mainH - 16) : mainH}
           agents={sortedAgents}
-          logFilter={logFilter}
+          logAgentFilter={logAgentFilter}
           logTypeFilter={logTypeFilter}
           selectedIndex={logSelectedIndex}
           scrollOffset={logScrollOffset}
           agentNameMap={agentNameMap}
           agentColorMap={agentColorMap}
+          agentMsgCounts={agentMsgCounts}
           taskTitleMap={taskTitleMap}
           width={ruleW}
         />
+        {showAgentPicker && (
+          <Box paddingX={2}>
+            <LogsFilterPicker
+              agents={sortedAgents}
+              selected={logAgentFilter}
+              msgCounts={agentMsgCounts}
+              colorMap={agentColorMap}
+              maxHeight={Math.min(mainH - 4, 18)}
+              onConfirm={(sel) => { setLogAgentFilter(sel); setShowAgentPicker(false); }}
+              onCancel={() => setShowAgentPicker(false)}
+            />
+          </Box>
+        )}
+        {showTypePicker && (
+          <Box paddingX={2}>
+            <LogsTypeFilterPicker
+              selected={logTypeFilter}
+              typeCounts={typeMsgCounts}
+              onConfirm={(sel) => { setLogTypeFilter(sel as Set<MsgType>); setShowTypePicker(false); }}
+              onCancel={() => setShowTypePicker(false)}
+            />
+          </Box>
+        )}
+        </>
       )}
 
       {/* Breathing room before bottom panel */}
@@ -2517,7 +2614,7 @@ function SuggestionsPanel({ suggestions, selectedIndex, height, width }: {
 
 /* ── Goals Content ───────────────────────────────────── */
 
-function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap }: {
+function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, tasksByGoalMap }: {
   goals: Goal[];
   selectedIndex: number;
   scrollOffset?: number;
@@ -2525,6 +2622,7 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
   width: number;
   showAddRow?: boolean;
   agentNameMap?: Map<string, string>;
+  tasksByGoalMap?: Map<string, Task[]>;
 }) {
   const addRowIndex = goals.length;
 
@@ -2535,7 +2633,7 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
     <Box flexDirection="column" height={height}>
       {visible.map((goal, i) => (
         <Box key={goal.id} paddingX={2}>
-          <GoalRow goal={goal} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} />
+          <GoalRow goal={goal} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} tasksByGoal={tasksByGoalMap?.get(goal.id)} />
         </Box>
       ))}
       {addRowVisible && (
@@ -2728,7 +2826,7 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
 
 /* ── Tasks Content ───────────────────────────────────── */
 
-function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, hiddenCount = 0 }: {
+function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, hiddenCount = 0, goalMap }: {
   tasks: Task[];
   selectedIndex: number;
   scrollOffset?: number;
@@ -2737,6 +2835,7 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
   showAddRow?: boolean;
   agentNameMap?: Map<string, string>;
   hiddenCount?: number;
+  goalMap?: Map<string, Goal>;
 }) {
   const hasShowAll = hiddenCount > 0;
   // Virtual indices: tasks[0..n-1], show-all row (optional), add row (optional)
@@ -2752,7 +2851,7 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
     <Box flexDirection="column" height={height}>
       {visible.map((task, i) => (
         <Box key={task.id} paddingX={2}>
-          <TaskRow task={task} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} />
+          <TaskRow task={task} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} goalMap={goalMap} />
         </Box>
       ))}
       {showAllVisible && (
@@ -2955,16 +3054,17 @@ function getMsgTextColor(msgType: MsgType, fallback: string): string {
 
 /* ── Logs Content ────────────────────────────────────── */
 
-function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selectedIndex, scrollOffset, agentNameMap, agentColorMap, taskTitleMap, width }: {
+function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, selectedIndex, scrollOffset, agentNameMap, agentColorMap, agentMsgCounts, taskTitleMap, width }: {
   messages: StatusMessage[];
   height: number;
   agents: Agent[];
-  logFilter: number;
+  logAgentFilter: Set<string>;
   logTypeFilter: Set<MsgType>;
   selectedIndex: number; // -1 = tail mode
   scrollOffset: number;
   agentNameMap: Map<string, string>;
   agentColorMap: Map<string, string>;
+  agentMsgCounts: Map<string, number>;
   taskTitleMap: Map<string, string>;
   width: number;
 }) {
@@ -2973,14 +3073,11 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
   // Filter messages by agent and type
   const filteredMessages = useMemo(() => {
     return messages.filter((m) => {
-      if (logFilter !== 0) {
-        const agent = agents[logFilter - 1];
-        if (agent && m.agentId !== agent.id) return false;
-      }
+      if (logAgentFilter.size > 0 && m.agentId && !logAgentFilter.has(m.agentId)) return false;
       const mt = (m.msgType ?? 'info') as MsgType;
       return logTypeFilter.has(mt);
     });
-  }, [messages, agents, logFilter, logTypeFilter]);
+  }, [messages, logAgentFilter, logTypeFilter]);
 
   // Count messages per type (for filter badges)
   const typeCounts = useMemo(() => {
@@ -2988,15 +3085,6 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
     for (const m of messages) {
       const mt = m.msgType ?? 'info';
       counts[mt] = (counts[mt] ?? 0) + 1;
-    }
-    return counts;
-  }, [messages]);
-
-  // Count messages per agent (for filter badges)
-  const agentMsgCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const m of messages) {
-      if (m.agentId) counts.set(m.agentId, (counts.get(m.agentId) ?? 0) + 1);
     }
     return counts;
   }, [messages]);
@@ -3035,38 +3123,42 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
     <Box flexDirection="column" paddingX={1}>
       {/* ── Line 1: Agent filter chips ── */}
       <Box gap={0}>
-        {/* ALL chip */}
-        {logFilter === 0 ? (
+        {/* Filter summary */}
+        {logAgentFilter.size === 0 ? (
           <Text backgroundColor={tuiColors.infoBg} color={tuiColors.silver} bold>{' \u25CF ALL '}</Text>
         ) : (
-          <Text color={tuiColors.ghost}>{' \u25CB all '}</Text>
+          <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber} bold>
+            {' \u25C8 '}{logAgentFilter.size}/{agents.length}{' '}
+          </Text>
         )}
         <Text color={tuiColors.ghost}>{' '}</Text>
-        {/* Per-agent chips — compact numbered pills */}
-        {agents.slice(0, 9).map((a, i) => {
+        {/* Selected agent chips (compact, all agents, no 9 limit) */}
+        {agents.map((a) => {
           const ac = agentColorMap.get(a.id) ?? AGENT_COLORS[0]!;
-          const active = logFilter === i + 1;
+          const active = logAgentFilter.size === 0 || logAgentFilter.has(a.id);
           const count = agentMsgCounts.get(a.id) ?? 0;
           const countStr = count > 0 ? `\u00B7${count}` : '';
           return active ? (
             <Text key={a.id} backgroundColor={tuiColors.successBg} color={ac} bold>
-              {' '}{i + 1}:{a.name}{countStr}{' '}
+              {' '}{a.name}{countStr}{' '}
             </Text>
           ) : (
-            <Text key={a.id} color={count > 0 ? tuiColors.dim : tuiColors.ghost}>
-              {' '}{i + 1}:{a.name}{countStr}
+            <Text key={a.id} color={tuiColors.ghost}>
+              {' '}{a.name}
             </Text>
           );
         })}
+        <Text color={tuiColors.ghost}>{' '}</Text>
+        <Text color={tuiColors.amberDim}>{'a:filter'}</Text>
       </Box>
 
       {/* ── Line 2: Type filter + count + mode + sparkline ── */}
       <Box gap={0}>
-        {/* Type filter */}
+        {/* Type filter (f=popup, F=quick cycle) */}
         {typeFilterLabel === 'all' ? (
-          <Text color={tuiColors.dim}>{' F:all'}</Text>
+          <Text color={tuiColors.dim}>{' f:all'}</Text>
         ) : (
-          <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber} bold>{' F:'}{typeFilterLabel.toUpperCase()}{' '}</Text>
+          <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber} bold>{' f:'}{typeFilterLabel.toUpperCase()}{' '}</Text>
         )}
         <Text color={tuiColors.ghost}> {'\u2502'} </Text>
         {/* Event count */}

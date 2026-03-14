@@ -120,6 +120,47 @@ function Sparkline({ data, width, color }: { data: number[]; width: number; colo
   return <Text color={color}>{chars}</Text>;
 }
 
+/** Flashing tab label — blinks 3 times (bright↔dim) then calls onComplete */
+function FlashingTabLabel({
+  tab, flashColor, onComplete, badge,
+}: {
+  tab: typeof TABS[number];
+  flashColor: string;
+  onComplete: () => void;
+  badge: string;
+}) {
+  const tick = useAnimTick();
+  const startTick = React.useRef(tick);
+  const completedRef = React.useRef(false);
+  const elapsed = tick - startTick.current;
+  const PHASE_TICKS = 2;  // ticks per bright/dim phase (~240ms each)
+  const TOTAL_TICKS = 3 * 2 * PHASE_TICKS; // 3 blinks × 2 phases × 2 ticks = 12 ticks
+
+  React.useEffect(() => {
+    if (elapsed >= TOTAL_TICKS && !completedRef.current) {
+      completedRef.current = true;
+      onComplete();
+    }
+  }, [elapsed, onComplete]);
+
+  const isBright = Math.floor(elapsed / PHASE_TICKS) % 2 === 0 && elapsed < TOTAL_TICKS;
+
+  if (isBright) {
+    return (
+      <Text backgroundColor={flashColor} color="#0a0a0c" bold>
+        {' '}{tab.key} {tab.label}{badge}{' '}
+      </Text>
+    );
+  }
+  // Dim phase — same as normal inactive style
+  return (
+    <Box gap={0}>
+      <Text color={tuiColors.ghost}>{tab.key}</Text>
+      <Text color={tuiColors.dim}> {tab.label.toLowerCase()}{badge}</Text>
+    </Box>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════
    TYPES
    ══════════════════════════════════════════════════════════ */
@@ -154,6 +195,12 @@ export interface HeaderProps {
   latestVersion?: string;
   /** Total task count shown as badge on TASKS tab when some tasks are hidden */
   taskBadge?: number;
+  /** Tab id to flash (e.g. 'tasks' when a task event fires on another tab) */
+  flashTab?: ViewId;
+  /** Color for the flash animation (green/red/blue) */
+  flashColor?: string;
+  /** Called after flash animation completes (3 blinks) */
+  onFlashComplete?: () => void;
 }
 
 /* Tab config imported from TabBar.tsx — single source of truth */
@@ -163,8 +210,8 @@ export interface HeaderProps {
    ══════════════════════════════════════════════════════════ */
 
 function BrandBar({
-  projectName, activeView, mode, stats, uptime, width, version, latestVersion, taskBadge,
-}: Pick<HeaderProps, 'projectName' | 'activeView' | 'mode' | 'stats' | 'uptime' | 'width' | 'version' | 'latestVersion' | 'taskBadge'>) {
+  projectName, activeView, mode, stats, uptime, width, version, latestVersion, taskBadge, flashTab, flashColor, onFlashComplete,
+}: Pick<HeaderProps, 'projectName' | 'activeView' | 'mode' | 'stats' | 'uptime' | 'width' | 'version' | 'latestVersion' | 'taskBadge' | 'flashTab' | 'flashColor' | 'onFlashComplete'>) {
   const isWatching = mode === 'watching';
 
   return (
@@ -186,6 +233,7 @@ function BrandBar({
         {TABS.map((tab, i) => {
           const isActive = activeView === tab.id;
           const badge = tab.id === 'tasks' && taskBadge != null && taskBadge > 0 ? ` (${taskBadge})` : '';
+          const isFlashing = !isActive && flashTab === tab.id && flashColor && onFlashComplete;
           return (
             <React.Fragment key={tab.id}>
               {i > 0 && <Text>{'  '}</Text>}
@@ -194,6 +242,8 @@ function BrandBar({
                 <Text backgroundColor={tuiColors.amber} color="#0a0a0c" bold>
                   {' '}{tab.key} {tab.label}{badge}{' '}
                 </Text>
+              ) : isFlashing ? (
+                <FlashingTabLabel tab={tab} flashColor={flashColor} onComplete={onFlashComplete} badge={badge} />
               ) : (
                 // Inactive tab: ghost key + dim label
                 <Box gap={0}>
@@ -327,6 +377,9 @@ export const Header = React.memo(function Header(props: HeaderProps) {
         version={props.version}
         latestVersion={props.latestVersion}
         taskBadge={props.taskBadge}
+        flashTab={props.flashTab}
+        flashColor={props.flashColor}
+        onFlashComplete={props.onFlashComplete}
       />
       {/* Space between brand and stats */}
       <Box height={1} />

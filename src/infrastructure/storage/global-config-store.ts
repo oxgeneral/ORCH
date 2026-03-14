@@ -16,11 +16,17 @@ const GLOBAL_CONFIG_PATH = path.join(GLOBAL_DIR, 'global.yml');
 export class GlobalConfigStore {
   async read(): Promise<GlobalConfig> {
     const data = await readYaml<Record<string, unknown>>(GLOBAL_CONFIG_PATH);
-    if (!data) return { ...DEFAULT_GLOBAL_CONFIG };
+    if (!data) return { ...DEFAULT_GLOBAL_CONFIG, tui: { ...DEFAULT_GLOBAL_CONFIG.tui, notifications: { ...DEFAULT_GLOBAL_CONFIG.tui.notifications } } };
+    const tui = data.tui as Record<string, unknown> | undefined;
+    const notif = tui?.notifications as Record<string, unknown> | undefined;
     return {
       tui: {
-        activity_filter: (data.tui as Record<string, unknown>)?.activity_filter as GlobalConfig['tui']['activity_filter']
+        activity_filter: tui?.activity_filter as GlobalConfig['tui']['activity_filter']
           ?? DEFAULT_GLOBAL_CONFIG.tui.activity_filter,
+        notifications: {
+          toast: typeof notif?.toast === 'boolean' ? notif.toast : DEFAULT_GLOBAL_CONFIG.tui.notifications.toast,
+          bell: typeof notif?.bell === 'boolean' ? notif.bell : DEFAULT_GLOBAL_CONFIG.tui.notifications.bell,
+        },
       },
     };
   }

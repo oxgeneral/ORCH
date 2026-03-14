@@ -27,7 +27,7 @@ export class ShellAdapter implements IAgentAdapter {
       const version = stdout.split('\n')[0]?.trim() ?? 'unknown';
       return { ok: true, version };
     } catch {
-      return { ok: false, error: 'bash not found' };
+      return { ok: false, error: 'bash not found', errorKind: classifyAdapterError('bash not found') };
     }
   }
 
