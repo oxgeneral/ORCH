@@ -2,7 +2,7 @@
   <img src="assets/logo.svg" alt="ORCH" height="60" />
   <p align="center">
     <strong>Stop babysitting AI agents. Start orchestrating them.</strong><br/>
-    One CLI to run Claude, Codex, Cursor, and shell scripts as a team — in parallel, with retries, from your terminal.
+    One CLI to run Claude, OpenCode, Codex, Cursor, and shell scripts as a team — in parallel, with retries, from your terminal.
   </p>
   <p align="center">
     <a href="https://github.com/oxgeneral/ORCH/stargazers"><img src="https://img.shields.io/github/stars/oxgeneral/ORCH?style=social" alt="GitHub Stars" /></a>
@@ -10,7 +10,7 @@
     <a href="https://www.npmjs.com/package/@oxgeneral/orch"><img src="https://img.shields.io/npm/v/@oxgeneral/orch?color=cb0000" alt="npm" /></a>
     <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-one%20command-brightgreen" alt="One command setup" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
-    <a href="#development"><img src="https://img.shields.io/badge/tests-1386%20passing-brightgreen" alt="Tests" /></a>
+    <a href="#development"><img src="https://img.shields.io/badge/tests-1493%20passing-brightgreen" alt="Tests" /></a>
     <a href="#architecture"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
   </p>
 </p>
@@ -224,7 +224,7 @@ src/
 │   └── errors.ts         # Domain error types
 ├── application/      # Orchestrator engine, services, event bus
 ├── infrastructure/
-│   ├── adapters/     # Claude, Codex, Cursor, Shell (pluggable)
+│   ├── adapters/     # Claude, OpenCode, Codex, Cursor, Shell (pluggable)
 │   ├── storage/      # File-based (YAML/JSON/JSONL)
 │   ├── process/      # PID management, graceful kill
 │   ├── template/     # LiquidJS template engine

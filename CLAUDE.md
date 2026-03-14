@@ -55,7 +55,7 @@ Uses a promise-chain mutex (`stateMutex`) for serializing state mutations. Lock 
 
 `src/infrastructure/adapters/interface.ts` — adapters implement `IAgentAdapter`:
 - `execute(params)` spawns an external process, returns `{ pid, events: AsyncGenerator<AgentEvent> }`
-- Available: claude (Claude CLI), codex (OpenAI), cursor (Cursor IDE), shell (any command)
+- Available: claude (Claude CLI), opencode (OpenCode, multi-provider), codex (OpenAI), cursor (Cursor IDE), shell (any command)
 - Registered in `AdapterRegistry`, resolved by agent's `adapter` field
 
 ### Storage

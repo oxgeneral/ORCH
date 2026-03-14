@@ -1,5 +1,102 @@
 # Changelog
 
+## 1.0.0 (2026-03-14)
+
+First stable release. Production-ready CLI orchestrator for AI agent teams.
+
+### Highlights
+
+- **5 adapter ecosystem** — Claude, OpenCode, Codex, Cursor, Shell — mix any AI providers in one team
+- **1493 tests** — comprehensive coverage across all layers
+- **Real-time TUI dashboard** — tasks, agents, goals, activity feed, logs with filtering
+- **Smart prompt architecture** — system/user split for caching, relevance-based context filtering
+- **Zero-config start** — `npm i -g @oxgeneral/orch && orch` auto-initializes
+
+### New in 1.0.0 (since 0.3.4)
+
+#### Features
+
+- **OpenCode adapter** — new `opencode` adapter for multi-provider agent support via OpenCode CLI (OpenRouter, DeepSeek, Gemini, etc.). JSONL event streaming with `--format json`, model pass-through as `provider/model`
+- **System/User prompt split** — separate static system prompt (agent identity, rules) from dynamic user prompt (task details) for Claude API prompt caching (~40-60% fewer input tokens on repeat runs)
+- **Agent picker [adapter] tags** — assignee lists in TUI now show `[claude]`, `[opencode]`, `[codex]` etc. next to each agent for provider visibility
+- **OpenCode model catalog** — TUI wizard offers Default (use opencode config), Claude, Gemini, DeepSeek, and Big Pickle models when creating opencode agents
+
+#### Bug Fixes
+
+- **OpenCode tool display** — tool_call events from opencode now render as `⚙ grep(pattern: "...")` instead of raw JSON in TUI logs
+- **step_finish noise** — intermediate `step_finish` lifecycle events no longer pollute activity feed
+
+#### Reverted Optimizations
+
+- **Context value truncation** (500 char cap) — silently lost agent context
+- **Agent role truncation** (80 char / first line) — agents couldn't see teammates' capabilities
+- **Goal task names cap** (30 entries) — agents lost goal progress visibility
+- **Retry output tail reads** (50 lines) — agents lost failure chain context
+
+> Design principle: token optimizations must not silently lose data that agents need. Filtering by relevance is OK; hard truncation is not.
+
+### Full Feature Set (cumulative)
+
+#### Orchestration Engine
+- Parallel agent execution with configurable concurrency (`max_concurrent_agents`)
+- State machine: `todo → in_progress → review → done` with `retrying` and `failed` branches
+- Automatic retry with exponential backoff, stall detection, zombie process cleanup
+- Priority-based dispatch (P1-first, goal-linked tasks prioritized)
+- Scope-based file conflict prevention (`--scope`, `--depends-on`)
+- Task dependencies with topological ordering
+
+#### Adapters
+- **Claude** — Claude Code CLI with `--system-prompt` for prompt caching
+- **OpenCode** — OpenCode CLI with multi-provider support (OpenRouter, DeepSeek, Gemini)
+- **Codex** — OpenAI Codex CLI with stdin prompt delivery
+- **Cursor** — Cursor Agent CLI with auto-binary resolution
+- **Shell** — arbitrary commands via `bash -lc` with env variable prompt
+
+#### TUI Dashboard (Ink/React)
+- 3-tab interface: Tasks, Agents, Goals with detail panels
+- Real-time activity feed with type-based filtering (text, tools, errors, events)
+- Logs view with agent/type multi-filter, duration-based queries
+- Form wizards for agent/task/goal creation with inline validation
+- Agent Shop — 15 pre-built agent templates
+- Toast notifications, help overlay, keyboard shortcuts
+- Clipboard image paste for task attachments
+
+#### Smart Prompts
+- LiquidJS template engine with conditional sections
+- System/User split for Claude API prompt caching
+- Relevance-based context filtering (top 15 of 340+ entries)
+- Inter-agent messaging (`orch msg send/broadcast/inbox`)
+- Goal context injection with progress tracking
+- Autonomous goal mode with structured decomposition loop
+
+#### CLI Commands
+- `orch run` / `orch tui` — start orchestration
+- `orch task` — add, list, show, edit, cancel, approve, reject
+- `orch agent` — add, list, show, edit, disable, shop
+- `orch goal` — add, list, show, status, delete
+- `orch team` — create, list, show, delete
+- `orch msg` — send, broadcast, inbox
+- `orch context` — set, get, list, delete (shared key-value store)
+- `orch logs` — view run events with filtering
+- `orch config` — view/edit orchestrator settings
+- `orch doctor` — health check for all adapters
+- `orch update` — check and install updates
+
+#### Storage & Performance
+- File-based storage (`.orchestry/`) — YAML, JSON, JSONL, no database
+- Atomic writes with temp file + rename
+- Parallel file reads with EMFILE batching (groups of 64)
+- JSONL tail reads for OOM protection
+- 3-layer event data truncation pipeline (16KB → 8KB → 4KB → 2KB)
+- TUI batched message queue (80ms flush) with LRU caps
+
+### Tests
+
+- **1493 tests** across 83 test files
+- Coverage: orchestrator resilience, adapter event parsing, template rendering, TUI components, wizard validation, state machine transitions, storage atomicity, process management
+
+---
+
 ## 0.3.4 (2026-03-14)
 
 ### New Features
