@@ -32,6 +32,8 @@ export interface WizardStep {
   defaultValue?: string;
   /** Skip this step based on previous values */
   skip?: (values: Record<string, string>) => boolean;
+  /** Optional suggestion list shown below text input (↓ to browse, filtered by input) */
+  suggestions?: SelectOption[];
 }
 
 export interface FormWizardProps {
@@ -45,11 +47,13 @@ export interface FormWizardProps {
   onPasteImage?: () => Promise<'image' | 'text' | 'empty'>;
   /** Extra text shown in the hint bar footer (e.g. attachment indicator) */
   footerExtra?: string;
+  /** Called when user selects a suggestion from a text step's suggestion list */
+  onSuggestionSelected?: (suggestionValue: string) => void;
 }
 
 const CURSOR = '\u2588'; // █
 
-export function FormWizard({ title, steps, onComplete, onCancel, width, height, onPasteImage, footerExtra }: FormWizardProps) {
+export function FormWizard({ title, steps, onComplete, onCancel, width, height, onPasteImage, footerExtra, onSuggestionSelected }: FormWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [values, setValues] = useState<Record<string, string>>({});
   const [textInput, setTextInput] = useState(() => {
@@ -95,6 +99,10 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   // Multiselect toggled values (set of selected option values)
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
 
+  // Suggestion browsing: whether ↓ has been pressed to enter the suggestion list from a text step
+  const [browsingSuggestions, setBrowsingSuggestions] = useState(false);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
+
   // Resolve options for current select/multiselect step
   const options = useMemo(() => {
     if (!step || (step.type !== 'select' && step.type !== 'multiselect')) return [];
@@ -103,6 +111,17 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
 
   // Clamp selectIndex when options change
   const clampedSelectIndex = Math.min(selectIndex, Math.max(0, options.length - 1));
+
+  // Filtered suggestions for text steps with suggestion lists
+  const filteredSuggestions = useMemo(() => {
+    if (!step?.suggestions) return [];
+    if (!textInput.trim()) return step.suggestions;
+    const q = textInput.toLowerCase();
+    return step.suggestions.filter((s) =>
+      s.label.toLowerCase().includes(q) || (s.hint ?? '').toLowerCase().includes(q),
+    );
+  }, [step?.suggestions, textInput]);
+  const clampedSuggestionIdx = Math.min(suggestionIndex, Math.max(0, filteredSuggestions.length - 1));
 
   const goToNextStep = (value: string) => {
     const newValues = { ...values, [step!.id]: value };
@@ -233,10 +252,42 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     }
 
     if (step.type === 'text') {
+      // Suggestion browsing mode (↓ entered the suggestion list)
+      if (browsingSuggestions && filteredSuggestions.length > 0) {
+        if (key.upArrow) {
+          if (clampedSuggestionIdx <= 0) {
+            // Exit suggestion list, return focus to text input
+            setBrowsingSuggestions(false);
+          } else {
+            setSuggestionIndex((i) => i - 1);
+          }
+          return;
+        }
+        if (key.downArrow) {
+          setSuggestionIndex((i) => Math.min(filteredSuggestions.length - 1, i + 1));
+          return;
+        }
+        if (key.return) {
+          const selected = filteredSuggestions[clampedSuggestionIdx];
+          if (selected && onSuggestionSelected) {
+            onSuggestionSelected(selected.value);
+          }
+          return;
+        }
+        // Any other key exits suggestion mode and processes normally
+        setBrowsingSuggestions(false);
+        // fall through to normal text handling below
+      }
+
       if (key.return) {
         const val = textInput.trim();
         if (step.required && !val) return;
         goToNextStep(val);
+        return;
+      }
+      if (key.downArrow && step.suggestions && filteredSuggestions.length > 0) {
+        setBrowsingSuggestions(true);
+        setSuggestionIndex(0);
         return;
       }
       if (key.leftArrow) {
@@ -259,6 +310,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         return;
       }
       if (input && !key.ctrl && !key.meta && !key.escape) {
+        setBrowsingSuggestions(false);
         setTextInput((v) => v.slice(0, cursorPos) + input + v.slice(cursorPos));
         setCursorPos((p) => p + input.length);
       }
@@ -505,6 +557,38 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         </Box>
       )}
 
+      {/* Suggestion list below text input */}
+      {step.type === 'text' && step.suggestions && filteredSuggestions.length > 0 && (() => {
+        const sugH = Math.max(2, height - 6);
+        let sugScrollStart = 0;
+        if (browsingSuggestions && clampedSuggestionIdx >= sugH) {
+          sugScrollStart = clampedSuggestionIdx - sugH + 1;
+        }
+        const visibleSugs = filteredSuggestions.slice(sugScrollStart, sugScrollStart + sugH);
+        return (
+          <Box flexDirection="column">
+            <Text color={tuiColors.ghost}>  {LIGHT_RULE}{LIGHT_RULE}{LIGHT_RULE} or browse templates {LIGHT_RULE.repeat(Math.max(0, maxW - 28))}</Text>
+            {visibleSugs.map((sug, i) => {
+              const realIdx = i + sugScrollStart;
+              const isSelected = browsingSuggestions && realIdx === clampedSuggestionIdx;
+              return (
+                <Box key={sug.value}>
+                  <Text color={isSelected ? tuiColors.amber : tuiColors.ghost}>
+                    {isSelected ? '  \u25B8 ' : '    '}
+                  </Text>
+                  <Text color={isSelected ? tuiColors.white : tuiColors.silver} bold={isSelected}>
+                    {sug.label}
+                  </Text>
+                  {sug.hint && (
+                    <Text color={tuiColors.dim} wrap="truncate">{' '}{LIGHT_RULE} {sug.hint.replace(/\n/g, ' ')}</Text>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        );
+      })()}
+
       {/* Textarea (multiline editor) */}
       {step.type === 'textarea' && (() => {
         const taVisibleH = Math.max(3, height - 6);
@@ -612,7 +696,11 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
               ? '\u2191\u2193 move  Space toggle  Enter confirm'
               : step.type === 'textarea'
                 ? 'Shift+Enter newline  Enter confirm  \u2190\u2191\u2192\u2193 navigate'
-                : '\u2190\u2192 move  Enter confirm'}
+                : browsingSuggestions
+                  ? '\u2191\u2193 browse  Enter select  \u2191 back to input'
+                  : step.suggestions
+                    ? '\u2190\u2192 move  Enter confirm  \u2193 browse templates'
+                    : '\u2190\u2192 move  Enter confirm'}
           {onPasteImage && (step.type === 'text' || step.type === 'textarea') ? `  ${process.platform === 'darwin' ? '\u2318' : 'Ctrl'}+V paste image` : ''}
           {'  Esc '}
           {currentStep > 0 ? 'back' : 'cancel'}

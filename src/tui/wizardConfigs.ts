@@ -8,7 +8,7 @@
 import type { WizardStep } from './components/FormWizard.js';
 import type { Agent } from '../domain/agent.js';
 import type { Goal } from '../domain/goal.js';
-import type { ActivityFilterPreset } from '../domain/global-config.js';
+import type { ActivityFilterPreset, NotificationPreferences } from '../domain/global-config.js';
 import type { Team } from '../domain/team.js';
 import type { CreateTeamInput } from '../domain/team.js';
 import { AGENT_SHOP_TEMPLATES, getShopTemplateByKey } from '../domain/agent-shop.js';
@@ -168,6 +168,11 @@ export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
       type: 'text',
       placeholder: 'e.g. alpha, frontend-bot, reviewer',
       required: true,
+      suggestions: AGENT_SHOP_TEMPLATES.map((t) => ({
+        value: t.key,
+        label: t.name,
+        hint: t.description,
+      })),
     },
     {
       id: 'adapter',
@@ -456,7 +461,20 @@ const ACTIVITY_FILTER_OPTIONS = [
   { value: 'events', label: 'Events', hint: 'lifecycle, system events' },
 ];
 
-export function getConfigWizardSteps(currentFilter: ActivityFilterPreset, currentMaxConcurrent: number): WizardStep[] {
+// ── Notification toggle options ──
+
+const TOGGLE_OPTIONS = [
+  { value: 'true', label: 'On' },
+  { value: 'false', label: 'Off' },
+];
+
+export function getConfigWizardSteps(
+  currentFilter: ActivityFilterPreset,
+  currentMaxConcurrent: number,
+  currentNotifications?: NotificationPreferences,
+): WizardStep[] {
+  const notif = currentNotifications ?? { toast: true, bell: false };
+
   return [
     {
       id: 'setting',
@@ -465,6 +483,8 @@ export function getConfigWizardSteps(currentFilter: ActivityFilterPreset, curren
       options: [
         { value: 'activity_filter', label: 'Activity filter', hint: `current: ${currentFilter}` },
         { value: 'max_concurrent', label: 'Max concurrent agents', hint: `current: ${currentMaxConcurrent}` },
+        { value: 'notifications_toast', label: 'Toast notifications', hint: `current: ${notif.toast ? 'on' : 'off'}` },
+        { value: 'notifications_bell', label: 'Bell on completion', hint: `current: ${notif.bell ? 'on' : 'off'}` },
       ],
     },
     {
@@ -482,6 +502,22 @@ export function getConfigWizardSteps(currentFilter: ActivityFilterPreset, curren
       options: MAX_CONCURRENT_OPTIONS,
       defaultValue: String(currentMaxConcurrent),
       skip: (vals) => vals.setting !== 'max_concurrent',
+    },
+    {
+      id: 'notifications_toast',
+      label: 'Toast notifications',
+      type: 'select',
+      options: TOGGLE_OPTIONS,
+      defaultValue: String(notif.toast),
+      skip: (vals) => vals.setting !== 'notifications_toast',
+    },
+    {
+      id: 'notifications_bell',
+      label: 'Bell on completion',
+      type: 'select',
+      options: TOGGLE_OPTIONS,
+      defaultValue: String(notif.bell),
+      skip: (vals) => vals.setting !== 'notifications_bell',
     },
   ];
 }
