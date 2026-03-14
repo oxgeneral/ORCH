@@ -3113,19 +3113,7 @@ function relativeTime(ts: number, now: number): string {
   return `${Math.floor(diff / 3_600_000)}h`;
 }
 
-/** Build a sparkline string from message timestamps (last N buckets) */
-const SPARK_CHARS = ' ▁▂▃▄▅▆▇█';
-function buildSparkline(messages: StatusMessage[], buckets: number, bucketMs: number, now: number): string {
-  const counts = new Array(buckets).fill(0) as number[];
-  const windowStart = now - buckets * bucketMs;
-  for (const m of messages) {
-    if (m.ts < windowStart) continue;
-    const idx = Math.min(buckets - 1, Math.floor((m.ts - windowStart) / bucketMs));
-    counts[idx]!++;
-  }
-  const max = Math.max(1, ...counts);
-  return counts.map((c) => SPARK_CHARS[Math.round((c / max) * 8)]!).join('');
-}
+
 
 /** Get background color for message type — only errors get a bg to keep the feed calm */
 function getMsgBg(msgType: MsgType): string | undefined {

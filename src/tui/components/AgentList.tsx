@@ -106,27 +106,6 @@ export const AgentRow = React.memo(function AgentRow({ agent, selected, width, r
   const fixedCols = 2 + chipWidth + adapterWidth + teamColWidth + timeWidth;
   const nameWidth = width ? Math.max(8, width - fixedCols) : 20;
 
-  // Role / current task / error summary display
-  let roleText: string;
-  let roleColor: string;
-  let roleBold = false;
-  if (agent.status === 'error' && agent.last_error) {
-    const hint = ERROR_HINTS[agent.last_error.kind as AdapterErrorKind];
-    const summary = hint ? hint.message : agent.last_error.message;
-    roleText = capLine(summary, 40);
-    roleColor = tuiColors.dim;
-  } else if (isRunning && currentTaskTitle) {
-    roleText = currentTaskTitle;
-    roleColor = tuiColors.white;
-    roleBold = true;
-  } else if (agent.role) {
-    roleText = agent.role;
-    roleColor = tuiColors.dim;
-  } else {
-    roleText = '\u2014'; // —
-    roleColor = tuiColors.ghost;
-  }
-
   // Stats badge for agents with history
   const hasHistory = agent.stats.total_runs > 0;
   const successRate = hasHistory
