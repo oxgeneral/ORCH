@@ -148,7 +148,7 @@ describe('ClaudeAdapter', () => {
       expect(args).not.toContain('--system-prompt');
     });
 
-    it('passes prompt as last arg (not systemPrompt)', () => {
+    it('passes prompt as last arg and systemPrompt via --system-prompt flag', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new ClaudeAdapter(pm);
@@ -160,7 +160,10 @@ describe('ClaudeAdapter', () => {
 
       const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
       expect(args[args.length - 1]).toBe('user task prompt');
-      expect(args).not.toContain('system instructions');
+      // systemPrompt should be passed via --system-prompt flag, not as a bare arg
+      const spIdx = args.indexOf('--system-prompt');
+      expect(spIdx).toBeGreaterThan(-1);
+      expect(args[spIdx + 1]).toBe('system instructions');
     });
 
     it('returns pid in handle', () => {

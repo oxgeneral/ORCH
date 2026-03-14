@@ -29,7 +29,7 @@ import { CachedTaskStore, CachedAgentStore, CachedGoalStore } from '../infrastru
 import type { AdapterRegistry } from '../infrastructure/adapters/registry.js';
 import type { IWorkspaceManager } from '../infrastructure/workspace/interface.js';
 import type { ITemplateEngine } from '../infrastructure/template/template-engine.js';
-import { buildPromptContext, DEFAULT_PROMPT_TEMPLATE, DEFAULT_SYSTEM_TEMPLATE, DEFAULT_USER_TEMPLATE, type RetryContext, type GoalContext } from '../infrastructure/template/template-engine.js';
+import { buildPromptContext, DEFAULT_SYSTEM_TEMPLATE, DEFAULT_USER_TEMPLATE, type RetryContext, type GoalContext } from '../infrastructure/template/template-engine.js';
 import type { IProcessManager } from '../infrastructure/process/process-manager.js';
 import type { AgentEvent } from '../infrastructure/adapters/interface.js';
 import type { EventBus } from './event-bus.js';
@@ -791,11 +791,10 @@ export class Orchestrator {
       );
 
       // Build prompt — split into system (cached) and user (dynamic) parts
-      const hasCustomTemplate = !!this.deps.config.prompt?.template;
       const systemTemplate = this.deps.config.prompt?.system_template ?? DEFAULT_SYSTEM_TEMPLATE;
       const userTemplate = this.deps.config.prompt?.user_template ?? DEFAULT_USER_TEMPLATE;
       // Legacy: if user set a single template, use it as combined (no split)
-      const legacyTemplate = hasCustomTemplate ? this.deps.config.prompt!.template! : undefined;
+      const legacyTemplate = this.deps.config.prompt?.template;
       const attempt = task.attempts + 1;
 
       let retryContext: RetryContext | undefined;
@@ -858,12 +857,8 @@ export class Orchestrator {
         prompt = await this.deps.templateEngine.render(legacyTemplate, context);
       } else {
         // Split mode: system prompt (cacheable) + user prompt (dynamic)
-        const [rendered_system, rendered_user] = await Promise.all([
-          this.deps.templateEngine.render(systemTemplate, context),
-          this.deps.templateEngine.render(userTemplate, context),
-        ]);
-        systemPrompt = rendered_system;
-        prompt = rendered_user;
+        systemPrompt = await this.deps.templateEngine.render(systemTemplate, context);
+        prompt = await this.deps.templateEngine.render(userTemplate, context);
       }
 
       // Create run

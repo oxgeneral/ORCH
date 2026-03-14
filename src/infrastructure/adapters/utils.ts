@@ -13,6 +13,11 @@ import { classifyAdapterError } from '../../domain/errors.js';
 
 export type TokenInfo = { input: number; output: number; total: number };
 
+/** Combine system and user prompts. Adapters without native system prompt support use this. */
+export function buildFullPrompt(systemPrompt: string | undefined, userPrompt: string): string {
+  return systemPrompt ? systemPrompt + '\n\n' + userPrompt : userPrompt;
+}
+
 /**
  * Extract token usage from a parsed JSON event.
  *

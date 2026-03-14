@@ -8,7 +8,7 @@
 
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
-import { extractTokens, createStreamingEvents } from './utils.js';
+import { extractTokens, createStreamingEvents, buildFullPrompt } from './utils.js';
 import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -57,10 +57,7 @@ export class CodexAdapter implements IAgentAdapter {
 
     // Pipe prompt via stdin — prepend system prompt if present (Codex has no native --system-prompt)
     if (proc.stdin) {
-      const fullPrompt = params.systemPrompt
-        ? params.systemPrompt + '\n\n' + params.prompt
-        : params.prompt;
-      proc.stdin.write(fullPrompt);
+      proc.stdin.write(buildFullPrompt(params.systemPrompt, params.prompt));
       proc.stdin.end();
     }
 

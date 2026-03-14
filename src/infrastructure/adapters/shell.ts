@@ -8,6 +8,7 @@
 
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
+import { buildFullPrompt } from './utils.js';
 import { readLines } from '../process/process-manager.js';
 import { EventBuffer } from './event-buffer.js';
 import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
@@ -46,17 +47,12 @@ export class ShellAdapter implements IAgentAdapter {
       return { pid: 0, events: errorGen() };
     }
 
-    // Shell adapter: prepend system prompt if present (no native system prompt support)
-    const fullPrompt = params.systemPrompt
-      ? params.systemPrompt + '\n\n' + params.prompt
-      : params.prompt;
-
     const { process: proc, pid } = this.processManager.spawn('bash', ['-lc', command], {
       cwd: params.workspace,
       env: {
         ...process.env,
         ...params.env,
-        ORCHESTRY_TASK_PROMPT: fullPrompt,
+        ORCHESTRY_TASK_PROMPT: buildFullPrompt(params.systemPrompt, params.prompt),
       },
       signal: params.signal,
     });
