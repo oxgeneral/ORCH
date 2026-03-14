@@ -129,14 +129,15 @@ function truncateRole(role: string | undefined): string | undefined {
 /** Max number of context entries injected into a single prompt. */
 const MAX_CONTEXT_ENTRIES = 15;
 
-/** Max length per context value (chars). */
-const MAX_CONTEXT_VALUE_LENGTH = 500;
+/** Default max length per context value (chars). */
+const DEFAULT_MAX_CONTEXT_VALUE_LENGTH = 500;
 
 export interface ContextFilterInput {
   agentName: string;
   agentRole?: string;
   goalId?: string;
   taskScope?: string[];
+  maxValueLength?: number;
 }
 
 /**
@@ -210,10 +211,11 @@ export function filterRelevantContext(
   }
 
   // Build result with truncated values
+  const maxLen = filter.maxValueLength ?? DEFAULT_MAX_CONTEXT_VALUE_LENGTH;
   const result: Record<string, string> = {};
   for (const { key, value } of relevant) {
-    result[key] = value.length > MAX_CONTEXT_VALUE_LENGTH
-      ? value.slice(0, MAX_CONTEXT_VALUE_LENGTH - 1) + '…'
+    result[key] = value.length > maxLen
+      ? value.slice(0, maxLen - 1) + '…'
       : value;
   }
   return result;
@@ -318,6 +320,7 @@ export function buildPromptContext(
           agentRole: agent.role,
           goalId: task.goalId,
           taskScope: task.scope,
+          maxValueLength: config.prompt?.max_context_value_length,
         })
       : undefined,
     messages,

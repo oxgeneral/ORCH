@@ -42,6 +42,7 @@ export interface OrchestratorConfig {
   scheduling: SchedulingConfig;
   prompt?: {
     template?: string;
+    max_context_value_length?: number;
   };
 }
 

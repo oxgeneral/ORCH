@@ -399,6 +399,39 @@ describe('filterRelevantContext', () => {
     expect(result['short-entry']).toBe(shortValue);
   });
 
+  it('respects custom maxValueLength from filter input', () => {
+    const longValue = 'y'.repeat(300);
+    const ctx: Record<string, string> = { 'entry': longValue };
+    const result = filterRelevantContext(ctx, { agentName: 'Backend A', maxValueLength: 200 });
+    expect(result['entry']!.length).toBe(200);
+    expect(result['entry']).toMatch(/…$/);
+  });
+
+  it('does not truncate when value is under custom maxValueLength', () => {
+    const ctx: Record<string, string> = { 'entry': 'short' };
+    const result = filterRelevantContext(ctx, { agentName: 'Backend A', maxValueLength: 200 });
+    expect(result['entry']).toBe('short');
+  });
+
+  it('buildPromptContext passes config max_context_value_length to filter', () => {
+    const longValue = 'z'.repeat(400);
+    const ctx: Record<string, string> = { 'test-key': longValue };
+    const configWithLimit = {
+      ...DEFAULT_CONFIG,
+      prompt: { max_context_value_length: 250 },
+    };
+    const result = buildPromptContext(
+      makeTask(),
+      makeAgent({ name: 'Backend A' }),
+      1,
+      '/workspace',
+      configWithLimit,
+      { sharedContext: ctx },
+    );
+    expect(result.shared_context!['test-key']!.length).toBe(250);
+    expect(result.shared_context!['test-key']).toMatch(/…$/);
+  });
+
   it('includes zero-score entries when under limit', () => {
     const ctx: Record<string, string> = {
       'random-key-1': 'value1',
