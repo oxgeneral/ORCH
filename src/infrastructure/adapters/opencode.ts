@@ -8,7 +8,7 @@
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
 import { createStreamingEvents, buildFullPrompt } from './utils.js';
-import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
+import { classifyAdapterError } from '../../domain/errors.js';
 import { createTokenUsage } from '../../domain/run.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -75,7 +75,7 @@ function parseOpenCodeEvent(line: string): AgentEvent | null {
 
     switch (type) {
       case 'step_start':
-        return { type: 'output', timestamp, data: parsed.part ?? parsed };
+        return null; // lifecycle event — no user-visible content
 
       case 'text':
         return { type: 'output', timestamp, data: part.text ?? part };

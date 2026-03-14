@@ -157,7 +157,7 @@ describe('OpenCodeAdapter', () => {
       expect(events[0]!.data).toBe('hello world');
     });
 
-    it('parses step_start event as output', async () => {
+    it('skips step_start lifecycle event', async () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new OpenCodeAdapter(pm);
@@ -169,13 +169,20 @@ describe('OpenCodeAdapter', () => {
         sessionID: 'ses_1',
         part: { type: 'step-start', snapshot: 'abc123' },
       }) + '\n');
+      proc.stdout.write(JSON.stringify({
+        type: 'text',
+        part: { text: 'hello' },
+      }) + '\n');
       proc.stdout.end();
       setTimeout(() => proc.emit('close', 0), 20);
 
       const events: AgentEvent[] = [];
       for await (const ev of handle.events) events.push(ev);
 
+      // step_start is skipped, only text event remains
+      expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe('output');
+      expect(events[0]!.data).toBe('hello');
     });
 
     it('parses tool_use event as tool_call', async () => {

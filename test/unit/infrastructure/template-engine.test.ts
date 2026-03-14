@@ -118,7 +118,7 @@ describe('buildPromptContext', () => {
   });
 });
 
-describe('buildPromptContext compact team listing', () => {
+describe('buildPromptContext team listing', () => {
   const multilineRole = 'Senior Backend Developer\n## WORKFLOW\n1) Step one\n2) Step two\n## RULES\n- Rule A\n- Rule B';
   const longFirstLine = 'A'.repeat(100);
 
