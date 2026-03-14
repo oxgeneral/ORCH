@@ -44,6 +44,17 @@ const CURSOR_MODELS = [
   { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', hint: 'Anthropic' },
 ];
 
+const OPENCODE_MODELS = [
+  { value: '', label: 'Default', hint: 'use model configured in opencode' },
+  { value: 'openrouter/anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6', hint: 'fast, balanced' },
+  { value: 'openrouter/anthropic/claude-opus-4.6', label: 'Claude Opus 4.6', hint: 'most capable' },
+  { value: 'openrouter/google/gemini-2.5-pro', label: 'Gemini 2.5 Pro', hint: 'Google' },
+  { value: 'openrouter/google/gemini-2.5-flash', label: 'Gemini 2.5 Flash', hint: 'Google, fast' },
+  { value: 'openrouter/deepseek/deepseek-v3.2', label: 'DeepSeek V3.2', hint: 'open-source' },
+  { value: 'openrouter/deepseek/deepseek-r1:free', label: 'DeepSeek R1', hint: 'reasoning, free' },
+  { value: 'opencode/big-pickle', label: 'Big Pickle', hint: 'opencode native' },
+];
+
 const SHELL_MODELS = [
   { value: '', label: 'Default', hint: 'use shell adapter default' },
 ];
@@ -191,6 +202,7 @@ export function getAgentWizardSteps(agents?: Agent[], teams?: Team[]): WizardSte
       label: 'Model',
       type: 'select',
       getOptions: (vals) => {
+        if (vals.adapter === 'opencode') return OPENCODE_MODELS;
         if (vals.adapter === 'codex') return CODEX_MODELS;
         if (vals.adapter === 'cursor') return CURSOR_MODELS;
         if (vals.adapter === 'shell') return SHELL_MODELS;
@@ -411,6 +423,7 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
   const roleDefault = currentRoleInPresets ? agent.role! : (agent.role ? '__custom__' : '');
 
   const modelOptions =
+    agent.adapter === 'opencode' ? OPENCODE_MODELS :
     agent.adapter === 'codex' ? CODEX_MODELS :
     agent.adapter === 'cursor' ? CURSOR_MODELS :
     agent.adapter === 'shell' ? SHELL_MODELS :
