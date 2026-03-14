@@ -31,6 +31,7 @@ import { FormWizard } from './components/FormWizard.js';
 import type { WizardStep } from './components/FormWizard.js';
 import { Spinner } from './components/Spinner.js';
 import { OnboardingBox, type OnboardingConfig, WelcomeScreen, OnboardingNudge, OnboardingToast, type OnboardingStep } from './components/OnboardingBox.js';
+import { ToastBanner, type Toast, type ToastType } from './components/ToastBanner.js';
 import {
   getAgentWizardSteps, agentWizardToInput,
   getTaskWizardSteps, taskWizardToInput,
@@ -43,7 +44,7 @@ import {
   getShopWizardSteps, applyShopTemplate,
 } from './wizardConfigs.js';
 import { getShopTemplateByKey } from '../domain/agent-shop.js';
-import type { ActivityFilterPreset } from '../domain/global-config.js';
+import type { ActivityFilterPreset, NotificationPreferences } from '../domain/global-config.js';
 import { DEFAULT_CONFIG } from '../domain/config.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
 import { ERROR_HINTS, type AdapterErrorKind } from '../domain/errors.js';
@@ -57,6 +58,8 @@ const MAX_RUN_MAP_SIZE = 500;
 const MAX_DETAIL_LEN = 2048;
 /** Max status messages kept in the activity feed */
 const MAX_MESSAGES = 500;
+/** Max toast notifications in the queue (FIFO — oldest removed) */
+const MAX_TOASTS = 5;
 
 /** Statuses that allow R (run) action */
 const RUNNABLE: Set<TaskStatus> = new Set(['todo', 'failed', 'cancelled']);
@@ -156,6 +159,10 @@ export interface AppProps {
   initialMaxConcurrent?: number;
   /** Save max concurrent agents to project config */
   onSaveMaxConcurrent?: (value: number) => Promise<void>;
+  /** Initial notification preferences from global config */
+  initialNotifications?: NotificationPreferences;
+  /** Save notification preferences to global config */
+  onSaveNotifications?: (notif: NotificationPreferences) => Promise<void>;
   /** Current CLI version (shown in header) */
   version?: string;
   /** Latest available version from npm (shown as UPDATE chip if newer) */
@@ -306,6 +313,8 @@ export function App({
   onSaveActivityFilter,
   initialMaxConcurrent = DEFAULT_CONFIG.scheduling.max_concurrent_agents,
   onSaveMaxConcurrent,
+  initialNotifications,
+  onSaveNotifications,
   version,
   latestVersion,
 }: AppProps) {
@@ -391,12 +400,60 @@ export function App({
   // Max concurrent agents (project config)
   const [maxConcurrent, setMaxConcurrent] = useState(initialMaxConcurrent);
 
+  // Notification preferences (global config)
+  const [notifications, setNotifications] = useState<NotificationPreferences>(initialNotifications ?? { toast: true, bell: false });
+
+  // Toast notification queue
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastSeq = useRef(0);
+
+  // Refs for live data — used in event handler to avoid stale closures
+  const liveTasksRef = useRef(liveTasks);
+  liveTasksRef.current = liveTasks;
+  const liveAgentsRef = useRef(liveAgents);
+  liveAgentsRef.current = liveAgents;
+  const notificationsRef = useRef(notifications);
+  notificationsRef.current = notifications;
+
+  const addToast = useCallback((type: ToastType, taskId: string) => {
+    if (!notificationsRef.current.toast) return;
+    const task = liveTasksRef.current.find((t) => t.id === taskId);
+    const title = task?.title ?? taskId;
+    const agent = task?.assignee
+      ? liveAgentsRef.current.find((a) => a.id === task.assignee)
+      : undefined;
+
+    setToasts((prev) => {
+      const next = [...prev, {
+        id: `toast_${toastSeq.current++}`,
+        type,
+        title,
+        agentName: agent?.name,
+        ts: Date.now(),
+      }];
+      return next.length > MAX_TOASTS ? next.slice(next.length - MAX_TOASTS) : next;
+    });
+
+    // Terminal bell for failed/review
+    if (notificationsRef.current.bell && (type === 'failed' || type === 'review')) {
+      process.stdout.write('\x07');
+    }
+  }, []);
+
+  const handleDismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   // Command bar: history, scroll offsets, suggestion selection
   const cmdHistory = React.useRef(new CommandHistory()).current;
   const [taskScrollOffset, setTaskScrollOffset] = useState(0);
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [agentScrollOffset, setAgentScrollOffset] = useState(0);
   const [goalScrollOffset, setGoalScrollOffset] = useState(0);
+
+  // Detail panel split resize (+/-/M hotkeys)
+  const [splitOffset, setSplitOffset] = useState(0);
+  const [isDetailMaximized, setIsDetailMaximized] = useState(false);
   const [goalDetailScroll, setGoalDetailScroll] = useState(0);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
 
@@ -813,7 +870,7 @@ export function App({
   const launchConfigWizard = useCallback(() => {
     setWizardConfig({
       title: 'SETTINGS',
-      steps: getConfigWizardSteps(activityFilterLabel, maxConcurrent),
+      steps: getConfigWizardSteps(activityFilterLabel, maxConcurrent, notifications),
       kind: 'config',
     });
     setInputMode('wizard');
@@ -957,6 +1014,18 @@ export function App({
           onSaveMaxConcurrent?.(num);
           addMessage(`Max concurrent agents: ${num}`, tuiColors.amber);
         }
+      } else if (values.setting === 'notifications_toast' && values.notifications_toast) {
+        const enabled = values.notifications_toast === 'true';
+        const updated = { ...notifications, toast: enabled };
+        setNotifications(updated);
+        onSaveNotifications?.(updated);
+        addMessage(`Toast notifications: ${enabled ? 'on' : 'off'}`, tuiColors.amber);
+      } else if (values.setting === 'notifications_bell' && values.notifications_bell) {
+        const enabled = values.notifications_bell === 'true';
+        const updated = { ...notifications, bell: enabled };
+        setNotifications(updated);
+        onSaveNotifications?.(updated);
+        addMessage(`Bell on completion: ${enabled ? 'on' : 'off'}`, tuiColors.amber);
       }
     } else if (kind === 'goal' && onCreateGoal) {
       const input = goalWizardToInput(values);
@@ -973,12 +1042,26 @@ export function App({
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
     }
-  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onLeaveTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter, onSaveMaxConcurrent, liveTeams, pendingAttachments]);
+  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onLeaveTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter, onSaveMaxConcurrent, notifications, onSaveNotifications, liveTeams, pendingAttachments]);
 
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');
     setWizardConfig(null);
     setPendingAttachments([]);
+  }, []);
+
+  /** Handle template selection from inline suggestion list in agent wizard name step */
+  const handleSuggestionSelected = useCallback((templateKey: string) => {
+    const template = getShopTemplateByKey(templateKey);
+    if (!template) return;
+    const baseSteps = getAgentWizardSteps(liveTeamsRef.current);
+    const prefilledSteps = applyShopTemplate(baseSteps, template);
+    setWizardConfig({
+      title: `NEW AGENT \u2014 ${template.name}`,
+      steps: prefilledSteps,
+      kind: 'agent_from_shop',
+    });
+    setInputMode('wizard');
   }, []);
 
   // Live event subscription — update activity feed AND refresh data
@@ -1011,6 +1094,13 @@ export function App({
         setOnboardingStep((prev) => prev === 'run_started' ? 'completed' : prev);
       }
 
+      // ── Toast notifications on task completion ──
+      if (event.type === 'task:status_changed') {
+        if (event.to === 'done') addToast('done', event.taskId);
+        else if (event.to === 'failed') addToast('failed', event.taskId);
+        else if (event.to === 'review') addToast('review', event.taskId);
+      }
+
       // Refresh on state-changing events
       if (event.type === 'task:status_changed' ||
           event.type === 'task:created' ||
@@ -1029,7 +1119,7 @@ export function App({
       unsubscribe();
       if (refreshTimer) clearTimeout(refreshTimer);
     };
-  }, [onSubscribeEvents, addMessage, refreshAll]);
+  }, [onSubscribeEvents, addMessage, refreshAll, addToast]);
 
   // Layout (computed before useInput — mainH needed for scroll)
   const mode = watchActive ? 'watching' : 'idle';
@@ -1072,8 +1162,23 @@ export function App({
     activeView === 'agents' ? liveAgents.length + 1 + agentSectionRows : 0;
   const minListH = Math.min(listItemCount + 1, Math.ceil(contentH * 0.5)); // cap at 50%
   const hasTaskFooter = activeView === 'tasks' && hiddenTaskCount > 0;
-  const mainH = activeView === 'logs' ? contentH : Math.max(2, Math.min(minListH, contentH - 4));
-  const feedH = Math.max(1, contentH - mainH - (hasTaskFooter ? 1 : 0));
+  const footerH = hasTaskFooter ? 1 : 0;
+  // Base adaptive split, then apply user offset and maximized toggle
+  const baseMainH = activeView === 'logs' ? contentH : Math.max(2, Math.min(minListH, contentH - 4));
+  let mainH: number;
+  let feedH: number;
+  if (activeView === 'logs') {
+    mainH = contentH;
+    feedH = 0;
+  } else if (isDetailMaximized) {
+    mainH = 0;
+    feedH = Math.max(1, contentH - footerH);
+  } else {
+    // Apply splitOffset: negative = more detail, positive = more list
+    const adjusted = Math.max(3, Math.min(baseMainH + splitOffset, contentH - 4 - footerH));
+    mainH = adjusted;
+    feedH = Math.max(1, contentH - adjusted - footerH);
+  }
   const ruleW = Math.max(10, W - 2);
 
   // Suggestions for command mode
@@ -1081,6 +1186,13 @@ export function App({
     () => inputMode === 'command' ? resolveSuggestions(inputValue) : [],
     [inputMode, inputValue],
   );
+
+  // Clamp splitOffset when terminal resizes
+  const maxSplitOffset = contentH - 4 - 3; // list min 3, detail min 4
+  useEffect(() => {
+    if (splitOffset > maxSplitOffset) setSplitOffset(maxSplitOffset);
+    if (splitOffset < -maxSplitOffset) setSplitOffset(-maxSplitOffset);
+  }, [contentH]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clamp scroll offsets when data changes
   useEffect(() => {
@@ -1640,6 +1752,32 @@ export function App({
       return;
     }
 
+    // +/=: expand detail panel (shrink list by 3 rows)
+    if ((input === '+' || input === '=') && activeView !== 'logs') {
+      if (isDetailMaximized) {
+        setIsDetailMaximized(false);
+        setSplitOffset(-Math.floor(contentH / 2)); // start with large detail
+      } else {
+        setSplitOffset((o) => Math.max(-maxSplitOffset, o - 3));
+      }
+      return;
+    }
+    // -: shrink detail panel (expand list by 3 rows)
+    if (input === '-' && activeView !== 'logs') {
+      if (isDetailMaximized) {
+        setIsDetailMaximized(false);
+        setSplitOffset(Math.floor(contentH / 2)); // start with large list
+      } else {
+        setSplitOffset((o) => Math.min(maxSplitOffset, o + 3));
+      }
+      return;
+    }
+    // M (shift+m): toggle fullscreen detail panel
+    if (input === 'M' && activeView !== 'logs') {
+      setIsDetailMaximized((v) => !v);
+      return;
+    }
+
     // /: command bar (from any view, when not in detail)
     if (input === '/' && !detailOpen) {
       setInputMode('command');
@@ -2005,6 +2143,7 @@ export function App({
 
   const inInput = inputMode !== 'none';
   const selectedLog = logSelectedIndex >= 0 ? messages[logSelectedIndex] : undefined;
+  const detailResizeHint = isDetailMaximized ? '+/- exit max' : '+/- resize \u2502 M max';
   const showTaskDetail = !inInput && detailOpen && activeView === 'tasks' && selectedTask;
   const showAgentDetail = !inInput && detailOpen && activeView === 'agents' && selectedAgent;
   const showGoalDetail = !inInput && detailOpen && activeView === 'goals' && selectedGoal;
@@ -2145,9 +2284,9 @@ export function App({
           width={ruleW}
           height={feedH}
           onPasteImage={isPasteCapable ? handlePasteImage : undefined}
+          onSuggestionSelected={wizardConfig.kind === 'agent' ? handleSuggestionSelected : undefined}
           footerExtra={
-            wizardConfig.kind === 'agent' ? `${process.platform === 'darwin' ? '\u2318' : 'Ctrl'}+S browse shop`
-            : pendingAttachments.length > 0 && isPasteCapable ? `\uD83D\uDCCE${pendingAttachments.length}`
+            pendingAttachments.length > 0 && isPasteCapable ? `\uD83D\uDCCE${pendingAttachments.length}`
             : undefined
           }
         />
@@ -2168,19 +2307,21 @@ export function App({
         </>
       ) : showTaskDetail ? (
         <>
-          <DetailSectionLabel task={selectedTask} width={ruleW} />
+          <DetailSectionLabel task={selectedTask} width={ruleW} resizeHint={detailResizeHint} />
           <DetailPanel task={selectedTask} height={feedH} width={ruleW}
             taskLogs={messages.filter((m) => m.taskId === selectedTask.id)}
             agentNameMap={agentNameMap} />
         </>
       ) : showGoalDetail ? (
         <>
-          <SectionLabel label={`GOAL: ${selectedGoal.title}`} width={ruleW} />
+          <SectionLabel label={`GOAL: ${selectedGoal.title}`} width={ruleW}
+            suffixLen={detailResizeHint.length + 2}
+            suffix={<Text color={tuiColors.dim}> {detailResizeHint} </Text>} />
           <GoalDetailPanel goal={selectedGoal} height={feedH} width={ruleW} agentNameMap={agentNameMap} tasks={selectedGoalTasks} progressReport={goalProgressReport} scrollOffset={goalDetailScroll} onClampScroll={setGoalDetailScroll} />
         </>
       ) : showAgentDetail ? (
         <>
-          <AgentDetailSectionLabel agent={selectedAgent} width={ruleW} />
+          <AgentDetailSectionLabel agent={selectedAgent} width={ruleW} resizeHint={detailResizeHint} />
           <AgentDetailPanel agent={selectedAgent} height={feedH} state={liveState} taskTitleMap={taskTitleMap} teamName={agentTeamMap.get(selectedAgent.id)} />
         </>
       ) : showLogDetail ? (
@@ -2213,6 +2354,9 @@ export function App({
 
       {/* Spacer pushes CommandBar to bottom */}
       <Box flexGrow={1} />
+
+      {/* Toast notifications — task completion events */}
+      <ToastBanner toasts={toasts} onDismiss={handleDismissToast} />
 
       {/* Undo banner — shows pending deletions with countdown */}
       {pendingDeletions.length > 0 && (
@@ -3216,13 +3360,14 @@ function SectionLabel({ label, width, suffix, suffixLen = 0 }: { label: string; 
   );
 }
 
-function DetailSectionLabel({ task, width }: { task: Task; width: number }) {
+function DetailSectionLabel({ task, width, resizeHint }: { task: Task; width: number; resizeHint?: string }) {
   const chipText = ' DETAIL ';
-  const maxTitleLen = width - chipText.length - 10;
+  const hint = resizeHint ? ` ${resizeHint} ` : '';
+  const maxTitleLen = width - chipText.length - hint.length - 10;
   const titleTrunc = task.title.length > maxTitleLen
     ? task.title.slice(0, maxTitleLen - 3) + '...'
     : task.title;
-  const rightRuleLen = Math.max(0, width - 3 - chipText.length - titleTrunc.length - 4);
+  const rightRuleLen = Math.max(0, width - 3 - chipText.length - titleTrunc.length - hint.length - 4);
   return (
     <Box paddingX={1}>
       <Text color={tuiColors.ghost}>{heavyRule(3)}</Text>
@@ -3230,17 +3375,19 @@ function DetailSectionLabel({ task, width }: { task: Task; width: number }) {
       <Text color={tuiColors.ghost}>{HEAVY_RULE} </Text>
       <Text color={tuiColors.white} bold>{titleTrunc}</Text>
       <Text color={tuiColors.ghost}> {heavyRule(Math.max(0, rightRuleLen))}</Text>
+      {hint ? <Text color={tuiColors.dim}>{hint}</Text> : null}
     </Box>
   );
 }
 
-function AgentDetailSectionLabel({ agent, width }: { agent: Agent; width: number }) {
+function AgentDetailSectionLabel({ agent, width, resizeHint }: { agent: Agent; width: number; resizeHint?: string }) {
   const chipText = ' AGENT ';
-  const maxNameLen = width - chipText.length - 10;
+  const hint = resizeHint ? ` ${resizeHint} ` : '';
+  const maxNameLen = width - chipText.length - hint.length - 10;
   const nameTrunc = agent.name.length > maxNameLen
     ? agent.name.slice(0, maxNameLen - 3) + '...'
     : agent.name;
-  const rightRuleLen = Math.max(0, width - 3 - chipText.length - nameTrunc.length - 4);
+  const rightRuleLen = Math.max(0, width - 3 - chipText.length - nameTrunc.length - hint.length - 4);
   return (
     <Box paddingX={1}>
       <Text color={tuiColors.ghost}>{heavyRule(3)}</Text>
@@ -3248,6 +3395,7 @@ function AgentDetailSectionLabel({ agent, width }: { agent: Agent; width: number
       <Text color={tuiColors.ghost}>{HEAVY_RULE} </Text>
       <Text color={tuiColors.green} bold>{nameTrunc}</Text>
       <Text color={tuiColors.ghost}> {heavyRule(Math.max(0, rightRuleLen))}</Text>
+      {hint ? <Text color={tuiColors.dim}>{hint}</Text> : null}
     </Box>
   );
 }
