@@ -51,6 +51,8 @@ export interface DetailPanelProps {
   taskLogs?: TaskLog[];
   /** Map agent ID → agent name for display */
   agentNameMap?: Map<string, string>;
+  /** Map task ID → task title for depends display */
+  taskTitleMap?: Map<string, string>;
 }
 
 /** Render a centered section divider: ─── label ───────────── */
@@ -66,7 +68,7 @@ export function SectionDivider({ label, width, color }: { label: string; width: 
   );
 }
 
-export function DetailPanel({ task, height, width, taskLogs, agentNameMap }: DetailPanelProps) {
+export function DetailPanel({ task, height, width, taskLogs, agentNameMap, taskTitleMap }: DetailPanelProps) {
   const statusColor = TASK_STATUS_COLOR[task.status] ?? tuiColors.dim;
   const priColor = task.priority <= 2 ? (task.priority === 1 ? tuiColors.red : tuiColors.yellow) : undefined;
   const col1Width = 24;
@@ -170,7 +172,9 @@ export function DetailPanel({ task, height, width, taskLogs, agentNameMap }: Det
         <Box>
           <Text color={tuiColors.dim}>  depends   </Text>
           <Text dimColor>
-            {task.depends_on.length > 0 ? task.depends_on.join(', ') : '\u2014'}
+            {task.depends_on.length > 0
+              ? task.depends_on.map((id) => taskTitleMap?.get(id) ?? id).join(', ')
+              : '\u2014'}
           </Text>
         </Box>
       </Box>
