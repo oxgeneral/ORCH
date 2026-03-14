@@ -1010,6 +1010,10 @@ export class Orchestrator {
           ? event.timestamp
           : new Date().toISOString();
 
+        // Capture file path before GC release (event.data is nulled below)
+        const filePath = event.type === 'file_change'
+          ? (typeof event.data === 'string' ? event.data : String(event.data))
+          : null;
         // Serialize + truncate once — reused for JSONL write and event bus
         const serialized = serializeEventData(event.data, MAX_EVENT_DATA_LEN);
         // Release the original (potentially large) parsed object for GC
@@ -1047,7 +1051,7 @@ export class Orchestrator {
             type: 'agent:file_changed',
             runId,
             agentId,
-            path: typeof event.data === 'string' ? event.data : String(event.data),
+            path: filePath!,
           });
         } else if (event.type === 'error') {
           if (event.errorKind) lastErrorKind = event.errorKind;
