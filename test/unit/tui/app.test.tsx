@@ -1878,8 +1878,8 @@ function makeGoal(overrides: Partial<Goal> & { id: string; title: string }): Goa
 }
 
 async function openGoalDetail(stdin: NodeJS.WritableStream, lastFrame: () => string | undefined, goalTitle: string) {
-  // Navigate to goals view
-  stdin.write('g');
+  // Navigate to goals view (leftArrow from tasks → goals, since G is now groupByGoal toggle on tasks view)
+  stdin.write('\x1b[D');
   await delay(80);
   // Open detail panel
   stdin.write('\r');
@@ -2118,8 +2118,8 @@ describe('GoalDetailPanel', () => {
     );
     await delay(80);
 
-    // Navigate to goals and open detail
-    stdin.write('g');
+    // Navigate to goals (leftArrow from tasks) and open detail
+    stdin.write('\x1b[D');
     await delay(50);
     stdin.write('\r');
     await delay(50);
@@ -2148,7 +2148,7 @@ describe('GoalDetailPanel', () => {
     );
     await delay(80);
 
-    stdin.write('g');
+    stdin.write('\x1b[D');
     await delay(50);
     const output = lastFrame()!;
     expect(output).toContain('Goal Alpha');
