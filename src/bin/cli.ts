@@ -6,11 +6,14 @@
  * full container (+ orchestrator + adapters + LiquidJS) for run/tui/doctor.
  */
 
+import path from 'node:path';
 import { Command } from 'commander';
 import { createContext } from '../cli/context.js';
 import type { LightContainer, Container } from '../container.js';
 import { OrchestryError, NotInitializedError } from '../domain/errors.js';
 import { printError, setAsciiMode, setNoColor } from '../cli/output.js';
+import { pathExists } from '../infrastructure/storage/fs-utils.js';
+import { ORCHESTRY_DIR } from '../infrastructure/storage/paths.js';
 
 /** Commands that only need stores + services (fast path). */
 const LIGHT_COMMANDS: Record<string, (program: Command, container: LightContainer) => Promise<void>> = {
@@ -108,6 +111,27 @@ async function main(): Promise<void> {
     registerUpdateCommand(program);
   }
 
+  // Bare `orch` in a directory without .orchestry/ → auto-init + TUI (FTUE).
+  // Must check cwd directly — findProjectRoot() walks up and may find a parent project.
+  const isBareOrch = process.argv.length <= 2;
+  if (isBareOrch && !(await pathExists(path.join(process.cwd(), ORCHESTRY_DIR)))) {
+    const { runInit } = await import('../cli/commands/init.js');
+    await runInit();
+
+    // Rebuild context rooted at cwd (now has .orchestry/)
+    const freshContext = createContext({
+      json: globalOpts.json,
+      quiet: globalOpts.quiet,
+      noColor: globalOpts.color === false,
+      ascii: globalOpts.ascii,
+    });
+    const { buildFullContainer } = await import('../container.js');
+    const freshContainer = await buildFullContainer(freshContext);
+    await FULL_COMMANDS['tui']!(program, freshContainer);
+    await program.parseAsync([...process.argv, 'tui']);
+    return;
+  }
+
   // Decide: light or full container
   const needsFull = !sub || sub in FULL_COMMANDS;
 
@@ -158,18 +182,6 @@ async function main(): Promise<void> {
         registerDoctorCommand(program);
       }
 
-      // No args → auto-init then launch TUI
-      if (process.argv.length <= 2) {
-        const { runInit } = await import('../cli/commands/init.js');
-        await runInit();
-
-        // Build full container now that .orchestry/ exists, register only tui
-        const freshContainer = await buildFullContainer(context);
-        await FULL_COMMANDS['tui']!(program, freshContainer);
-        await program.parseAsync([...process.argv, 'tui']);
-        return;
-      }
-
       // Check if user is running init, doctor, or update — let Commander handle it
       if (sub === 'init' || sub === 'doctor' || sub === 'update') {
         await program.parseAsync(process.argv);
@@ -184,7 +196,7 @@ async function main(): Promise<void> {
   }
 
   // Default command (no args) → TUI dashboard
-  if (process.argv.length <= 2) {
+  if (isBareOrch) {
     process.argv.push('tui');
   }
 

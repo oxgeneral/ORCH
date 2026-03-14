@@ -10,7 +10,7 @@ import { accessSync } from 'node:fs';
 import { NotInitializedError } from '../../domain/errors.js';
 import { pathExists } from './fs-utils.js';
 
-const ORCHESTRY_DIR = '.orchestry';
+export const ORCHESTRY_DIR = '.orchestry';
 const ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 export class Paths {
