@@ -143,7 +143,7 @@ export interface ContextFilterInput {
 /**
  * Score and filter shared context entries by relevance to the current agent/task.
  * Returns at most MAX_CONTEXT_ENTRIES entries, sorted by relevance then freshness.
- * Each value is truncated to MAX_CONTEXT_VALUE_LENGTH chars.
+ * Each value is truncated to DEFAULT_MAX_CONTEXT_VALUE_LENGTH chars (configurable via filter.maxValueLength).
  */
 export function filterRelevantContext(
   allContext: Record<string, string>,
@@ -211,7 +211,7 @@ export function filterRelevantContext(
   }
 
   // Build result with truncated values
-  const maxLen = filter.maxValueLength ?? DEFAULT_MAX_CONTEXT_VALUE_LENGTH;
+  const maxLen = Math.max(1, filter.maxValueLength ?? DEFAULT_MAX_CONTEXT_VALUE_LENGTH);
   const result: Record<string, string> = {};
   for (const { key, value } of relevant) {
     result[key] = value.length > maxLen
