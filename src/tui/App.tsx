@@ -2443,7 +2443,8 @@ export function App({
           <DetailSectionLabel task={selectedTask} width={ruleW} resizeHint={detailResizeHint} />
           <DetailPanel task={selectedTask} height={feedH} width={ruleW}
             taskLogs={memoizedTaskLogs}
-            agentNameMap={agentNameMap} />
+            agentNameMap={agentNameMap}
+            taskTitleMap={taskTitleMap} />
         </>
       ) : showGoalDetail ? (
         <>
@@ -3099,7 +3100,31 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
     : logTypeFilter.has('lifecycle') && !logTypeFilter.has('output') ? 'events'
     : `${logTypeFilter.size} types`;
 
-  const viewH = height - 3; // -3 for filter bar + sparkline bar + gap
+  // ── Filter status bar: show only when filters are active ──
+  const hasAgentFilter = logAgentFilter.size > 0;
+  const hasTypeFilter = logTypeFilter.size < 8;
+  const hasAnyFilter = hasAgentFilter || hasTypeFilter;
+
+  const filterStatusParts: string[] = [];
+  if (hasAgentFilter) {
+    const names = agents
+      .filter((a) => logAgentFilter.has(a.id))
+      .map((a) => a.name);
+    const label = names.length <= 3
+      ? names.join(',')
+      : `${names[0]} +${names.length - 1}`;
+    filterStatusParts.push(`agent:${label}`);
+  }
+  if (hasTypeFilter) {
+    const types = [...logTypeFilter];
+    const label = types.length <= 3
+      ? types.join(',')
+      : `${types[0]} +${types.length - 1}`;
+    filterStatusParts.push(`type:${label}`);
+  }
+  filterStatusParts.push(`${filteredMessages.length}/${messages.length}`);
+
+  const viewH = height - 3 - (hasAnyFilter ? 1 : 0); // -3 for filter bars, -1 for status bar if active
   const visible = selectedIndex === -1
     ? filteredMessages.slice(-viewH)
     : filteredMessages.slice(scrollOffset, scrollOffset + viewH);
@@ -3181,6 +3206,19 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
         <Text color={tuiColors.amberDim}>{sparkline}</Text>
         <Text color={tuiColors.ghost}> 5m</Text>
       </Box>
+
+      {/* ── Filter status bar ── */}
+      {hasAnyFilter && (
+        <Box gap={0}>
+          <Text color={tuiColors.dim}>{'LOGS'}</Text>
+          {filterStatusParts.map((part, i) => (
+            <Box key={i} gap={0}>
+              <Text color={tuiColors.dim}>{' · '}</Text>
+              <Text color={tuiColors.cyan}>{part}</Text>
+            </Box>
+          ))}
+        </Box>
+      )}
 
       {/* ── Messages ── */}
       {visible.length === 0 ? (
