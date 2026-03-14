@@ -293,10 +293,19 @@ export function registerTuiCommand(program: Command, container: Container): void
           onSaveActivityFilter: async (preset) => {
             await container.globalConfigStore.set('activity_filter', preset);
           },
+          initialNotifications: container.globalConfig.tui.notifications,
+          onSaveNotifications: async (notif) => {
+            await container.globalConfigStore.set('notifications', notif);
+          },
           initialMaxConcurrent: container.config.scheduling.max_concurrent_agents,
           onSaveMaxConcurrent: async (value) => {
             await container.configStore.set('scheduling.max_concurrent_agents', value);
             container.config.scheduling.max_concurrent_agents = value;
+          },
+          onCompleteOnboarding: async () => {
+            const s = await container.stateStore.read();
+            s.onboardingCompleted = true;
+            await container.stateStore.write(s);
           },
         }),
         { kittyKeyboard: { mode: 'auto', flags: ['disambiguateEscapeCodes'] } },
