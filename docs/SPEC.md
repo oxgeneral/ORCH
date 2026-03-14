@@ -192,6 +192,11 @@ src/
 │       ├── FormWizard.tsx         # Wizard-формы (add task/agent/goal)
 │       ├── Spinner.tsx            # Анимированный спиннер
 │       ├── OnboardingBox.tsx      # Onboarding wizard для новых пользователей
+│       ├── HelpOverlay.tsx        # 3-column help overlay (?/F1)
+│       ├── LogsFilterPicker.tsx   # Agent filter popup для Logs view
+│       ├── LogsSearchBar.tsx      # Search bar с regex и highlight
+│       ├── LogsTypeFilterPicker.tsx # Type filter popup (8 types + presets)
+│       ├── ToastBanner.tsx        # Notification toast (done/failed/review)
 │       └── useAnimTick.ts         # Hook для анимации (shared interval)
 │
 ├── bin/
