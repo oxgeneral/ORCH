@@ -3229,7 +3229,7 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
   }
   filterStatusParts.push(`${filteredMessages.length}/${messages.length}`);
 
-  const viewH = height - 3 - (hasAnyFilter ? 1 : 0); // -3 for filter bars, -1 for status bar if active
+  const viewH = height - 3; // -3 for command bar + agent chips + status bar
   const visible = selectedIndex === -1
     ? filteredMessages.slice(-viewH)
     : filteredMessages.slice(scrollOffset, scrollOffset + viewH);
@@ -3249,11 +3249,27 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
     return (curr.ts - prev.ts) > 30_000;
   };
 
+  // Compact agent names to fit width — truncate if too many agents
+  const maxAgentChipW = Math.max(4, Math.floor((width - 20) / Math.max(1, agents.length)) - 1);
+  const agentChipLen = Math.min(maxAgentChipW, 10);
+
   return (
     <Box flexDirection="column" paddingX={1}>
-      {/* ── Line 1: Agent filter chips ── */}
+      {/* ── Line 0: Commands ── */}
       <Box gap={0}>
-        {/* Filter summary */}
+        <Text color={tuiColors.amber} bold>a</Text><Text color={tuiColors.dim}>{' agent filter '}</Text>
+        <Text color={tuiColors.ghost}>{'\u2502'} </Text>
+        <Text color={tuiColors.amber} bold>f</Text><Text color={tuiColors.dim}>{' type filter '}</Text>
+        <Text color={tuiColors.ghost}>{'\u2502'} </Text>
+        <Text color={tuiColors.amber} bold>F</Text><Text color={tuiColors.dim}>{' quick cycle '}</Text>
+        <Text color={tuiColors.ghost}>{'\u2502'} </Text>
+        <Text color={tuiColors.amber} bold>{'\u2191\u2193'}</Text><Text color={tuiColors.dim}>{' browse '}</Text>
+        <Text color={tuiColors.ghost}>{'\u2502'} </Text>
+        <Text color={tuiColors.amber} bold>Esc</Text><Text color={tuiColors.dim}>{' live'}</Text>
+      </Box>
+
+      {/* ── Line 1: Agent chips ── */}
+      <Box gap={0}>
         {logAgentFilter.size === 0 ? (
           <Text backgroundColor={tuiColors.infoBg} color={tuiColors.silver} bold>{' \u25CF ALL '}</Text>
         ) : (
@@ -3261,40 +3277,30 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
             {' \u25C8 '}{logAgentFilter.size}/{agents.length}{' '}
           </Text>
         )}
-        <Text color={tuiColors.ghost}>{' '}</Text>
-        {/* Selected agent chips (compact, all agents, no 9 limit) */}
         {agents.map((a) => {
           const ac = agentColorMap.get(a.id) ?? AGENT_COLORS[0]!;
           const active = logAgentFilter.size === 0 || logAgentFilter.has(a.id);
           const count = agentMsgCounts.get(a.id) ?? 0;
+          const name = a.name.length > agentChipLen ? a.name.slice(0, agentChipLen - 1) + '\u2026' : a.name;
           const countStr = count > 0 ? `\u00B7${count}` : '';
           return active ? (
-            <Text key={a.id} backgroundColor={tuiColors.successBg} color={ac} bold>
-              {' '}{a.name}{countStr}{' '}
-            </Text>
+            <Text key={a.id} backgroundColor={tuiColors.successBg} color={ac} bold>{name}{countStr} </Text>
           ) : (
-            <Text key={a.id} color={tuiColors.ghost}>
-              {' '}{a.name}
-            </Text>
+            <Text key={a.id} color={tuiColors.ghost}>{name} </Text>
           );
         })}
-        <Text color={tuiColors.ghost}>{' '}</Text>
-        <Text color={tuiColors.amberDim}>{'a:filter'}</Text>
       </Box>
 
-      {/* ── Line 2: Type filter + count + mode + sparkline ── */}
+      {/* ── Line 2: Status bar — type filter + count + mode + sparkline ── */}
       <Box gap={0}>
-        {/* Type filter (f=popup, F=quick cycle) */}
         {typeFilterLabel === 'all' ? (
-          <Text color={tuiColors.dim}>{' f:all'}</Text>
+          <Text color={tuiColors.dim}>f:all</Text>
         ) : (
           <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber} bold>{' f:'}{typeFilterLabel.toUpperCase()}{' '}</Text>
         )}
         <Text color={tuiColors.ghost}> {'\u2502'} </Text>
-        {/* Event count */}
         <Text color={tuiColors.dim}>{filteredMessages.length} events</Text>
         <Text color={tuiColors.ghost}> {'\u2502'} </Text>
-        {/* Live/browse mode */}
         {selectedIndex === -1 ? (
           <Box gap={0}>
             <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}>{' '}</Text>
@@ -3307,23 +3313,15 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
           </Text>
         )}
         <Text color={tuiColors.ghost}>{'  '}</Text>
-        {/* Inline sparkline */}
         <Text color={tuiColors.amberDim}>{sparkline}</Text>
         <Text color={tuiColors.ghost}> 5m</Text>
+        {hasAnyFilter && filterStatusParts.map((part, i) => (
+          <Box key={i} gap={0}>
+            <Text color={tuiColors.dim}>{' · '}</Text>
+            <Text color={tuiColors.cyan}>{part}</Text>
+          </Box>
+        ))}
       </Box>
-
-      {/* ── Filter status bar ── */}
-      {hasAnyFilter && (
-        <Box gap={0}>
-          <Text color={tuiColors.dim}>{'LOGS'}</Text>
-          {filterStatusParts.map((part, i) => (
-            <Box key={i} gap={0}>
-              <Text color={tuiColors.dim}>{' · '}</Text>
-              <Text color={tuiColors.cyan}>{part}</Text>
-            </Box>
-          ))}
-        </Box>
-      )}
 
       {/* ── Messages ── */}
       {visible.length === 0 ? (

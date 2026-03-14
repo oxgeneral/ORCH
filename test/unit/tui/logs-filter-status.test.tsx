@@ -80,8 +80,7 @@ describe('Logs filter status bar', () => {
     stdin.write('F');
     await delay(50);
     const output = lastFrame()!;
-    // Status bar should appear with type: filter and count
-    expect(output).toContain('LOGS');
+    // Status bar should show type filter inline and count
     expect(output).toContain('type:');
     expect(output).toContain('0/0');
   });
