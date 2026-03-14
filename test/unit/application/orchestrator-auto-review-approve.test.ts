@@ -1,0 +1,188 @@
+import { describe, it, expect, vi } from 'vitest';
+import { Orchestrator } from '../../../src/application/orchestrator.js';
+import {
+  buildDeps,
+  makeTask,
+  makeAgent,
+  makeRun,
+  createMockTaskStore,
+  createMockAgentStore,
+  createMockRunStore,
+  createMockStateStore,
+} from './helpers.js';
+
+// Mock ReviewRunner to control criteria results
+vi.mock('../../../src/application/review-runner.js', () => {
+  return {
+    ReviewRunner: class {
+      private static _results: Array<{ criterion: string; passed: boolean; output: string }> = [];
+
+      static setResults(results: Array<{ criterion: string; passed: boolean; output: string }>) {
+        ReviewRunner._results = results;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      constructor(_opts: { cwd: string }) {}
+
+      async runAll() {
+        return ReviewRunner._results;
+      }
+
+      static allPassed(results: Array<{ passed: boolean }>) {
+        return results.length > 0 && results.every((r) => r.passed);
+      }
+
+      static formatReport(results: Array<{ criterion: string; passed: boolean; output: string }>) {
+        return results.map((r) => `${r.passed ? '✓' : '✗'} ${r.criterion}`).join('\n');
+      }
+    },
+  };
+});
+
+// Access the mocked class
+const { ReviewRunner } = await import('../../../src/application/review-runner.js');
+
+describe('autoApprove + review_criteria interaction', () => {
+  async function setup(opts: {
+    autoApprove: boolean;
+    reviewCriteria?: string[];
+    criteriaPass: boolean;
+  }) {
+    const taskId = 'tsk_ar1';
+    const agentId = 'agt_ar1';
+    const runId = 'run_ar1';
+
+    const approvalPolicy = opts.autoApprove ? 'auto' : 'suggest';
+
+    const task = makeTask({
+      id: taskId,
+      status: 'in_progress',
+      attempts: 1,
+      review_criteria: (opts.reviewCriteria ?? ['test_pass']) as any,
+    });
+    const agent = makeAgent({
+      id: agentId,
+      status: 'busy',
+      current_task: taskId,
+      config: {
+        approval_policy: approvalPolicy as any,
+        max_turns: 50,
+        timeout_ms: 3_600_000,
+        stall_timeout_ms: 300_000,
+      },
+    });
+    const run = makeRun({
+      id: runId,
+      task_id: taskId,
+      agent_id: agentId,
+      status: 'streaming',
+    });
+
+    const taskStore = createMockTaskStore([task]);
+    const agentStore = createMockAgentStore([agent]);
+    const runStore = createMockRunStore();
+    await runStore.save(run);
+
+    const stateStore = createMockStateStore({
+      running: {
+        [taskId]: {
+          runId,
+          taskId,
+          agentId,
+          pid: 12345,
+          started_at: '2025-01-01T00:00:00Z',
+        },
+      },
+    });
+
+    // Set up mock review results
+    const results = (opts.reviewCriteria ?? ['test_pass']).map((c) => ({
+      criterion: c,
+      passed: opts.criteriaPass,
+      output: opts.criteriaPass ? 'ok' : 'FAILED',
+    }));
+    (ReviewRunner as any).setResults(results);
+
+    const deps = buildDeps({
+      taskStore,
+      agentStore,
+      runStore,
+      stateStore,
+    });
+
+    const emittedEvents: any[] = [];
+    deps.eventBus.onAny((event: any) => {
+      emittedEvents.push(event);
+    });
+
+    const orch = new Orchestrator(deps);
+    await (orch as any).loadState();
+
+    return { orch, taskStore, agentStore, deps, emittedEvents, taskId, agentId, runId };
+  }
+
+  it('transitions to done when review_criteria pass and autoApprove is set', async () => {
+    const { orch, taskStore, taskId, runId, agentId } = await setup({
+      autoApprove: true,
+      criteriaPass: true,
+    });
+
+    await (orch as any)._handleRunSuccess(taskId, runId, agentId, undefined, 'result text', []);
+
+    const task = await taskStore.get(taskId);
+    expect(task!.status).toBe('done');
+  });
+
+  it('transitions to done when review_criteria FAIL but autoApprove is set', async () => {
+    const { orch, taskStore, taskId, runId, agentId } = await setup({
+      autoApprove: true,
+      criteriaPass: false,
+    });
+
+    await (orch as any)._handleRunSuccess(taskId, runId, agentId, undefined, 'result text', []);
+
+    const task = await taskStore.get(taskId);
+    expect(task!.status).toBe('done');
+  });
+
+  it('emits warning when criteria fail but autoApprove forces done', async () => {
+    const { orch, emittedEvents, taskId, runId, agentId } = await setup({
+      autoApprove: true,
+      criteriaPass: false,
+    });
+
+    await (orch as any)._handleRunSuccess(taskId, runId, agentId, undefined, 'result text', []);
+
+    const warningEvent = emittedEvents.find(
+      (e) => e.type === 'orchestrator:error' && e.context === 'auto-review-with-auto-approve',
+    );
+    expect(warningEvent).toBeTruthy();
+    expect(warningEvent.error).toContain('force-approving');
+  });
+
+  it('stays in review when criteria fail and autoApprove is NOT set', async () => {
+    const { orch, taskStore, taskId, runId, agentId } = await setup({
+      autoApprove: false,
+      criteriaPass: false,
+    });
+
+    await (orch as any)._handleRunSuccess(taskId, runId, agentId, undefined, 'result text', []);
+
+    const task = await taskStore.get(taskId);
+    expect(task!.status).toBe('review');
+  });
+
+  it('saves review_results on task even when autoApprove overrides', async () => {
+    const { orch, taskStore, taskId, runId, agentId } = await setup({
+      autoApprove: true,
+      criteriaPass: false,
+    });
+
+    await (orch as any)._handleRunSuccess(taskId, runId, agentId, undefined, 'result text', []);
+
+    const task = await taskStore.get(taskId);
+    expect(task!.review_results).toBeDefined();
+    expect(task!.review_results!.length).toBe(1);
+    expect(task!.review_results![0]!.passed).toBe(false);
+  });
+});
