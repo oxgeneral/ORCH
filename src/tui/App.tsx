@@ -2925,7 +2925,7 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
           const badgeLabel = taskTitle && width > 80 ? `#${taskTitle.slice(0, 20)}` : '';
           const badgeW = badgeLabel ? badgeLabel.length + 3 : 0; // space + ` #title `
           const textW = Math.max(10, (width - 2) - prefixW - badgeW);
-          const displayText = msg.text.length > textW ? msg.text.slice(0, textW - 1) + '…' : msg.text;
+          const displayText = capLine(msg.text, textW);
 
           return (
             <Box key={i} backgroundColor={rowBg}>
@@ -3036,7 +3036,7 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
         const rowBg = getMsgBg(msgType) ?? (isOddGroup ? '#1a1a1a' : undefined);
 
         const relTs = relativeTime(msg.ts, now);
-        const displayText = msg.text.length > textW ? msg.text.slice(0, textW - 1) + '…' : msg.text;
+        const displayText = capLine(msg.text, textW);
 
         return (
           <Box key={i} backgroundColor={rowBg}>
