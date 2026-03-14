@@ -1016,7 +1016,11 @@ export class Orchestrator {
 
         // Capture file path before GC release (event.data is nulled below)
         const filePath = event.type === 'file_change'
-          ? (typeof event.data === 'string' ? event.data : String(event.data))
+          ? (() => {
+              const d = event.data as Record<string, unknown> | undefined;
+              return d && typeof d.path === 'string' ? d.path :
+                     typeof event.data === 'string' ? event.data : String(event.data);
+            })()
           : null;
         // Serialize + truncate once — reused for JSONL write and event bus
         const serialized = serializeEventData(event.data, MAX_EVENT_DATA_LEN);
@@ -1359,6 +1363,7 @@ export class Orchestrator {
     taskId: string,
     criteria: import('../domain/task.js').ReviewCriterion[],
     cwd: string,
+    autoApprove = false,
   ): Promise<void> {
     const runner = new ReviewRunner({ cwd });
     const results = await runner.runAll(criteria);
@@ -1385,7 +1390,16 @@ export class Orchestrator {
     });
 
     // If all passed, auto-approve: review → done
-    if (allPassed) {
+    // If criteria failed but autoApprove is set, still transition to done (with warning)
+    if (allPassed || autoApprove) {
+      if (!allPassed) {
+        this.deps.eventBus.emit({
+          type: 'orchestrator:error',
+          error: `Review criteria failed for task ${taskId} but autoApprove is set — force-approving`,
+          context: 'auto-review-with-auto-approve',
+          fatal: false,
+        });
+      }
       try {
         await this.deps.taskService.updateStatus(taskId, 'done');
       } catch (validationErr) {
