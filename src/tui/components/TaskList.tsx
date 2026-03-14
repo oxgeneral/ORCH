@@ -200,6 +200,15 @@ export const TaskRow = React.memo(function TaskRow({ task, selected, width, agen
         )}
       </Box>
 
+      {/* Goal badge */}
+      {hasGoalBadge && (
+        <Box width={goalBadgeW}>
+          <Text backgroundColor={goalBadgeBg} color={tuiColors.amberDim} wrap="truncate">
+            {' \u2295 '}{capLine(goal.title, 13)}{' '}
+          </Text>
+        </Box>
+      )}
+
       {/* Assignee chip (truncated to column width) */}
       <Box width={assigneeWidth}>
         {assigneeName ? (
@@ -210,15 +219,6 @@ export const TaskRow = React.memo(function TaskRow({ task, selected, width, agen
           <Text color={tuiColors.ghost}>{'\u2014'}</Text>
         )}
       </Box>
-
-      {/* Goal badge */}
-      {hasGoalBadge && (
-        <Box width={goalBadgeW}>
-          <Text backgroundColor={goalBadgeBg} color={tuiColors.amberDim} wrap="truncate">
-            {' \u2295 '}{capLine(goal.title, 13)}{' '}
-          </Text>
-        </Box>
-      )}
 
       {/* Time / status */}
       <Box width={timeWidth} justifyContent="flex-end">
