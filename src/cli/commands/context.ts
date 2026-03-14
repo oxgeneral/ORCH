@@ -15,6 +15,7 @@ import {
   dim,
   formatDurationSince,
 } from '../output.js';
+import { DEFAULT_MAX_CONTEXT_VALUE_LENGTH } from '../../infrastructure/template/template-engine.js';
 
 export function registerContextCommand(program: Command, container: LightContainer): void {
   const ctx = program
@@ -32,7 +33,7 @@ export function registerContextCommand(program: Command, container: LightContain
       const ttlMs = opts.ttl ? parseInt(opts.ttl, 10) : undefined;
       await container.contextStore.set(key, value, ttlMs);
 
-      const maxLen = container.config?.prompt?.max_context_value_length ?? 500;
+      const maxLen = container.config.prompt?.max_context_value_length ?? DEFAULT_MAX_CONTEXT_VALUE_LENGTH;
       if (!container.context.quiet && !container.context.json && value.length > maxLen) {
         printWarning(`Value is ${value.length} chars — will be truncated to ${maxLen} in agent prompts`);
       }

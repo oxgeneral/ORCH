@@ -55,9 +55,12 @@ export class CodexAdapter implements IAgentAdapter {
       stdio: ['pipe', 'pipe', 'pipe'], // stdin must be 'pipe' to send prompt
     });
 
-    // Pipe prompt via stdin
+    // Pipe prompt via stdin — prepend system prompt if present (Codex has no native --system-prompt)
     if (proc.stdin) {
-      proc.stdin.write(params.prompt);
+      const fullPrompt = params.systemPrompt
+        ? params.systemPrompt + '\n\n' + params.prompt
+        : params.prompt;
+      proc.stdin.write(fullPrompt);
       proc.stdin.end();
     }
 

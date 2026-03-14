@@ -4,6 +4,8 @@ import {
   buildPromptContext,
   filterRelevantContext,
   DEFAULT_PROMPT_TEMPLATE,
+  DEFAULT_SYSTEM_TEMPLATE,
+  DEFAULT_USER_TEMPLATE,
   type RetryContext,
 } from '../../../src/infrastructure/template/template-engine.js';
 import type { Task } from '../../../src/domain/task.js';
@@ -492,5 +494,121 @@ describe('filterRelevantContext', () => {
     // bug- and perf- should come before random-stuff
     expect(keys.indexOf('bug-123')).toBeLessThan(keys.indexOf('random-stuff'));
     expect(keys.indexOf('perf-baseline')).toBeLessThan(keys.indexOf('random-stuff'));
+  });
+});
+
+describe('system/user template split', () => {
+  const engine = new LiquidTemplateEngine({ renderTimeoutMs: 5000 });
+
+  const ctx = buildPromptContext(
+    makeTask({ title: 'Fix bug', description: 'Fix the login bug', labels: ['auto'] }),
+    makeAgent({ name: 'Backend A', role: 'Senior Dev' }),
+    1,
+    '/workspace',
+    DEFAULT_CONFIG,
+    { allAgents: [makeAgent({ name: 'Backend A', role: 'Senior Dev' })] },
+  );
+
+  it('DEFAULT_PROMPT_TEMPLATE equals system + user concatenation', () => {
+    expect(DEFAULT_PROMPT_TEMPLATE).toBe(DEFAULT_SYSTEM_TEMPLATE + '\n' + DEFAULT_USER_TEMPLATE);
+  });
+
+  it('system template contains agent identity and CLI reference', async () => {
+    const rendered = await engine.render(DEFAULT_SYSTEM_TEMPLATE, ctx);
+    expect(rendered).toContain('You are Backend A (Senior Dev)');
+    expect(rendered).toContain('orch task add');
+    expect(rendered).toContain('orch msg send');
+    expect(rendered).toContain('orch context set');
+    expect(rendered).toContain('## Rules');
+  });
+
+  it('system template does NOT contain task-specific content', async () => {
+    const rendered = await engine.render(DEFAULT_SYSTEM_TEMPLATE, ctx);
+    expect(rendered).not.toContain('## Task:');
+    expect(rendered).not.toContain('Fix bug');
+    expect(rendered).not.toContain('## Context');
+    expect(rendered).not.toContain('## Team');
+  });
+
+  it('user template contains task details and team listing', async () => {
+    const rendered = await engine.render(DEFAULT_USER_TEMPLATE, ctx);
+    expect(rendered).toContain('## Task: Fix bug');
+    expect(rendered).toContain('Fix the login bug');
+    expect(rendered).toContain('Priority: 3');
+    expect(rendered).toContain('## Team');
+    expect(rendered).toContain('Backend A');
+  });
+
+  it('user template does NOT contain rules or CLI reference', async () => {
+    const rendered = await engine.render(DEFAULT_USER_TEMPLATE, ctx);
+    expect(rendered).not.toContain('## Rules');
+    expect(rendered).not.toContain('## Orchestrator CLI');
+  });
+
+  it('system template includes autonomous mode when task has auto label', async () => {
+    const autoCtx = buildPromptContext(
+      makeTask({ labels: ['auto'], goalId: 'goal_123' }),
+      makeAgent(),
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+    );
+    const rendered = await engine.render(DEFAULT_SYSTEM_TEMPLATE, autoCtx);
+    expect(rendered).toContain('## Autonomous Goal Mode');
+    expect(rendered).toContain('goal_123');
+  });
+
+  it('system template omits autonomous mode for regular tasks', async () => {
+    const rendered = await engine.render(DEFAULT_SYSTEM_TEMPLATE, ctx);
+    expect(rendered).not.toContain('## Autonomous Goal Mode');
+  });
+
+  it('user template includes goal context when provided', async () => {
+    const goalCtx = buildPromptContext(
+      makeTask(),
+      makeAgent(),
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+      {
+        goal: {
+          id: 'goal_abc',
+          title: 'Ship v1',
+          description: 'Release version 1.0',
+          status: 'active',
+          task_names: ['[done] Setup', '[todo] Deploy'],
+        },
+      },
+    );
+    const rendered = await engine.render(DEFAULT_USER_TEMPLATE, goalCtx);
+    expect(rendered).toContain('## Goal: Ship v1');
+    expect(rendered).toContain('Release version 1.0');
+  });
+
+  it('user template includes feedback when provided', async () => {
+    const fbCtx = buildPromptContext(
+      makeTask({ feedback: 'Fix the error handling' }),
+      makeAgent(),
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+    );
+    const rendered = await engine.render(DEFAULT_USER_TEMPLATE, fbCtx);
+    expect(rendered).toContain('## Review Feedback');
+    expect(rendered).toContain('Fix the error handling');
+  });
+
+  it('user template includes retry context on attempt > 1', async () => {
+    const retryCtx = buildPromptContext(
+      makeTask(),
+      makeAgent(),
+      2,
+      '/workspace',
+      DEFAULT_CONFIG,
+      { retryContext: { previous_error: 'timeout', previous_output: 'partial' } },
+    );
+    const rendered = await engine.render(DEFAULT_USER_TEMPLATE, retryCtx);
+    expect(rendered).toContain('## Previous attempt failed');
+    expect(rendered).toContain('timeout');
   });
 });

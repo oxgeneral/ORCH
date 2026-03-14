@@ -106,6 +106,63 @@ describe('ClaudeAdapter', () => {
       expect(args).toContain('Be helpful');
     });
 
+    it('uses params.systemPrompt for --system-prompt over config.system_prompt', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new ClaudeAdapter(pm);
+
+      adapter.execute(makeParams({
+        systemPrompt: 'Orchestrator system prompt',
+        config: { adapter: 'claude', system_prompt: 'Agent config system prompt' },
+      }));
+
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args).toContain('--system-prompt');
+      // params.systemPrompt takes priority
+      const sysIdx = args.indexOf('--system-prompt');
+      expect(args[sysIdx + 1]).toBe('Orchestrator system prompt');
+    });
+
+    it('uses config.system_prompt when params.systemPrompt is absent', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new ClaudeAdapter(pm);
+
+      adapter.execute(makeParams({
+        config: { adapter: 'claude', system_prompt: 'Agent config prompt' },
+      }));
+
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      const sysIdx = args.indexOf('--system-prompt');
+      expect(args[sysIdx + 1]).toBe('Agent config prompt');
+    });
+
+    it('does not include --system-prompt when neither systemPrompt nor config is set', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new ClaudeAdapter(pm);
+
+      adapter.execute(makeParams({ config: { adapter: 'claude' } }));
+
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args).not.toContain('--system-prompt');
+    });
+
+    it('passes prompt as last arg (not systemPrompt)', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new ClaudeAdapter(pm);
+
+      adapter.execute(makeParams({
+        prompt: 'user task prompt',
+        systemPrompt: 'system instructions',
+      }));
+
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args[args.length - 1]).toBe('user task prompt');
+      expect(args).not.toContain('system instructions');
+    });
+
     it('returns pid in handle', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);

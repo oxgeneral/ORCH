@@ -130,7 +130,7 @@ function truncateRole(role: string | undefined): string | undefined {
 const MAX_CONTEXT_ENTRIES = 15;
 
 /** Default max length per context value (chars). */
-const DEFAULT_MAX_CONTEXT_VALUE_LENGTH = 500;
+export const DEFAULT_MAX_CONTEXT_VALUE_LENGTH = 500;
 
 export interface ContextFilterInput {
   agentName: string;
@@ -328,10 +328,57 @@ export function buildPromptContext(
   };
 }
 
-/** Default prompt template */
-export const DEFAULT_PROMPT_TEMPLATE = `You are {{ agent.name }}{% if agent.role %} ({{ agent.role }}){% endif %}.
+/**
+ * Static system prompt template — cached by Claude API between runs.
+ * Contains: agent identity, CLI reference, autonomous mode, rules.
+ * Variables used: agent.name, agent.role, agent.id, task.is_autonomous, task.goal_id.
+ */
+export const DEFAULT_SYSTEM_TEMPLATE = `You are {{ agent.name }}{% if agent.role %} ({{ agent.role }}){% endif %}.
 
-## Task: {{ task.title }}
+## Orchestrator CLI
+Manage tasks and coordinate with other agents using \`orch\`:
+
+**Tasks:**
+- \`orch task add "<title>" -d "<description>" -p <1-4> --assignee <agent-id>\` — create and assign a task
+- \`orch task add "<title>" -d "<description>" --scope "src/path/**" --depends-on <task-id>\` — scoped task with dependency
+- \`orch task list [--status todo|in_progress|done|failed]\` — list tasks
+
+**Messaging:**
+- \`orch msg send <agent-id> "<body>" -s "<subject>"\` — direct message
+- \`orch msg broadcast "<body>" -s "<subject>"\` — broadcast to all
+- \`orch msg inbox {{ agent.id }}\` — your pending messages
+
+**Shared context:**
+- \`orch context set <key> <value>\` / \`orch context get <key>\` / \`orch context list\`
+
+{% if task.is_autonomous %}
+## Autonomous Goal Mode
+This is an autonomous task driven by a goal. Work in a continuous loop until the goal is achieved:
+
+1. **Understand the goal** — read the Goal section above.
+2. **Decompose** — break the goal into concrete subtasks via \`orch task add\`. {% if task.goal_id %}Pass \`--goal-id {{ task.goal_id }}\` so subtasks are linked to this goal. {% endif %}Assign yourself for your specialty, delegate other work to appropriate teammates by role.
+3. **Execute** — follow your standard workflow for each subtask.
+4. **Track progress** — after each iteration: \`orch context set {{ task.goal_id | default: "<goal>" }}-progress "<summary of what's done and what remains>"\`.
+5. **Be proactive** — do NOT wait for tasks from others. Create your own subtasks and keep working.
+6. **Do NOT finish** the [auto] task until the goal is achieved — keep creating subtasks.
+7. **When done** — mark the goal as achieved: \`orch goal status {{ task.goal_id | default: "<goal-id>" }} achieved\`.
+
+**Deep inspection:** Use \`orch goal show {{ task.goal_id | default: "<goal-id>" }}\` to see full goal details at any time.
+{% endif %}
+
+## Rules
+- Do NOT ask clarifying questions. You are running autonomously without human input.
+- Make reasonable assumptions and proceed with the best approach.
+- If critical information is missing, document your assumptions and continue.
+- When a task is too large or spans multiple domains, break it into subtasks using \`orch task add\`.
+- When creating subtasks, use \`--scope\` to declare which files each task will touch, and \`--depends-on\` to order dependent work.
+`;
+
+/**
+ * Dynamic user prompt template — changes every run.
+ * Contains: task details, attempt/retry, team, context, messages, goal, feedback.
+ */
+export const DEFAULT_USER_TEMPLATE = `## Task: {{ task.title }}
 {{ task.description }}
 
 Priority: {{ task.priority }}
@@ -384,22 +431,6 @@ Other agents have shared the following information:
 {% endfor %}
 {% endif %}
 
-## Orchestrator CLI
-Manage tasks and coordinate with other agents using \`orch\`:
-
-**Tasks:**
-- \`orch task add "<title>" -d "<description>" -p <1-4> --assignee <agent-id>\` — create and assign a task
-- \`orch task add "<title>" -d "<description>" --scope "src/path/**" --depends-on <task-id>\` — scoped task with dependency
-- \`orch task list [--status todo|in_progress|done|failed]\` — list tasks
-
-**Messaging:**
-- \`orch msg send <agent-id> "<body>" -s "<subject>"\` — direct message
-- \`orch msg broadcast "<body>" -s "<subject>"\` — broadcast to all
-- \`orch msg inbox {{ agent.id }}\` — your pending messages
-
-**Shared context:**
-- \`orch context set <key> <value>\` / \`orch context get <key>\` / \`orch context list\`
-
 {% if goal %}
 ## Goal: {{ goal.title }}
 **Status:** {{ goal.status }} · **ID:** \`{{ goal.id }}\`
@@ -417,26 +448,7 @@ Use \`orch task list --goal-id {{ goal.id }}\` and \`orch task show <id>\` to in
 {{ goal.progress }}
 {% endif %}
 {% endif %}
-
-{% if task.is_autonomous %}
-## Autonomous Goal Mode
-This is an autonomous task driven by a goal. Work in a continuous loop until the goal is achieved:
-
-1. **Understand the goal** — read the Goal section above.
-2. **Decompose** — break the goal into concrete subtasks via \`orch task add\`. {% if task.goal_id %}Pass \`--goal-id {{ task.goal_id }}\` so subtasks are linked to this goal. {% endif %}Assign yourself for your specialty, delegate other work to appropriate teammates by role.
-3. **Execute** — follow your standard workflow for each subtask.
-4. **Track progress** — after each iteration: \`orch context set {{ task.goal_id | default: "<goal>" }}-progress "<summary of what's done and what remains>"\`.
-5. **Be proactive** — do NOT wait for tasks from others. Create your own subtasks and keep working.
-6. **Do NOT finish** the [auto] task until the goal is achieved — keep creating subtasks.
-7. **When done** — mark the goal as achieved: \`orch goal status {{ task.goal_id | default: "<goal-id>" }} achieved\`.
-
-**Deep inspection:** Use \`orch goal show {{ task.goal_id | default: "<goal-id>" }}\` to see full goal details at any time.
-{% endif %}
-
-## Rules
-- Do NOT ask clarifying questions. You are running autonomously without human input.
-- Make reasonable assumptions and proceed with the best approach.
-- If critical information is missing, document your assumptions and continue.
-- When a task is too large or spans multiple domains, break it into subtasks using \`orch task add\`.
-- When creating subtasks, use \`--scope\` to declare which files each task will touch, and \`--depends-on\` to order dependent work.
 `;
+
+/** @deprecated Use DEFAULT_SYSTEM_TEMPLATE + DEFAULT_USER_TEMPLATE instead */
+export const DEFAULT_PROMPT_TEMPLATE = DEFAULT_SYSTEM_TEMPLATE + '\n' + DEFAULT_USER_TEMPLATE;

@@ -18,6 +18,7 @@ export interface AdapterTestResult {
 
 export interface ExecuteParams {
   prompt: string;
+  systemPrompt?: string;
   workspace: string;
   env?: Record<string, string>;
   config: AgentConfig;

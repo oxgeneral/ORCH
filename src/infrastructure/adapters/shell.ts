@@ -46,12 +46,17 @@ export class ShellAdapter implements IAgentAdapter {
       return { pid: 0, events: errorGen() };
     }
 
+    // Shell adapter: prepend system prompt if present (no native system prompt support)
+    const fullPrompt = params.systemPrompt
+      ? params.systemPrompt + '\n\n' + params.prompt
+      : params.prompt;
+
     const { process: proc, pid } = this.processManager.spawn('bash', ['-lc', command], {
       cwd: params.workspace,
       env: {
         ...process.env,
         ...params.env,
-        ORCHESTRY_TASK_PROMPT: params.prompt,
+        ORCHESTRY_TASK_PROMPT: fullPrompt,
       },
       signal: params.signal,
     });
