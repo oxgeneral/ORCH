@@ -2155,3 +2155,67 @@ describe('GoalDetailPanel', () => {
     expect(output).toContain('Goal Beta');
   });
 });
+
+/* ── Hidden Tasks Footer + Tab Badge ─────────────── */
+
+describe('Hidden tasks footer bar and tab badge', () => {
+  function makeManyTasks(count: number): Task[] {
+    return Array.from({ length: count }, (_, i) =>
+      makeTask({ id: `t${i + 1}`, title: `Task ${i + 1}` }),
+    );
+  }
+
+  it('shows sticky footer when tasks exceed TASK_LIST_LIMIT (>10)', () => {
+    const tasks = makeManyTasks(11);
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks, state }),
+    );
+    const output = lastFrame()!;
+    expect(output).toContain('showing 10 of 11 tasks');
+    expect(output).toContain('to show all');
+  });
+
+  it('hides footer when tasks do not exceed limit (≤10)', () => {
+    const tasks = makeManyTasks(10);
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks, state }),
+    );
+    const output = lastFrame()!;
+    expect(output).not.toContain('to show all');
+  });
+
+  it('shows tab badge with total count when hiddenTaskCount > 0', () => {
+    const tasks = makeManyTasks(15);
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks, state }),
+    );
+    const output = lastFrame()!;
+    // Badge shows total task count (15) when some tasks are hidden
+    expect(output).toContain('(15)');
+  });
+
+  it('hides tab badge when all tasks are visible (≤ limit)', () => {
+    const tasks = makeManyTasks(8);
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks, state }),
+    );
+    const output = lastFrame()!;
+    expect(output).not.toContain('(8)');
+  });
+
+  it('footer is absent when switching to agents tab', async () => {
+    const tasks = makeManyTasks(15);
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks, state }),
+    );
+    stdin.write('a');
+    await delay(50);
+    const output = lastFrame()!;
+    expect(output).not.toContain('to show all');
+  });
+});
