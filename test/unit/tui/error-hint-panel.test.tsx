@@ -55,7 +55,7 @@ describe('AgentRow — inline error summary', () => {
     expect(output).not.toContain('raw error text');
   });
 
-  it('shows role text when agent status is not error', async () => {
+  it('shows agent name when agent status is not error (compact layout)', async () => {
     const agent = makeAgent({
       id: 'a1',
       name: 'backend',
@@ -70,7 +70,9 @@ describe('AgentRow — inline error summary', () => {
     stdin.write('a');
     await delay(50);
 
-    expect(lastFrame()!).toContain('Backend developer role');
+    // Compact AgentRow no longer shows role column — role is in detail panel
+    // Verify agent name is displayed
+    expect(lastFrame()!).toContain('backend');
   });
 
   it('shows fallback raw message when kind is unrecognized and last_error exists', async () => {

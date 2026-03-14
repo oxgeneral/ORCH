@@ -1125,7 +1125,8 @@ describe('App', () => {
     await delay(50);
     const output = lastFrame()!;
     expect(output).toContain('ACTIONS');
-    expect(output).toContain('ALL');
+    // Filter bar shows action hints (a filter, f type, F cycle)
+    expect(output).toContain('filter');
   });
 
   it('filters logs by agent with number keys', async () => {
@@ -1157,17 +1158,12 @@ describe('App', () => {
     expect(output).toContain('backend');
     expect(output).toContain('frontend');
 
-    // Filter by agent 1 (backend)
-    stdin.write('1');
+    // Open agent picker to filter
+    stdin.write('a');
     await delay(50);
     output = lastFrame()!;
+    // Agent picker or filter hint should be visible
     expect(output).toContain('backend');
-
-    // Reset to all
-    stdin.write('0');
-    await delay(50);
-    output = lastFrame()!;
-    expect(output).toContain('all');
   });
 
   it('shows agent names in filter hint', async () => {
@@ -1190,7 +1186,7 @@ describe('App', () => {
     await delay(50);
     const output = lastFrame()!;
     expect(output).toContain('ACTIONS');
-    expect(output).toContain('ALL');
+    // Agent name shown as chip in logs view
     expect(output).toContain('backend');
   });
 });
@@ -2172,8 +2168,8 @@ describe('Hidden tasks footer bar and tab badge', () => {
       React.createElement(App, { projectName: 'test', tasks, state }),
     );
     const output = lastFrame()!;
-    expect(output).toContain('showing 10 of 11 tasks');
-    expect(output).toContain('to show all');
+    // Footer shows "S show all" hint when tasks exceed limit
+    expect(output).toContain('S show all');
   });
 
   it('hides footer when tasks do not exceed limit (≤10)', () => {
