@@ -187,4 +187,19 @@ describe('autoApprove + review_criteria interaction', () => {
     expect(task!.review_results!.length).toBe(1);
     expect(task!.review_results![0]!.passed).toBe(false);
   });
+
+  it('transitions review → done directly when autoApprove is set and no review_criteria', async () => {
+    const { orch, taskStore, taskId, runId, agentId } = await setup({
+      autoApprove: true,
+      reviewCriteria: [],
+      criteriaPass: true, // irrelevant — no criteria to run
+    });
+
+    await (orch as any)._handleRunSuccess(taskId, runId, agentId, undefined, 'result text', []);
+
+    const task = await taskStore.get(taskId);
+    expect(task!.status).toBe('done');
+    // review_results should NOT be set — runAutoReview was never called
+    expect(task!.review_results).toBeUndefined();
+  });
 });
