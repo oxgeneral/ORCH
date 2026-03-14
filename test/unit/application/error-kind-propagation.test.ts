@@ -27,6 +27,8 @@ import { AdapterRegistry } from '../../../src/infrastructure/adapters/registry.j
 import type { AgentEvent } from '../../../src/infrastructure/adapters/interface.js';
 import type { OrchestratorState } from '../../../src/domain/state.js';
 
+const FIXED_TS = '2025-01-01T00:00:00.000Z';
+
 describe('errorKind propagation (commit 593cee9)', () => {
   it('agent:error event carries errorKind from adapter error event', async () => {
     const eventBus = new EventBus();
@@ -85,7 +87,7 @@ describe('errorKind propagation (commit 593cee9)', () => {
 
     const state: Partial<OrchestratorState> = {
       running: {
-        tsk_le1: { run_id: 'run_le1', agent_id: 'agt_le1', started_at: new Date().toISOString(), last_event_at: new Date().toISOString(), pid: 1 },
+        tsk_le1: { run_id: 'run_le1', agent_id: 'agt_le1', started_at: FIXED_TS, last_event_at: FIXED_TS, pid: 1 },
       },
     };
     const stateStore = createMockStateStore(state);
@@ -96,7 +98,7 @@ describe('errorKind propagation (commit 593cee9)', () => {
 
     await (orch as any)._handleRunFailure(
       'tsk_le1',
-      { run_id: 'run_le1', agent_id: 'agt_le1', started_at: new Date().toISOString() },
+      { run_id: 'run_le1', agent_id: 'agt_le1', started_at: FIXED_TS },
       longError,
       'RATE_LIMIT',
     );
@@ -121,7 +123,7 @@ describe('errorKind propagation (commit 593cee9)', () => {
 
     const state: Partial<OrchestratorState> = {
       running: {
-        tsk_ca1: { run_id: 'run_ca1', agent_id: 'agt_ca1', started_at: new Date().toISOString(), last_event_at: new Date().toISOString(), pid: 1 },
+        tsk_ca1: { run_id: 'run_ca1', agent_id: 'agt_ca1', started_at: FIXED_TS, last_event_at: FIXED_TS, pid: 1 },
       },
     };
     const stateStore = createMockStateStore(state);
@@ -132,7 +134,7 @@ describe('errorKind propagation (commit 593cee9)', () => {
 
     await (orch as any)._handleRunFailure(
       'tsk_ca1',
-      { run_id: 'run_ca1', agent_id: 'agt_ca1', started_at: new Date().toISOString() },
+      { run_id: 'run_ca1', agent_id: 'agt_ca1', started_at: FIXED_TS },
       'ENOENT: command not found',
     );
 
@@ -153,7 +155,7 @@ describe('errorKind propagation (commit 593cee9)', () => {
 
     const state: Partial<OrchestratorState> = {
       running: {
-        tsk_ct1: { run_id: 'run_ct1', agent_id: 'agt_ct1', started_at: new Date().toISOString(), last_event_at: new Date().toISOString(), pid: 1 },
+        tsk_ct1: { run_id: 'run_ct1', agent_id: 'agt_ct1', started_at: FIXED_TS, last_event_at: FIXED_TS, pid: 1 },
       },
     };
     const stateStore = createMockStateStore(state);
@@ -164,7 +166,7 @@ describe('errorKind propagation (commit 593cee9)', () => {
 
     await (orch as any)._handleRunFailure(
       'tsk_ct1',
-      { run_id: 'run_ct1', agent_id: 'agt_ct1', started_at: new Date().toISOString() },
+      { run_id: 'run_ct1', agent_id: 'agt_ct1', started_at: FIXED_TS },
       'some error',
       'TIMEOUT',
     );
@@ -213,8 +215,8 @@ describe('errorKind propagation (commit 593cee9)', () => {
         tsk_rc1: {
           run_id: 'run_rc1',
           agent_id: 'agt_rc1',
-          started_at: new Date().toISOString(),
-          last_event_at: new Date().toISOString(),
+          started_at: FIXED_TS,
+          last_event_at: FIXED_TS,
           pid: 12345,
         },
       },
@@ -240,41 +242,48 @@ describe('errorKind propagation (commit 593cee9)', () => {
   });
 
   it('reconcile stall calls _handleRunFailure with 3 args (backward compat)', async () => {
-    const task = makeTask({ id: 'tsk_st1', status: 'in_progress', assignee: 'agt_st1' });
-    const agent = makeAgent({ id: 'agt_st1', status: 'running', current_task: 'tsk_st1' });
+    // Use fake timers so Date.now() is deterministic for stall detection
+    const fakeNow = new Date('2025-01-01T00:10:00.000Z').getTime(); // 600s after stalledAt
+    vi.useFakeTimers({ now: fakeNow });
 
-    const taskStore = createMockTaskStore([task]);
-    const agentStore = createMockAgentStore([agent]);
-    const runStore = createMockRunStore();
-    await runStore.save(makeRun({ id: 'run_st1', task_id: 'tsk_st1', agent_id: 'agt_st1', status: 'running' }));
+    try {
+      const task = makeTask({ id: 'tsk_st1', status: 'in_progress', assignee: 'agt_st1' });
+      const agent = makeAgent({ id: 'agt_st1', status: 'running', current_task: 'tsk_st1' });
 
-    const processManager = createMockProcessManager();
+      const taskStore = createMockTaskStore([task]);
+      const agentStore = createMockAgentStore([agent]);
+      const runStore = createMockRunStore();
+      await runStore.save(makeRun({ id: 'run_st1', task_id: 'tsk_st1', agent_id: 'agt_st1', status: 'running' }));
 
-    const stalledAt = new Date(Date.now() - 400_000).toISOString();
-    const state: Partial<OrchestratorState> = {
-      running: {
-        tsk_st1: {
-          run_id: 'run_st1',
-          agent_id: 'agt_st1',
-          started_at: new Date(Date.now() - 600_000).toISOString(),
-          last_event_at: stalledAt,
-          pid: 12345,
+      const processManager = createMockProcessManager();
+
+      const state: Partial<OrchestratorState> = {
+        running: {
+          tsk_st1: {
+            run_id: 'run_st1',
+            agent_id: 'agt_st1',
+            started_at: '2024-12-31T23:50:00.000Z',
+            last_event_at: '2024-12-31T23:53:20.000Z', // 400s before fakeNow, exceeds stall_timeout (300s)
+            pid: 12345,
+          },
         },
-      },
-    };
-    const stateStore = createMockStateStore(state);
+      };
+      const stateStore = createMockStateStore(state);
 
-    const deps = buildDeps({ taskStore, agentStore, runStore, stateStore, processManager });
-    const orch = new Orchestrator(deps);
-    await (orch as any).loadState();
+      const deps = buildDeps({ taskStore, agentStore, runStore, stateStore, processManager });
+      const orch = new Orchestrator(deps);
+      await (orch as any).loadState();
 
-    const spy = vi.spyOn(orch as any, '_handleRunFailure');
+      const spy = vi.spyOn(orch as any, '_handleRunFailure');
 
-    await (orch as any).reconcile();
+      await (orch as any).reconcile();
 
-    expect(spy).toHaveBeenCalled();
-    expect(spy.mock.calls[0]).toHaveLength(3);
-    expect(spy.mock.calls[0]![2]).toBe('Agent stalled (no events)');
+      expect(spy).toHaveBeenCalled();
+      expect(spy.mock.calls[0]).toHaveLength(3);
+      expect(spy.mock.calls[0]![2]).toBe('Agent stalled (no events)');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('AgentLastError interface has correct shape and is exported from index', async () => {
