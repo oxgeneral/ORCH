@@ -68,17 +68,12 @@ const LogsFilterPicker = React.memo(function LogsFilterPicker({
       return;
     }
 
-    // 'a': select all / deselect all toggle
+    // 'a': toggle between all agents (empty=all) and partial/none
     if (input === 'a' || input === 'A') {
       setDraft((prev) => {
-        if (prev.size === 0 || prev.size === agents.length) {
-          // Currently all selected → deselect all (empty = show all, so this deselects to none)
-          // Actually: empty Set = all agents shown. To "deselect all" we need all IDs in set? No:
-          // Per spec: empty Set = all agents (no filter). So toggle:
-          // If currently "all" (size=0 or size=agents.length) → select none (impossible to show nothing, so skip)
-          // Better: if all are checked → uncheck all, if some/none checked → check all
-          return new Set<string>();
-        }
+        // Empty set = all shown (no filter). Full set = all explicitly selected.
+        // Both mean "all agents visible" — toggle to empty (reset filter).
+        // Partial selection → reset to empty (show all).
         return new Set<string>();
       });
       return;
