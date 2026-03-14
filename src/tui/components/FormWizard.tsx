@@ -133,6 +133,8 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     setTaCursorCol(0);
     setSelectIndex(0);
     setMultiSelected(new Set());
+    setBrowsingSuggestions(false);
+    setSuggestionIndex(0);
 
     // Find next non-skipped step from FULL steps array using newValues
     // (activeSteps is stale — it was memoized with old values)
@@ -207,6 +209,8 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     const prevStepId = steps[prevOrigIdx]!.id;
     const prevActiveIdx = activeSteps.findIndex((s) => s.id === prevStepId);
     setCurrentStep(prevActiveIdx >= 0 ? prevActiveIdx : 0);
+    setBrowsingSuggestions(false);
+    setSuggestionIndex(0);
 
     const prevStep = steps[prevOrigIdx]!;
     // Restore previous value
@@ -311,6 +315,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       }
       if (input && !key.ctrl && !key.meta && !key.escape) {
         setBrowsingSuggestions(false);
+        setSuggestionIndex(0);
         setTextInput((v) => v.slice(0, cursorPos) + input + v.slice(cursorPos));
         setCursorPos((p) => p + input.length);
       }

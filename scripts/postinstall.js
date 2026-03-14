@@ -37,26 +37,11 @@ try {
     let s = readFileSync(outputPath, 'utf8');
     if (!s.includes('_OC_MAX')) {
       // Add LRU bound to all three Maps in OutputCaches
-      const lruGuard = `\n        if (this.styledChars.size > _OC_MAX) { const k = this.styledChars.keys().next().value; this.styledChars.delete(k); }`;
-      const lruGuardW = `\n        if (this.widths.size > _OC_MAX) { const k = this.widths.keys().next().value; this.widths.delete(k); }`;
-      const lruGuardB = `\n        if (this.blockWidths.size > _OC_MAX) { const k = this.blockWidths.keys().next().value; this.blockWidths.delete(k); }`;
-
-      s = s.replace(
-        'class OutputCaches {',
-        `const _OC_MAX = ${MAX};\nclass OutputCaches {`,
-      );
-      s = s.replace(
-        'this.styledChars.set(line, cached);',
-        `this.styledChars.set(line, cached);${lruGuard}`,
-      );
-      s = s.replace(
-        'this.widths.set(text, cached);',
-        `this.widths.set(text, cached);${lruGuardW}`,
-      );
-      s = s.replace(
-        'this.blockWidths.set(text, cached);',
-        `this.blockWidths.set(text, cached);${lruGuardB}`,
-      );
+      const lru = (prop) => `\n        if (this.${prop}.size > _OC_MAX) { const k = this.${prop}.keys().next().value; this.${prop}.delete(k); }`;
+      s = s.replace('class OutputCaches {', `const _OC_MAX = ${MAX};\nclass OutputCaches {`);
+      s = s.replace('this.styledChars.set(line, cached);', `this.styledChars.set(line, cached);${lru('styledChars')}`);
+      s = s.replace('this.widths.set(text, cached);', `this.widths.set(text, cached);${lru('widths')}`);
+      s = s.replace('this.blockWidths.set(text, cached);', `this.blockWidths.set(text, cached);${lru('blockWidths')}`);
       writeFileSync(outputPath, s);
     }
   }
