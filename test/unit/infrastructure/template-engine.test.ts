@@ -115,6 +115,97 @@ describe('buildPromptContext', () => {
   });
 });
 
+describe('buildPromptContext compact team listing', () => {
+  const multilineRole = 'Senior Backend Developer\n## WORKFLOW\n1) Step one\n2) Step two\n## RULES\n- Rule A\n- Rule B';
+  const longFirstLine = 'A'.repeat(100);
+
+  it('truncates other agents role to first line', () => {
+    const current = makeAgent({ id: 'agt_me', name: 'Me', role: 'My full role' });
+    const other = makeAgent({ id: 'agt_other', name: 'Other', role: multilineRole });
+
+    const ctx = buildPromptContext(
+      makeTask(),
+      current,
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+      { allAgents: [current, other] },
+    );
+
+    const otherInCtx = ctx.agents.find((a) => a.id === 'agt_other')!;
+    expect(otherInCtx.role).toBe('Senior Backend Developer');
+    expect(otherInCtx.role).not.toContain('WORKFLOW');
+  });
+
+  it('truncates first line longer than 80 chars with ellipsis', () => {
+    const other = makeAgent({ id: 'agt_long', name: 'Long', role: longFirstLine });
+    const current = makeAgent({ id: 'agt_me', name: 'Me' });
+
+    const ctx = buildPromptContext(
+      makeTask(),
+      current,
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+      { allAgents: [current, other] },
+    );
+
+    const longInCtx = ctx.agents.find((a) => a.id === 'agt_long')!;
+    expect(longInCtx.role!.length).toBe(80);
+    expect(longInCtx.role).toMatch(/\.\.\.$/);
+  });
+
+  it('excludes current agent role from team listing', () => {
+    const current = makeAgent({ id: 'agt_me', name: 'Me', role: multilineRole });
+
+    const ctx = buildPromptContext(
+      makeTask(),
+      current,
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+      { allAgents: [current] },
+    );
+
+    const meInCtx = ctx.agents.find((a) => a.id === 'agt_me')!;
+    expect(meInCtx.role).toBeUndefined();
+  });
+
+  it('preserves undefined role', () => {
+    const other = makeAgent({ id: 'agt_norole', name: 'NoRole', role: undefined });
+    const current = makeAgent({ id: 'agt_me', name: 'Me' });
+
+    const ctx = buildPromptContext(
+      makeTask(),
+      current,
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+      { allAgents: [current, other] },
+    );
+
+    const noRoleInCtx = ctx.agents.find((a) => a.id === 'agt_norole')!;
+    expect(noRoleInCtx.role).toBeUndefined();
+  });
+
+  it('keeps short single-line role as-is', () => {
+    const other = makeAgent({ id: 'agt_short', name: 'Short', role: 'QA Engineer' });
+    const current = makeAgent({ id: 'agt_me', name: 'Me' });
+
+    const ctx = buildPromptContext(
+      makeTask(),
+      current,
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+      { allAgents: [current, other] },
+    );
+
+    const shortInCtx = ctx.agents.find((a) => a.id === 'agt_short')!;
+    expect(shortInCtx.role).toBe('QA Engineer');
+  });
+});
+
 describe('LiquidTemplateEngine timeout', () => {
   it('renders normally within timeout', async () => {
     const engine = new LiquidTemplateEngine({ renderTimeoutMs: 5000 });

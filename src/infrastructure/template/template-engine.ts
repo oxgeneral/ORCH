@@ -117,6 +117,16 @@ export class LiquidTemplateEngine implements ITemplateEngine {
 }
 
 /**
+ * Truncate agent role to its first line (max 80 chars) for compact team listing.
+ * The current agent's full role is already rendered in the prompt header.
+ */
+function truncateRole(role: string | undefined): string | undefined {
+  if (!role) return role;
+  const firstLine = role.split('\n')[0]!.trim();
+  return firstLine.length > 80 ? firstLine.slice(0, 77) + '...' : firstLine;
+}
+
+/**
  * Build prompt context from domain objects.
  */
 export interface BuildPromptOptions {
@@ -174,7 +184,7 @@ export function buildPromptContext(
     agents: (allAgents ?? []).map((a) => ({
       id: a.id,
       name: a.name,
-      role: a.role,
+      role: a.id === agent.id ? undefined : truncateRole(a.role),
       adapter: a.adapter,
     })),
     attempt: attempt > 1 ? attempt : null,
