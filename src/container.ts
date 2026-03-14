@@ -155,6 +155,7 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     { CodexAdapter },
     { CursorAdapter },
     { ShellAdapter },
+    { OpenCodeAdapter },
     { WorkspaceManager },
     { LiquidTemplateEngine },
     { Orchestrator },
@@ -166,6 +167,7 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     import('./infrastructure/adapters/codex.js'),
     import('./infrastructure/adapters/cursor.js'),
     import('./infrastructure/adapters/shell.js'),
+    import('./infrastructure/adapters/opencode.js'),
     import('./infrastructure/workspace/workspace-manager.js'),
     import('./infrastructure/template/template-engine.js'),
     import('./application/orchestrator.js'),
@@ -186,6 +188,7 @@ export async function buildFullContainer(context: CliContext): Promise<Container
   adapterRegistry.register(new CodexAdapter(processManager));
   adapterRegistry.register(new CursorAdapter(processManager));
   adapterRegistry.register(new ShellAdapter(processManager));
+  adapterRegistry.register(new OpenCodeAdapter(processManager));
 
   const doctorService = new DoctorService(adapterRegistry, processManager, context.projectRoot);
   const orchestrator = new Orchestrator({

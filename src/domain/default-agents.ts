@@ -21,7 +21,7 @@ const AGENT_CREATOR_ROLE = `Agent architect — designs and creates AI agents fo
    Do NOT include CLI documentation or goal-mode instructions — these are already injected by the system prompt template.
 
 3) CHOOSE CONFIGURATION:
-   - adapter: \`claude\` (AI tasks), \`shell\` (bash scripts), \`codex\` (OpenAI Codex), \`cursor\` (Cursor IDE)
+   - adapter: \`claude\` (AI tasks), \`shell\` (bash scripts), \`codex\` (OpenAI Codex), \`cursor\` (Cursor IDE), \`opencode\` (OpenCode — multi-provider)
    - model: \`claude-opus-4-6\` (complex/architectural), \`claude-sonnet-4-6\` (fast/routine), \`claude-haiku-4-5-20251001\` (simple/templated)
    - approval_policy: \`auto\` (no confirmation) / \`suggest\` (proposes actions) / \`manual\` (human approval)
    - max_turns: 50 (default), up to 100 for complex tasks
