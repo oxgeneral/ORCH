@@ -98,13 +98,12 @@ export const AgentRow = React.memo(function AgentRow({ agent, selected, width, r
 
   const cursor = selected ? '\u25B8' : ' '; // ▸ or space
 
-  // Column widths
+  // Column widths — compact layout: no role column (visible in detail panel)
   const chipWidth = 11;     // " ▶ ACTIVE " = ~11 chars
-  const adapterWidth = 10;
-  const teamColWidth = teamName ? Math.min(teamName.length + 2, 14) : 0;
-  const roleWidth = Math.max(6, 22 - teamColWidth); // shrink role to fit team badge
-  const timeWidth = 7;
-  const fixedCols = 2 + chipWidth + adapterWidth + teamColWidth + roleWidth + timeWidth;
+  const adapterWidth = 8;   // " claude " compact
+  const teamColWidth = teamName ? Math.min(teamName.length + 2, 12) : 0;
+  const timeWidth = 10;     // "109/114 ✓" with stats
+  const fixedCols = 2 + chipWidth + adapterWidth + teamColWidth + timeWidth;
   const nameWidth = width ? Math.max(8, width - fixedCols) : 20;
 
   // Role / current task / error summary display
@@ -150,7 +149,7 @@ export const AgentRow = React.memo(function AgentRow({ agent, selected, width, r
         </Text>
       </Box>
 
-      {/* Agent name (★ prefix for team leads) */}
+      {/* Agent name + running task hint */}
       <Box width={nameWidth}>
         <Text
           wrap="truncate"
@@ -160,29 +159,26 @@ export const AgentRow = React.memo(function AgentRow({ agent, selected, width, r
           {agent.autonomous && <Text color={tuiColors.cyan}>{LOOP} </Text>}
           {isLead && <Text color={tuiColors.amber}>{STAR} </Text>}
           {agent.name}
+          {isRunning && currentTaskTitle && (
+            <Text color={tuiColors.dim}> {DOT} {currentTaskTitle}</Text>
+          )}
+          {agent.status === 'error' && agent.last_error && (
+            <Text color={tuiColors.red}> {DOT} {capLine((ERROR_HINTS[agent.last_error.kind as AdapterErrorKind]?.message ?? agent.last_error.message), 30)}</Text>
+          )}
         </Text>
       </Box>
 
-      {/* Adapter chip */}
+      {/* Adapter */}
       <Box width={adapterWidth}>
-        <Text backgroundColor={chipBg.neutral} color={tuiColors.dim}>
-          {' '}{agent.adapter}{' '}
-        </Text>
+        <Text color={tuiColors.dim}>{agent.adapter}</Text>
       </Box>
 
       {/* Team badge */}
       {teamName && (
         <Box width={teamColWidth}>
-          <Text backgroundColor={chipBg.amber} color={tuiColors.amber} wrap="truncate">
-            {' '}{teamName}{' '}
-          </Text>
+          <Text color={tuiColors.amber} wrap="truncate">{teamName}</Text>
         </Box>
       )}
-
-      {/* Role / current task */}
-      <Box width={roleWidth}>
-        <Text color={roleColor} bold={roleBold} wrap="truncate">{roleText}</Text>
-      </Box>
 
       {/* Time / stats */}
       <Box width={timeWidth} justifyContent="flex-end">

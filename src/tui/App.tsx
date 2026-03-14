@@ -1252,8 +1252,6 @@ export function App({
     activeView === 'tasks' ? visibleTasks.length + 1 + (hiddenTaskCount > 0 ? 1 : 0) + taskGroupSectionRows : // +1 for "+ add" row, +1 for "show all" row, + section headers
     activeView === 'agents' ? liveAgents.length + 1 + agentSectionRows : 0;
   const minListH = Math.min(listItemCount + 1, Math.ceil(contentH * 0.5)); // cap at 50%
-  const hasTaskFooter = activeView === 'tasks' && hiddenTaskCount > 0;
-  const footerH = hasTaskFooter ? 1 : 0;
   // Base adaptive split, then apply user offset and maximized toggle
   const baseMainH = activeView === 'logs' ? contentH : Math.max(2, Math.min(minListH, contentH - 4));
   let mainH: number;
@@ -1263,12 +1261,12 @@ export function App({
     feedH = 0;
   } else if (isDetailMaximized) {
     mainH = 0;
-    feedH = Math.max(1, contentH - footerH);
+    feedH = Math.max(1, contentH);
   } else {
     // Apply splitOffset: negative = more detail, positive = more list
-    const adjusted = Math.max(3, Math.min(baseMainH + splitOffset, contentH - 4 - footerH));
+    const adjusted = Math.max(3, Math.min(baseMainH + splitOffset, contentH - 4));
     mainH = adjusted;
-    feedH = Math.max(1, contentH - adjusted - footerH);
+    feedH = Math.max(1, contentH - adjusted);
   }
   const ruleW = Math.max(10, W - 2);
 
@@ -2380,13 +2378,6 @@ export function App({
       {!showHelpOverlay && activeView === 'tasks' && onboardingStep === 'completed' && (
         <OnboardingToast width={W} />
       )}
-      {!showHelpOverlay && activeView === 'tasks' && hiddenTaskCount > 0 && (
-        <Box paddingX={1} backgroundColor={tuiColors.ghost}>
-          <Text color={tuiColors.amber}>
-            showing {visibleTasks.length} of {sortedTasks.length} tasks {'\u00B7'} press <Text bold color={tuiColors.amber}>S</Text> to show all
-          </Text>
-        </Box>
-      )}
       {!showHelpOverlay && activeView === 'agents' && (
         <AgentsContent
           agents={sortedAgents}
@@ -3195,9 +3186,6 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
     return counts;
   }, [messages]);
 
-  // Sparkline data: 30 buckets × 10s each = last 5 minutes
-  const sparkline = useMemo(() => buildSparkline(filteredMessages, 30, 10_000, now), [filteredMessages, now]);
-
   const typeFilterLabel = logTypeFilter.size >= 8 ? 'all'
     : logTypeFilter.size === 1 && logTypeFilter.has('output') ? 'text'
     : logTypeFilter.size === 1 && logTypeFilter.has('error') ? 'errors'
@@ -3205,31 +3193,9 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
     : logTypeFilter.has('lifecycle') && !logTypeFilter.has('output') ? 'events'
     : `${logTypeFilter.size} types`;
 
-  // ── Filter status bar: show only when filters are active ──
   const hasAgentFilter = logAgentFilter.size > 0;
-  const hasTypeFilter = logTypeFilter.size < 8;
-  const hasAnyFilter = hasAgentFilter || hasTypeFilter;
 
-  const filterStatusParts: string[] = [];
-  if (hasAgentFilter) {
-    const names = agents
-      .filter((a) => logAgentFilter.has(a.id))
-      .map((a) => a.name);
-    const label = names.length <= 3
-      ? names.join(',')
-      : `${names[0]} +${names.length - 1}`;
-    filterStatusParts.push(`agent:${label}`);
-  }
-  if (hasTypeFilter) {
-    const types = [...logTypeFilter];
-    const label = types.length <= 3
-      ? types.join(',')
-      : `${types[0]} +${types.length - 1}`;
-    filterStatusParts.push(`type:${label}`);
-  }
-  filterStatusParts.push(`${filteredMessages.length}/${messages.length}`);
-
-  const viewH = height - 3; // -3 for command bar + agent chips + status bar
+  const viewH = height - 2; // -2 for status bar + agent chips
   const visible = selectedIndex === -1
     ? filteredMessages.slice(-viewH)
     : filteredMessages.slice(scrollOffset, scrollOffset + viewH);
@@ -3255,72 +3221,47 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
 
   return (
     <Box flexDirection="column" paddingX={1}>
-      {/* ── Line 0: Commands ── */}
-      <Box gap={0}>
-        <Text color={tuiColors.amber} bold>a</Text><Text color={tuiColors.dim}>{' agent filter '}</Text>
-        <Text color={tuiColors.ghost}>{'\u2502'} </Text>
-        <Text color={tuiColors.amber} bold>f</Text><Text color={tuiColors.dim}>{' type filter '}</Text>
-        <Text color={tuiColors.ghost}>{'\u2502'} </Text>
-        <Text color={tuiColors.amber} bold>F</Text><Text color={tuiColors.dim}>{' quick cycle '}</Text>
-        <Text color={tuiColors.ghost}>{'\u2502'} </Text>
-        <Text color={tuiColors.amber} bold>{'\u2191\u2193'}</Text><Text color={tuiColors.dim}>{' browse '}</Text>
-        <Text color={tuiColors.ghost}>{'\u2502'} </Text>
-        <Text color={tuiColors.amber} bold>Esc</Text><Text color={tuiColors.dim}>{' live'}</Text>
+      {/* ── Line 1: Status — mode + events + filter + commands ── */}
+      <Box gap={0} justifyContent="space-between" width={width}>
+        <Box gap={0}>
+          {selectedIndex === -1 ? (
+            <Box gap={0}>
+              <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}>{' '}</Text>
+              <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}><Spinner color={tuiColors.green} /></Text>
+              <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}>{' LIVE '}</Text>
+            </Box>
+          ) : (
+            <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber}>
+              {' \u2191\u2193 '}{selectedIndex + 1}/{filteredMessages.length}{' '}
+            </Text>
+          )}
+          <Text color={tuiColors.dim}> {filteredMessages.length} events</Text>
+          {typeFilterLabel !== 'all' && (
+            <Text color={tuiColors.amber}> f:{typeFilterLabel}</Text>
+          )}
+          {hasAgentFilter && (
+            <Text color={tuiColors.cyan}> {logAgentFilter.size}/{agents.length} agents</Text>
+          )}
+        </Box>
+        <Box gap={0}>
+          <Text color={tuiColors.amber} bold>a</Text><Text color={tuiColors.dim}> filter </Text>
+          <Text color={tuiColors.amber} bold>f</Text><Text color={tuiColors.dim}> type </Text>
+          <Text color={tuiColors.amber} bold>F</Text><Text color={tuiColors.dim}> cycle</Text>
+        </Box>
       </Box>
 
-      {/* ── Line 1: Agent chips ── */}
+      {/* ── Line 2: Agent chips — full names, spaced ── */}
       <Box gap={0}>
-        {logAgentFilter.size === 0 ? (
-          <Text backgroundColor={tuiColors.infoBg} color={tuiColors.silver} bold>{' \u25CF ALL '}</Text>
-        ) : (
-          <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber} bold>
-            {' \u25C8 '}{logAgentFilter.size}/{agents.length}{' '}
-          </Text>
-        )}
         {agents.map((a) => {
           const ac = agentColorMap.get(a.id) ?? AGENT_COLORS[0]!;
           const active = logAgentFilter.size === 0 || logAgentFilter.has(a.id);
-          const count = agentMsgCounts.get(a.id) ?? 0;
           const name = a.name.length > agentChipLen ? a.name.slice(0, agentChipLen - 1) + '\u2026' : a.name;
-          const countStr = count > 0 ? `\u00B7${count}` : '';
-          return active ? (
-            <Text key={a.id} backgroundColor={tuiColors.successBg} color={ac} bold>{name}{countStr} </Text>
-          ) : (
-            <Text key={a.id} color={tuiColors.ghost}>{name} </Text>
+          return (
+            <Text key={a.id} color={active ? ac : tuiColors.ghost} bold={active}>
+              {' '}{name}
+            </Text>
           );
         })}
-      </Box>
-
-      {/* ── Line 2: Status bar — type filter + count + mode + sparkline ── */}
-      <Box gap={0}>
-        {typeFilterLabel === 'all' ? (
-          <Text color={tuiColors.dim}>f:all</Text>
-        ) : (
-          <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber} bold>{' f:'}{typeFilterLabel.toUpperCase()}{' '}</Text>
-        )}
-        <Text color={tuiColors.ghost}> {'\u2502'} </Text>
-        <Text color={tuiColors.dim}>{filteredMessages.length} events</Text>
-        <Text color={tuiColors.ghost}> {'\u2502'} </Text>
-        {selectedIndex === -1 ? (
-          <Box gap={0}>
-            <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}>{' '}</Text>
-            <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}><Spinner color={tuiColors.green} /></Text>
-            <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}>{' LIVE '}</Text>
-          </Box>
-        ) : (
-          <Text backgroundColor={tuiColors.warnBg} color={tuiColors.amber}>
-            {' \u2191\u2193 '}{selectedIndex + 1}/{filteredMessages.length}{' '}
-          </Text>
-        )}
-        <Text color={tuiColors.ghost}>{'  '}</Text>
-        <Text color={tuiColors.amberDim}>{sparkline}</Text>
-        <Text color={tuiColors.ghost}> 5m</Text>
-        {hasAnyFilter && filterStatusParts.map((part, i) => (
-          <Box key={i} gap={0}>
-            <Text color={tuiColors.dim}>{' · '}</Text>
-            <Text color={tuiColors.cyan}>{part}</Text>
-          </Box>
-        ))}
       </Box>
 
       {/* ── Messages ── */}
