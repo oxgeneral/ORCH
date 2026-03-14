@@ -123,10 +123,10 @@ export class RunService {
 
     const error = failedRun.error ?? 'Unknown error';
 
-    // Read all events and extract output lines
+    // Read last 50 events (sufficient for retry context, prevents OOM on large runs)
     let output = '';
     try {
-      const events = await this.runStore.readEvents(failedRun.id);
+      const events = await this.runStore.readEventsTail(failedRun.id, 50);
       output = events
         .filter((e) => e.type === 'agent_output' || e.type === 'error')
         .map((e) => (typeof e.data === 'string' ? e.data : JSON.stringify(e.data)))

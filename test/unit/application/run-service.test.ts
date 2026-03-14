@@ -144,9 +144,11 @@ describe('RunService.getLastFailedRunContext', () => {
     const service = new RunService(runStore, eventBus);
     const result = await service.getLastFailedRunContext('tsk_1');
 
+    // readEventsTail(id, 50) returns last 50 events to prevent OOM
     const outputLines = result!.output.split('\n');
-    expect(outputLines.length).toBe(100);
-    expect(result!.output).toContain('line 0');
+    expect(outputLines.length).toBe(50);
+    expect(result!.output).not.toContain('line 0');
+    expect(result!.output).toContain('line 50');
     expect(result!.output).toContain('line 99');
   });
 
