@@ -15,7 +15,7 @@ import { GOAL_STATUSES, type Goal, type GoalStatus } from '../domain/goal.js';
 import type { OrchestratorState } from '../domain/state.js';
 import type { OrchestratorEvent } from '../domain/events.js';
 import { formatDurationSince, formatTokens } from '../cli/output.js';
-import { tuiColors, HEAVY_RULE, LIGHT_RULE, LOOP, TASK_STATUS_COLOR, GOAL_STATUS_COLOR } from './colors.js';
+import { tuiColors, HEAVY_RULE, LIGHT_RULE, LOOP, TASK_STATUS_COLOR, GOAL_STATUS_COLOR, heavyRule, lightRule, capLine } from './colors.js';
 import { TaskRow, STATUS_ORDER } from './components/TaskList.js';
 import { AgentRow, AGENT_STATUS_ORDER, TeamSectionRow, UnassignedSectionRow } from './components/AgentList.js';
 import { GoalRow, GOAL_STATUS_ORDER } from './components/GoalList.js';
@@ -2367,11 +2367,18 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
       }
       return wrapped;
     };
-    const progressLines = progressReport
-      ? progressReport.split('\n').flatMap((l) => wrapLine(l, textWidth))
+    const MAX_REPORT_LEN = 10_000;
+    const safeReport = progressReport && progressReport.length > MAX_REPORT_LEN
+      ? progressReport.slice(0, MAX_REPORT_LEN) + '\n…[truncated]'
+      : progressReport;
+    const progressLines = safeReport
+      ? safeReport.split('\n').flatMap((l) => wrapLine(l, textWidth))
       : [];
-    const descLines = goal.description
-      ? goal.description.split('\n').flatMap((l) => wrapLine(l, textWidth))
+    const safeDesc = goal.description && goal.description.length > MAX_REPORT_LEN
+      ? goal.description.slice(0, MAX_REPORT_LEN) + '\n…[truncated]'
+      : goal.description;
+    const descLines = safeDesc
+      ? safeDesc.split('\n').flatMap((l) => wrapLine(l, textWidth))
       : [];
     const statusColor = GOAL_STATUS_COLOR[goal.status] ?? tuiColors.dim;
 
@@ -3102,7 +3109,7 @@ function LogDetailPanel({ message, height, width, agents, agentNameMap, taskTitl
     <Box flexDirection="column" paddingX={1}>
       {/* Header with metadata badges */}
       <Box>
-        <Text color={tuiColors.ghost}>╭{'─'.repeat(maxW + 2)}╮</Text>
+        <Text color={tuiColors.ghost}>╭{lightRule(maxW + 2)}╮</Text>
       </Box>
       <Box>
         <Text color={tuiColors.ghost}>│ </Text>
@@ -3125,7 +3132,7 @@ function LogDetailPanel({ message, height, width, agents, agentNameMap, taskTitl
         <Text color={message.color} bold wrap="truncate">{message.text.slice(0, maxW)}</Text>
       </Box>
       <Box>
-        <Text color={tuiColors.ghost}>├{'─'.repeat(maxW + 2)}┤</Text>
+        <Text color={tuiColors.ghost}>├{lightRule(maxW + 2)}┤</Text>
       </Box>
 
       {/* Body content with line numbers for JSON */}
@@ -3150,7 +3157,7 @@ function LogDetailPanel({ message, height, width, agents, agentNameMap, taskTitl
       ))}
 
       <Box>
-        <Text color={tuiColors.ghost}>╰{'─'.repeat(maxW + 2)}╯</Text>
+        <Text color={tuiColors.ghost}>╰{lightRule(maxW + 2)}╯</Text>
       </Box>
     </Box>
   );
@@ -3167,9 +3174,9 @@ function SectionLabel({ label, width, suffix, suffixLen = 0 }: { label: string; 
     const rightRuleLen = Math.max(0, width - usedLen);
     return (
       <Box paddingX={1}>
-        <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(leftRuleLen)}</Text>
+        <Text color={tuiColors.ghost}>{heavyRule(leftRuleLen)}</Text>
         <Text backgroundColor="#1a1a22" color={tuiColors.dim} bold>{chipText}</Text>
-        <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(rightRuleLen)}</Text>
+        <Text color={tuiColors.ghost}>{heavyRule(rightRuleLen)}</Text>
       </Box>
     );
   }
@@ -3177,11 +3184,11 @@ function SectionLabel({ label, width, suffix, suffixLen = 0 }: { label: string; 
   const trailLen = Math.max(0, width - usedLen - gapLen - suffixLen);
   return (
     <Box paddingX={1}>
-      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(leftRuleLen)}</Text>
+      <Text color={tuiColors.ghost}>{heavyRule(leftRuleLen)}</Text>
       <Text backgroundColor="#1a1a22" color={tuiColors.dim} bold>{chipText}</Text>
-      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(gapLen)}</Text>
+      <Text color={tuiColors.ghost}>{heavyRule(gapLen)}</Text>
       {suffix}
-      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(trailLen)}</Text>
+      <Text color={tuiColors.ghost}>{heavyRule(trailLen)}</Text>
     </Box>
   );
 }
@@ -3195,11 +3202,11 @@ function DetailSectionLabel({ task, width }: { task: Task; width: number }) {
   const rightRuleLen = Math.max(0, width - 3 - chipText.length - titleTrunc.length - 4);
   return (
     <Box paddingX={1}>
-      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(3)}</Text>
+      <Text color={tuiColors.ghost}>{heavyRule(3)}</Text>
       <Text backgroundColor="#2d1f0a" color={tuiColors.amber} bold>{chipText}</Text>
       <Text color={tuiColors.ghost}>{HEAVY_RULE} </Text>
       <Text color={tuiColors.white} bold>{titleTrunc}</Text>
-      <Text color={tuiColors.ghost}> {HEAVY_RULE.repeat(Math.max(0, rightRuleLen))}</Text>
+      <Text color={tuiColors.ghost}> {heavyRule(Math.max(0, rightRuleLen))}</Text>
     </Box>
   );
 }
@@ -3213,11 +3220,11 @@ function AgentDetailSectionLabel({ agent, width }: { agent: Agent; width: number
   const rightRuleLen = Math.max(0, width - 3 - chipText.length - nameTrunc.length - 4);
   return (
     <Box paddingX={1}>
-      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(3)}</Text>
+      <Text color={tuiColors.ghost}>{heavyRule(3)}</Text>
       <Text backgroundColor="#0f2d1f" color={tuiColors.green} bold>{chipText}</Text>
       <Text color={tuiColors.ghost}>{HEAVY_RULE} </Text>
       <Text color={tuiColors.green} bold>{nameTrunc}</Text>
-      <Text color={tuiColors.ghost}> {HEAVY_RULE.repeat(Math.max(0, rightRuleLen))}</Text>
+      <Text color={tuiColors.ghost}> {heavyRule(Math.max(0, rightRuleLen))}</Text>
     </Box>
   );
 }
@@ -3298,7 +3305,7 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
       {agent.config.skills && agent.config.skills.length > 0 && (
         <Box>
           <Text color={tuiColors.dim}>  skills    </Text>
-          <Text color={tuiColors.cyan} wrap="truncate">{agent.config.skills.join(', ')}</Text>
+          <Text color={tuiColors.cyan} wrap="truncate">{capLine(agent.config.skills.join(', '), 500)}</Text>
         </Box>
       )}
 
@@ -3307,7 +3314,7 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
 
       {/* Role description — split into lines to fill available height */}
       {agent.role ? agent.role.split('\n').slice(0, Math.max(1, height - 4)).map((line, i) => (
-        <Text key={i} color={tuiColors.silver} wrap="truncate">{'  '}{line}</Text>
+        <Text key={i} color={tuiColors.silver} wrap="truncate">{'  '}{capLine(line, 500)}</Text>
       )) : (
         <Text color={tuiColors.dim}>  No role description.</Text>
       )}
@@ -3333,9 +3340,9 @@ function InputSectionLabel({ mode, width }: { mode: InputMode; width: number }) 
   const rightRuleLen = Math.max(0, width - 3 - chipText.length - 2);
   return (
     <Box paddingX={1}>
-      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(3)}</Text>
+      <Text color={tuiColors.ghost}>{heavyRule(3)}</Text>
       <Text backgroundColor="#2d1f0a" color={tuiColors.amber} bold>{chipText}</Text>
-      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(rightRuleLen)}</Text>
+      <Text color={tuiColors.ghost}>{heavyRule(rightRuleLen)}</Text>
     </Box>
   );
 }
@@ -3721,7 +3728,7 @@ function StatsRibbonBase({ counts, emptyText, tokenCount, width }: {
         </React.Fragment>
       ))}
       {counts.length === 0 && <Text color={tuiColors.dim}>{emptyText}</Text>}
-      <Text color={tuiColors.ghost}> {LIGHT_RULE.repeat(Math.max(0, fillLen))} </Text>
+      <Text color={tuiColors.ghost}> {lightRule(Math.max(0, fillLen))} </Text>
       {tokenCount > 0 && <Text color={tuiColors.cyan}>{tokenText}</Text>}
       <Text color={tuiColors.ghost}> {LIGHT_RULE}{LIGHT_RULE}</Text>
     </Box>

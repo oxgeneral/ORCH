@@ -63,6 +63,31 @@ export const TASK_STATUS_COLOR: Record<TaskStatus, string> = {
   cancelled: tuiColors.dim,
 };
 
+/**
+ * Pre-computed rule strings to avoid per-render Intl.Segmenter overhead.
+ * Unicode box-drawing chars force the slow Segmenter path in string-width;
+ * caching the repeated strings means each unique length is allocated once.
+ */
+const _heavyCache = new Map<number, string>();
+const _lightCache = new Map<number, string>();
+export function heavyRule(len: number): string {
+  if (len <= 0) return '';
+  let s = _heavyCache.get(len);
+  if (!s) { s = HEAVY_RULE.repeat(len); _heavyCache.set(len, s); }
+  return s;
+}
+export function lightRule(len: number): string {
+  if (len <= 0) return '';
+  let s = _lightCache.get(len);
+  if (!s) { s = LIGHT_RULE.repeat(len); _lightCache.set(len, s); }
+  return s;
+}
+
+/** Cap a string to maxLen chars, appending '…' if truncated. */
+export function capLine(s: string, maxLen: number): string {
+  return s.length > maxLen ? s.slice(0, maxLen - 1) + '\u2026' : s;
+}
+
 /** Canonical goal status → foreground color mapping. */
 export const GOAL_STATUS_COLOR: Record<GoalStatus, string> = {
   active: tuiColors.green,

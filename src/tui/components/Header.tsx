@@ -18,7 +18,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import { tuiColors, HEAVY_RULE, DOT, LOZENGE, DIAMOND } from '../colors.js';
+import { tuiColors, HEAVY_RULE, DOT, LOZENGE, DIAMOND, heavyRule } from '../colors.js';
 import { TABS } from './TabBar.js';
 import type { ViewId } from './TabBar.js';
 import { useAnimTick } from './useAnimTick.js';
@@ -83,7 +83,7 @@ function ScannerBar({ width, active }: { width: number; active: boolean }) {
   if (!active) {
     return (
       <Box paddingX={1}>
-        <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(width)}</Text>
+        <Text color={tuiColors.ghost}>{heavyRule(width)}</Text>
       </Box>
     );
   }
@@ -101,9 +101,9 @@ function ScannerBar({ width, active }: { width: number; active: boolean }) {
 
   return (
     <Box paddingX={1}>
-      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(beforeLen)}</Text>
-      <Text color={tuiColors.amber}>{HEAVY_RULE.repeat(brightLen)}</Text>
-      <Text color={tuiColors.ghost}>{HEAVY_RULE.repeat(afterLen)}</Text>
+      <Text color={tuiColors.ghost}>{heavyRule(beforeLen)}</Text>
+      <Text color={tuiColors.amber}>{heavyRule(brightLen)}</Text>
+      <Text color={tuiColors.ghost}>{heavyRule(afterLen)}</Text>
     </Box>
   );
 }

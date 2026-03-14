@@ -15,7 +15,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import type { Agent, AgentStatus } from '../../domain/agent.js';
 import type { RunningEntry } from '../../domain/state.js';
-import { tuiColors, DOT, LOZENGE, STAR, LOOP } from '../colors.js';
+import { tuiColors, DOT, LOZENGE, STAR, LOOP, lightRule } from '../colors.js';
 import { Spinner } from './Spinner.js';
 import { formatDuration } from '../../cli/output.js';
 
@@ -215,9 +215,9 @@ export function TeamSectionRow({ teamName, memberCount, leadName, width }: TeamS
 
   return (
     <Box paddingX={2}>
-      <Text color={tuiColors.ghost}>{'─'.repeat(leftLen)}</Text>
+      <Text color={tuiColors.ghost}>{lightRule(leftLen)}</Text>
       <Text backgroundColor={chipBg.amber} color={tuiColors.amber} bold>{label}</Text>
-      <Text color={tuiColors.ghost}>{'─'.repeat(rightLen)}</Text>
+      <Text color={tuiColors.ghost}>{lightRule(rightLen)}</Text>
     </Box>
   );
 }
@@ -239,9 +239,9 @@ export function UnassignedSectionRow({ memberCount, width }: { memberCount: numb
 
   return (
     <Box paddingX={2}>
-      <Text color={tuiColors.ghost}>{'─'.repeat(leftLen)}</Text>
+      <Text color={tuiColors.ghost}>{lightRule(leftLen)}</Text>
       <Text backgroundColor={chipBg.neutral} color={tuiColors.dim}>{label}</Text>
-      <Text color={tuiColors.ghost}>{'─'.repeat(rightLen)}</Text>
+      <Text color={tuiColors.ghost}>{lightRule(rightLen)}</Text>
     </Box>
   );
 }

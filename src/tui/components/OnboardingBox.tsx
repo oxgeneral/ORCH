@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import { tuiColors, LIGHT_RULE, DIAMOND } from '../colors.js';
+import { tuiColors, DIAMOND, lightRule } from '../colors.js';
 
 /* ── Box-drawing characters ─────────────────────── */
 
@@ -67,7 +67,7 @@ export type OnboardingStep = 'welcome' | 'task_created' | 'run_started' | 'compl
 export function WelcomeScreen({ width, height }: { width: number; height: number }) {
   const boxW = Math.min(width - 4, 50);
   const cw = boxW - 6;
-  const hLine = LIGHT_RULE.repeat(boxW - 2);
+  const hLine = lightRule(boxW - 2);
 
   return (
     <Box flexDirection="column" paddingX={2} marginTop={1}>
@@ -108,7 +108,7 @@ export function WelcomeScreen({ width, height }: { width: number; height: number
 export function OnboardingNudge({ step, width }: { step: OnboardingStep; width: number }) {
   const boxW = Math.min(width - 4, 50);
   const cw = boxW - 6;
-  const hLine = LIGHT_RULE.repeat(boxW - 2);
+  const hLine = lightRule(boxW - 2);
 
   let text: string;
   let hint: { key: string; label: string } | null = null;
@@ -148,7 +148,7 @@ export function OnboardingNudge({ step, width }: { step: OnboardingStep; width: 
 export function OnboardingToast({ width }: { width: number }) {
   const boxW = Math.min(width - 4, 50);
   const cw = boxW - 6;
-  const hLine = LIGHT_RULE.repeat(boxW - 2);
+  const hLine = lightRule(boxW - 2);
 
   return (
     <Box flexDirection="column" paddingX={2} marginTop={1}>
@@ -183,7 +183,7 @@ export function OnboardingBox({ count, config, width }: OnboardingBoxProps) {
   const boxW = Math.min((width ?? 44) - 4, 50); // -4 for paddingX on outer Box
   const cw = boxW - 6; // content width between "│  " and "  │"
 
-  const hLine = LIGHT_RULE.repeat(boxW - 2);
+  const hLine = lightRule(boxW - 2);
   const topBorder = <Text color={tuiColors.ghost}>{TL}{hLine}{TR}</Text>;
   const botBorder = <Text color={tuiColors.ghost}>{BL}{hLine}{BR}</Text>;
 

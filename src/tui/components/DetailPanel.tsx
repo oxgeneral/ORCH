@@ -20,7 +20,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { Task } from '../../domain/task.js';
-import { tuiColors, TASK_STATUS_COLOR } from '../colors.js';
+import { tuiColors, TASK_STATUS_COLOR, lightRule, capLine } from '../colors.js';
 
 /** Message types for icon/color mapping */
 type MsgType = 'system' | 'lifecycle' | 'output' | 'tool' | 'result' | 'error' | 'file' | 'info';
@@ -61,7 +61,7 @@ export function SectionDivider({ label, width, color }: { label: string; width: 
   const rightLen = Math.max(0, innerW - leftLen - labelWithSpaces.length);
   return (
     <Text color={color ?? tuiColors.ghost}>
-      {'  '}{'─'.repeat(leftLen)}{labelWithSpaces}{'─'.repeat(rightLen)}
+      {'  '}{lightRule(leftLen)}{labelWithSpaces}{lightRule(rightLen)}
     </Text>
   );
 }
@@ -191,7 +191,7 @@ export function DetailPanel({ task, height, width, taskLogs, agentNameMap }: Det
         <>
           <Text>{' '}</Text>
           {visibleDescLines.map((line, i) => (
-            <Text key={`d${i}`} color={tuiColors.silver} wrap="truncate">{'  '}{line}</Text>
+            <Text key={`d${i}`} color={tuiColors.silver} wrap="truncate">{'  '}{capLine(line, width - 8)}</Text>
           ))}
         </>
       )}
@@ -210,7 +210,7 @@ export function DetailPanel({ task, height, width, taskLogs, agentNameMap }: Det
           <Text>{' '}</Text>
           <SectionDivider label="result" width={width} color={tuiColors.dim} />
           {visibleSummaryLines.map((line, i) => (
-            <Text key={`r${i}`} color={tuiColors.white} wrap="truncate">{'  '}{line}</Text>
+            <Text key={`r${i}`} color={tuiColors.white} wrap="truncate">{'  '}{capLine(line, width - 8)}</Text>
           ))}
         </>
       )}
