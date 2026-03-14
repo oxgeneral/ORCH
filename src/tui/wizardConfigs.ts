@@ -158,7 +158,7 @@ export function applyShopTemplate(
 
 // ── Agent creation wizard ──
 
-export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
+export function getAgentWizardSteps(agents?: Agent[], teams?: Team[]): WizardStep[] {
   const teamOptions = buildTeamOptions(teams);
 
   return [
@@ -168,6 +168,11 @@ export function getAgentWizardSteps(teams?: Team[]): WizardStep[] {
       type: 'text',
       placeholder: 'e.g. alpha, frontend-bot, reviewer',
       required: true,
+      validate: (v) => {
+        if (!v.trim()) return 'Name is required';
+        if (agents?.some((a) => a.name === v.trim())) return 'Agent with this name already exists';
+        return null;
+      },
       suggestions: AGENT_SHOP_TEMPLATES.map((t) => ({
         value: t.key,
         label: t.name,
@@ -244,7 +249,7 @@ export function agentWizardToInput(vals: Record<string, string>) {
 
 // ── Team creation wizard ──
 
-export function getTeamWizardSteps(agents: Agent[]): WizardStep[] {
+export function getTeamWizardSteps(agents: Agent[], teams?: Team[]): WizardStep[] {
   const agentOptions = mapAgentOptions(agents);
 
   return [
@@ -254,6 +259,11 @@ export function getTeamWizardSteps(agents: Agent[]): WizardStep[] {
       type: 'text',
       placeholder: 'e.g. frontend, backend, qa',
       required: true,
+      validate: (v) => {
+        if (!v.trim()) return 'Name is required';
+        if (teams?.some((t) => t.name === v.trim())) return 'Team with this name already exists';
+        return null;
+      },
     },
     {
       id: 'lead',
@@ -301,6 +311,7 @@ export function getTaskWizardSteps(agents: Agent[]): WizardStep[] {
       type: 'text',
       placeholder: 'What needs to be done?',
       required: true,
+      validate: (v) => !v.trim() ? 'Title is required' : null,
     },
     {
       id: 'priority',
@@ -308,6 +319,10 @@ export function getTaskWizardSteps(agents: Agent[]): WizardStep[] {
       type: 'select',
       options: PRIORITY_OPTIONS,
       defaultValue: '3',
+      validate: (v) => {
+        const n = Number(v);
+        return !Number.isInteger(n) || n < 1 || n > 4 ? 'Priority must be 1-4' : null;
+      },
     },
     {
       id: 'assignee',
@@ -349,6 +364,7 @@ export function getEditTaskWizardSteps(task: Task, agents: Agent[]): WizardStep[
       type: 'text',
       defaultValue: task.title,
       required: true,
+      validate: (v) => !v.trim() ? 'Title is required' : null,
     },
     {
       id: 'priority',
@@ -356,6 +372,10 @@ export function getEditTaskWizardSteps(task: Task, agents: Agent[]): WizardStep[
       type: 'select',
       options: PRIORITY_OPTIONS,
       defaultValue: String(task.priority),
+      validate: (v) => {
+        const n = Number(v);
+        return !Number.isInteger(n) || n < 1 || n > 4 ? 'Priority must be 1-4' : null;
+      },
     },
     {
       id: 'assignee',
@@ -384,7 +404,7 @@ export function editTaskWizardToFields(vals: Record<string, string>) {
   };
 }
 
-export function getEditAgentWizardSteps(agent: Agent, teams?: Team[]): WizardStep[] {
+export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: Team[]): WizardStep[] {
   // Find current role in presets or mark as custom
   const currentRoleInPresets = ROLE_PRESETS.find((r) => r.value === agent.role);
   const roleDefault = currentRoleInPresets ? agent.role! : (agent.role ? '__custom__' : '');
@@ -405,6 +425,11 @@ export function getEditAgentWizardSteps(agent: Agent, teams?: Team[]): WizardSte
       type: 'text',
       defaultValue: agent.name,
       required: true,
+      validate: (v) => {
+        if (!v.trim()) return 'Name is required';
+        if (agents?.some((a) => a.id !== agent.id && a.name === v.trim())) return 'Agent with this name already exists';
+        return null;
+      },
     },
     {
       id: 'model',
@@ -477,23 +502,11 @@ export function getConfigWizardSteps(
 
   return [
     {
-      id: 'setting',
-      label: 'Setting',
-      type: 'select',
-      options: [
-        { value: 'activity_filter', label: 'Activity filter', hint: `current: ${currentFilter}` },
-        { value: 'max_concurrent', label: 'Max concurrent agents', hint: `current: ${currentMaxConcurrent}` },
-        { value: 'notifications_toast', label: 'Toast notifications', hint: `current: ${notif.toast ? 'on' : 'off'}` },
-        { value: 'notifications_bell', label: 'Bell on completion', hint: `current: ${notif.bell ? 'on' : 'off'}` },
-      ],
-    },
-    {
       id: 'activity_filter',
       label: 'Activity filter preset',
       type: 'select',
       options: ACTIVITY_FILTER_OPTIONS,
       defaultValue: currentFilter,
-      skip: (vals) => vals.setting !== 'activity_filter',
     },
     {
       id: 'max_concurrent',
@@ -501,7 +514,6 @@ export function getConfigWizardSteps(
       type: 'select',
       options: MAX_CONCURRENT_OPTIONS,
       defaultValue: String(currentMaxConcurrent),
-      skip: (vals) => vals.setting !== 'max_concurrent',
     },
     {
       id: 'notifications_toast',
@@ -509,7 +521,6 @@ export function getConfigWizardSteps(
       type: 'select',
       options: TOGGLE_OPTIONS,
       defaultValue: String(notif.toast),
-      skip: (vals) => vals.setting !== 'notifications_toast',
     },
     {
       id: 'notifications_bell',
@@ -517,7 +528,6 @@ export function getConfigWizardSteps(
       type: 'select',
       options: TOGGLE_OPTIONS,
       defaultValue: String(notif.bell),
-      skip: (vals) => vals.setting !== 'notifications_bell',
     },
   ];
 }
@@ -544,6 +554,7 @@ export function getGoalWizardSteps(agents: Agent[]): WizardStep[] {
       type: 'text',
       placeholder: 'What should be achieved?',
       required: true,
+      validate: (v) => !v.trim() ? 'Title is required' : null,
     },
     {
       id: 'assignee',
@@ -579,6 +590,7 @@ export function getEditGoalWizardSteps(goal: Goal, agents: Agent[]): WizardStep[
       type: 'text',
       defaultValue: goal.title,
       required: true,
+      validate: (v) => !v.trim() ? 'Title is required' : null,
     },
     {
       id: 'assignee',

@@ -791,11 +791,11 @@ export function App({
   const launchAgentWizard = useCallback(() => {
     setWizardConfig({
       title: 'NEW AGENT',
-      steps: getAgentWizardSteps(liveTeamsRef.current),
+      steps: getAgentWizardSteps(liveAgents, liveTeamsRef.current),
       kind: 'agent',
     });
     setInputMode('wizard');
-  }, []);
+  }, [liveAgents]);
 
   const launchShopWizard = useCallback(() => {
     setWizardConfig({
@@ -859,7 +859,7 @@ export function App({
   const launchTeamWizard = useCallback(() => {
     setWizardConfig({
       title: 'NEW TEAM',
-      steps: getTeamWizardSteps(liveAgents),
+      steps: getTeamWizardSteps(liveAgents, liveTeams),
       kind: 'team',
     });
     setInputMode('wizard');
@@ -868,7 +868,7 @@ export function App({
   const launchEditAgentWizard = useCallback((agent: Agent) => {
     setWizardConfig({
       title: 'EDIT AGENT',
-      steps: getEditAgentWizardSteps(agent, liveTeams),
+      steps: getEditAgentWizardSteps(agent, liveAgents, liveTeams),
       kind: 'edit_agent',
       targetId: agent.id,
     });
@@ -895,7 +895,7 @@ export function App({
       const templateKey = values.shop_template;
       const template = templateKey ? getShopTemplateByKey(templateKey) : undefined;
       if (template) {
-        const baseSteps = getAgentWizardSteps(liveTeamsRef.current);
+        const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current);
         const prefilledSteps = applyShopTemplate(baseSteps, template);
         setWizardConfig({
           title: `NEW AGENT \u2014 ${template.name}`,
@@ -1008,33 +1008,27 @@ export function App({
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
     } else if (kind === 'config') {
-      if (values.setting === 'activity_filter' && values.activity_filter) {
+      // Apply all config values from the linear wizard
+      if (values.activity_filter) {
         const preset = ACTIVITY_PRESETS.find((p) => p.label === values.activity_filter);
         if (preset) {
           setActivityFilter(new Set(preset.types));
           onSaveActivityFilter?.(preset.label);
-          addMessage(`Activity filter: ${preset.label}`, tuiColors.amber);
         }
-      } else if (values.setting === 'max_concurrent' && values.max_concurrent) {
+      }
+      if (values.max_concurrent) {
         const num = parseInt(values.max_concurrent, 10);
         if (num > 0) {
           setMaxConcurrent(num);
           onSaveMaxConcurrent?.(num);
-          addMessage(`Max concurrent agents: ${num}`, tuiColors.amber);
         }
-      } else if (values.setting === 'notifications_toast' && values.notifications_toast) {
-        const enabled = values.notifications_toast === 'true';
-        const updated = { ...notifications, toast: enabled };
-        setNotifications(updated);
-        onSaveNotifications?.(updated);
-        addMessage(`Toast notifications: ${enabled ? 'on' : 'off'}`, tuiColors.amber);
-      } else if (values.setting === 'notifications_bell' && values.notifications_bell) {
-        const enabled = values.notifications_bell === 'true';
-        const updated = { ...notifications, bell: enabled };
-        setNotifications(updated);
-        onSaveNotifications?.(updated);
-        addMessage(`Bell on completion: ${enabled ? 'on' : 'off'}`, tuiColors.amber);
       }
+      const toastEnabled = values.notifications_toast === 'true';
+      const bellEnabled = values.notifications_bell === 'true';
+      const updated = { toast: toastEnabled, bell: bellEnabled };
+      setNotifications(updated);
+      onSaveNotifications?.(updated);
+      addMessage('Settings saved', tuiColors.green);
     } else if (kind === 'goal' && onCreateGoal) {
       const input = goalWizardToInput(values);
       addMessage(`Creating goal "${input.title}"...`, tuiColors.amber);
@@ -1062,7 +1056,7 @@ export function App({
   const handleSuggestionSelected = useCallback((templateKey: string) => {
     const template = getShopTemplateByKey(templateKey);
     if (!template) return;
-    const baseSteps = getAgentWizardSteps(liveTeamsRef.current);
+    const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current);
     const prefilledSteps = applyShopTemplate(baseSteps, template);
     setWizardConfig({
       title: `NEW AGENT \u2014 ${template.name}`,

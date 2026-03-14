@@ -55,7 +55,7 @@ describe('getEditAgentWizardSteps — team step', () => {
   it('includes None + active teams in team options', () => {
     const agent = makeAgent();
     const teams = [makeTeam({ id: 'team_1', name: 'Alpha' })];
-    const steps = getEditAgentWizardSteps(agent, teams);
+    const steps = getEditAgentWizardSteps(agent, undefined, teams);
     const teamStep = steps.find((s) => s.id === 'team');
     expect(teamStep).toBeDefined();
     const opts = teamStep!.options!;
@@ -70,7 +70,7 @@ describe('getEditAgentWizardSteps — team step', () => {
       makeTeam({ id: 'team_1', members: [{ agent_id: 'agt_1', role: 'member', joined_at: '2025-01-01T00:00:00Z' } as TeamMember] }),
       makeTeam({ id: 'team_2', name: 'Beta', members: [{ agent_id: 'agt_2', role: 'member', joined_at: '2025-01-01T00:00:00Z' } as TeamMember] }),
     ];
-    const steps = getEditAgentWizardSteps(agent, teams);
+    const steps = getEditAgentWizardSteps(agent, undefined, teams);
     const teamStep = steps.find((s) => s.id === 'team');
     expect(teamStep!.defaultValue).toBe('team_1');
   });
@@ -78,14 +78,14 @@ describe('getEditAgentWizardSteps — team step', () => {
   it('defaults to empty string when agent has no team', () => {
     const agent = makeAgent({ id: 'agt_no_team' });
     const teams = [makeTeam()];
-    const steps = getEditAgentWizardSteps(agent, teams);
+    const steps = getEditAgentWizardSteps(agent, undefined, teams);
     const teamStep = steps.find((s) => s.id === 'team');
     expect(teamStep!.defaultValue).toBe('');
   });
 
   it('skips team step when no active teams exist', () => {
     const agent = makeAgent();
-    const steps = getEditAgentWizardSteps(agent, []);
+    const steps = getEditAgentWizardSteps(agent, undefined, []);
     const teamStep = steps.find((s) => s.id === 'team');
     // skip() should return true when teamOptions.length <= 1 (only None)
     expect(teamStep!.skip!({} as Record<string, string>)).toBe(true);
@@ -94,7 +94,7 @@ describe('getEditAgentWizardSteps — team step', () => {
   it('shows team step when at least one active team exists', () => {
     const agent = makeAgent();
     const teams = [makeTeam()];
-    const steps = getEditAgentWizardSteps(agent, teams);
+    const steps = getEditAgentWizardSteps(agent, undefined, teams);
     const teamStep = steps.find((s) => s.id === 'team');
     expect(teamStep!.skip!({} as Record<string, string>)).toBe(false);
   });
@@ -106,7 +106,7 @@ describe('getEditAgentWizardSteps — team step', () => {
       makeTeam({ id: 'team_dis', name: 'Disbanded', status: 'disbanded' }),
       makeTeam({ id: 'team_paused', name: 'Paused', status: 'paused' }),
     ];
-    const steps = getEditAgentWizardSteps(agent, teams);
+    const steps = getEditAgentWizardSteps(agent, undefined, teams);
     const teamStep = steps.find((s) => s.id === 'team');
     const opts = teamStep!.options!;
     const ids = opts.map((o) => o.value);
@@ -123,7 +123,7 @@ describe('getEditAgentWizardSteps — team step', () => {
         { agent_id: 'agt_2', role: 'member', joined_at: '2025-01-01T00:00:00Z' },
       ] as TeamMember[],
     });
-    const steps = getEditAgentWizardSteps(agent, [team]);
+    const steps = getEditAgentWizardSteps(agent, undefined, [team]);
     const teamStep = steps.find((s) => s.id === 'team');
     const teamOption = teamStep!.options!.find((o) => o.value === 'team_1');
     expect(teamOption!.hint).toBe('2 members');
@@ -131,7 +131,7 @@ describe('getEditAgentWizardSteps — team step', () => {
 
   it('works when teams param is undefined (no crash)', () => {
     const agent = makeAgent();
-    const steps = getEditAgentWizardSteps(agent, undefined);
+    const steps = getEditAgentWizardSteps(agent, undefined, undefined);
     const teamStep = steps.find((s) => s.id === 'team');
     expect(teamStep!.skip!({} as Record<string, string>)).toBe(true);
   });
