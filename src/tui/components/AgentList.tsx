@@ -15,9 +15,10 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import type { Agent, AgentStatus } from '../../domain/agent.js';
 import type { RunningEntry } from '../../domain/state.js';
-import { tuiColors, DOT, LOZENGE, STAR, LOOP, lightRule } from '../colors.js';
+import { tuiColors, DOT, LOZENGE, STAR, LOOP, lightRule, capLine } from '../colors.js';
 import { Spinner } from './Spinner.js';
 import { formatDuration } from '../../cli/output.js';
+import { ERROR_HINTS, type AdapterErrorKind } from '../../domain/errors.js';
 
 /* ── Glyphs ───────────────────────────────────────── */
 
@@ -106,11 +107,16 @@ export const AgentRow = React.memo(function AgentRow({ agent, selected, width, r
   const fixedCols = 2 + chipWidth + adapterWidth + teamColWidth + roleWidth + timeWidth;
   const nameWidth = width ? Math.max(8, width - fixedCols) : 20;
 
-  // Role / current task display
+  // Role / current task / error summary display
   let roleText: string;
   let roleColor: string;
   let roleBold = false;
-  if (isRunning && currentTaskTitle) {
+  if (agent.status === 'error' && agent.last_error) {
+    const hint = ERROR_HINTS[agent.last_error.kind as AdapterErrorKind];
+    const summary = hint ? hint.message : agent.last_error.message;
+    roleText = capLine(summary, 40);
+    roleColor = tuiColors.dim;
+  } else if (isRunning && currentTaskTitle) {
     roleText = currentTaskTitle;
     roleColor = tuiColors.white;
     roleBold = true;

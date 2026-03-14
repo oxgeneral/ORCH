@@ -30,7 +30,7 @@ import { CommandBar } from './components/CommandBar.js';
 import { FormWizard } from './components/FormWizard.js';
 import type { WizardStep } from './components/FormWizard.js';
 import { Spinner } from './components/Spinner.js';
-import { OnboardingBox, type OnboardingConfig, WelcomeScreen, type OnboardingStep } from './components/OnboardingBox.js';
+import { OnboardingBox, type OnboardingConfig, WelcomeScreen, OnboardingNudge, OnboardingToast, type OnboardingStep } from './components/OnboardingBox.js';
 import {
   getAgentWizardSteps, agentWizardToInput,
   getTaskWizardSteps, taskWizardToInput,
@@ -46,6 +46,7 @@ import { getShopTemplateByKey } from '../domain/agent-shop.js';
 import type { ActivityFilterPreset } from '../domain/global-config.js';
 import { DEFAULT_CONFIG } from '../domain/config.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
+import { ERROR_HINTS, type AdapterErrorKind } from '../domain/errors.js';
 
 /** Max tasks visible in collapsed mode; press S to show all */
 const TASK_LIST_LIMIT = 10;
@@ -168,6 +169,8 @@ export interface AppProps {
   onUpdateGoalStatus?: (id: string, status: GoalStatus) => Promise<Goal>;
   onDeleteGoal?: (id: string) => Promise<void>;
   onGetGoalProgress?: (goalId: string) => Promise<string | undefined>;
+  /** Callback to persist onboardingCompleted=true when onboarding finishes */
+  onCompleteOnboarding?: () => Promise<void>;
 }
 
 type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
@@ -295,6 +298,7 @@ export function App({
   onStartWatch, onStopWatch,
   onToggleAutonomous,
   onRefreshGoals, onCreateGoal, onUpdateGoal, onUpdateGoalStatus, onDeleteGoal, onGetGoalProgress,
+  onCompleteOnboarding,
   initialWatchActive,
   watchError,
   messageBatchMs = process.env.VITEST ? 0 : 80,
@@ -329,15 +333,25 @@ export function App({
   const [liveGoals, setLiveGoals] = useState<Goal[]>([]);
   const [goalProgressReport, setGoalProgressReport] = useState<string | undefined>(undefined);
 
-  // Onboarding step — derived from initial props
-  const onboardingStep = useMemo<OnboardingStep>(() => {
+  // Onboarding state machine — transitions on live events
+  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>(() => {
     if (initialState.onboardingCompleted) return 'dismissed';
     if ((initialState.stats?.total_tasks_completed ?? 0) > 0) return 'dismissed';
     const hasRunning = Object.keys(initialState.running ?? {}).length > 0;
     if (hasRunning) return 'run_started';
     if (initialTasks.length > 0) return 'task_created';
     return 'welcome';
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  });
+
+  // Auto-dismiss onboarding toast after 5s and persist completion
+  useEffect(() => {
+    if (onboardingStep !== 'completed') return;
+    const timer = setTimeout(() => {
+      setOnboardingStep('dismissed');
+      onCompleteOnboarding?.().catch(() => {});
+    }, 5_000);
+    return () => clearTimeout(timer);
+  }, [onboardingStep, onCompleteOnboarding]);
 
   // View state
   const [activeView, setActiveView] = useState<ViewId>('tasks');
@@ -987,6 +1001,16 @@ export function App({
         runIdToTaskId.current.set(event.runId, event.taskId);
       }
       formatEvent(event, addMessage, runIdToAgentId.current, runIdToTaskId.current);
+
+      // ── Onboarding transitions ──
+      if (event.type === 'task:created') {
+        setOnboardingStep((prev) => prev === 'welcome' ? 'task_created' : prev);
+      } else if (event.type === 'agent:started') {
+        setOnboardingStep((prev) => prev === 'task_created' ? 'run_started' : prev);
+      } else if (event.type === 'task:status_changed' && event.to === 'done') {
+        setOnboardingStep((prev) => prev === 'run_started' ? 'completed' : prev);
+      }
+
       // Refresh on state-changing events
       if (event.type === 'task:status_changed' ||
           event.type === 'task:created' ||
@@ -2061,6 +2085,14 @@ export function App({
           agentNameMap={agentNameMap}
           hiddenCount={hiddenTaskCount}
         />
+      )}
+      {/* Onboarding nudge — shown under task list for task_created/run_started */}
+      {activeView === 'tasks' && (onboardingStep === 'task_created' || onboardingStep === 'run_started') && (
+        <OnboardingNudge step={onboardingStep} width={W} />
+      )}
+      {/* Onboarding toast — shown once when first task completes */}
+      {activeView === 'tasks' && onboardingStep === 'completed' && (
+        <OnboardingToast width={W} />
       )}
       {activeView === 'tasks' && hiddenTaskCount > 0 && (
         <Box paddingX={1} backgroundColor={tuiColors.ghost}>
@@ -3300,11 +3332,35 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
         </Box>
       )}
 
+      {/* ErrorHintPanel — shown when agent has last_error */}
+      {agent.last_error && (() => {
+        const kind = agent.last_error!.kind as AdapterErrorKind;
+        const hint = ERROR_HINTS[kind];
+        const showRaw = !hint || kind === ('unknown' as AdapterErrorKind);
+        const ts = agent.last_error!.timestamp;
+        const relTime = ts ? formatDurationSince(ts) + ' ago' : '';
+        return (
+          <>
+            <Text> </Text>
+            <Box flexDirection="column" borderStyle="single" borderColor={tuiColors.red} paddingX={1}>
+              <Text color={tuiColors.red} bold>{'\u26A0'} Ошибка</Text>
+              {hint && <Text color={tuiColors.white}>{hint.message}</Text>}
+              {hint && <Text color={tuiColors.cyan}>{hint.fix}</Text>}
+              {hint?.doctorHint && <Text color={tuiColors.yellow}>Диагностика: orch doctor</Text>}
+              {showRaw && agent.last_error!.message && (
+                <Text color={tuiColors.dim}>{capLine(agent.last_error!.message, 120)}</Text>
+              )}
+              {relTime && <Text color={tuiColors.dim}>{relTime}</Text>}
+            </Box>
+          </>
+        );
+      })()}
+
       {/* Blank separator */}
       <Text> </Text>
 
       {/* Role description — split into lines to fill available height */}
-      {agent.role ? agent.role.split('\n').slice(0, Math.max(1, height - 4)).map((line, i) => (
+      {agent.role ? agent.role.split('\n').slice(0, Math.max(1, height - (agent.last_error ? 10 : 4))).map((line, i) => (
         <Text key={i} color={tuiColors.silver} wrap="truncate">{'  '}{capLine(line, 500)}</Text>
       )) : (
         <Text color={tuiColors.dim}>  No role description.</Text>
