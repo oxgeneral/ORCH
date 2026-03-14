@@ -15,7 +15,7 @@ import { GOAL_STATUSES, type Goal, type GoalStatus } from '../domain/goal.js';
 import type { OrchestratorState } from '../domain/state.js';
 import type { OrchestratorEvent } from '../domain/events.js';
 import { formatDurationSince, formatTokens } from '../cli/output.js';
-import { tuiColors, HEAVY_RULE, LIGHT_RULE, LOOP, TASK_STATUS_COLOR, GOAL_STATUS_COLOR, heavyRule, lightRule, capLine } from './colors.js';
+import { tuiColors, HEAVY_RULE, LOOP, TASK_STATUS_COLOR, GOAL_STATUS_COLOR, heavyRule, lightRule, capLine, capText } from './colors.js';
 import { TaskRow, STATUS_ORDER } from './components/TaskList.js';
 import { AgentRow, AGENT_STATUS_ORDER, TeamSectionRow, UnassignedSectionRow } from './components/AgentList.js';
 import { GoalRow, GOAL_STATUS_ORDER } from './components/GoalList.js';
@@ -2367,19 +2367,10 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
       }
       return wrapped;
     };
-    const MAX_REPORT_LEN = 10_000;
-    const safeReport = progressReport && progressReport.length > MAX_REPORT_LEN
-      ? progressReport.slice(0, MAX_REPORT_LEN) + '\n…[truncated]'
-      : progressReport;
-    const progressLines = safeReport
-      ? safeReport.split('\n').flatMap((l) => wrapLine(l, textWidth))
-      : [];
-    const safeDesc = goal.description && goal.description.length > MAX_REPORT_LEN
-      ? goal.description.slice(0, MAX_REPORT_LEN) + '\n…[truncated]'
-      : goal.description;
-    const descLines = safeDesc
-      ? safeDesc.split('\n').flatMap((l) => wrapLine(l, textWidth))
-      : [];
+    const progressLines = capText(progressReport)
+      ?.split('\n').flatMap((l) => wrapLine(l, textWidth)) ?? [];
+    const descLines = capText(goal.description)
+      ?.split('\n').flatMap((l) => wrapLine(l, textWidth)) ?? [];
     const statusColor = GOAL_STATUS_COLOR[goal.status] ?? tuiColors.dim;
 
     // Task status summary counts
@@ -3719,7 +3710,7 @@ function StatsRibbonBase({ counts, emptyText, tokenCount, width }: {
 
   return (
     <Box paddingX={1}>
-      <Text color={tuiColors.ghost}>{LIGHT_RULE}{LIGHT_RULE} </Text>
+      <Text color={tuiColors.ghost}>{lightRule(2)} </Text>
       {counts.map((c, i) => (
         <React.Fragment key={c.label}>
           {i > 0 && <Text>  </Text>}
@@ -3730,7 +3721,7 @@ function StatsRibbonBase({ counts, emptyText, tokenCount, width }: {
       {counts.length === 0 && <Text color={tuiColors.dim}>{emptyText}</Text>}
       <Text color={tuiColors.ghost}> {lightRule(Math.max(0, fillLen))} </Text>
       {tokenCount > 0 && <Text color={tuiColors.cyan}>{tokenText}</Text>}
-      <Text color={tuiColors.ghost}> {LIGHT_RULE}{LIGHT_RULE}</Text>
+      <Text color={tuiColors.ghost}> {lightRule(2)}</Text>
     </Box>
   );
 }

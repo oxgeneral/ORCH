@@ -248,7 +248,7 @@ export function DetailPanel({ task, height, width, taskLogs, agentNameMap }: Det
 
             // prefix: indent(2) + time(~5) + space(1) + icon(1) + space(1) = ~10
             const logTextW = Math.max(10, width - 12);
-            const logDisplay = log.text.length > logTextW ? log.text.slice(0, logTextW - 1) + '…' : log.text;
+            const logDisplay = capLine(log.text, logTextW);
 
             return (
               <Box key={i}>

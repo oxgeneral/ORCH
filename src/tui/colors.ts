@@ -88,6 +88,15 @@ export function capLine(s: string, maxLen: number): string {
   return s.length > maxLen ? s.slice(0, maxLen - 1) + '\u2026' : s;
 }
 
+/** Max chars for goal descriptions/progress reports rendered in TUI panels. */
+export const MAX_PANEL_TEXT = 10_000;
+
+/** Cap an optional multi-line text block, appending a truncation notice. Returns undefined for empty/missing strings. */
+export function capText(s: string | undefined, max: number = MAX_PANEL_TEXT): string | undefined {
+  if (!s) return undefined;
+  return s.length > max ? s.slice(0, max) + '\n\u2026[truncated]' : s;
+}
+
 /** Canonical goal status → foreground color mapping. */
 export const GOAL_STATUS_COLOR: Record<GoalStatus, string> = {
   active: tuiColors.green,
