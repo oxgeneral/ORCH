@@ -7,7 +7,7 @@
  * Navigation: ↑↓ select items, Tab/Enter confirm step, Esc cancel, Backspace go back.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { tuiColors, LIGHT_RULE } from '../colors.js';
 
@@ -34,6 +34,8 @@ export interface WizardStep {
   skip?: (values: Record<string, string>) => boolean;
   /** Optional suggestion list shown below text input (↓ to browse, filtered by input) */
   suggestions?: SelectOption[];
+  /** Validate the current value. Return null if valid, or an error message string. */
+  validate?: (value: string) => string | null;
 }
 
 export interface FormWizardProps {
@@ -103,6 +105,41 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   const [browsingSuggestions, setBrowsingSuggestions] = useState(false);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
 
+  // Inline validation state
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [enterBlockHint, setEnterBlockHint] = useState(false);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const enterBlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Current value for validation (text or textarea)
+  const currentValue = useMemo(() => {
+    if (!step) return '';
+    if (step.type === 'text') return textInput;
+    if (step.type === 'textarea') return taLines.join('\n');
+    return '';
+  }, [step, textInput, taLines]);
+
+  // Debounced validation (300ms)
+  const runValidation = useCallback((value: string, validateFn?: (v: string) => string | null) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    if (!validateFn) { setValidationError(null); return; }
+    debounceTimerRef.current = setTimeout(() => {
+      setValidationError(validateFn(value));
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    if (step && step.validate && (step.type === 'text' || step.type === 'textarea')) {
+      runValidation(currentValue, step.validate);
+    }
+    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
+  }, [currentValue, step, runValidation]);
+
+  // Cleanup enter block hint timer
+  useEffect(() => {
+    return () => { if (enterBlockTimerRef.current) clearTimeout(enterBlockTimerRef.current); };
+  }, []);
+
   // Resolve options for current select/multiselect step
   const options = useMemo(() => {
     if (!step || (step.type !== 'select' && step.type !== 'multiselect')) return [];
@@ -135,6 +172,9 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     setMultiSelected(new Set());
     setBrowsingSuggestions(false);
     setSuggestionIndex(0);
+    setValidationError(null);
+    setEnterBlockHint(false);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
     // Find next non-skipped step from FULL steps array using newValues
     // (activeSteps is stale — it was memoized with old values)
@@ -211,6 +251,9 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     setCurrentStep(prevActiveIdx >= 0 ? prevActiveIdx : 0);
     setBrowsingSuggestions(false);
     setSuggestionIndex(0);
+    setValidationError(null);
+    setEnterBlockHint(false);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
     const prevStep = steps[prevOrigIdx]!;
     // Restore previous value
@@ -286,6 +329,12 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       if (key.return) {
         const val = textInput.trim();
         if (step.required && !val) return;
+        if (validationError !== null) {
+          setEnterBlockHint(true);
+          if (enterBlockTimerRef.current) clearTimeout(enterBlockTimerRef.current);
+          enterBlockTimerRef.current = setTimeout(() => setEnterBlockHint(false), 2000);
+          return;
+        }
         goToNextStep(val);
         return;
       }
@@ -327,6 +376,12 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       if (key.return && !key.shift) {
         const val = taLines.join('\n').trim();
         if (step.required && !val) return;
+        if (validationError !== null) {
+          setEnterBlockHint(true);
+          if (enterBlockTimerRef.current) clearTimeout(enterBlockTimerRef.current);
+          enterBlockTimerRef.current = setTimeout(() => setEnterBlockHint(false), 2000);
+          return;
+        }
         goToNextStep(val);
         return;
       }
@@ -464,7 +519,19 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       if (step.type === 'select') {
         if (key.return || key.tab) {
           const selected = options[clampedSelectIndex];
-          if (selected) goToNextStep(selected.value);
+          if (selected) {
+            if (step.validate) {
+              const err = step.validate(selected.value);
+              if (err !== null) {
+                setValidationError(err);
+                setEnterBlockHint(true);
+                if (enterBlockTimerRef.current) clearTimeout(enterBlockTimerRef.current);
+                enterBlockTimerRef.current = setTimeout(() => setEnterBlockHint(false), 2000);
+                return;
+              }
+            }
+            goToNextStep(selected.value);
+          }
           return;
         }
         // Number keys for quick selection
@@ -538,27 +605,32 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       {/* Step label */}
       <Box marginTop={0}>
         <Text color={tuiColors.white} bold>  {step.label}</Text>
+        {step.required && <Text color={tuiColors.red}> *</Text>}
         {!step.required && <Text color={tuiColors.dim}> (optional, Enter to skip)</Text>}
       </Box>
 
       {/* Text input with cursor */}
       {step.type === 'text' && (
-        <Box>
-          <Text color={tuiColors.amber}>  {'>'} </Text>
-          {textInput.length > 0 ? (
-            <>
-              <Text color={tuiColors.white}>{textInput.slice(0, cursorPos)}</Text>
+        <Box flexDirection="column">
+          <Box borderStyle={validationError ? 'round' : undefined} borderColor={validationError ? tuiColors.red : undefined}>
+            <Text color={tuiColors.amber}>  {'>'} </Text>
+            {textInput.length > 0 ? (
+              <>
+                <Text color={tuiColors.white}>{textInput.slice(0, cursorPos)}</Text>
+                <Text color={tuiColors.amber}>{CURSOR}</Text>
+                <Text color={tuiColors.white}>{textInput.slice(cursorPos)}</Text>
+              </>
+            ) : step.placeholder ? (
+              <>
+                <Text color={tuiColors.ghost}>{step.placeholder}</Text>
+                <Text color={tuiColors.amber}>{CURSOR}</Text>
+              </>
+            ) : (
               <Text color={tuiColors.amber}>{CURSOR}</Text>
-              <Text color={tuiColors.white}>{textInput.slice(cursorPos)}</Text>
-            </>
-          ) : step.placeholder ? (
-            <>
-              <Text color={tuiColors.ghost}>{step.placeholder}</Text>
-              <Text color={tuiColors.amber}>{CURSOR}</Text>
-            </>
-          ) : (
-            <Text color={tuiColors.amber}>{CURSOR}</Text>
-          )}
+            )}
+          </Box>
+          {validationError && <Text color={tuiColors.red} dimColor>  {validationError}</Text>}
+          {enterBlockHint && <Text color={tuiColors.red}>  Fix the error above</Text>}
         </Box>
       )}
 
@@ -605,32 +677,36 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         const lineNumWidth = String(taLines.length).length;
         return (
           <Box flexDirection="column">
-            {visibleLines.map((line, i) => {
-              const realRow = i + taScrollStart;
-              const lineNum = String(realRow + 1).padStart(lineNumWidth, ' ');
-              const isCursorLine = realRow === taCursorRow;
-              return (
-                <Box key={realRow}>
-                  <Text color={tuiColors.dim}> {lineNum} </Text>
-                  <Text color={tuiColors.ghost}>{'\u2502'} </Text>
-                  {isCursorLine ? (
-                    <>
-                      <Text color={tuiColors.white}>{line.slice(0, taCursorCol)}</Text>
-                      <Text color={tuiColors.amber}>{CURSOR}</Text>
-                      <Text color={tuiColors.white}>{line.slice(taCursorCol)}</Text>
-                    </>
-                  ) : (
-                    <Text color={tuiColors.silver}>{line || ' '}</Text>
-                  )}
+            <Box flexDirection="column" borderStyle={validationError ? 'round' : undefined} borderColor={validationError ? tuiColors.red : undefined}>
+              {visibleLines.map((line, i) => {
+                const realRow = i + taScrollStart;
+                const lineNum = String(realRow + 1).padStart(lineNumWidth, ' ');
+                const isCursorLine = realRow === taCursorRow;
+                return (
+                  <Box key={realRow}>
+                    <Text color={tuiColors.dim}> {lineNum} </Text>
+                    <Text color={tuiColors.ghost}>{'\u2502'} </Text>
+                    {isCursorLine ? (
+                      <>
+                        <Text color={tuiColors.white}>{line.slice(0, taCursorCol)}</Text>
+                        <Text color={tuiColors.amber}>{CURSOR}</Text>
+                        <Text color={tuiColors.white}>{line.slice(taCursorCol)}</Text>
+                      </>
+                    ) : (
+                      <Text color={tuiColors.silver}>{line || ' '}</Text>
+                    )}
+                  </Box>
+                );
+              })}
+              {/* Show placeholder on empty textarea */}
+              {taLines.length === 1 && taLines[0] === '' && step.placeholder && (
+                <Box>
+                  <Text color={tuiColors.dim}>  {''.padStart(lineNumWidth, ' ')}  {step.placeholder}</Text>
                 </Box>
-              );
-            })}
-            {/* Show placeholder on empty textarea */}
-            {taLines.length === 1 && taLines[0] === '' && step.placeholder && (
-              <Box>
-                <Text color={tuiColors.dim}>  {''.padStart(lineNumWidth, ' ')}  {step.placeholder}</Text>
-              </Box>
-            )}
+              )}
+            </Box>
+            {validationError && <Text color={tuiColors.red} dimColor>  {validationError}</Text>}
+            {enterBlockHint && <Text color={tuiColors.red}>  Fix the error above</Text>}
           </Box>
         );
       })()}
@@ -656,6 +732,8 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
               </Box>
             );
           })}
+          {validationError && <Text color={tuiColors.red} dimColor>  {validationError}</Text>}
+          {enterBlockHint && <Text color={tuiColors.red}>  Fix the error above</Text>}
         </Box>
       )}
 
