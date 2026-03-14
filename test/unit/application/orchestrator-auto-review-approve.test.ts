@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Orchestrator } from '../../../src/application/orchestrator.js';
+import type { ReviewCriterion } from '../../../src/domain/task.js';
+import type { ApprovalPolicy } from '../../../src/domain/agent.js';
 import {
   buildDeps,
   makeTask,
@@ -45,27 +47,27 @@ const { ReviewRunner } = await import('../../../src/application/review-runner.js
 describe('autoApprove + review_criteria interaction', () => {
   async function setup(opts: {
     autoApprove: boolean;
-    reviewCriteria?: string[];
+    reviewCriteria?: ReviewCriterion[];
     criteriaPass: boolean;
   }) {
     const taskId = 'tsk_ar1';
     const agentId = 'agt_ar1';
     const runId = 'run_ar1';
 
-    const approvalPolicy = opts.autoApprove ? 'auto' : 'suggest';
+    const approvalPolicy: ApprovalPolicy = opts.autoApprove ? 'auto' : 'suggest';
 
     const task = makeTask({
       id: taskId,
       status: 'in_progress',
       attempts: 1,
-      review_criteria: (opts.reviewCriteria ?? ['test_pass']) as any,
+      review_criteria: opts.reviewCriteria ?? ['test_pass'],
     });
     const agent = makeAgent({
       id: agentId,
       status: 'busy',
       current_task: taskId,
       config: {
-        approval_policy: approvalPolicy as any,
+        approval_policy: approvalPolicy,
         max_turns: 50,
         timeout_ms: 3_600_000,
         stall_timeout_ms: 300_000,
@@ -101,7 +103,7 @@ describe('autoApprove + review_criteria interaction', () => {
       passed: opts.criteriaPass,
       output: opts.criteriaPass ? 'ok' : 'FAILED',
     }));
-    (ReviewRunner as any).setResults(results);
+    (ReviewRunner as unknown as { setResults: (r: typeof results) => void }).setResults(results);
 
     const deps = buildDeps({
       taskStore,
