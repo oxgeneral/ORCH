@@ -547,7 +547,7 @@ describe('system/user template split', () => {
 
   it('system template includes autonomous mode when task has auto label', async () => {
     const autoCtx = buildPromptContext(
-      makeTask({ labels: ['auto'], goalId: 'goal_123' }),
+      makeTask({ labels: ['autonomous'], goalId: 'goal_123' }),
       makeAgent(),
       1,
       '/workspace',
@@ -587,11 +587,12 @@ describe('system/user template split', () => {
 
   it('user template includes feedback when provided', async () => {
     const fbCtx = buildPromptContext(
-      makeTask({ feedback: 'Fix the error handling' }),
+      makeTask(),
       makeAgent(),
       1,
       '/workspace',
       DEFAULT_CONFIG,
+      { feedback: 'Fix the error handling' },
     );
     const rendered = await engine.render(DEFAULT_USER_TEMPLATE, fbCtx);
     expect(rendered).toContain('## Review Feedback');
