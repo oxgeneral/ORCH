@@ -21,7 +21,7 @@ import {
   resolveFailureStatus,
   calculateRetryDelay,
 } from '../domain/transitions.js';
-import { NoAgentsError, TaskAlreadyRunningError, LockConflictError, WorkspaceError } from '../domain/errors.js';
+import { NoAgentsError, TaskAlreadyRunningError, LockConflictError, WorkspaceError, classifyAdapterError } from '../domain/errors.js';
 import { scopesOverlap, ScopeIndex } from '../domain/scope.js';
 import { acquireLock, releaseLock } from '../infrastructure/storage/lock.js';
 import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IContextStore, IGoalStore } from '../infrastructure/storage/interfaces.js';
@@ -875,10 +875,11 @@ export class Orchestrator {
         await this.deps.taskStore.save(task);
       }
 
-      // Update agent status
+      // Update agent status and clear last_error on successful dispatch
       await this.deps.agentService.setStatus(agent.id, 'running');
       const agentData = await this.deps.agentService.get(agent.id);
       agentData.current_task = taskId;
+      agentData.last_error = undefined;
       await this.deps.agentStore.save(agentData);
 
       // Get adapter and execute
@@ -949,6 +950,7 @@ export class Orchestrator {
     let collectedTokens: import('../domain/run.js').TokenUsage | undefined;
     let resultText: string | undefined;
     let lastAgentMessage: string | undefined;
+    let lastErrorKind: import('../domain/errors.js').AdapterErrorKind | undefined;
     const filesChangedSet = new Set<string>();
 
     try {
@@ -1037,11 +1039,13 @@ export class Orchestrator {
             path: typeof event.data === 'string' ? event.data : String(event.data),
           });
         } else if (event.type === 'error') {
+          if (event.errorKind) lastErrorKind = event.errorKind;
           this.deps.eventBus.emit({
             type: 'agent:error',
             runId,
             agentId,
             error: busData,
+            ...(event.errorKind ? { errorKind: event.errorKind } : {}),
           });
         }
       }
@@ -1052,10 +1056,13 @@ export class Orchestrator {
       await this.handleRunSuccess(taskId, runId, agentId, collectedTokens, finalResult, [...filesChangedSet]);
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
+      // Prefer errorKind from last error event; fall back to thrown error's errorKind (from utils.ts)
+      const errorKind = lastErrorKind
+        ?? (err instanceof Error ? (err as Error & { errorKind?: import('../domain/errors.js').AdapterErrorKind }).errorKind : undefined);
       const entry = this.state?.running[taskId];
       if (entry) {
         // runService.finish emits agent:completed
-        await this.handleRunFailure(taskId, entry, error);
+        await this.handleRunFailure(taskId, entry, error, errorKind);
       }
     }
   }
@@ -1235,14 +1242,16 @@ export class Orchestrator {
     taskId: string,
     entry: RunningEntry,
     error: string,
+    errorKind?: import('../domain/errors.js').AdapterErrorKind,
   ): Promise<void> {
-    return this.withStateLock(() => this._handleRunFailure(taskId, entry, error));
+    return this.withStateLock(() => this._handleRunFailure(taskId, entry, error, errorKind));
   }
 
   private async _handleRunFailure(
     taskId: string,
     entry: RunningEntry,
     error: string,
+    errorKind?: import('../domain/errors.js').AdapterErrorKind,
   ): Promise<void> {
     await this.flushStateLazy();
     this.abortControllers.delete(taskId);
@@ -1253,10 +1262,15 @@ export class Orchestrator {
     await this.deps.runService.finish(entry.run_id, 'failed', undefined, error);
     await this.deps.agentService.setStatus(entry.agent_id, 'idle');
 
-    // Clear current_task — agent is now idle
+    // Clear current_task and persist last_error — agent is now idle
     const agentAfterIdle = await this.deps.agentStore.get(entry.agent_id);
     if (agentAfterIdle) {
       agentAfterIdle.current_task = undefined;
+      agentAfterIdle.last_error = {
+        message: error.slice(0, 500),
+        kind: errorKind ?? classifyAdapterError(error),
+        timestamp: new Date().toISOString(),
+      };
       await this.deps.agentStore.save(agentAfterIdle);
     }
 

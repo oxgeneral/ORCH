@@ -30,6 +30,12 @@ export interface AgentStats {
   tokens_used?: number;
 }
 
+export interface AgentLastError {
+  message: string;
+  kind: string;
+  timestamp: string;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -40,6 +46,7 @@ export interface Agent {
   current_task?: string;
   autonomous?: boolean;
   stats: AgentStats;
+  last_error?: AgentLastError;
 }
 
 export interface CreateAgentInput {
