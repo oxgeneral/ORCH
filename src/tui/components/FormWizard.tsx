@@ -28,6 +28,8 @@ export interface WizardStep {
   /** Dynamic options based on already-collected values */
   getOptions?: (values: Record<string, string>) => SelectOption[];
   placeholder?: string;
+  /** Guidance text shown below the step label */
+  description?: string;
   required?: boolean;
   defaultValue?: string;
   /** Skip this step based on previous values */
@@ -620,6 +622,13 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         {step.required && <Text color={tuiColors.red}> *</Text>}
         {!step.required && <Text color={tuiColors.dim}> (optional, Enter to skip)</Text>}
       </Box>
+
+      {/* Step description / guidance */}
+      {step.description && (
+        <Box>
+          <Text color={tuiColors.dim}>  {step.description}</Text>
+        </Box>
+      )}
 
       {/* Text input with cursor */}
       {step.type === 'text' && (

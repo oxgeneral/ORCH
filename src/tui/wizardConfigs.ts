@@ -569,7 +569,8 @@ export function getGoalWizardSteps(agents: Agent[]): WizardStep[] {
       id: 'title',
       label: 'Goal title',
       type: 'text',
-      placeholder: 'What should be achieved?',
+      placeholder: 'e.g. "Implement OAuth2 login with Google and GitHub"',
+      description: 'Be specific — agents work better with clear, measurable objectives',
       required: true,
       validate: (v) => !v.trim() ? 'Title is required' : null,
     },
@@ -577,6 +578,7 @@ export function getGoalWizardSteps(agents: Agent[]): WizardStep[] {
       id: 'assignee',
       label: 'Assignee',
       type: 'select',
+      description: 'Assigned agent gets autonomous mode — it will plan and execute without prompts',
       options: agentOptions,
       skip: () => agentOptions.length <= 1,
     },
@@ -584,7 +586,8 @@ export function getGoalWizardSteps(agents: Agent[]): WizardStep[] {
       id: 'description',
       label: 'Description',
       type: 'textarea',
-      placeholder: 'Detailed goal description, success criteria...',
+      placeholder: 'Success criteria, constraints, technical context...',
+      description: 'Context matters — include tech stack, constraints, and what "done" looks like',
     },
   ];
 }
@@ -606,6 +609,7 @@ export function getEditGoalWizardSteps(goal: Goal, agents: Agent[]): WizardStep[
       label: 'Goal title',
       type: 'text',
       defaultValue: goal.title,
+      description: 'Be specific — agents work better with clear, measurable objectives',
       required: true,
       validate: (v) => !v.trim() ? 'Title is required' : null,
     },
@@ -613,6 +617,7 @@ export function getEditGoalWizardSteps(goal: Goal, agents: Agent[]): WizardStep[
       id: 'assignee',
       label: 'Assignee',
       type: 'select',
+      description: 'Assigned agent gets autonomous mode — it will plan and execute without prompts',
       options: agentOptions,
       defaultValue: goal.assignee ?? '',
       skip: () => agentOptions.length <= 1,
@@ -622,7 +627,8 @@ export function getEditGoalWizardSteps(goal: Goal, agents: Agent[]): WizardStep[
       label: 'Description',
       type: 'textarea',
       defaultValue: goal.description || '',
-      placeholder: 'Detailed goal description...',
+      placeholder: 'Success criteria, constraints, technical context...',
+      description: 'Context matters — include tech stack, constraints, and what "done" looks like',
     },
   ];
 }

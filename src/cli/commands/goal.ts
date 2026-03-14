@@ -41,6 +41,11 @@ export function registerGoalCommand(program: Command, container: LightContainer)
         console.log(g.id);
       } else {
         printSuccess(`Created goal "${g.title}" (${g.id})`);
+        console.log();
+        console.log(`  ${dim('Tips for better results:')}`);
+        console.log(`  ${dim('•')} Be specific: ${dim('"Implement OAuth2 with Google" > "Add auth"')}`);
+        console.log(`  ${dim('•')} Add ${dim('--description')} with success criteria and constraints`);
+        console.log(`  ${dim('•')} Use ${dim('--assignee')} to focus a specific agent on this goal`);
       }
     });
 
