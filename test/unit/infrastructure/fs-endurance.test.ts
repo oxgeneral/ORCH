@@ -221,7 +221,7 @@ describe('FS endurance', { timeout: 30_000 }, () => {
 
     const retryQueue = Array.from({ length: 100 }, (_, i) => ({
       task_id: `tsk_retry_${i}`,
-      attempt: Math.floor(Math.random() * 5) + 1,
+      attempt: (i % 5) + 1,
       due_at: '2026-03-14T13:00:00.000Z',
       error: `Error message for task ${i}: some failure detail`,
     }));
