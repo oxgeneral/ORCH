@@ -1,11 +1,68 @@
 #!/usr/bin/env node
 
 /**
- * Post-install banner — shown once after `npm install -g @oxgeneral/orch`.
+ * Post-install: patch Ink caches + show banner.
  * Pure Node.js, no dependencies.
  */
 
-// Skip in CI or non-interactive environments
+// Patch Ink's unbounded caches before anything else
+try {
+  const { readFileSync, writeFileSync, existsSync } = require('node:fs');
+  const { join } = require('node:path');
+  const inkBuild = join(__dirname, '..', 'node_modules', 'ink', 'build');
+  const MAX = 2000;
+
+  const wrapPath = join(inkBuild, 'wrap-text.js');
+  if (existsSync(wrapPath)) {
+    let s = readFileSync(wrapPath, 'utf8');
+    if (!s.includes('_lruKeys')) {
+      s = s.replace('const cache = {};', `const cache = {};\nconst _lruKeys = [];\nconst _MAX = ${MAX};`);
+      s = s.replace('cache[cacheKey] = wrappedText;', `cache[cacheKey] = wrappedText;\n    _lruKeys.push(cacheKey);\n    if (_lruKeys.length > _MAX) { delete cache[_lruKeys.shift()]; }`);
+      writeFileSync(wrapPath, s);
+    }
+  }
+
+  const measurePath = join(inkBuild, 'measure-text.js');
+  if (existsSync(measurePath)) {
+    let s = readFileSync(measurePath, 'utf8');
+    if (!s.includes('_MAX_MT')) {
+      s = s.replace('const cache = new Map();', `const cache = new Map();\nconst _MAX_MT = ${MAX};`);
+      s = s.replace('cache.set(text, dimensions);', `cache.set(text, dimensions);\n    if (cache.size > _MAX_MT) { const first = cache.keys().next().value; cache.delete(first); }`);
+      writeFileSync(measurePath, s);
+    }
+  }
+  // Patch output.js: add LRU eviction to OutputCaches maps
+  const outputPath = join(inkBuild, 'output.js');
+  if (existsSync(outputPath)) {
+    let s = readFileSync(outputPath, 'utf8');
+    if (!s.includes('_OC_MAX')) {
+      // Add LRU bound to all three Maps in OutputCaches
+      const lruGuard = `\n        if (this.styledChars.size > _OC_MAX) { const k = this.styledChars.keys().next().value; this.styledChars.delete(k); }`;
+      const lruGuardW = `\n        if (this.widths.size > _OC_MAX) { const k = this.widths.keys().next().value; this.widths.delete(k); }`;
+      const lruGuardB = `\n        if (this.blockWidths.size > _OC_MAX) { const k = this.blockWidths.keys().next().value; this.blockWidths.delete(k); }`;
+
+      s = s.replace(
+        'class OutputCaches {',
+        `const _OC_MAX = ${MAX};\nclass OutputCaches {`,
+      );
+      s = s.replace(
+        'this.styledChars.set(line, cached);',
+        `this.styledChars.set(line, cached);${lruGuard}`,
+      );
+      s = s.replace(
+        'this.widths.set(text, cached);',
+        `this.widths.set(text, cached);${lruGuardW}`,
+      );
+      s = s.replace(
+        'this.blockWidths.set(text, cached);',
+        `this.blockWidths.set(text, cached);${lruGuardB}`,
+      );
+      writeFileSync(outputPath, s);
+    }
+  }
+} catch { /* non-fatal: caches will just be unbounded */ }
+
+// Skip banner in CI or non-interactive environments
 if (process.env.CI || !process.stderr.isTTY) process.exit(0);
 
 // Color values synced with src/cli/output.ts colors map

@@ -32,6 +32,7 @@ import type { WizardStep } from './components/FormWizard.js';
 import { Spinner } from './components/Spinner.js';
 import { OnboardingBox, type OnboardingConfig, WelcomeScreen, OnboardingNudge, OnboardingToast, type OnboardingStep } from './components/OnboardingBox.js';
 import { ToastBanner, type Toast, type ToastType } from './components/ToastBanner.js';
+import { HelpOverlay } from './components/HelpOverlay.js';
 import {
   getAgentWizardSteps, agentWizardToInput,
   getTaskWizardSteps, taskWizardToInput,
@@ -254,11 +255,6 @@ const AGENT_COLORS = [
   '#d7875f', // orange
 ] as const;
 
-/** Get a stable color for an agent based on its index */
-function getAgentColor(agentId: string, agents: Agent[]): string {
-  const idx = agents.findIndex((a) => a.id === agentId);
-  return AGENT_COLORS[idx >= 0 ? idx % AGENT_COLORS.length : 0]!;
-}
 
 /** Blank indent for continuation rows in activity feed (matches agent column width) */
 const AGENT_INDENT = ' '.repeat(9);
@@ -376,6 +372,9 @@ export function App({
   const [wizardConfig, setWizardConfig] = useState<WizardConfig | null>(null);
   /** Temp file paths for images pasted via Ctrl+I during task wizard */
   const [pendingAttachments, setPendingAttachments] = useState<string[]>([]);
+
+  // Help overlay (? or F1 to toggle)
+  const [showHelpOverlay, setShowHelpOverlay] = useState(false);
 
   // Logs view: agent filter (0 = all, 1-9 = agent by index), type filter, selection, scroll
   const [logFilter, setLogFilter] = useState(0);
@@ -514,6 +513,15 @@ export function App({
   const agentNameMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const a of liveAgents) map.set(a.id, a.name);
+    return map;
+  }, [liveAgents]);
+
+  // Build agent ID → color map to avoid O(n) findIndex per message row during render
+  const agentColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (let i = 0; i < liveAgents.length; i++) {
+      map.set(liveAgents[i]!.id, AGENT_COLORS[i % AGENT_COLORS.length]!);
+    }
     return map;
   }, [liveAgents]);
 
@@ -1624,6 +1632,14 @@ export function App({
       onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard, launchConfigWizard]);
 
   useInput((input, key) => {
+    // ── Help overlay dismiss: any key closes it ──
+    if (showHelpOverlay) {
+      setShowHelpOverlay(false);
+      // ?, Esc, F1 only dismiss — don't pass through
+      if (input === '?' || key.escape || input === '\x1bOP') return;
+      // Other keys: dismiss AND execute their action (fall through)
+    }
+
     // ── Ctrl+S / Cmd+S: open Agent Shop from agent wizard ──
     if ((key.ctrl || key.meta) && input === 's' && inputMode === 'wizard' && wizardConfig?.kind === 'agent') {
       launchShopWizard();
@@ -1775,6 +1791,18 @@ export function App({
     // M (shift+m): toggle fullscreen detail panel
     if (input === 'M' && activeView !== 'logs') {
       setIsDetailMaximized((v) => !v);
+      return;
+    }
+
+    // ?: toggle help overlay
+    if (input === '?') {
+      setShowHelpOverlay(true);
+      return;
+    }
+
+    // F1 (escape sequence \x1bOP): toggle help overlay
+    if (input === '\x1bOP') {
+      setShowHelpOverlay(true);
       return;
     }
 
@@ -2148,6 +2176,14 @@ export function App({
   const showAgentDetail = !inInput && detailOpen && activeView === 'agents' && selectedAgent;
   const showGoalDetail = !inInput && detailOpen && activeView === 'goals' && selectedGoal;
   const showLogDetail = !inInput && detailOpen && activeView === 'logs' && selectedLog;
+
+  // Memoize filtered task logs to avoid O(500) filter on every render
+  const selectedTaskId = selectedTask?.id;
+  const memoizedTaskLogs = useMemo(() => {
+    if (!selectedTaskId) return [];
+    return messages.filter((m) => m.taskId === selectedTaskId);
+  }, [messages, selectedTaskId]);
+
   const canRun = !inInput && activeView === 'tasks' && selectedTask && RUNNABLE.has(selectedTask.status) && !!onRunTask;
   const canNew = !inInput && !detailOpen && (
     (activeView === 'goals' && !!onCreateGoal) ||
@@ -2196,13 +2232,18 @@ export function App({
       {/* Breathing room after header */}
       <Box height={1} />
 
+      {/* Help overlay — replaces all content when active */}
+      {showHelpOverlay && (
+        <HelpOverlay width={W} height={H - 7} />
+      )}
+
       {/* Onboarding welcome screen — replaces tasks view when step=welcome */}
-      {onboardingStep === 'welcome' && activeView === 'tasks' && (
+      {!showHelpOverlay && onboardingStep === 'welcome' && activeView === 'tasks' && (
         <WelcomeScreen width={W} height={H} />
       )}
 
       {/* Main content area */}
-      {activeView === 'goals' && (
+      {!showHelpOverlay && activeView === 'goals' && (
         <GoalsContent
           goals={sortedGoals}
           selectedIndex={goalSelectedIndex}
@@ -2213,7 +2254,7 @@ export function App({
           agentNameMap={agentNameMap}
         />
       )}
-      {onboardingStep !== 'welcome' && activeView === 'tasks' && (
+      {!showHelpOverlay && onboardingStep !== 'welcome' && activeView === 'tasks' && (
         <TasksContent
           tasks={visibleTasks}
           selectedIndex={taskSelectedIndex}
@@ -2226,21 +2267,21 @@ export function App({
         />
       )}
       {/* Onboarding nudge — shown under task list for task_created/run_started */}
-      {activeView === 'tasks' && (onboardingStep === 'task_created' || onboardingStep === 'run_started') && (
+      {!showHelpOverlay && activeView === 'tasks' && (onboardingStep === 'task_created' || onboardingStep === 'run_started') && (
         <OnboardingNudge step={onboardingStep} width={W} />
       )}
       {/* Onboarding toast — shown once when first task completes */}
-      {activeView === 'tasks' && onboardingStep === 'completed' && (
+      {!showHelpOverlay && activeView === 'tasks' && onboardingStep === 'completed' && (
         <OnboardingToast width={W} />
       )}
-      {activeView === 'tasks' && hiddenTaskCount > 0 && (
+      {!showHelpOverlay && activeView === 'tasks' && hiddenTaskCount > 0 && (
         <Box paddingX={1} backgroundColor={tuiColors.ghost}>
           <Text color={tuiColors.amber}>
             showing {visibleTasks.length} of {sortedTasks.length} tasks {'\u00B7'} press <Text bold color={tuiColors.amber}>S</Text> to show all
           </Text>
         </Box>
       )}
-      {activeView === 'agents' && (
+      {!showHelpOverlay && activeView === 'agents' && (
         <AgentsContent
           agents={sortedAgents}
           selectedIndex={agentSelectedIndex}
@@ -2255,7 +2296,7 @@ export function App({
           activeTeamCount={activeTeamCount}
         />
       )}
-{activeView === 'logs' && (
+{!showHelpOverlay && activeView === 'logs' && (
         <LogsContent
           messages={messages}
           height={mainH}
@@ -2265,6 +2306,7 @@ export function App({
           selectedIndex={logSelectedIndex}
           scrollOffset={logScrollOffset}
           agentNameMap={agentNameMap}
+          agentColorMap={agentColorMap}
           taskTitleMap={taskTitleMap}
           width={ruleW}
         />
@@ -2274,7 +2316,7 @@ export function App({
       <Box height={1} />
 
       {/* Bottom panel: WIZARD or SUGGESTIONS or NEW TASK or DETAIL or ACTIVITY */}
-      {inputMode === 'wizard' && wizardConfig ? (
+      {showHelpOverlay ? null : inputMode === 'wizard' && wizardConfig ? (
         <FormWizard
           key={`${wizardConfig.kind}-${wizardConfig.title}`}
           title={wizardConfig.title}
@@ -2309,7 +2351,7 @@ export function App({
         <>
           <DetailSectionLabel task={selectedTask} width={ruleW} resizeHint={detailResizeHint} />
           <DetailPanel task={selectedTask} height={feedH} width={ruleW}
-            taskLogs={messages.filter((m) => m.taskId === selectedTask.id)}
+            taskLogs={memoizedTaskLogs}
             agentNameMap={agentNameMap} />
         </>
       ) : showGoalDetail ? (
@@ -2327,7 +2369,7 @@ export function App({
       ) : showLogDetail ? (
         <>
           <SectionLabel label="LOG" width={ruleW} />
-          <LogDetailPanel message={selectedLog} height={feedH} width={ruleW} agents={sortedAgents} agentNameMap={agentNameMap} taskTitleMap={taskTitleMap} />
+          <LogDetailPanel message={selectedLog} height={feedH} width={ruleW} agents={sortedAgents} agentNameMap={agentNameMap} agentColorMap={agentColorMap} taskTitleMap={taskTitleMap} />
         </>
       ) : messages.length > 0 && activeView !== 'logs' ? (
         <>
@@ -2342,7 +2384,7 @@ export function App({
             } />;
           })()}
           <ActivityFeed messages={activityFilteredMessages} height={Math.max(1, feedH - 1)} width={ruleW}
-            agents={sortedAgents} agentNameMap={agentNameMap} />
+            agents={sortedAgents} agentNameMap={agentNameMap} agentColorMap={agentColorMap} />
         </>
       ) : activeView === 'goals' ? (
         <OnboardingBox count={sortedGoals.length} config={ONBOARDING_GOALS} width={ruleW} />
@@ -2389,6 +2431,7 @@ export function App({
         itemLabel={activeView === 'goals' ? 'goals' : activeView === 'tasks' ? 'tasks' : activeView === 'agents' ? 'agents' : 'events'}
         width={W}
         hasSuggestions={showSuggestions}
+        onboardingCompleted={initialState.onboardingCompleted}
       />
     </Box>
   );
@@ -2918,7 +2961,7 @@ function getMsgTextColor(msgType: MsgType, fallback: string): string {
 
 /* ── Logs Content ────────────────────────────────────── */
 
-function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selectedIndex, scrollOffset, agentNameMap, taskTitleMap, width }: {
+function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selectedIndex, scrollOffset, agentNameMap, agentColorMap, taskTitleMap, width }: {
   messages: StatusMessage[];
   height: number;
   agents: Agent[];
@@ -2927,6 +2970,7 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
   selectedIndex: number; // -1 = tail mode
   scrollOffset: number;
   agentNameMap: Map<string, string>;
+  agentColorMap: Map<string, string>;
   taskTitleMap: Map<string, string>;
   width: number;
 }) {
@@ -3006,7 +3050,7 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
         <Text color={tuiColors.ghost}>{' '}</Text>
         {/* Per-agent chips — compact numbered pills */}
         {agents.slice(0, 9).map((a, i) => {
-          const ac = getAgentColor(a.id, agents);
+          const ac = agentColorMap.get(a.id) ?? AGENT_COLORS[0]!;
           const active = logFilter === i + 1;
           const count = agentMsgCounts.get(a.id) ?? 0;
           const countStr = count > 0 ? `\u00B7${count}` : '';
@@ -3077,7 +3121,7 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
           const msgType = msg.msgType ?? 'info';
           const icon = MSG_ICONS[msgType] ?? '│';
           const agentName = msg.agentId ? (agentNameMap.get(msg.agentId) ?? msg.agentId.slice(0, 8)) : undefined;
-          const agentColor = msg.agentId ? getAgentColor(msg.agentId, agents) : undefined;
+          const agentColor = msg.agentId ? agentColorMap.get(msg.agentId!) : undefined;
 
           // Session and continuation detection
           const sessionStart = isSessionStart(i);
@@ -3169,12 +3213,13 @@ function LogsContent({ messages, height, agents, logFilter, logTypeFilter, selec
 
 /* ── Activity Feed ────────────────────────────────────── */
 
-function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
+function ActivityFeed({ messages, height, width, agents, agentNameMap, agentColorMap }: {
   messages: StatusMessage[];
   height: number;
   width: number;
   agents: Agent[];
   agentNameMap: Map<string, string>;
+  agentColorMap: Map<string, string>;
 }) {
   const now = useNow();
 
@@ -3197,7 +3242,7 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
       {padRows > 0 && <Box height={padRows} />}
       {visible.map((msg, i) => {
         const agentName = msg.agentId ? (agentNameMap.get(msg.agentId) ?? msg.agentId.slice(0, 8)) : undefined;
-        const agentColor = msg.agentId ? getAgentColor(msg.agentId, agents) : undefined;
+        const agentColor = msg.agentId ? agentColorMap.get(msg.agentId!) : undefined;
         const msgType = msg.msgType ?? 'info';
         const icon = MSG_ICONS[msgType] ?? '│';
 
@@ -3244,18 +3289,19 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap }: {
 
 /* ── Log Detail Panel ────────────────────────────────── */
 
-function LogDetailPanel({ message, height, width, agents, agentNameMap, taskTitleMap }: {
+function LogDetailPanel({ message, height, width, agents, agentNameMap, agentColorMap, taskTitleMap }: {
   message: StatusMessage;
   height: number;
   width: number;
   agents: Agent[];
   agentNameMap: Map<string, string>;
+  agentColorMap: Map<string, string>;
   taskTitleMap: Map<string, string>;
 }) {
   const content = message.detail ?? message.text;
   const msgType = message.msgType ?? 'info';
   const agentName = message.agentId ? (agentNameMap.get(message.agentId) ?? message.agentId.slice(0, 8)) : undefined;
-  const agentColor = message.agentId ? getAgentColor(message.agentId, agents) : tuiColors.dim;
+  const agentColor = message.agentId ? agentColorMap.get(message.agentId!) : tuiColors.dim;
   const taskTitle = message.taskId ? taskTitleMap.get(message.taskId) : undefined;
 
   // Try to pretty-print JSON
