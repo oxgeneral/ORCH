@@ -52,6 +52,7 @@ const SHELL_MODELS = [
 
 const ADAPTERS = [
   { value: 'claude', label: 'Claude', hint: 'Claude Code CLI' },
+  { value: 'opencode', label: 'OpenCode', hint: 'OpenCode — multi-provider' },
   { value: 'codex', label: 'Codex', hint: 'OpenAI Codex CLI' },
   { value: 'cursor', label: 'Cursor', hint: 'Cursor Agent CLI' },
   { value: 'shell', label: 'Shell', hint: 'custom shell command' },
