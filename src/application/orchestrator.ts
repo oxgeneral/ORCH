@@ -879,10 +879,14 @@ export class Orchestrator {
       await this.deps.taskService.incrementAttempts(taskId);
 
       // Save worktree branch on proof immediately (survives any later failure)
+      // Re-read from store to avoid overwriting in_progress status set above
       if (worktreeBranch) {
-        task.proof = { ...(task.proof ?? { files_changed: [] }), branch: worktreeBranch };
-        task.workspace = workspacePath;
-        await this.deps.taskStore.save(task);
+        const freshTask = await this.deps.taskStore.get(taskId);
+        if (freshTask) {
+          freshTask.proof = { ...(freshTask.proof ?? { files_changed: [] }), branch: worktreeBranch };
+          freshTask.workspace = workspacePath;
+          await this.deps.taskStore.save(freshTask);
+        }
       }
 
       // Update agent status and clear last_error on successful dispatch
@@ -1241,7 +1245,7 @@ export class Orchestrator {
 
     // Auto-review: if task landed in 'review' and has review_criteria, run them
     if (newStatus === 'review' && task.review_criteria?.length) {
-      await this.runAutoReview(taskId, task.review_criteria, task.workspace ?? this.deps.projectRoot);
+      await this.runAutoReview(taskId, task.review_criteria, task.workspace ?? this.deps.projectRoot, autoApprove);
     } else if (newStatus === 'review' && autoApprove) {
       // Auto-approve: skip review and transition review → done immediately
       await this.deps.taskService.updateStatus(taskId, 'done');
