@@ -9,7 +9,7 @@
 | CLI startup (`--help`) | 103ms (cold) / 75ms (warm) | 40ms | **-61%** |
 | CLI `task list` | 103ms | 78ms | **-24%** |
 | Build (tsup) | 2.7s | 1.6s | **-41%** |
-| Test suite (vitest) | 12.2s | 15.7s / 1378 tests | **+324% tests, 15ms/test** |
+| Test suite (vitest) | 12.2s | 15.7s / 1378 tests | **+491% tests, 11ms/test** |
 | TUI memory | OOM after ~27 min | Stable indefinitely | **Fixed** |
 
 All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx vitest run`.
