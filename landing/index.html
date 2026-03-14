@@ -1960,7 +1960,7 @@
     <div class="hero-content">
       <div class="hero-badge">
         <span class="pulse"></span>
-        Open source &middot; v1.0.0
+        Open source &middot; <span class="orch-version">v1.0.0</span>
       </div>
       <h1>Orchestrate <em>AI agent teams</em> from your terminal</h1>
       <p class="hero-sub">
@@ -2014,7 +2014,7 @@
       </div>
     </div>
     <div class="scroll-hint">Scroll</div>
-    <div class="hero-version">v1.0.0 &mdash; MIT</div>
+    <div class="hero-version"><span class="orch-version">v1.0.0</span> &mdash; MIT</div>
   </section>
 
   <!-- STATS BAR -->
@@ -2600,7 +2600,7 @@
     </div>
     <div class="footer-bottom">
       <span>&copy; 2026 ORCH &mdash; Open Source, MIT License</span>
-      <span>v1.0.0 &mdash; Built with TypeScript &mdash; Last updated March 2026</span>
+      <span><span class="orch-version">v1.0.0</span> &mdash; Built with TypeScript &mdash; Last updated March 2026</span>
     </div>
   </footer>
 
@@ -2655,6 +2655,18 @@
         cmd.querySelector('.copy-hint').textContent = 'click to copy';
       }, 2000);
     }
+
+    // Fetch latest version from GitHub
+    fetch('https://api.github.com/repos/oxgeneral/ORCH/releases/latest')
+      .then(r => r.json())
+      .then(data => {
+        if (data.tag_name) {
+          document.querySelectorAll('.orch-version').forEach(el => {
+            el.textContent = data.tag_name;
+          });
+        }
+      })
+      .catch(() => {}); // keep fallback version on error
   </script>
 
 </body>
