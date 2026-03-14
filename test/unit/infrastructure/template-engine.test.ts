@@ -122,7 +122,7 @@ describe('buildPromptContext compact team listing', () => {
   const multilineRole = 'Senior Backend Developer\n## WORKFLOW\n1) Step one\n2) Step two\n## RULES\n- Rule A\n- Rule B';
   const longFirstLine = 'A'.repeat(100);
 
-  it('truncates other agents role to first line', () => {
+  it('passes full role for other agents', () => {
     const current = makeAgent({ id: 'agt_me', name: 'Me', role: 'My full role' });
     const other = makeAgent({ id: 'agt_other', name: 'Other', role: multilineRole });
 
@@ -136,11 +136,10 @@ describe('buildPromptContext compact team listing', () => {
     );
 
     const otherInCtx = ctx.agents.find((a) => a.id === 'agt_other')!;
-    expect(otherInCtx.role).toBe('Senior Backend Developer');
-    expect(otherInCtx.role).not.toContain('WORKFLOW');
+    expect(otherInCtx.role).toBe(multilineRole);
   });
 
-  it('truncates first line longer than 80 chars with ellipsis', () => {
+  it('passes long role without truncation', () => {
     const other = makeAgent({ id: 'agt_long', name: 'Long', role: longFirstLine });
     const current = makeAgent({ id: 'agt_me', name: 'Me' });
 
@@ -154,8 +153,7 @@ describe('buildPromptContext compact team listing', () => {
     );
 
     const longInCtx = ctx.agents.find((a) => a.id === 'agt_long')!;
-    expect(longInCtx.role!.length).toBe(80);
-    expect(longInCtx.role).toMatch(/\.\.\.$/);
+    expect(longInCtx.role).toBe(longFirstLine);
   });
 
   it('excludes current agent role from team listing', () => {
@@ -382,56 +380,13 @@ describe('filterRelevantContext', () => {
     expect(Object.keys(result).length).toBeLessThanOrEqual(15);
   });
 
-  it('truncates values longer than 500 chars', () => {
+  it('passes long values without truncation', () => {
     const longValue = 'x'.repeat(600);
     const ctx: Record<string, string> = {
       'long-entry': longValue,
     };
     const result = filterRelevantContext(ctx, { agentName: 'Backend A' });
-    expect(result['long-entry']!.length).toBe(500);
-    expect(result['long-entry']).toMatch(/…$/);
-  });
-
-  it('does not truncate values under 500 chars', () => {
-    const shortValue = 'short value';
-    const ctx: Record<string, string> = {
-      'short-entry': shortValue,
-    };
-    const result = filterRelevantContext(ctx, { agentName: 'Backend A' });
-    expect(result['short-entry']).toBe(shortValue);
-  });
-
-  it('respects custom maxValueLength from filter input', () => {
-    const longValue = 'y'.repeat(300);
-    const ctx: Record<string, string> = { 'entry': longValue };
-    const result = filterRelevantContext(ctx, { agentName: 'Backend A', maxValueLength: 200 });
-    expect(result['entry']!.length).toBe(200);
-    expect(result['entry']).toMatch(/…$/);
-  });
-
-  it('does not truncate when value is under custom maxValueLength', () => {
-    const ctx: Record<string, string> = { 'entry': 'short' };
-    const result = filterRelevantContext(ctx, { agentName: 'Backend A', maxValueLength: 200 });
-    expect(result['entry']).toBe('short');
-  });
-
-  it('buildPromptContext passes config max_context_value_length to filter', () => {
-    const longValue = 'z'.repeat(400);
-    const ctx: Record<string, string> = { 'test-key': longValue };
-    const configWithLimit = {
-      ...DEFAULT_CONFIG,
-      prompt: { max_context_value_length: 250 },
-    };
-    const result = buildPromptContext(
-      makeTask(),
-      makeAgent({ name: 'Backend A' }),
-      1,
-      '/workspace',
-      configWithLimit,
-      { sharedContext: ctx },
-    );
-    expect(result.shared_context!['test-key']!.length).toBe(250);
-    expect(result.shared_context!['test-key']).toMatch(/…$/);
+    expect(result['long-entry']).toBe(longValue);
   });
 
   it('includes zero-score entries when under limit', () => {
@@ -472,15 +427,10 @@ describe('filterRelevantContext', () => {
       { sharedContext: ctx },
     );
 
-    // Should be filtered and truncated
+    // Should be filtered by relevance (max 15 entries)
     expect(Object.keys(result.shared_context!).length).toBeLessThanOrEqual(15);
     // Goal context should be prioritized
     expect(result.shared_context!['goal_test-progress']).toBe('goal progress');
-    // Long values should be truncated
-    const unrelatedKey = Object.keys(result.shared_context!).find((k) => k.startsWith('unrelated-'));
-    if (unrelatedKey) {
-      expect(result.shared_context![unrelatedKey]!.length).toBeLessThanOrEqual(500);
-    }
   });
 
   it('boosts bug-/perf-/docs- prefix entries slightly', () => {

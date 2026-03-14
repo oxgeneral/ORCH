@@ -112,7 +112,6 @@ export class RunService {
    */
   async getLastFailedRunContext(
     taskId: string,
-    maxOutputLines = 50,
   ): Promise<{ error: string; output: string } | null> {
     const runs = await this.runStore.listForTask(taskId);
     const failedRun = runs
@@ -124,18 +123,14 @@ export class RunService {
 
     const error = failedRun.error ?? 'Unknown error';
 
-    // Read events and extract last N output lines
+    // Read all events and extract output lines
     let output = '';
     try {
-      // Read only tail of events to avoid loading multi-MB JSONL files
-      const events = await this.runStore.readEventsTail(failedRun.id, maxOutputLines * 2);
-      const outputLines = events
+      const events = await this.runStore.readEvents(failedRun.id);
+      output = events
         .filter((e) => e.type === 'agent_output' || e.type === 'error')
         .map((e) => (typeof e.data === 'string' ? e.data : JSON.stringify(e.data)))
-        .join('\n')
-        .split('\n');
-
-      output = outputLines.slice(-maxOutputLines).join('\n');
+        .join('\n');
     } catch {
       // Events file may not exist — that's fine
     }

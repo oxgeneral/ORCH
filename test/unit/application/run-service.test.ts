@@ -119,7 +119,7 @@ describe('RunService.getLastFailedRunContext', () => {
     expect(result!.error).toBe('Unknown error');
   });
 
-  it('should limit output to maxOutputLines', async () => {
+  it('should return all output lines without truncation', async () => {
     const lines: RunEvent[] = [];
     for (let i = 0; i < 100; i++) {
       lines.push({
@@ -142,12 +142,12 @@ describe('RunService.getLastFailedRunContext', () => {
     ], events);
 
     const service = new RunService(runStore, eventBus);
-    const result = await service.getLastFailedRunContext('tsk_1', 10);
+    const result = await service.getLastFailedRunContext('tsk_1');
 
     const outputLines = result!.output.split('\n');
-    expect(outputLines.length).toBeLessThanOrEqual(10);
+    expect(outputLines.length).toBe(100);
+    expect(result!.output).toContain('line 0');
     expect(result!.output).toContain('line 99');
-    expect(result!.output).toContain('line 90');
   });
 
   it('should handle missing events file gracefully', async () => {
@@ -160,8 +160,8 @@ describe('RunService.getLastFailedRunContext', () => {
         finished_at: '2025-01-01T00:00:00Z',
       }),
     ]);
-    // Make readEventsTail throw (used by getLastFailedRunContext)
-    (runStore.readEventsTail as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('ENOENT'));
+    // Make readEvents throw (used by getLastFailedRunContext)
+    (runStore.readEvents as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('ENOENT'));
 
     const service = new RunService(runStore, eventBus);
     const result = await service.getLastFailedRunContext('tsk_1');

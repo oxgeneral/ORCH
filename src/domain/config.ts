@@ -44,7 +44,6 @@ export interface OrchestratorConfig {
     template?: string;
     system_template?: string;
     user_template?: string;
-    max_context_value_length?: number;
   };
 }
 

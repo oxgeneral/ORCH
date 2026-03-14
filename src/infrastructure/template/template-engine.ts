@@ -116,34 +116,19 @@ export class LiquidTemplateEngine implements ITemplateEngine {
   }
 }
 
-/**
- * Truncate agent role to its first line (max 80 chars) for compact team listing.
- * The current agent's full role is already rendered in the prompt header.
- */
-function truncateRole(role: string | undefined): string | undefined {
-  if (!role) return role;
-  const firstLine = role.split('\n')[0]!.trim();
-  return firstLine.length > 80 ? firstLine.slice(0, 77) + '...' : firstLine;
-}
-
 /** Max number of context entries injected into a single prompt. */
 const MAX_CONTEXT_ENTRIES = 15;
-
-/** Default max length per context value (chars). */
-export const DEFAULT_MAX_CONTEXT_VALUE_LENGTH = 500;
 
 export interface ContextFilterInput {
   agentName: string;
   agentRole?: string;
   goalId?: string;
   taskScope?: string[];
-  maxValueLength?: number;
 }
 
 /**
  * Score and filter shared context entries by relevance to the current agent/task.
  * Returns at most MAX_CONTEXT_ENTRIES entries, sorted by relevance then freshness.
- * Each value is truncated to DEFAULT_MAX_CONTEXT_VALUE_LENGTH chars (configurable via filter.maxValueLength).
  */
 export function filterRelevantContext(
   allContext: Record<string, string>,
@@ -210,13 +195,10 @@ export function filterRelevantContext(
     relevant.push(...remaining);
   }
 
-  // Build result with truncated values
-  const maxLen = Math.max(1, filter.maxValueLength ?? DEFAULT_MAX_CONTEXT_VALUE_LENGTH);
+  // Build result — pass values through as-is (no truncation)
   const result: Record<string, string> = {};
   for (const { key, value } of relevant) {
-    result[key] = value.length > maxLen
-      ? value.slice(0, maxLen - 1) + '…'
-      : value;
+    result[key] = value;
   }
   return result;
 }
@@ -307,7 +289,7 @@ export function buildPromptContext(
     agents: (allAgents ?? []).map((a) => ({
       id: a.id,
       name: a.name,
-      role: a.id === agent.id ? undefined : truncateRole(a.role),
+      role: a.id === agent.id ? undefined : a.role,
       adapter: a.adapter,
     })),
     attempt: attempt > 1 ? attempt : null,
@@ -320,7 +302,6 @@ export function buildPromptContext(
           agentRole: agent.role,
           goalId: task.goalId,
           taskScope: task.scope,
-          maxValueLength: config.prompt?.max_context_value_length,
         })
       : undefined,
     messages,

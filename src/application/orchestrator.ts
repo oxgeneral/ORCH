@@ -826,16 +826,13 @@ export class Orchestrator {
         const allTasks = await this.cachedTaskStore.list();
         const goalTasks = allTasks.filter((t) => t.goalId === goalId);
         const progressEntry = await this.deps.contextStore?.get(`${goalId}-progress`);
-        const MAX_GOAL_TASK_NAMES = 30;
         const taskNames = goalTasks.map((t) => `[${t.status}] ${t.title}`);
         goalContext = {
           id: goalRaw.id,
           title: goalRaw.title,
           description: goalRaw.description,
           status: goalRaw.status,
-          task_names: taskNames.length > MAX_GOAL_TASK_NAMES
-            ? [...taskNames.slice(0, MAX_GOAL_TASK_NAMES), `... and ${taskNames.length - MAX_GOAL_TASK_NAMES} more`]
-            : taskNames,
+          task_names: taskNames,
           progress: progressEntry?.value,
         };
       }
