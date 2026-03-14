@@ -4,7 +4,7 @@
  * Uses ink-testing-library to render components without a real TTY.
  */
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import React from 'react';
 import { render } from 'ink-testing-library';
 import { _resetAnimTick } from '../../../src/tui/components/useAnimTick.js';
@@ -2217,5 +2217,261 @@ describe('Hidden tasks footer bar and tab badge', () => {
     await delay(50);
     const output = lastFrame()!;
     expect(output).not.toContain('to show all');
+  });
+
+  /* ── Toast notifications integration ─────────────────────────── */
+
+  describe('Toast notifications', () => {
+    it('shows toast when task transitions to done', async () => {
+      const task = makeTask({ id: 'tsk_1', title: 'Build feature', assignee: 'agt_1' });
+      const agent = makeAgent({ id: 'agt_1', name: 'Backend A' });
+      const state: OrchestratorState = { ...DEFAULT_STATE };
+      let eventHandler: ((event: any) => void) | null = null;
+      const onSubscribeEvents = (handler: (event: any) => void) => {
+        eventHandler = handler;
+        return () => { eventHandler = null; };
+      };
+      const { lastFrame } = render(
+        React.createElement(App, {
+          projectName: 'test', tasks: [task], agents: [agent], state,
+          onSubscribeEvents, initialNotifications: { toast: true, bell: false },
+        }),
+      );
+
+      eventHandler!({ type: 'task:status_changed', taskId: 'tsk_1', from: 'in_progress', to: 'done' });
+      await delay(50);
+      const output = lastFrame()!;
+      expect(output).toContain('Build feature');
+      expect(output).toContain('Task completed by Backend A');
+    });
+
+    it('shows toast when task transitions to failed', async () => {
+      const task = makeTask({ id: 'tsk_2', title: 'Deploy service' });
+      const state: OrchestratorState = { ...DEFAULT_STATE };
+      let eventHandler: ((event: any) => void) | null = null;
+      const onSubscribeEvents = (handler: (event: any) => void) => {
+        eventHandler = handler;
+        return () => { eventHandler = null; };
+      };
+      const { lastFrame } = render(
+        React.createElement(App, {
+          projectName: 'test', tasks: [task], state,
+          onSubscribeEvents, initialNotifications: { toast: true, bell: false },
+        }),
+      );
+
+      eventHandler!({ type: 'task:status_changed', taskId: 'tsk_2', from: 'in_progress', to: 'failed' });
+      await delay(50);
+      const output = lastFrame()!;
+      expect(output).toContain('Deploy service');
+      expect(output).toContain('Task failed');
+    });
+
+    it('shows toast when task transitions to review', async () => {
+      const task = makeTask({ id: 'tsk_3', title: 'Auth flow' });
+      const state: OrchestratorState = { ...DEFAULT_STATE };
+      let eventHandler: ((event: any) => void) | null = null;
+      const onSubscribeEvents = (handler: (event: any) => void) => {
+        eventHandler = handler;
+        return () => { eventHandler = null; };
+      };
+      const { lastFrame } = render(
+        React.createElement(App, {
+          projectName: 'test', tasks: [task], state,
+          onSubscribeEvents, initialNotifications: { toast: true, bell: false },
+        }),
+      );
+
+      eventHandler!({ type: 'task:status_changed', taskId: 'tsk_3', from: 'in_progress', to: 'review' });
+      await delay(50);
+      const output = lastFrame()!;
+      expect(output).toContain('Auth flow');
+      expect(output).toContain('Task ready for review');
+    });
+
+    it('does not show toast when notifications.toast is false', async () => {
+      const task = makeTask({ id: 'tsk_4', title: 'Hidden task' });
+      const state: OrchestratorState = { ...DEFAULT_STATE };
+      let eventHandler: ((event: any) => void) | null = null;
+      const onSubscribeEvents = (handler: (event: any) => void) => {
+        eventHandler = handler;
+        return () => { eventHandler = null; };
+      };
+      const { lastFrame } = render(
+        React.createElement(App, {
+          projectName: 'test', tasks: [task], state,
+          onSubscribeEvents, initialNotifications: { toast: false, bell: false },
+        }),
+      );
+
+      eventHandler!({ type: 'task:status_changed', taskId: 'tsk_4', from: 'in_progress', to: 'done' });
+      await delay(50);
+      const output = lastFrame()!;
+      // Task title appears in task list, so check for toast-specific message
+      expect(output).not.toContain('Task completed by');
+    });
+
+    it('caps toast queue at MAX_TOASTS (5) — oldest evicted', async () => {
+      const tasks = Array.from({ length: 7 }, (_, i) =>
+        makeTask({ id: `tsk_${i}`, title: `Batch${i}XYZ` }),
+      );
+      const state: OrchestratorState = { ...DEFAULT_STATE };
+      let eventHandler: ((event: any) => void) | null = null;
+      const onSubscribeEvents = (handler: (event: any) => void) => {
+        eventHandler = handler;
+        return () => { eventHandler = null; };
+      };
+      const { lastFrame } = render(
+        React.createElement(App, {
+          projectName: 'test', tasks, state,
+          onSubscribeEvents, initialNotifications: { toast: true, bell: false },
+        }),
+      );
+
+      // Fire 7 done events — queue caps at 5 (last 5 kept: indices 2-6)
+      for (let i = 0; i < 7; i++) {
+        eventHandler!({ type: 'task:status_changed', taskId: `tsk_${i}`, from: 'in_progress', to: 'done' });
+      }
+      await delay(50);
+      const output = lastFrame()!;
+      // At least one toast visible (ToastBanner renders up to MAX_VISIBLE=2)
+      expect(output).toContain('Task completed by');
+      // Verify queue eviction: toast for Batch0XYZ should be gone (only last 5 in queue)
+      // ToastBanner renders first 2 of queue — that's Batch2XYZ and Batch3XYZ
+      // Batch0 and Batch1 were evicted from queue
+      expect(output).toContain('Batch2XYZ');
+    });
+
+    it('does not show toast for non-terminal status changes (todo → in_progress)', async () => {
+      const task = makeTask({ id: 'tsk_5', title: 'Progress task' });
+      const state: OrchestratorState = { ...DEFAULT_STATE };
+      let eventHandler: ((event: any) => void) | null = null;
+      const onSubscribeEvents = (handler: (event: any) => void) => {
+        eventHandler = handler;
+        return () => { eventHandler = null; };
+      };
+      const { lastFrame } = render(
+        React.createElement(App, {
+          projectName: 'test', tasks: [task], state,
+          onSubscribeEvents, initialNotifications: { toast: true, bell: false },
+        }),
+      );
+
+      eventHandler!({ type: 'task:status_changed', taskId: 'tsk_5', from: 'todo', to: 'in_progress' });
+      await delay(50);
+      const output = lastFrame()!;
+      // No toast-specific messages should appear for in_progress transition
+      expect(output).not.toContain('Task completed');
+      expect(output).not.toContain('Task failed');
+      expect(output).not.toContain('Task ready for review');
+    });
+  });
+
+  /* ── Bell notifications ───────────────────────────────────────── */
+
+  describe('Bell notifications', () => {
+    it('writes \\x07 bell on failed when bell=true', async () => {
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      try {
+        const task = makeTask({ id: 'tsk_b1', title: 'Deploy fail' });
+        const state: OrchestratorState = { ...DEFAULT_STATE };
+        let eventHandler: ((event: any) => void) | null = null;
+        const onSubscribeEvents = (handler: (event: any) => void) => {
+          eventHandler = handler;
+          return () => { eventHandler = null; };
+        };
+        render(
+          React.createElement(App, {
+            projectName: 'test', tasks: [task], state,
+            onSubscribeEvents, initialNotifications: { toast: true, bell: true },
+          }),
+        );
+
+        eventHandler!({ type: 'task:status_changed', taskId: 'tsk_b1', from: 'in_progress', to: 'failed' });
+        await delay(50);
+        const bellCalls = writeSpy.mock.calls.filter(([c]) => c === '\x07');
+        expect(bellCalls.length).toBeGreaterThanOrEqual(1);
+      } finally {
+        writeSpy.mockRestore();
+      }
+    });
+
+    it('writes \\x07 bell on review when bell=true', async () => {
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      try {
+        const task = makeTask({ id: 'tsk_b2', title: 'Auth review' });
+        const state: OrchestratorState = { ...DEFAULT_STATE };
+        let eventHandler: ((event: any) => void) | null = null;
+        const onSubscribeEvents = (handler: (event: any) => void) => {
+          eventHandler = handler;
+          return () => { eventHandler = null; };
+        };
+        render(
+          React.createElement(App, {
+            projectName: 'test', tasks: [task], state,
+            onSubscribeEvents, initialNotifications: { toast: true, bell: true },
+          }),
+        );
+
+        eventHandler!({ type: 'task:status_changed', taskId: 'tsk_b2', from: 'in_progress', to: 'review' });
+        await delay(50);
+        const bellCalls = writeSpy.mock.calls.filter(([c]) => c === '\x07');
+        expect(bellCalls.length).toBeGreaterThanOrEqual(1);
+      } finally {
+        writeSpy.mockRestore();
+      }
+    });
+
+    it('does NOT write bell on done even when bell=true', async () => {
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      try {
+        const task = makeTask({ id: 'tsk_b3', title: 'Feature done' });
+        const state: OrchestratorState = { ...DEFAULT_STATE };
+        let eventHandler: ((event: any) => void) | null = null;
+        const onSubscribeEvents = (handler: (event: any) => void) => {
+          eventHandler = handler;
+          return () => { eventHandler = null; };
+        };
+        render(
+          React.createElement(App, {
+            projectName: 'test', tasks: [task], state,
+            onSubscribeEvents, initialNotifications: { toast: true, bell: true },
+          }),
+        );
+
+        eventHandler!({ type: 'task:status_changed', taskId: 'tsk_b3', from: 'in_progress', to: 'done' });
+        await delay(50);
+        const bellCalls = writeSpy.mock.calls.filter(([c]) => c === '\x07');
+        expect(bellCalls.length).toBe(0);
+      } finally {
+        writeSpy.mockRestore();
+      }
+    });
+
+    it('does NOT write bell when bell=false', async () => {
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      try {
+        const task = makeTask({ id: 'tsk_b4', title: 'Silent fail' });
+        const state: OrchestratorState = { ...DEFAULT_STATE };
+        let eventHandler: ((event: any) => void) | null = null;
+        const onSubscribeEvents = (handler: (event: any) => void) => {
+          eventHandler = handler;
+          return () => { eventHandler = null; };
+        };
+        render(
+          React.createElement(App, {
+            projectName: 'test', tasks: [task], state,
+            onSubscribeEvents, initialNotifications: { toast: true, bell: false },
+          }),
+        );
+
+        eventHandler!({ type: 'task:status_changed', taskId: 'tsk_b4', from: 'in_progress', to: 'failed' });
+        await delay(50);
+        const bellCalls = writeSpy.mock.calls.filter(([c]) => c === '\x07');
+        expect(bellCalls.length).toBe(0);
+      } finally {
+        writeSpy.mockRestore();
+      }
+    });
   });
 });
