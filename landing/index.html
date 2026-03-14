@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ORCH — Open-Source CLI Orchestrator for AI Agent Teams</title>
-  <meta name="description" content="Orchestrate teams of AI coding agents in parallel. Git worktree isolation, inter-agent messaging, state machine governance. Zero cloud. MIT license.">
+  <title>ORCH — Open-Source Orchestration for Zero-Human Companies, Processes and Departments</title>
+  <meta name="description" content="Deploy AI departments — engineering, editorial, sales, analytics — from your terminal. State machine governance, inter-agent messaging, git isolation. Free forever. MIT license.">
   <meta name="author" content="ORCH Contributors">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#0a0a0a">
 
   <!-- Open Graph -->
-  <meta property="og:title" content="ORCH — Orchestrate AI Agent Teams From Your Terminal">
-  <meta property="og:description" content="Open-source CLI that orchestrates AI coding agents in parallel with git worktree isolation, inter-agent messaging, and state machine governance.">
+  <meta property="og:title" content="ORCH — Zero Employees. Full Departments. One npm install.">
+  <meta property="og:description" content="Open-source orchestration for zero-human companies. Deploy engineering, editorial, sales, or analytics departments — set goals, ship results while you sleep. MIT. Zero cloud.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.orch.one/">
   <meta property="og:site_name" content="ORCH">
@@ -19,14 +19,14 @@
   <meta property="og:image" content="https://www.orch.one/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="ORCH — Open-source CLI orchestrator for AI agent teams">
+  <meta property="og:image:alt" content="ORCH — Open-source orchestration for zero-human companies">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="ORCH — Open-Source CLI Orchestrator for AI Agent Teams">
-  <meta name="twitter:description" content="Orchestrate AI coding agents in parallel. Git worktree isolation, inter-agent messaging, state machine governance. Zero cloud.">
+  <meta name="twitter:title" content="ORCH — Zero Employees. Full Departments. One npm install.">
+  <meta name="twitter:description" content="Open-source orchestration for zero-human companies. Engineering, editorial, sales, analytics departments — from your terminal. Free forever.">
   <meta name="twitter:image" content="https://www.orch.one/og-image.png">
-  <meta name="twitter:image:alt" content="ORCH — Open-source CLI orchestrator for AI agent teams">
+  <meta name="twitter:image:alt" content="ORCH — Open-source orchestration for zero-human companies">
 
   <!-- Canonical -->
   <link rel="canonical" href="https://www.orch.one/">
@@ -38,7 +38,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" as="image" href="/screenshot-tui.png">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 
@@ -54,7 +54,8 @@
       --green: #4a9;
       --red: #ff5f57;
       --mono: 'JetBrains Mono', monospace;
-      --serif: 'Instrument Serif', serif;
+      --serif: 'Playfair Display', 'Instrument Serif', serif;
+      --serif-alt: 'Instrument Serif', serif;
     }
 
     html { font-size: 16px; scroll-behavior: smooth; }
@@ -156,17 +157,7 @@
       position: relative;
     }
 
-    .hero::after {
-      content: '';
-      position: absolute;
-      top: 0; right: 0;
-      width: 60%;
-      height: 100%;
-      background:
-        radial-gradient(ellipse at 80% 30%, rgba(255,175,0,0.05) 0%, transparent 60%),
-        radial-gradient(ellipse at 60% 70%, rgba(88,168,208,0.03) 0%, transparent 50%);
-      pointer-events: none;
-    }
+    /* hero background handled by .hero-orbs */
 
     .hero-content { position: relative; z-index: 2; }
 
@@ -1221,83 +1212,6 @@
       letter-spacing: 0.03em;
     }
 
-    /* --- TESTIMONIALS --- */
-    .testimonials {
-      padding: 8rem 3rem;
-      border-bottom: 1px solid var(--gray-light);
-    }
-
-    .testimonials-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      background: var(--gray-light);
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    .testimonial-card {
-      background: var(--black);
-      padding: 2.5rem 2rem;
-      position: relative;
-      opacity: 0;
-      transform: translateY(20px);
-      transition: opacity 0.6s, transform 0.6s, background 0.3s;
-    }
-
-    .testimonial-card.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .testimonial-card:hover { background: #0e0e0e; }
-
-    .testimonial-quote-mark {
-      font-family: var(--serif);
-      font-size: 4rem;
-      color: var(--accent);
-      opacity: 0.15;
-      line-height: 1;
-      margin-bottom: -1rem;
-    }
-
-    .testimonial-text {
-      font-size: 0.82rem;
-      color: var(--gray);
-      line-height: 1.8;
-      margin-bottom: 1.5rem;
-      font-style: italic;
-    }
-
-    .testimonial-author {
-      display: flex;
-      align-items: center;
-      gap: 0.8rem;
-    }
-
-    .testimonial-avatar {
-      width: 36px; height: 36px;
-      border-radius: 50%;
-      background: var(--gray-light);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.5rem;
-      color: #444;
-    }
-
-    .testimonial-name {
-      font-size: 0.75rem;
-      font-weight: 500;
-      color: var(--white);
-    }
-
-    .testimonial-role {
-      font-size: 0.6rem;
-      color: var(--gray);
-      letter-spacing: 0.05em;
-    }
-
     /* --- USE CASES --- */
     .use-cases {
       padding: 8rem 3rem;
@@ -1731,9 +1645,6 @@
       .workflow-step { text-align: left; }
       .workflow-step .step-num { margin: 0 0 0.8rem; }
 
-      .testimonials { padding: 4rem 1.5rem; }
-      .testimonials-grid { grid-template-columns: 1fr; }
-
       .use-cases { padding: 4rem 1.5rem; }
       .use-cases-grid { grid-template-columns: 1fr !important; }
 
@@ -1768,6 +1679,295 @@
       text-decoration: none;
     }
     .skip-link:focus { top: 0.5rem; }
+
+    /* --- CINEMATIC HERO ORBS --- */
+    .hero-orbs {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .hero-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      animation: orbFloat 20s ease-in-out infinite;
+    }
+
+    .hero-orb-1 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(255,175,0,0.12) 0%, transparent 70%);
+      top: -10%; right: -5%;
+      animation-delay: 0s;
+    }
+
+    .hero-orb-2 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(88,168,208,0.08) 0%, transparent 70%);
+      bottom: 10%; left: 10%;
+      animation-delay: -7s;
+      animation-duration: 25s;
+    }
+
+    .hero-orb-3 {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(68,170,153,0.06) 0%, transparent 70%);
+      top: 40%; left: 50%;
+      animation-delay: -13s;
+      animation-duration: 18s;
+    }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      25% { transform: translate(30px, -40px) scale(1.05); }
+      50% { transform: translate(-20px, 20px) scale(0.95); }
+      75% { transform: translate(40px, 30px) scale(1.02); }
+    }
+
+    /* --- GRID OVERLAY (Mission Control) --- */
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      background-image:
+        linear-gradient(rgba(255,175,0,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,175,0,0.03) 1px, transparent 1px);
+      background-size: 80px 80px;
+      mask-image: radial-gradient(ellipse at 60% 40%, black 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse at 60% 40%, black 20%, transparent 70%);
+    }
+
+    /* --- ENHANCED HERO H1 --- */
+    .hero h1 {
+      max-width: 18ch;
+    }
+
+    .hero h1 em {
+      position: relative;
+      display: inline-block;
+    }
+
+    .hero h1 em::after {
+      content: '';
+      position: absolute;
+      bottom: 0.05em;
+      left: -0.05em;
+      right: -0.05em;
+      height: 0.12em;
+      background: var(--accent);
+      opacity: 0.3;
+      transform: skewX(-3deg);
+      z-index: -1;
+    }
+
+    /* --- TYPEWRITER CURSOR --- */
+    .typewriter-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1em;
+      background: var(--accent);
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* --- ANIMATED STAT COUNTERS --- */
+    .stat-value {
+      font-variant-numeric: tabular-nums;
+      transition: transform 0.3s;
+    }
+
+    .stat-item:hover .stat-value {
+      transform: scale(1.08);
+    }
+
+    /* --- DIFFERENTIATION HOOK --- */
+    .diff-hook {
+      padding: 1.1rem 3rem;
+      border-bottom: 1px solid var(--gray-light);
+      font-size: 0.75rem;
+      color: var(--gray);
+      text-align: center;
+      letter-spacing: 0.01em;
+    }
+
+    .diff-hook-label {
+      display: inline-block;
+      margin-right: 0.6rem;
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      font-weight: 500;
+      vertical-align: middle;
+    }
+
+    .diff-hook strong { color: var(--white); font-weight: 400; }
+
+    .stat-item:hover .stat-label {
+      color: var(--white);
+      transition: color 0.3s;
+    }
+
+    /* --- ENHANCED TERMINAL GLOW --- */
+    .hero-terminal {
+      position: relative;
+    }
+
+    .hero-terminal::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(255,175,0,0.15), transparent 40%, transparent 60%, rgba(88,168,208,0.1));
+      z-index: -1;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    .hero-terminal:hover::before {
+      opacity: 1;
+    }
+
+    /* --- FEATURE CARD HOVER GLOW --- */
+    .feature-category {
+      position: relative;
+    }
+
+    .feature-category::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-dim), transparent);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .feature-category:hover::before {
+      opacity: 1;
+    }
+
+    /* --- USE CASE HOVER LIFT --- */
+    .use-case-card {
+      transition: opacity 0.6s, transform 0.6s, background 0.3s, box-shadow 0.3s;
+    }
+
+    .use-case-card:hover {
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+      transform: translateY(-2px) !important;
+    }
+
+    /* --- SMOOTH SCROLL INDICATOR --- */
+    .scroll-hint {
+      animation: scrollFade 3s ease-in-out infinite;
+    }
+
+    @keyframes scrollFade {
+      0%, 100% { opacity: 0.3; transform: translateX(-50%) translateY(0); }
+      50% { opacity: 0.8; transform: translateX(-50%) translateY(5px); }
+    }
+
+    /* --- INSTALL CMD GLOW --- */
+    .install-cmd {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .install-cmd::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: -100%;
+      width: 200%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,175,0,0.04), transparent);
+      transform: translateY(-50%);
+      transition: left 0.6s;
+    }
+
+    .install-cmd:hover::before {
+      left: 100%;
+    }
+
+    /* --- BADGE SHIMMER --- */
+    .hero-badge {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-badge::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,175,0,0.08), transparent);
+      animation: shimmer 4s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0% { left: -100%; }
+      50% { left: 100%; }
+      100% { left: 100%; }
+    }
+
+    /* --- NAV LINK UNDERLINE --- */
+    nav a:not(.nav-cta):not(.nav-npm) {
+      position: relative;
+    }
+
+    nav a:not(.nav-cta):not(.nav-npm)::after {
+      content: '';
+      position: absolute;
+      bottom: -4px; left: 0;
+      width: 0; height: 1px;
+      background: var(--accent);
+      transition: width 0.3s;
+    }
+
+    nav a:not(.nav-cta):not(.nav-npm):hover::after {
+      width: 100%;
+    }
+
+    /* --- WORKFLOW STEP CONNECTOR PULSE --- */
+    .workflow-steps::before {
+      animation: connectorPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes connectorPulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    /* --- CTA SECTION DRAMATIC GLOW --- */
+    .cta-section h2 {
+      text-shadow: 0 0 80px rgba(255,175,0,0.08);
+    }
+
+    /* --- ADAPTER CARD HOVER --- */
+    .sp-card {
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    .sp-card:hover {
+      transform: translateY(-2px);
+    }
+
+    /* --- FAQ SMOOTH OPEN --- */
+    .faq-answer {
+      animation: faqReveal 0.3s ease-out;
+    }
+
+    @keyframes faqReveal {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 
   <!-- Structured Data -->
@@ -1779,11 +1979,11 @@
         "@type": "SoftwareApplication",
         "name": "ORCH",
         "alternateName": "@oxgeneral/orch",
-        "description": "Open-source CLI orchestrator that manages teams of AI coding agents in parallel with git worktree isolation, inter-agent messaging, and state machine task governance.",
+        "description": "Open-source orchestration for zero-human companies, processes and departments. Deploy AI departments — engineering, editorial, sales, analytics — from your terminal with state machine governance, git isolation, and inter-agent messaging.",
         "applicationCategory": "DeveloperApplication",
-        "applicationSubCategory": "AI Agent Orchestrator",
+        "applicationSubCategory": "AI Company Runtime",
         "operatingSystem": "macOS, Linux, Windows",
-        "softwareVersion": "0.3.1",
+        "softwareVersion": "1.0.0",
         "programmingLanguage": "TypeScript",
         "runtimePlatform": "Node.js 20+",
         "license": "https://opensource.org/licenses/MIT",
@@ -1943,7 +2143,7 @@
   <nav>
     <div class="logo">ORC<span>H</span></div>
     <div class="nav-links">
-      <a href="#features">Features</a>
+      <a href="#features">Departments</a>
       <a href="#teams">Teams</a>
       <a href="#workflow">How it works</a>
       <a href="#faq">FAQ</a>
@@ -1957,25 +2157,31 @@
 
   <!-- HERO -->
   <section class="hero">
+    <div class="hero-orbs">
+      <div class="hero-orb hero-orb-1"></div>
+      <div class="hero-orb hero-orb-2"></div>
+      <div class="hero-orb hero-orb-3"></div>
+    </div>
+    <div class="hero-grid"></div>
     <div class="hero-content">
       <div class="hero-badge">
         <span class="pulse"></span>
-        Open source &middot; <span class="orch-version">v1.0.0</span>
+        Open source &middot; macOS &middot; Linux &middot; Windows &middot; <span class="orch-version">v1.0.0</span>
       </div>
-      <h1>Orchestrate <em>AI agent teams</em> from your terminal</h1>
+      <h1>Launch zero-human <em>companies, processes and departments</em></h1>
       <p class="hero-sub">
-        Run a coordinated team of AI agents in parallel &mdash; with
-        <strong>git worktree isolation</strong>, <strong>inter-agent messaging</strong>,
-        and state machine governance. No cloud. No config files. One npm install.
+        Engineering, editorial, sales, analytics &mdash; deploy entire AI departments that
+        <strong>set goals</strong>, <strong>execute in parallel</strong>, <strong>communicate</strong>,
+        retry on failure, and deliver results. From your terminal. Free forever.
       </p>
       <div class="hero-actions">
-        <a href="#install" class="btn-primary">Install in 10 seconds</a>
-        <a href="#demo" class="btn-ghost">See how it works</a>
+        <a href="#install" class="btn-primary">Deploy your first department</a>
+        <a href="#demo" class="btn-ghost">See it in action</a>
       </div>
       <div class="hero-meta">
-        <span><strong>15</strong> ready-made agents</span>
-        <span><strong>5</strong> AI providers</span>
-        <span><strong>MIT</strong> license</span>
+        <span><strong>10</strong> department templates</span>
+        <span><strong>15</strong> AI employees</span>
+        <span><strong>0</strong> humans required</span>
       </div>
     </div>
     <div class="hero-visual">
@@ -1988,27 +2194,32 @@
         </div>
         <div class="term-body">
           <div class="term-line" style="animation-delay:0.8s">
-            <span class="prompt">$</span> <span class="cmd">orch run</span> <span class="flag">--all --watch</span>
+            <span class="prompt">$</span> <span class="cmd">orch org deploy</span> <span class="str">startup-mvp</span> <span class="flag">--goal</span> <span class="str">"Build auth module"</span>
           </div>
           <div class="term-line" style="animation-delay:1.2s">
-            <span class="ok">&nbsp;&nbsp;&#9679; Running</span> <span class="dim">&mdash; 3 agents dispatched</span>
+            <span class="ok">&nbsp;&nbsp;&#10003;</span> <span class="dim">Deployed team &mdash; 5 agents</span>
           </div>
-          <div class="term-line" style="animation-delay:1.6s">&nbsp;</div>
-          <div class="term-line" style="animation-delay:2.0s">
-            <span class="dim">&nbsp;&nbsp;</span><span class="agent">backend-a</span> <span class="dim">implementing auth module</span> <span class="branch">[feature/auth]</span>
+          <div class="term-line" style="animation-delay:1.5s">
+            <span class="ok">&nbsp;&nbsp;&#10003;</span> <span class="dim">CTO decomposed goal &rarr; 6 tasks</span>
           </div>
-          <div class="term-line" style="animation-delay:2.3s">
-            <span class="dim">&nbsp;&nbsp;</span><span class="agent">qa-a</span> <span class="dim">writing test suite</span> <span class="branch">[test/auth]</span>
+          <div class="term-line" style="animation-delay:1.9s">&nbsp;</div>
+          <div class="term-line" style="animation-delay:2.2s">
+            <span class="prompt">$</span> <span class="cmd">orch run</span> <span class="flag">--all --watch</span>
           </div>
-          <div class="term-line" style="animation-delay:2.6s">
-            <span class="dim">&nbsp;&nbsp;</span><span class="agent">reviewer</span> <span class="dim">awaiting review tasks</span>
+          <div class="term-line" style="animation-delay:2.5s">
+            <span class="ok">&nbsp;&nbsp;&#9679; Running</span> <span class="dim">&mdash; 5 agents dispatched</span>
           </div>
-          <div class="term-line" style="animation-delay:3.0s">&nbsp;</div>
-          <div class="term-line" style="animation-delay:3.3s">
-            <span class="dim">&nbsp;&nbsp;&#9993;</span> <span class="agent">backend-a</span> <span class="dim">&rarr;</span> <span class="agent">qa-a</span> <span class="dim">"Auth module ready for testing"</span>
+          <div class="term-line" style="animation-delay:2.8s">
+            <span class="dim">&nbsp;&nbsp;</span><span class="agent">Backend A</span> <span class="dim">implementing OAuth2</span> <span class="branch">[feature/oauth]</span>
           </div>
-          <div class="term-line" style="animation-delay:3.7s">
-            <span class="ok">&nbsp;&nbsp;&#10003;</span> <span class="dim">tsk_a1b &mdash; review complete &mdash; merging</span> <span class="branch">[feature/auth]</span> <span class="dim">&rarr; main</span>
+          <div class="term-line" style="animation-delay:3.1s">
+            <span class="dim">&nbsp;&nbsp;</span><span class="agent">Backend B</span> <span class="dim">JWT token service</span> <span class="branch">[feature/jwt]</span>
+          </div>
+          <div class="term-line" style="animation-delay:3.4s">
+            <span class="dim">&nbsp;&nbsp;&#9993;</span> <span class="agent">Backend A</span> <span class="dim">&rarr;</span> <span class="agent">QA</span> <span class="dim">"Auth module ready for testing"</span>
+          </div>
+          <div class="term-line" style="animation-delay:3.8s">
+            <span class="ok">&nbsp;&nbsp;&#10003;</span> <span class="dim">6 tasks approved &middot; merging &rarr; main &middot; $4.20 &middot; 0 humans</span>
           </div>
         </div>
       </div>
@@ -2020,27 +2231,33 @@
   <!-- STATS BAR -->
   <div class="stats-bar">
     <div class="stat-item">
-      <div class="stat-value">N+</div>
-      <div class="stat-label">Parallel Agents</div>
+      <div class="stat-value">10</div>
+      <div class="stat-label">Department Templates</div>
     </div>
     <div class="stat-item">
       <div class="stat-value">15</div>
-      <div class="stat-label">Ready-Made Agents</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-value">1</div>
-      <div class="stat-label">Command to Start</div>
+      <div class="stat-label">AI Employees</div>
     </div>
     <div class="stat-item">
       <div class="stat-value green">0</div>
-      <div class="stat-label">Cloud Dependencies</div>
+      <div class="stat-label">Humans Required</div>
     </div>
+    <div class="stat-item">
+      <div class="stat-value">30s</div>
+      <div class="stat-label">To Launch</div>
+    </div>
+  </div>
+
+  <!-- DIFFERENTIATION HOOK -->
+  <div class="diff-hook">
+    <span class="diff-hook-label">Why ORCH?</span>
+    Unlike parallel launchers, ORCH agents <strong>talk to each other</strong>, share context, and track work through a <strong>formal state machine</strong>.
   </div>
 
   <!-- SOCIAL PROOF -->
   <section class="social-proof">
     <div class="sp-adapters">
-      <p class="sp-label">Plug into the tools you already use</p>
+      <p class="sp-label">Your tools become your employees</p>
       <div class="sp-grid">
         <div class="sp-card">
           <div class="sp-card-name">Claude</div>
@@ -2073,7 +2290,7 @@
 
     <div class="sp-cred">
       <span><strong>MIT</strong> licensed</span>
-      <span><strong>90</strong> source files</span>
+      <span><strong>97</strong> source files</span>
       <span><strong>100%</strong> TypeScript</span>
       <span><strong>Zero</strong> runtime deps</span>
     </div>
@@ -2083,7 +2300,7 @@
   <section class="problem-solution">
     <div class="ps-header">
       <p class="label">The coordination problem</p>
-      <h2>One agent is a toy.<br>A team is a <em>force</em></h2>
+      <h2>One agent is a tool.<br>A department is a <em>company</em></h2>
     </div>
 
     <div class="ps-grid">
@@ -2147,7 +2364,7 @@
     </div>
 
     <div class="ps-cta">
-      <a href="#install">Stop babysitting agents. Start orchestrating them &rarr;</a>
+      <a href="#install">Your agents deserve departments, not terminals &rarr;</a>
     </div>
   </section>
 
@@ -2155,7 +2372,7 @@
   <section class="terminal-section" id="demo">
     <div class="section-header">
       <p class="label">See for yourself</p>
-      <h2>Five commands to full <em>orchestration</em></h2>
+      <h2>From zero to AI company in <em>30 seconds</em></h2>
     </div>
     <div class="terminal" id="terminal">
       <div class="terminal-bar">
@@ -2218,8 +2435,8 @@
   <!-- SCREENSHOT -->
   <section class="screenshots" id="screenshots">
     <div class="section-header">
-      <h2>See it in <em>action</em></h2>
-      <p>Real-time TUI dashboard with task management, agent activity feed, team coordination, and inter-agent messaging.</p>
+      <h2>Your AI company <em>command center</em></h2>
+      <p>Real-time TUI dashboard &mdash; departments working, agents reporting, PRs landing. Tasks, agents, goals &mdash; all managed from one terminal.</p>
     </div>
     <div class="screenshot-card">
       <div class="ss-bar"><div class="ss-dot"></div><div class="ss-dot"></div><div class="ss-dot"></div><span class="ss-title">TUI Dashboard</span></div>
@@ -2234,25 +2451,25 @@
 
   <!-- MID-PAGE CTA -->
   <div class="mid-cta">
-    <p><strong>Ready to orchestrate?</strong> One command to install. One command to start.</p>
-    <a href="#install" class="btn-primary">Get Started</a>
+    <p><strong>Ready to launch your AI company?</strong> One command to install. One command to deploy.</p>
+    <a href="#install" class="btn-primary">Deploy Your First Department</a>
   </div>
 
   <!-- FEATURES -->
   <section class="features" id="features">
     <div class="features-header">
-      <h2>Built for<br>precision</h2>
-      <span class="count">12 features &middot; 4 categories</span>
+      <h2>Built for<br><em>companies</em>, not demos</h2>
+      <span class="count">12 features &middot; 4 departments</span>
     </div>
     <div class="features-categories">
       <div class="feature-category is-new">
         <div class="fc-top">
           <div class="fc-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><path d="M7 12h4m2-3 4-2.5M13 15l4 2.5"/></svg></div>
-          <span class="fc-label">Coordination</span>
+          <span class="fc-label">Strategy</span>
           <span class="fc-badge">new</span>
         </div>
-        <h3 class="fc-title">Team Intelligence</h3>
-        <p class="fc-desc">Agents that communicate, coordinate, and build on each other's work &mdash; like a real engineering team.</p>
+        <h3 class="fc-title">You're the CEO. AI is the Team.</h3>
+        <p class="fc-desc">Set a goal &mdash; your CTO agent decomposes it into tasks, assigns to departments, and tracks progress. You set direction. AI executes.</p>
         <ul class="fc-items">
           <li><strong>Agent Teams</strong> &mdash; group agents under a lead, broadcast context, coordinate work</li>
           <li><strong>Inter-agent Messaging</strong> &mdash; direct messages, broadcasts, injected into prompts at dispatch</li>
@@ -2263,11 +2480,11 @@
       <div class="feature-category is-new">
         <div class="fc-top">
           <div class="fc-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/><circle cx="12" cy="12" r="4"/></svg></div>
-          <span class="fc-label">Intelligence</span>
+          <span class="fc-label">Departments</span>
           <span class="fc-badge">new</span>
         </div>
-        <h3 class="fc-title">Autonomous Execution</h3>
-        <p class="fc-desc">Set a high-level goal. Agents decompose it into tasks and execute without hand-holding.</p>
+        <h3 class="fc-title">Real Org Chart. Not Just Agent Names.</h3>
+        <p class="fc-desc">CTO, Backend, QA, Reviewer &mdash; organized in teams with leads, shared task pools, and messaging. Like a real company org chart.</p>
         <ul class="fc-items">
           <li><strong>Goals & Autonomy</strong> &mdash; define goals, agents generate and execute tasks autonomously</li>
           <li><strong>Reactive Dispatch</strong> &mdash; sub-second task pickup, no polling, events trigger agents immediately</li>
@@ -2280,8 +2497,8 @@
           <div class="fc-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
           <span class="fc-label">Safety</span>
         </div>
-        <h3 class="fc-title">Bulletproof Execution</h3>
-        <p class="fc-desc">Every transition validated. Every agent isolated. Every change reviewed before merge.</p>
+        <h3 class="fc-title">Nothing Ships Without Your Approval.</h3>
+        <p class="fc-desc">Every task flows through the state machine. Every agent isolated on its own branch. Every change reviewed before merge. You're the final gate.</p>
         <ul class="fc-items">
           <li><strong>State Machine</strong> &mdash; <code style="font-size:0.68rem;color:var(--accent)">todo</code> &rarr; <code style="font-size:0.68rem;color:var(--accent)">in_progress</code> &rarr; <code style="font-size:0.68rem;color:var(--accent)">review</code> &rarr; <code style="font-size:0.68rem;color:var(--accent)">done</code></li>
           <li><strong>Worktree Isolation</strong> &mdash; each agent gets its own git worktree, parallel without conflicts</li>
@@ -2294,8 +2511,8 @@
           <div class="fc-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
           <span class="fc-label">Developer Experience</span>
         </div>
-        <h3 class="fc-title">Your Terminal, Your Rules</h3>
-        <p class="fc-desc">Full-screen TUI, rework loops, and zero infrastructure. Clone and run.</p>
+        <h3 class="fc-title">Zero Infrastructure. Just <code style="font-size:1.1rem;color:var(--accent)">npm install</code>.</h3>
+        <p class="fc-desc">No database. No cloud. No Docker. No signup. State in <code style="font-size:0.68rem;color:var(--accent)">.orchestry/</code> &mdash; YAML, JSON, JSONL. Git clone and your whole company runs.</p>
         <ul class="fc-items">
           <li><strong>TUI Dashboard</strong> &mdash; live tasks, agent activity, token usage, keyboard-driven</li>
           <li><strong>Rework Loop</strong> &mdash; reject with feedback, the agent retries with your notes</li>
@@ -2309,8 +2526,8 @@
   <section class="teams" id="teams">
     <div class="teams-header">
       <p class="label">Only in ORCH</p>
-      <h2>Agent <em>collaboration,</em> not just execution</h2>
-      <p>Stop running agents in isolation. Build coordinated teams where agents communicate, share discoveries, and delegate subtasks &mdash; minus the standups.</p>
+      <h2>Agent <em>departments,</em> not just execution</h2>
+      <p>Keep using Claude and Cursor &mdash; now they're organized into departments. CTO routes work, Backend builds, QA tests, Reviewer checks. They message each other, share context, and self-coordinate.</p>
     </div>
 
     <!-- Topology Diagram -->
@@ -2400,7 +2617,7 @@
   <section class="workflow" id="workflow">
     <div class="section-header">
       <p class="label">How it works</p>
-      <h2>Four steps to <em>orchestration</em></h2>
+      <h2>Four steps to your AI <em>company</em></h2>
     </div>
     <div class="workflow-steps">
       <div class="workflow-step">
@@ -2434,8 +2651,8 @@
   <!-- USE CASES -->
   <section class="use-cases" id="use-cases">
     <div class="section-header">
-      <p class="label">Built for every workflow</p>
-      <h2>What teams build with <em>ORCH</em></h2>
+      <p class="label">What founders build with ORCH</p>
+      <h2>Zero-human departments <em>in action</em></h2>
     </div>
     <div class="use-cases-grid">
       <div class="use-case-card">
@@ -2535,9 +2752,9 @@
 
   <!-- CTA / INSTALL -->
   <section class="cta-section" id="install">
-    <span class="cta-label">Get started in 30 seconds</span>
-    <h2>Start shipping with<br>your AI <em>team</em></h2>
-    <p class="cta-sub">One command to install. One command to orchestrate.</p>
+    <span class="cta-label">Launch your AI company</span>
+    <h2>Start shipping with<br>your AI <em>department</em></h2>
+    <p class="cta-sub">One command to install. One command to deploy.</p>
 
     <div class="install-cmd" id="installNpm" onclick="copyCmd('npm install -g @oxgeneral/orch', 'installNpm')">
       <span class="prompt-sign">$</span>
@@ -2545,11 +2762,11 @@
       <span class="copy-hint">click to copy</span>
     </div>
 
-    <div class="install-then">then run</div>
+    <div class="install-then">then deploy</div>
 
-    <div class="install-cmd" id="installOrch" onclick="copyCmd('orch', 'installOrch')">
+    <div class="install-cmd" id="installOrch" onclick="copyCmd('orch org deploy startup-mvp', 'installOrch')">
       <span class="prompt-sign">$</span>
-      <span>orch</span>
+      <span>orch org deploy startup-mvp</span>
       <span class="copy-hint">click to copy</span>
     </div>
 
@@ -2561,9 +2778,9 @@
 
     <div class="cta-trust">
       <span><strong>MIT</strong> licensed</span>
-      <span><strong>15</strong> agents included</span>
-      <span><strong>Zero</strong> cloud deps</span>
-      <span><strong>1 cmd</strong> to start</span>
+      <span><strong>15</strong> AI employees</span>
+      <span><strong>0</strong> cloud deps</span>
+      <span><strong>30s</strong> to launch</span>
     </div>
   </section>
 
@@ -2574,7 +2791,7 @@
     <div class="footer-grid">
       <div class="footer-brand">
         <div class="logo">ORC<span>H</span></div>
-        <p>The open-source CLI orchestrator for AI agent teams. Built with TypeScript. Runs on macOS, Linux, and Windows.</p>
+        <p>Open-source orchestration for zero-human companies, processes and departments. Built with TypeScript. Runs on macOS, Linux, and Windows.</p>
         <div class="footer-social">
           <a href="https://github.com/oxgeneral/ORCH" aria-label="GitHub">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -2625,7 +2842,7 @@
     }, { threshold: 0.15 });
 
     document.querySelectorAll(
-      '.terminal, .screenshot-card, .feature-category, .teams-topology, .teams-demo, .ps-item, .workflow-step, .testimonial-card, .use-case-card'
+      '.terminal, .screenshot-card, .feature-category, .teams-topology, .teams-demo, .ps-item, .workflow-step, .use-case-card'
     ).forEach(el => observer.observe(el));
 
     // Stagger animation delays
@@ -2639,10 +2856,6 @@
 
     document.querySelectorAll('.workflow-step').forEach((el, i) => {
       el.style.transitionDelay = `${i * 0.15}s`;
-    });
-
-    document.querySelectorAll('.testimonial-card').forEach((el, i) => {
-      el.style.transitionDelay = `${i * 0.12}s`;
     });
 
     document.querySelectorAll('.use-case-card').forEach((el, i) => {
@@ -2660,6 +2873,62 @@
         cmd.querySelector('.copy-hint').textContent = 'click to copy';
       }, 2000);
     }
+
+    // Animated stat counters
+    const statObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        const text = el.textContent.trim();
+        const match = text.match(/^(\d+)/);
+        if (!match) return;
+        const target = parseInt(match[1]);
+        const suffix = text.replace(/^\d+/, '');
+        const duration = 1200;
+        const start = performance.now();
+        const animate = (now) => {
+          const progress = Math.min((now - start) / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          el.textContent = Math.round(target * eased) + suffix;
+          if (progress < 1) requestAnimationFrame(animate);
+        };
+        el.textContent = '0' + suffix;
+        requestAnimationFrame(animate);
+        statObserver.unobserve(el);
+      });
+    }, { threshold: 0.5 });
+
+    document.querySelectorAll('.stat-value').forEach(el => {
+      if (/^\d/.test(el.textContent.trim())) statObserver.observe(el);
+    });
+
+    // Typewriter effect for hero terminal last line
+    const heroTermLines = document.querySelectorAll('.hero-terminal .term-line');
+    if (heroTermLines.length > 0) {
+      const lastLine = heroTermLines[heroTermLines.length - 1];
+      const originalHTML = lastLine.innerHTML;
+      lastLine.addEventListener('animationend', () => {
+        if (!lastLine.querySelector('.typewriter-cursor')) {
+          lastLine.innerHTML = originalHTML + '<span class="typewriter-cursor"></span>';
+        }
+      }, { once: true });
+    }
+
+    // Parallax on hero orbs (subtle)
+    let ticking = false;
+    window.addEventListener('mousemove', (e) => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const x = (e.clientX / window.innerWidth - 0.5) * 20;
+        const y = (e.clientY / window.innerHeight - 0.5) * 20;
+        document.querySelectorAll('.hero-orb').forEach((orb, i) => {
+          const factor = (i + 1) * 0.5;
+          orb.style.transform = `translate(${x * factor}px, ${y * factor}px)`;
+        });
+        ticking = false;
+      });
+    });
 
     // Fetch latest version from GitHub
     fetch('https://api.github.com/repos/oxgeneral/ORCH/releases/latest')

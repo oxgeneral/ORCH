@@ -1,28 +1,15 @@
-<p align="center">
-  <img src="assets/logo.svg" alt="ORCH" height="60" />
-  <p align="center">
-    <strong>Open-source orchestration for zero-human companies, processes and departments.</strong><br/>
-    Engineering, editorial, sales, analytics — deploy entire AI departments from your terminal. Free forever.
-  </p>
-  <p align="center">
-    <a href="https://github.com/oxgeneral/ORCH/stargazers"><img src="https://img.shields.io/github/stars/oxgeneral/ORCH?style=social" alt="GitHub Stars" /></a>
-    <a href="https://www.orch.one/"><img src="https://img.shields.io/badge/website-orch.one-amber" alt="Website" /></a>
-    <a href="https://www.npmjs.com/package/@oxgeneral/orch"><img src="https://img.shields.io/npm/v/@oxgeneral/orch?color=cb0000" alt="npm" /></a>
-    <a href="#launch-your-ai-company-in-30-seconds"><img src="https://img.shields.io/badge/setup-30%20seconds-brightgreen" alt="30 second setup" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
-    <a href="#development"><img src="https://img.shields.io/badge/tests-1493%20passing-brightgreen" alt="Tests" /></a>
-    <a href="#architecture"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
-  </p>
-</p>
+
+
+**Open-source orchestration for zero-human companies, processes and departments.**
+Engineering, editorial, sales, analytics — deploy entire AI departments from your terminal. Free forever.
+
+
+
+
 
 ---
 
-<div align="center">
-  <video src="https://github.com/user-attachments/assets/c7c3ab77-e718-4e5a-a8cf-bfc446ace64e" width="100%" controls autoplay loop muted></video>
-</div>
-<p align="center">
-  <em>Command center: engineering shipping code, editorial publishing content, QA testing — all at once, while you sleep.</em>
-</p>
+*Command center: engineering shipping code, editorial publishing content, QA testing — all at once, while you sleep.*
 
 ---
 
@@ -34,7 +21,7 @@ You're the human router — switching tabs, copy-pasting context, manually track
 
 **You're not the founder. You're the intern.**
 
-## What if you had an entire AI department?
+## What if you had an entire AI engineering department?
 
 ```
 $ orch org deploy startup-mvp --goal "Implement user auth with OAuth2"
@@ -91,24 +78,31 @@ orch run --all --watch
 ## Your AI company org chart
 
 ### CTO — strategic decomposition
+
 Set a high-level goal. Your CTO agent decomposes it into concrete tasks, assigns priorities, and delegates to the right departments. You set strategy — AI executes.
 
 ### Engineering Department — parallel execution
+
 Backend A, Backend B, Frontend — each agent gets its own git worktree (isolated branch). They work in parallel without file conflicts. Failed? Auto-retry with exponential backoff. Stalled? Zombie detection kills and re-queues.
 
 ### QA Department — automated verification
+
 QA agents pick up completed work, run tests, validate contracts. Reject with feedback → task goes back to engineering with your notes. The loop closes automatically.
 
 ### Code Review — mandatory quality gate
+
 Nothing touches `main` until reviewed. Every task flows through the state machine:
+
 ```
 todo → in_progress → review → done
                     ↘ retrying → in_progress
                     ↘ failed
 ```
+
 Every transition validated. No task gets lost. No code merges without approval.
 
 ### Inter-department communication
+
 Agents talk to each other — direct messages, team broadcasts, shared context store. Backend finishes auth module → sends message to QA → QA starts testing. No copy-paste. No manual routing.
 
 ## Not just engineering
@@ -130,24 +124,31 @@ Every department gets the same superpowers: state machine governance, retry, mes
 ## Why founders choose ORCH
 
 ### You're the CEO, not the babysitter
+
 Set goals, not tasks. Your CTO agent decomposes strategy into work. Backend builds. QA tests. Reviewer checks. You approve. That's the workflow.
 
 ### Real departments, not just agents
+
 Teams with leads, shared task pools, auto-claiming. CTO, Backend, QA, Reviewer — organized like a real org chart. Broadcasts, messaging, shared context.
 
 ### Runs while you sleep
+
 Auto-retry, stall detection, exponential backoff. Your agents don't stop when one fails — ORCH restarts, re-queues, and keeps going. Deploy at night, review in the morning.
 
 ### Main branch is sacred
+
 Every agent works on its own git branch. Scope overlap detection prevents conflicts before they happen. Mandatory review step. Nothing merges until you approve.
 
 ### 30 seconds to a full department
+
 `orch org deploy startup-mvp` — CTO, backend x2, QA, reviewer. Team created. Goal set. Agents ready. One command.
 
 ### Free. Yours. Forever.
+
 MIT license. Your API keys. Your machine. State in `.orchestry/` — plain YAML, JSON, JSONL files you can read, edit, commit. Zero cloud dependencies.
 
 ### Works with every tool — AI or not
+
 | Adapter | What it runs | Use as |
 |---------|-------------|--------|
 | `claude` | Claude Code CLI | CTO, Backend, Reviewer, Writer, Analyst |
@@ -157,6 +158,7 @@ MIT license. Your API keys. Your machine. State in `.orchestry/` — plain YAML,
 | `shell` | **Anything**: `npm test`, `python bot.py`, Semgrep, `curl`, CRM scripts, email senders, data pipelines | QA, Security, DevOps, Sales, Analytics, Content — any role |
 
 The `shell` adapter is the key: **if it runs in a terminal, it's an employee**. This is how ORCH goes beyond engineering — any CLI tool becomes part of your zero-human company.
+
 
 ## Pre-built AI companies
 
@@ -181,6 +183,7 @@ Deploy a full department with one command:
 | `data-lab` | Shell (pandas, duckdb, matplotlib), Analyst | 3 CSVs → executive report by morning |
 | `sales-machine` | Researcher, Copywriter, Shell (email), QA | Lead gen → personalized sequences → send |
 | `docs-team` | Architect, Writer x2, Editor, Reviewer | Technical docs from codebase analysis |
+
 
 ```bash
 orch org list                                    # See all companies
@@ -276,7 +279,7 @@ npm run typecheck      # Strict TypeScript
 
 If ORCH saves you time — **[Star it on GitHub](https://github.com/oxgeneral/ORCH)** — it helps other founders find the project.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=oxgeneral/ORCH&type=Date)](https://star-history.com/#oxgeneral/ORCH&Date)
+[Star History Chart](https://star-history.com/#oxgeneral/ORCH&Date)
 
 - **Open an issue** if something breaks or could be better
 - **Submit a PR** — see [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -285,9 +288,11 @@ If ORCH saves you time — **[Star it on GitHub](https://github.com/oxgeneral/OR
 
 > Running a zero-human company with ORCH? [Let us know](https://github.com/oxgeneral/ORCH/issues/new?title=Zero-human+company+with+ORCH&body=Tell+us+about+your+setup) — we'd love to feature you here.
 
-<!-- ADOPTERS_START -->
+
+
 *Be the first to launch your AI company here.*
-<!-- ADOPTERS_END -->
+
+
 
 ## FAQ
 
@@ -298,10 +303,6 @@ No. **Solo founders are the primary users.** You + 2 agents is already a zero-hu
 ### Will agents mess up my codebase?
 
 No. Every agent works in an isolated git worktree on its own branch. Nothing touches `main` until you explicitly approve. Mandatory review step in the state machine. Scope overlap detection prevents conflicts before they happen.
-
-### Is this only for engineering?
-
-No. The shell adapter runs any CLI tool — which means ORCH orchestrates any process. Engineering, editorial, sales, analytics, security, DevOps. **If it runs in a terminal, it's an employee.** Deploy `content-agency`, `data-lab`, or `sales-machine` with one command.
 
 ### How much does it cost?
 

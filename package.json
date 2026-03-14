@@ -1,7 +1,7 @@
 {
   "name": "@oxgeneral/orch",
   "version": "1.0.0",
-  "description": "Agents Organizations — CLI orchestrator for AI agents",
+  "description": "Open-source orchestration for zero-human companies, processes and departments — deploy AI engineering, editorial, sales, analytics teams from your terminal",
   "type": "module",
   "engines": {
     "node": ">=20.0.0"
@@ -38,19 +38,22 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
-    "cli",
-    "orchestrator",
-    "ai",
-    "agents",
-    "claude",
-    "codex",
-    "terminal",
-    "llm",
+    "ai-agent-runtime",
+    "agent-orchestration",
+    "ai-agents",
     "multi-agent",
     "ai-team",
-    "agent-orchestration",
+    "orchestrator",
+    "claude",
+    "codex",
+    "cursor",
+    "opencode",
     "claude-code",
     "openai",
+    "llm",
+    "cli",
+    "typescript",
+    "git-worktree",
     "workflow",
     "devops"
   ],

@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ORCH vs CrewAI vs LangChain vs AutoGen — AI Agent Orchestrator Comparison</title>
-  <meta name="description" content="Compare ORCH with CrewAI, LangChain, AutoGen, and MetaGPT. See how a TypeScript CLI orchestrator stacks up against Python-based AI agent frameworks.">
+  <title>ORCH vs Superset vs CrewAI vs LangChain vs AutoGen — AI Agent Orchestrator Comparison</title>
+  <meta name="description" content="Compare ORCH with Superset, CrewAI, LangChain, AutoGen, and MetaGPT. Superset runs agents in parallel. ORCH manages them — with state machine, auto-retry, inter-agent messaging, and goals.">
   <meta name="author" content="ORCH Contributors">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#0a0a0a">
 
   <!-- Open Graph -->
-  <meta property="og:title" content="ORCH vs CrewAI vs LangChain vs AutoGen — AI Agent Orchestrator Comparison">
-  <meta property="og:description" content="Compare ORCH with CrewAI, LangChain, AutoGen, and MetaGPT. TypeScript CLI orchestrator vs Python-based AI agent frameworks.">
+  <meta property="og:title" content="ORCH vs Superset vs CrewAI vs LangChain vs AutoGen — AI Agent Orchestrator Comparison">
+  <meta property="og:description" content="Superset runs them side by side. ORCH makes them a team. Compare ORCH with Superset, CrewAI, LangChain, AutoGen, and MetaGPT — state machine, retry, messaging, goals.">
   <meta property="og:type" content="article">
   <meta property="og:url" content="https://www.orch.one/compare/">
   <meta property="og:site_name" content="ORCH">
@@ -19,14 +19,14 @@
   <meta property="og:image" content="https://www.orch.one/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="ORCH vs CrewAI vs LangChain vs AutoGen — comparison table">
+  <meta property="og:image:alt" content="ORCH vs Superset vs CrewAI vs LangChain vs AutoGen — comparison table">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="ORCH vs CrewAI vs LangChain vs AutoGen — AI Agent Orchestrator Comparison">
-  <meta name="twitter:description" content="Compare ORCH with CrewAI, LangChain, AutoGen, and MetaGPT. TypeScript CLI orchestrator vs Python-based AI agent frameworks.">
+  <meta name="twitter:title" content="ORCH vs Superset vs CrewAI vs LangChain vs AutoGen — AI Agent Orchestrator Comparison">
+  <meta name="twitter:description" content="Superset runs them side by side. ORCH makes them a team. Compare with state machine, auto-retry, inter-agent messaging, and goals.">
   <meta name="twitter:image" content="https://www.orch.one/og-image.png">
-  <meta name="twitter:image:alt" content="ORCH vs CrewAI vs LangChain vs AutoGen — comparison table">
+  <meta name="twitter:image:alt" content="ORCH vs Superset vs CrewAI vs LangChain vs AutoGen — comparison table">
 
   <!-- Canonical -->
   <link rel="canonical" href="https://www.orch.one/compare/">
@@ -637,8 +637,8 @@
   {
     "@context": "https://schema.org",
     "@type": "Article",
-    "headline": "ORCH vs CrewAI vs LangChain vs AutoGen — AI Agent Orchestrator Comparison",
-    "description": "Compare ORCH with CrewAI, LangChain, AutoGen, and MetaGPT. See how a TypeScript CLI orchestrator for existing AI coding agents compares to Python-based agent frameworks.",
+    "headline": "ORCH vs CrewAI vs LangChain vs AutoGen vs Paperclip — AI Agent Orchestrator Comparison",
+    "description": "Compare ORCH with CrewAI, LangChain, AutoGen, MetaGPT, and Paperclip. See how a TypeScript CLI orchestrator for developers compares to Python frameworks and AI founder platforms.",
     "author": {
       "@type": "Organization",
       "name": "ORCH Contributors",
@@ -664,6 +664,12 @@
       },
       {
         "@type": "SoftwareApplication",
+        "name": "Superset",
+        "applicationCategory": "DeveloperApplication",
+        "url": "https://superset.sh"
+      },
+      {
+        "@type": "SoftwareApplication",
         "name": "CrewAI",
         "applicationCategory": "DeveloperApplication"
       },
@@ -681,6 +687,12 @@
         "@type": "SoftwareApplication",
         "name": "MetaGPT",
         "applicationCategory": "DeveloperApplication"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "Paperclip",
+        "applicationCategory": "DeveloperApplication",
+        "url": "https://paperclip.ing/"
       }
     ]
   }
@@ -710,12 +722,63 @@
     <div class="hero-content">
       <h1>ORCH vs the <em>alternatives</em></h1>
       <p class="hero-summary">
-        <strong>ORCH</strong> is a lightweight TypeScript CLI that orchestrates existing AI coding agents
-        (Claude Code, OpenAI Codex, Cursor) in parallel. Unlike Python-based frameworks like CrewAI, LangChain,
-        or AutoGen that build custom agents from scratch, ORCH coordinates your existing tools with
-        <strong>git worktree isolation</strong>, <strong>inter-agent messaging</strong>, and
-        <strong>state machine governance</strong> &mdash; all running locally with zero cloud dependencies.
+        <strong>ORCH</strong> is a lightweight TypeScript CLI that manages a team of AI coding agents
+        (Claude Code, OpenAI Codex, Cursor). Unlike parallel runners like Superset, Python-based frameworks
+        like CrewAI or LangChain, ORCH is a <strong>managed AI team runtime</strong> &mdash; with a
+        <strong>state machine</strong>, <strong>mandatory review step</strong>,
+        <strong>auto-retry</strong>, <strong>inter-agent messaging</strong>, and <strong>goals</strong>,
+        all running locally with zero infrastructure.
       </p>
+      <p class="hero-tagline" style="margin-top:1rem;font-style:italic;color:var(--accent);">
+        Superset runs them side by side. ORCH makes them a team.
+      </p>
+    </div>
+  </section>
+
+  <!-- ORCH VS SUPERSET SPOTLIGHT -->
+  <section class="comparison" id="vs-superset" style="padding-top:3rem;">
+    <div class="comparison-label">ORCH vs Superset — the key distinction</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:2rem;">
+      <div style="background:var(--gray-light);border:1px solid #333;border-radius:8px;padding:2rem;">
+        <div style="margin-bottom:1rem;">
+          <span style="font-size:1.1rem;font-weight:700;color:var(--white);">Superset</span>
+          <span style="margin-left:0.75rem;font-size:0.75rem;background:#333;color:var(--gray);padding:0.2rem 0.6rem;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;">Parallel Runner</span>
+        </div>
+        <p style="color:var(--gray);font-size:0.875rem;margin-bottom:1.25rem;line-height:1.6;">Desktop GUI (Electron) for launching multiple AI agents simultaneously. Each task in its own git worktree. You watch the diffs, review at the end.</p>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:0.5rem;font-size:0.875rem;">
+          <li style="color:#4a9;">✅ Parallel execution</li>
+          <li style="color:#4a9;">✅ Git worktree isolation</li>
+          <li style="color:#4a9;">✅ Diff viewer &amp; IDE deep-links</li>
+          <li style="color:#4a9;">✅ Desktop notifications</li>
+          <li style="color:#666;">❌ No state machine / review gate</li>
+          <li style="color:#666;">❌ No auto-retry or stall detection</li>
+          <li style="color:#666;">❌ No inter-agent messaging</li>
+          <li style="color:#666;">❌ No goals or autonomous task gen</li>
+          <li style="color:#666;">❌ No teams or shared context</li>
+          <li style="color:#666;">❌ No CI/CD integration</li>
+          <li style="color:#666;">❌ macOS only (no Linux / Windows)</li>
+        </ul>
+      </div>
+      <div style="background:rgba(255,175,0,0.04);border:1px solid rgba(255,175,0,0.25);border-radius:8px;padding:2rem;">
+        <div style="margin-bottom:1rem;">
+          <span style="font-size:1.1rem;font-weight:700;color:var(--accent);">ORCH</span>
+          <span style="margin-left:0.75rem;font-size:0.75rem;background:rgba(255,175,0,0.15);color:var(--accent);padding:0.2rem 0.6rem;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;">Managed AI Team</span>
+        </div>
+        <p style="color:var(--gray);font-size:0.875rem;margin-bottom:1.25rem;line-height:1.6;">CLI runtime that manages a team of agents. State machine ensures every task is reviewed before downstream agents consume its output. Agents communicate, retry, and self-coordinate.</p>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:0.5rem;font-size:0.875rem;">
+          <li style="color:#4a9;">✅ Parallel execution</li>
+          <li style="color:#4a9;">✅ Git worktree isolation</li>
+          <li style="color:var(--accent);">✅ <strong>State machine: todo → review → done</strong></li>
+          <li style="color:var(--accent);">✅ <strong>Auto-retry with exponential backoff</strong></li>
+          <li style="color:var(--accent);">✅ <strong>Stall detection &amp; zombie cleanup</strong></li>
+          <li style="color:var(--accent);">✅ <strong>Inter-agent messaging (direct + broadcast)</strong></li>
+          <li style="color:var(--accent);">✅ <strong>Goals + autonomous task generation</strong></li>
+          <li style="color:var(--accent);">✅ <strong>Teams with lead + shared task pools</strong></li>
+          <li style="color:var(--accent);">✅ <strong>Shared context store</strong></li>
+          <li style="color:var(--accent);">✅ <strong>CI/CD: <code>orch run --all</code></strong></li>
+          <li style="color:var(--accent);">✅ <strong>macOS · Linux · Windows</strong></li>
+        </ul>
+      </div>
     </div>
   </section>
 
@@ -728,40 +791,50 @@
           <tr>
             <th>Feature</th>
             <th class="orch-col">ORCH</th>
+            <th>Superset</th>
             <th>CrewAI</th>
             <th>LangChain</th>
             <th>AutoGen</th>
             <th>MetaGPT</th>
+            <th>Paperclip</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td>Language</td>
             <td class="orch-col highlight">TypeScript</td>
+            <td>JS (Electron)</td>
             <td>Python</td>
             <td>Python</td>
             <td>Python</td>
             <td>Python</td>
+            <td>TypeScript (Node.js)</td>
           </tr>
           <tr>
             <td>Approach</td>
-            <td class="orch-col">Orchestrates existing CLI agents</td>
+            <td class="orch-col">Managed AI team runtime</td>
+            <td>Parallel runner (desktop GUI)</td>
             <td>Custom agent framework</td>
             <td>LLM chain framework</td>
             <td>Multi-agent conversations</td>
             <td>Agent role-play</td>
+            <td>Business orchestration (zero-human companies)</td>
           </tr>
           <tr>
             <td>Parallel execution</td>
             <td class="orch-col yes">Yes (git worktrees)</td>
+            <td class="yes">Yes (git worktrees)</td>
             <td class="partial">Limited</td>
             <td class="no">No</td>
             <td class="yes">Yes (async)</td>
             <td class="yes">Yes</td>
+            <td class="yes">Yes (async agents)</td>
           </tr>
           <tr>
             <td>Git worktree isolation</td>
             <td class="orch-col yes">Yes</td>
+            <td class="yes">Yes</td>
+            <td class="no">No</td>
             <td class="no">No</td>
             <td class="no">No</td>
             <td class="no">No</td>
@@ -770,10 +843,12 @@
           <tr>
             <td>Inter-agent messaging</td>
             <td class="orch-col yes">Yes (direct + broadcast)</td>
+            <td class="no">No</td>
             <td>Yes (delegation)</td>
             <td>Via chains</td>
             <td>Yes (chat)</td>
             <td>Yes (SOP)</td>
+            <td>Yes (goal hierarchy)</td>
           </tr>
           <tr>
             <td>State machine governance</td>
@@ -781,47 +856,69 @@
             <td class="no">No</td>
             <td class="no">No</td>
             <td class="no">No</td>
+            <td class="no">No</td>
             <td class="partial">Partial</td>
+            <td class="partial">Partial (approval gates, audit logs)</td>
           </tr>
           <tr>
-            <td>TUI Dashboard</td>
-            <td class="orch-col yes">Yes (real-time)</td>
+            <td>TUI / dashboard</td>
+            <td class="orch-col yes">TUI (real-time terminal)</td>
+            <td>Desktop GUI</td>
             <td class="no">No</td>
-            <td>No (web UI optional)</td>
+            <td>Web UI optional</td>
             <td class="no">No</td>
             <td class="no">No</td>
+            <td>No (web UI at localhost:3100)</td>
           </tr>
           <tr>
             <td>Cloud required</td>
             <td class="orch-col yes">No</td>
             <td>No</td>
+            <td>No</td>
             <td>Optional</td>
             <td>No</td>
             <td>No</td>
+            <td>No (embedded Postgres locally)</td>
           </tr>
           <tr>
             <td>Pre-built agents</td>
             <td class="orch-col highlight">15 included</td>
+            <td class="no">No</td>
             <td>Role templates</td>
             <td class="no">No</td>
             <td class="no">No</td>
             <td>Role templates</td>
+            <td>Role templates (org charts)</td>
+          </tr>
+          <tr>
+            <td>Platform</td>
+            <td class="orch-col highlight">macOS · Linux · Windows</td>
+            <td class="partial">macOS only</td>
+            <td>macOS · Linux · Windows</td>
+            <td>macOS · Linux · Windows</td>
+            <td>macOS · Linux · Windows</td>
+            <td>macOS · Linux · Windows</td>
+            <td>macOS · Linux · Windows</td>
           </tr>
           <tr>
             <td>License</td>
             <td class="orch-col">MIT</td>
+            <td>Apache 2.0</td>
             <td>MIT</td>
             <td>MIT</td>
             <td>CC-BY-4.0</td>
+            <td>MIT</td>
             <td>MIT</td>
           </tr>
           <tr>
             <td>Install</td>
             <td class="orch-col highlight">npm install -g</td>
+            <td>Desktop installer</td>
             <td>pip install</td>
             <td>pip install</td>
             <td>pip install</td>
             <td>pip install</td>
+            <td>npx + web UI (pnpm, Postgres)</td>
           </tr>
         </tbody>
       </table>
@@ -835,20 +932,109 @@
         <div class="when-col when-use">
           <h2>When to use <em>ORCH</em></h2>
           <ul>
-            <li>You already use <strong>Claude Code, Codex, or Cursor</strong> and want to run them in parallel</li>
-            <li>You need <strong>git-level isolation</strong> between concurrent agents</li>
-            <li>You want a <strong>terminal-first experience</strong> with zero infrastructure</li>
-            <li>You're a <strong>TypeScript / Node.js</strong> developer</li>
-            <li>You want <strong>state machine governance</strong> over agent task flow</li>
+            <li>Your agents have <strong>dependencies between tasks</strong> — one agent's output feeds another</li>
+            <li>You need <strong>automatic recovery</strong> when agents stall, crash, or produce bad output</li>
+            <li>You want <strong>state machine governance</strong> — nothing reaches "done" without review</li>
+            <li>You want a <strong>terminal-first, zero-infrastructure</strong> setup (npm install and go)</li>
+            <li>You need <strong>inter-agent messaging</strong> and shared context between runs</li>
+            <li>You want to <strong>script or automate</strong> your agent team in CI/CD</li>
           </ul>
         </div>
         <div class="when-col when-alt">
           <h2>When to use the <span class="alt-em">alternatives</span></h2>
           <ul>
+            <li><strong>Superset</strong> &mdash; You want a polished desktop GUI to launch parallel agents and review diffs. Tasks are independent, no coordination needed</li>
+            <li><strong>Superset</strong> &mdash; You want a desktop GUI to watch parallel agents run side by side, with a built-in diff viewer</li>
             <li><strong>CrewAI</strong> &mdash; You need custom Python agents with role-based delegation</li>
             <li><strong>LangChain</strong> &mdash; You're building RAG pipelines or complex LLM chains</li>
             <li><strong>AutoGen</strong> &mdash; You need conversational multi-agent patterns in Python</li>
             <li><strong>MetaGPT</strong> &mdash; You want a software company simulation with SOP workflows</li>
+            <li><strong>Paperclip</strong> &mdash; You're an AI founder building a zero-human business, not shipping code</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ORCH VS SUPERSET DEEP DIVE -->
+  <section class="when-section" id="orch-vs-superset">
+    <div class="when-inner">
+      <div class="when-grid">
+        <div class="when-col when-use">
+          <h2><em>ORCH</em> vs Superset</h2>
+          <ul>
+            <li><strong>Team coordination, not just parallelism.</strong> Superset launches agents side by side and lets you watch. ORCH gives each agent a role, routes tasks by dependency, and lets agents <em>message each other</em> directly &mdash; no human routing required</li>
+            <li><strong>State machine governance.</strong> In ORCH every task flows through <code>todo → in_progress → review → done</code>. A downstream agent cannot consume output until it passes review. Superset has no review gate &mdash; diffs land when the agent finishes</li>
+            <li><strong>Autonomous operation.</strong> Assign a goal and ORCH generates, dispatches, and retries tasks automatically. Superset requires you to create and monitor each task manually</li>
+            <li><strong>CLI-native &amp; CI/CD ready.</strong> ORCH runs headless with <code>orch run --all</code> in any pipeline. Superset is a desktop GUI app &mdash; it requires a display and a human nearby</li>
+            <li><strong>Zero install friction.</strong> <code>npm install -g @oxgeneral/orch</code> &mdash; done. Superset requires downloading a macOS app (Bun, Git 2.20+, GitHub CLI, Caddy runtime deps)</li>
+          </ul>
+        </div>
+        <div class="when-col when-alt">
+          <h2>When <span class="alt-em">Superset</span> wins</h2>
+          <ul>
+            <li>You want a <strong>visual desktop interface</strong> to watch agents work in real time with a polished GUI</li>
+            <li>You need a <strong>built-in diff viewer and IDE deep-links</strong> (VS Code, Cursor, JetBrains) without leaving the tool</li>
+            <li>You prefer <strong>manual task management</strong> &mdash; you create and review each agent task yourself</li>
+            <li>You work on <strong>macOS exclusively</strong> and want a native desktop experience (Windows/Linux untested in Superset)</li>
+            <li>You don't need <strong>inter-agent messaging, goals, teams, or autonomous task generation</strong> &mdash; just parallel execution</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ORCH VS PAPERCLIP -->
+  <section class="when-section">
+    <div class="when-inner">
+      <div class="when-grid">
+        <div class="when-col when-use">
+          <h2><em>ORCH</em> vs Paperclip</h2>
+          <ul>
+            <li><strong>Different ICPs.</strong> Paperclip targets AI founders running autonomous businesses. ORCH targets developers who want to ship code faster with their existing AI tools</li>
+            <li><strong>Zero infrastructure.</strong> ORCH runs from a single npm install &mdash; no Postgres, no web server, no browser required. Paperclip spins up an embedded database and a web UI</li>
+            <li><strong>CLI-native.</strong> ORCH lives in your terminal alongside git, npm, and your editor. Paperclip is a web application accessed at localhost:3100</li>
+            <li><strong>10-second setup.</strong> <code>npm install -g @oxgeneral/orch &amp;&amp; orch</code> &mdash; done. Paperclip requires pnpm, a git clone, and interactive onboarding</li>
+            <li><strong>Code-centric.</strong> ORCH isolates agent work in git worktrees &mdash; each agent on its own branch. Paperclip models org charts and budgets, not code branches</li>
+          </ul>
+        </div>
+        <div class="when-col when-alt">
+          <h2>When <span class="alt-em">Paperclip</span> wins</h2>
+          <ul>
+            <li>You need <strong>org charts, budgets, and headcount</strong> for your AI agent team</li>
+            <li>You're running a <strong>zero-human business</strong> (content agency, trading desk) not a dev workflow</li>
+            <li>You want a <strong>web dashboard</strong> with approval gates and board-level controls</li>
+            <li>You need <strong>multi-company isolation</strong> from a single deployment</li>
+            <li>Your agents span <strong>business functions</strong> (sales, marketing, ops) not coding tasks</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ORCH VS SUPERSET DEEP DIVE -->
+  <section class="when-section" id="vs-superset-detail">
+    <div class="when-inner">
+      <div class="when-grid">
+        <div class="when-col when-use">
+          <h2><em>ORCH</em> vs Superset</h2>
+          <ul>
+            <li><strong>Managed vs Run.</strong> Superset launches agents and shows you diffs. ORCH manages what agents work on, in what order, with automatic retry and mandatory review before downstream work begins</li>
+            <li><strong>State machine.</strong> ORCH validates every task transition: <code>todo → in_progress → review → done</code>. A failed agent goes to <code>retrying</code>, not silently done. Superset has no equivalent</li>
+            <li><strong>Auto-recovery.</strong> Agent stalled for 5 minutes? ORCH detects it, kills the zombie process, and redispatches. Agent crashed? Exponential backoff retry. Superset sends a notification — you restart manually</li>
+            <li><strong>Agent communication.</strong> ORCH agents share context via <code>orch context set</code> and send each other messages via <code>orch msg send</code>. Superset agents are isolated — coordination is your job</li>
+            <li><strong>Goals.</strong> Set a goal in ORCH, and idle agents are automatically given work to achieve it. Superset has no goal or task-generation concept</li>
+            <li><strong>CI/CD.</strong> <code>orch run --all</code> runs your full agent team headlessly in any pipeline. Superset is a desktop GUI — no CI integration</li>
+          </ul>
+        </div>
+        <div class="when-col when-alt">
+          <h2>When <span class="alt-em">Superset</span> wins</h2>
+          <ul>
+            <li>You prefer a <strong>desktop GUI</strong> over a terminal tool</li>
+            <li>Your tasks are <strong>fully independent</strong> — no agent depends on another's output</li>
+            <li>You want a <strong>built-in diff viewer</strong> and IDE deep-links (VS Code, Xcode, JetBrains)</li>
+            <li>Human review at the <strong>end of the run</strong> is sufficient for your workflow</li>
+            <li>You don't need retry logic — your tasks are short and <strong>rarely fail</strong></li>
           </ul>
         </div>
       </div>
@@ -859,7 +1045,7 @@
   <section class="cta-section" id="install">
     <span class="cta-label">Get started in 30 seconds</span>
     <h2>Start shipping with<br>your AI <em>team</em></h2>
-    <p class="cta-sub">One command to install. One command to orchestrate.</p>
+    <p class="cta-sub">Your agents deserve a managed team, not just a parallel runner.</p>
 
     <div class="install-cmd" id="installNpm" onclick="copyCmd('npm install -g @oxgeneral/orch', 'installNpm')">
       <span class="prompt-sign">$</span>

@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Positioning
+
+ORCH is an **AI agent runtime** — not just a CLI tool. The core engine (domain + application + infrastructure) has zero dependencies on CLI/TUI layers. The npm package `@oxgeneral/orch` exports the full engine API via `src/index.ts`, enabling programmatic use from any Node.js application.
+
+**User-facing messaging**: "Turn your AI tools into a coordinated engineering team"
+**Technical category**: "AI agent runtime"
+**Internal architecture term**: "ORCH Engine"
+
 ## Commands
 
 ```bash

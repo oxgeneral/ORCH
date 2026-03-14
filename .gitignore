@@ -40,3 +40,6 @@ npm-debug.log*
 !.env.example
 
 *.cpuprofile
+
+.playwright-mcp
+archive
