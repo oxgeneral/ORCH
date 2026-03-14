@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.3 (2026-03-14)
+
+### Bug Fixes
+
+- **OOM crash after ~66 minutes** — TUI crashed with `Ineffective mark-compacts near heap limit` because Ink's `Intl.Segmenter` ran on every render for non-ASCII box-drawing characters (`━`, `─`). All 25+ `.repeat()` calls across 6 components now use cached `heavyRule()`/`lightRule()` builders that allocate each unique length once
+- **Unbounded strings in `<Text>`** — `agent.role`, `skills.join()`, `task.description`, `goal.description`, and `goalProgressReport` were passed to Ink without per-line truncation, forcing `Intl.Segmenter` on multi-KB strings every render. Added `capLine()` and `capText()` utilities with safe caps
+- **Priority-based dispatch** — `dispatchAll()` sorted tasks by `updated_at` only, making the `priority` field purely cosmetic. Tasks are now dispatched P1-first, with goal-linked tasks prioritized over unlinked at the same priority, and recency as tiebreaker
+
+### New Features
+
+- **Hidden tasks footer** — when task list exceeds 10 items, a sticky footer shows `showing 10 of N tasks · press S to show all` so users don't think tasks disappeared
+- **Tab badge counter** — Tasks tab pill shows total count `(N)` when some tasks are hidden
+- **Adapter error classification** — `AdapterErrorKind` enum with 7 error categories (`adapter_not_found`, `auth_failed`, `timeout`, `rate_limit`, `process_crash`, `spawn_failed`, `unknown`) and human-readable `ERROR_HINTS` with actionable fix commands
+- **Onboarding state machine** — `onboardingCompleted` flag in `OrchestratorState`, `WelcomeScreen`, `OnboardingNudge`, and `OnboardingToast` components for guided first-run experience
+- **Command categories** — suggestions panel groups commands into categories; `?` help hint shown for new users
+
+### Tests
+
+- **1099 tests** (up from 1020 in 0.3.2)
+- New coverage: priority dispatch ordering (4 tests), adapter error classification (4 adapters), hidden tasks footer/badge (5 tests), onboarding state (unit tests)
+
+---
+
 ## 0.3.2 (2026-03-14)
 
 ### New Features
