@@ -106,6 +106,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   const [suggestionIndex, setSuggestionIndex] = useState(0);
 
   // Inline validation state
+  const [dirty, setDirty] = useState(false); // true after user types at least one character
   const [validationError, setValidationError] = useState<string | null>(null);
   const [enterBlockHint, setEnterBlockHint] = useState(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,6 +173,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     setMultiSelected(new Set());
     setBrowsingSuggestions(false);
     setSuggestionIndex(0);
+    setDirty(false);
     setValidationError(null);
     setEnterBlockHint(false);
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -251,12 +253,15 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     setCurrentStep(prevActiveIdx >= 0 ? prevActiveIdx : 0);
     setBrowsingSuggestions(false);
     setSuggestionIndex(0);
+    setDirty(false);
     setValidationError(null);
     setEnterBlockHint(false);
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
     const prevStep = steps[prevOrigIdx]!;
-    // Restore previous value
+    // Restore previous value — mark dirty if value was previously entered
+    const hasPrevValue = !!values[prevStep.id];
+    if (hasPrevValue) setDirty(true);
     if (prevStep.type === 'text') {
       const val = values[prevStep.id] ?? prevStep.defaultValue ?? '';
       setTextInput(val);
@@ -328,8 +333,9 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
 
       if (key.return) {
         const val = textInput.trim();
-        if (step.required && !val) return;
+        if (step.required && !val) { setDirty(true); return; }
         if (validationError !== null) {
+          setDirty(true);
           setEnterBlockHint(true);
           if (enterBlockTimerRef.current) clearTimeout(enterBlockTimerRef.current);
           enterBlockTimerRef.current = setTimeout(() => setEnterBlockHint(false), 2000);
@@ -363,6 +369,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         return;
       }
       if (input && !key.ctrl && !key.meta && !key.escape) {
+        setDirty(true);
         setBrowsingSuggestions(false);
         setSuggestionIndex(0);
         setTextInput((v) => v.slice(0, cursorPos) + input + v.slice(cursorPos));
@@ -375,8 +382,9 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       // Enter (without shift): confirm textarea
       if (key.return && !key.shift) {
         const val = taLines.join('\n').trim();
-        if (step.required && !val) return;
+        if (step.required && !val) { setDirty(true); return; }
         if (validationError !== null) {
+          setDirty(true);
           setEnterBlockHint(true);
           if (enterBlockTimerRef.current) clearTimeout(enterBlockTimerRef.current);
           enterBlockTimerRef.current = setTimeout(() => setEnterBlockHint(false), 2000);
@@ -464,6 +472,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       }
       // Regular character input (handles paste with newlines)
       if (input && !key.ctrl && !key.meta && !key.escape) {
+        setDirty(true);
         const parts = input.split(/\r?\n/);
         if (parts.length === 1) {
           // Single line — fast path
@@ -523,6 +532,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
             if (step.validate) {
               const err = step.validate(selected.value);
               if (err !== null) {
+                setDirty(true);
                 setValidationError(err);
                 setEnterBlockHint(true);
                 if (enterBlockTimerRef.current) clearTimeout(enterBlockTimerRef.current);
@@ -571,6 +581,8 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
 
   if (!step) return null;
 
+  // Only show validation errors visually after user has interacted (dirty)
+  const visibleError = dirty ? validationError : null;
   const maxW = Math.max(20, width - 6);
   const progressText = `${currentStep + 1}/${totalSteps}`;
 
@@ -612,7 +624,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       {/* Text input with cursor */}
       {step.type === 'text' && (
         <Box flexDirection="column">
-          <Box borderStyle={validationError ? 'round' : undefined} borderColor={validationError ? tuiColors.red : undefined}>
+          <Box borderStyle={visibleError ? 'round' : undefined} borderColor={visibleError ? tuiColors.red : undefined}>
             <Text color={tuiColors.amber}>  {'>'} </Text>
             {textInput.length > 0 ? (
               <>
@@ -629,7 +641,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
               <Text color={tuiColors.amber}>{CURSOR}</Text>
             )}
           </Box>
-          {validationError && <Text color={tuiColors.red} dimColor>  {validationError}</Text>}
+          {visibleError && <Text color={tuiColors.red} dimColor>  {visibleError}</Text>}
           {enterBlockHint && <Text color={tuiColors.red}>  Fix the error above</Text>}
         </Box>
       )}
@@ -677,7 +689,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         const lineNumWidth = String(taLines.length).length;
         return (
           <Box flexDirection="column">
-            <Box flexDirection="column" borderStyle={validationError ? 'round' : undefined} borderColor={validationError ? tuiColors.red : undefined}>
+            <Box flexDirection="column" borderStyle={visibleError ? 'round' : undefined} borderColor={visibleError ? tuiColors.red : undefined}>
               {visibleLines.map((line, i) => {
                 const realRow = i + taScrollStart;
                 const lineNum = String(realRow + 1).padStart(lineNumWidth, ' ');
@@ -705,7 +717,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
                 </Box>
               )}
             </Box>
-            {validationError && <Text color={tuiColors.red} dimColor>  {validationError}</Text>}
+            {visibleError && <Text color={tuiColors.red} dimColor>  {visibleError}</Text>}
             {enterBlockHint && <Text color={tuiColors.red}>  Fix the error above</Text>}
           </Box>
         );
@@ -732,7 +744,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
               </Box>
             );
           })}
-          {validationError && <Text color={tuiColors.red} dimColor>  {validationError}</Text>}
+          {visibleError && <Text color={tuiColors.red} dimColor>  {visibleError}</Text>}
           {enterBlockHint && <Text color={tuiColors.red}>  Fix the error above</Text>}
         </Box>
       )}

@@ -130,14 +130,19 @@ export const GoalRow = React.memo(function GoalRow({ goal, selected, width, agen
         </Text>
       </Box>
 
-      {/* Progress bar */}
-      {hasProgress && (
-        <Box width={progressW}>
-          <Text color={tuiColors.green}>{FILLED_BLOCK.repeat(Math.min(doneTasks, 6))}</Text>
-          <Text color={tuiColors.ghost}>{EMPTY_BLOCK.repeat(Math.max(0, Math.min(totalTasks, 6) - doneTasks))}</Text>
-          <Text color={tuiColors.dim}>{` ${doneTasks}/${totalTasks}`}</Text>
-        </Box>
-      )}
+      {/* Progress bar — proportional to 6-char width */}
+      {hasProgress && (() => {
+        const barW = 6;
+        const filled = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * barW) : 0;
+        const empty = barW - filled;
+        return (
+          <Box width={progressW}>
+            <Text color={tuiColors.green}>{FILLED_BLOCK.repeat(filled)}</Text>
+            <Text color={tuiColors.ghost}>{EMPTY_BLOCK.repeat(empty)}</Text>
+            <Text color={tuiColors.dim}>{` ${doneTasks}/${totalTasks}`}</Text>
+          </Box>
+        );
+      })()}
 
       {/* Assignee chip */}
       <Box width={assigneeWidth}>
