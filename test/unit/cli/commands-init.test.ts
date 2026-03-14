@@ -26,7 +26,11 @@ const mocks = vi.hoisted(() => {
     agentPath: agentPathFn,
   }));
 
-  return { ensureDir, pathExists, writeYaml, atomicWrite, agentPathFn, MockPaths };
+  const execFile = vi.fn((_cmd: string, _args: string[], _opts: unknown, cb: (err: Error | null) => void) => {
+    cb(null);
+  });
+
+  return { ensureDir, pathExists, writeYaml, atomicWrite, agentPathFn, MockPaths, execFile };
 });
 
 vi.mock('../../../src/infrastructure/storage/fs-utils.js', () => ({
@@ -40,8 +44,19 @@ vi.mock('../../../src/infrastructure/storage/paths.js', () => ({
   Paths: mocks.MockPaths,
 }));
 
+vi.mock('node:child_process', () => ({
+  execFile: mocks.execFile,
+}));
+
 vi.mock('../../../src/domain/config.js', () => ({
-  DEFAULT_CONFIG: { project: { name: '' }, scheduling: { poll_interval_ms: 10000 } },
+  DEFAULT_CONFIG: {
+    project: { name: '' },
+    defaults: {
+      agent: { workspace_mode: 'worktree' },
+      task: { max_attempts: 3 },
+    },
+    scheduling: { poll_interval_ms: 10000 },
+  },
 }));
 
 vi.mock('../../../src/infrastructure/template/template-engine.js', () => ({
@@ -234,5 +249,88 @@ describe('init command', () => {
         project: expect.objectContaining({ name: 'mock' }),
       }),
     );
+  });
+
+  it('runs git init when not a git repo', async () => {
+    mocks.execFile.mockImplementation((_cmd: string, args: string[], _opts: unknown, cb: (err: Error | null) => void) => {
+      if (args[0] === 'rev-parse') { cb(new Error('not a git repo')); return; }
+      cb(null);
+    });
+
+    await program.parseAsync(['init'], { from: 'user' });
+
+    // Should have called git init
+    expect(mocks.execFile).toHaveBeenCalledWith(
+      'git', ['init'], expect.objectContaining({ cwd: '/mock' }), expect.any(Function),
+    );
+  });
+
+  it('creates initial commit when repo has no commits', async () => {
+    mocks.execFile.mockImplementation((_cmd: string, args: string[], _opts: unknown, cb: (err: Error | null) => void) => {
+      if (args[0] === 'rev-parse' && args[1] === '--is-inside-work-tree') { cb(null); return; }
+      if (args[0] === 'rev-parse' && args[1] === 'HEAD') { cb(new Error('no commits')); return; }
+      cb(null);
+    });
+
+    await program.parseAsync(['init'], { from: 'user' });
+
+    expect(mocks.execFile).toHaveBeenCalledWith(
+      'git', ['add', '-A'], expect.objectContaining({ cwd: '/mock' }), expect.any(Function),
+    );
+    expect(mocks.execFile).toHaveBeenCalledWith(
+      'git', ['commit', '-m', 'Initial commit', '--allow-empty'],
+      expect.objectContaining({ cwd: '/mock' }), expect.any(Function),
+    );
+  });
+
+  it('falls back to workspace_mode=shared when git is unavailable', async () => {
+    // All git calls fail
+    mocks.execFile.mockImplementation((_cmd: string, _args: string[], _opts: unknown, cb: (err: Error | null) => void) => {
+      cb(new Error('git not found'));
+    });
+
+    await program.parseAsync(['init'], { from: 'user' });
+
+    expect(mocks.writeYaml).toHaveBeenCalledWith(
+      '/mock/.orchestry/config.yml',
+      expect.objectContaining({
+        defaults: expect.objectContaining({
+          agent: expect.objectContaining({ workspace_mode: 'shared' }),
+        }),
+      }),
+    );
+  });
+
+  it('keeps workspace_mode=worktree when git is available', async () => {
+    // All git calls succeed
+    mocks.execFile.mockImplementation((_cmd: string, _args: string[], _opts: unknown, cb: (err: Error | null) => void) => {
+      cb(null);
+    });
+
+    await program.parseAsync(['init'], { from: 'user' });
+
+    expect(mocks.writeYaml).toHaveBeenCalledWith(
+      '/mock/.orchestry/config.yml',
+      expect.objectContaining({
+        defaults: expect.objectContaining({
+          agent: expect.objectContaining({ workspace_mode: 'worktree' }),
+        }),
+      }),
+    );
+  });
+
+  it('skips ensureGitCommit when git is unavailable', async () => {
+    mocks.execFile.mockImplementation((_cmd: string, _args: string[], _opts: unknown, cb: (err: Error | null) => void) => {
+      cb(new Error('git not found'));
+    });
+
+    await program.parseAsync(['init'], { from: 'user' });
+
+    // Should not attempt git add or git commit
+    const addCalls = mocks.execFile.mock.calls.filter((c: unknown[]) => {
+      const args = c[1];
+      return Array.isArray(args) && args[0] === 'add';
+    });
+    expect(addCalls).toHaveLength(0);
   });
 });

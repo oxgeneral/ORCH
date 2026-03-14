@@ -7,6 +7,8 @@
 import type { Command } from 'commander';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { execFile as execFileCb } from 'node:child_process';
+import { promisify } from 'node:util';
 import { Paths } from '../../infrastructure/storage/paths.js';
 import { ensureDir, pathExists } from '../../infrastructure/storage/fs-utils.js';
 import { writeYaml, atomicWrite } from '../../infrastructure/storage/fs-utils.js';
@@ -14,6 +16,8 @@ import { DEFAULT_CONFIG } from '../../domain/config.js';
 import { DEFAULT_PROMPT_TEMPLATE } from '../../infrastructure/template/template-engine.js';
 import { getDefaultAgents } from '../../domain/default-agents.js';
 import { printSuccess, printWarning, dim } from '../output.js';
+
+const execFileAsync = promisify(execFileCb);
 
 /** Run init logic directly (used by auto-init on bare `orch`). */
 export async function runInit(opts: { name?: string } = {}): Promise<void> {
@@ -35,9 +39,17 @@ export async function runInit(opts: { name?: string } = {}): Promise<void> {
     ensureDir(paths.logsDir),
   ]);
 
+  // Ensure git repo exists (init if needed) before writing config
+  const gitAvailable = await ensureGitRepo(projectRoot);
+
   // Write config + static files (independent — parallel)
-  const config = { ...DEFAULT_CONFIG };
+  const config = structuredClone(DEFAULT_CONFIG);
   config.project.name = opts.name ?? path.basename(projectRoot);
+
+  // Fall back to shared mode when git is not available
+  if (!gitAvailable) {
+    config.defaults.agent.workspace_mode = 'shared';
+  }
 
   const gitignoreContent = [
     '# Runtime state',
@@ -78,6 +90,11 @@ export async function runInit(opts: { name?: string } = {}): Promise<void> {
   // Ensure .orchestry is in root .gitignore (prevents recursive worktrees)
   await ensureRootGitignore(projectRoot);
 
+  // Ensure at least one commit exists (required for git worktree)
+  if (gitAvailable) {
+    await ensureGitCommit(projectRoot);
+  }
+
   // Output
   console.log();
   printSuccess('initialized');
@@ -92,6 +109,45 @@ export async function runInit(opts: { name?: string } = {}): Promise<void> {
   console.log(`  ${dim('├──')} templates/default.md`);
   console.log(`  ${dim('└──')} .gitignore`);
   console.log();
+}
+
+/**
+ * Ensure the project directory is a git repository.
+ * Runs `git init` silently if not. Returns false only if git is unavailable.
+ */
+async function ensureGitRepo(projectRoot: string): Promise<boolean> {
+  try {
+    await execFileAsync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: projectRoot });
+    return true;
+  } catch {
+    // Not a git repo — try to initialize
+    try {
+      await execFileAsync('git', ['init'], { cwd: projectRoot });
+      return true;
+    } catch {
+      // git binary not available
+      return false;
+    }
+  }
+}
+
+/**
+ * Ensure at least one commit exists (required for `git worktree add`).
+ * Creates an initial commit silently if the repo has no commits.
+ */
+async function ensureGitCommit(projectRoot: string): Promise<void> {
+  try {
+    await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: projectRoot });
+    // Has commits — nothing to do
+  } catch {
+    // No commits — create initial commit
+    try {
+      await execFileAsync('git', ['add', '-A'], { cwd: projectRoot });
+      await execFileAsync('git', ['commit', '-m', 'Initial commit', '--allow-empty'], { cwd: projectRoot });
+    } catch {
+      // Commit may fail (no user.name/email configured) — non-fatal
+    }
+  }
 }
 
 /**
