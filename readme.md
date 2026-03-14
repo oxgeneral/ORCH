@@ -10,7 +10,7 @@
     <a href="https://www.npmjs.com/package/@oxgeneral/orch"><img src="https://img.shields.io/npm/v/@oxgeneral/orch?color=cb0000" alt="npm" /></a>
     <a href="#get-started-in-30-seconds"><img src="https://img.shields.io/badge/setup-one%20command-brightgreen" alt="One command setup" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
-    <a href="#development"><img src="https://img.shields.io/badge/tests-1099%20passing-brightgreen" alt="Tests" /></a>
+    <a href="#development"><img src="https://img.shields.io/badge/tests-1378%20passing-brightgreen" alt="Tests" /></a>
     <a href="#architecture"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript strict" /></a>
   </p>
 </p>
@@ -94,6 +94,13 @@ Full-screen Ink/React dashboard with:
 - Activity feed with token counts
 - Keyboard-driven: create tasks, assign agents, approve reviews — without leaving the terminal
 - Command bar with `/task add`, `/agent add`, tab completion
+- **Help overlay** (`?` or `F1`) — discover all keyboard shortcuts at any time
+- **Toast notifications** — done/failed/review completions with optional bell sound
+- **Error hint panel** — when an agent fails, see the exact cause and fix hint inline
+- **Detail panel resize** (`+`/`-`/`M`) — expand agent/task detail to full screen
+- **Goal-task linking** — badge tasks with their goal, group by goal with `G`, see per-goal progress bars
+- **Inline validation** — wizard forms validate as you type (duplicate names, invalid priority)
+- **Tab badge flash** — header tabs blink on task completion events outside the active tab
 
 ### Goals — strategic direction for your agents
 Define high-level goals and let ORCH autonomously generate tasks to achieve them. Goals have statuses (`active`, `paused`, `achieved`, `abandoned`), can be assigned to specific agents, and appear in a dedicated TUI tab for tracking.
@@ -231,7 +238,7 @@ src/
 ```bash
 npm run dev            # Run via tsx
 npm run build          # Build ESM + DTS
-npm test               # 1020 tests via Vitest
+npm test               # 1378 tests via Vitest
 npm run typecheck      # Strict TypeScript
 ```
 

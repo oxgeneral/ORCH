@@ -1,6 +1,6 @@
 # Performance Report
 
-> Last updated: 2026-03-13 · ORCH v0.x · Node 20+
+> Last updated: 2026-03-14 · ORCH v0.3.4 · Node 20+
 
 ## 1. Executive Summary
 
@@ -9,7 +9,7 @@
 | CLI startup (`--help`) | 103ms (cold) / 75ms (warm) | 40ms | **-61%** |
 | CLI `task list` | 103ms | 78ms | **-24%** |
 | Build (tsup) | 2.7s | 1.6s | **-41%** |
-| Test suite (vitest) | 12.2s | 15.0s / 987 tests | **+324% tests, 15ms/test** |
+| Test suite (vitest) | 12.2s | 15.7s / 1378 tests | **+324% tests, 15ms/test** |
 | TUI memory | OOM after ~27 min | Stable indefinitely | **Fixed** |
 
 All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx vitest run`.
@@ -46,11 +46,11 @@ All measurements on Apple Silicon (M-series), Node 20+, `npm run build` / `npx v
 
 | Metric | Before | After | Delta |
 |--------|--------|-------|-------|
-| Total time | 12.2s | 15.0s | +23% (4× more tests) |
-| Transform | 1.6s | 2.4s | +50% |
-| Collect | 4.8s | 4.7s | -2% |
-| Test count | 233 → 987 | 987 | +324% |
-| Per-test avg | 52.4ms | 15.2ms | **-71%** |
+| Total time | 12.2s | 15.7s | +29% (6× more tests) |
+| Transform | 1.6s | 1.9s | +19% |
+| Collect | 4.8s | 8.5s | +77% |
+| Test count | 233 → 1378 | 1378 | +491% |
+| Per-test avg | 52.4ms | 11.4ms | **-78%** |
 
 ### TUI Memory
 
@@ -234,7 +234,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 
 - **CLI startup**: Target <50ms for `--help`, <100ms for commands
 - **Build**: Target <1.5s total wall time
-- **Tests**: Watch transform + collect phases (should be <7s combined). Per-test avg <15ms at 987 tests
+- **Tests**: Watch transform + collect phases (should be <7s combined). Per-test avg <12ms at 1378 tests
 - **TUI memory**: Heap should plateau, not grow linearly
 
 ## 6. Performance Targets / SLOs
@@ -244,7 +244,7 @@ npm run build 2>&1 | grep -E '(CLI|DTS|index|Total)'
 | `orch --help` | <50ms | 40ms | PASS |
 | `orch task list` | <100ms | 78ms | PASS |
 | `npm run build` | <1.5s | 1.35s | PASS |
-| `npx vitest run` (987 tests) | <16s | 15.0s | PASS |
+| `npx vitest run` (1378 tests) | <20s | 15.7s | PASS |
 | TUI heap (30 min) | <512 MB | ~120 MB | PASS |
 | Reactive dispatch latency | <1s | ~500ms | PASS |
 | Tick duration | <5s | <1s typical | PASS |

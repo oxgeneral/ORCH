@@ -15,6 +15,7 @@
 - **Header tab badge flash** — tab pill blinks 3 times on task status events from other tabs (done=green, failed=red, review=blue)
 - **Inline Agent Shop suggestions** — agent templates shown as selectable hints in wizard name step
 - **Task titles in depends field** — DetailPanel shows human-readable task titles instead of raw `tsk_` IDs
+- **Compact AgentRow layout** — optimized agent list layout, removed duplicate task footer
 
 ### Bug Fixes
 
@@ -27,8 +28,8 @@
 
 ### Tests
 
-- **1353 tests** (up from 1099 in 0.3.3)
-- New coverage: Goal-Task visual linking (21 tests), FormWizard inline validation (57 tests), HelpOverlay + command categories (86 tests), toast notifications (15 tests), ErrorHintPanel (14 tests), detail panel resize (13 tests), hidden tasks footer (5 tests), wizard validate functions (34 tests)
+- **1378 tests** (up from 1099 in 0.3.3)
+- New coverage: Goal-Task visual linking (21 tests), FormWizard inline validation (57 tests), HelpOverlay + command categories (86 tests), toast notifications (15 tests), ErrorHintPanel (14 tests), detail panel resize (13 tests), hidden tasks footer (5 tests), wizard validate functions (34 tests), logs filter status bar (4 tests), compact AgentRow layout (tests)
 
 ---
 
