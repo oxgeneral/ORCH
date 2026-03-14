@@ -819,6 +819,379 @@ describe('FormWizard textarea', () => {
   });
 });
 
+// ── Inline validation tests ──
+
+describe('FormWizard inline validation', () => {
+  function makeValidatedTextStep(overrides?: Partial<WizardStep>): WizardStep[] {
+    return [
+      {
+        id: 'name',
+        label: 'Name',
+        type: 'text',
+        required: true,
+        validate: (v) => (!v.trim() ? 'Name is required' : null),
+        ...overrides,
+      },
+    ];
+  }
+
+  function makeTwoStepWithValidation(): WizardStep[] {
+    return [
+      {
+        id: 'title',
+        label: 'Title',
+        type: 'text',
+        required: true,
+        validate: (v) => (!v.trim() ? 'Title is required' : null),
+      },
+      {
+        id: 'desc',
+        label: 'Description',
+        type: 'textarea',
+        validate: (v) => (v.length > 0 && v.length < 5 ? 'Too short' : null),
+      },
+    ];
+  }
+
+  /* ── Required * indicator ── */
+
+  it('shows * after label for required step', async () => {
+    const { lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeValidatedTextStep({ required: true }),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+    expect(lastFrame()!).toContain('*');
+  });
+
+  it('does NOT show * for optional step', async () => {
+    const { lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: [{ id: 'x', label: 'Optional', type: 'text' }],
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+    // No * but shows '(optional, Enter to skip)'
+    expect(lastFrame()!).not.toContain(' *');
+    expect(lastFrame()!).toContain('optional');
+  });
+
+  /* ── Debounce 300ms: error appears after delay ── */
+
+  it('shows validation error after debounce (300ms) when typing invalid value', async () => {
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeValidatedTextStep(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    // Error not shown before typing
+    expect(lastFrame()!).not.toContain('Name is required');
+
+    // Type spaces (invalid — trim() is empty)
+    stdin.write('   ');
+    await delay(50);
+
+    // Error not shown yet (debounce not fired)
+    // (We wait > 300ms for debounce)
+    await delay(350);
+
+    expect(lastFrame()!).toContain('Name is required');
+  });
+
+  it('does NOT show error before debounce fires (< 300ms)', async () => {
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeValidatedTextStep(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    stdin.write('   ');
+    // Only wait 100ms — debounce not fired yet
+    await delay(100);
+
+    expect(lastFrame()!).not.toContain('Name is required');
+  });
+
+  it('shows no error for valid input after debounce', async () => {
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeValidatedTextStep(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    stdin.write('ValidName');
+    await delay(350);
+
+    expect(lastFrame()!).not.toContain('Name is required');
+  });
+
+  /* ── Enter blocked when validationError !== null ── */
+
+  it('Enter is blocked when validation error is present — does NOT call onComplete', async () => {
+    const onComplete = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeValidatedTextStep(),
+        onComplete,
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    // Type invalid value and wait for debounce
+    stdin.write('   ');
+    await delay(350);
+
+    // Try to confirm
+    stdin.write('\r');
+    await delay(50);
+
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('shows "Fix the error above" hint when Enter pressed with error', async () => {
+    // Use non-required step with custom validate so the required-guard doesn't intercept.
+    // validate rejects values shorter than 3 chars (non-empty but too short).
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: [{ id: 'x', label: 'X', type: 'text', validate: (v) => (v.length > 0 && v.length < 3 ? 'Too short' : null) }],
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    // Type 2-char value → invalid (length < 3) but non-empty (bypasses required guard)
+    stdin.write('ab');
+    await delay(350);
+
+    // Press Enter with validation error present
+    stdin.write('\r');
+    await delay(50);
+
+    expect(lastFrame()!).toContain('Fix the error above');
+  });
+
+  it('Enter proceeds when valid value passes validation', async () => {
+    const onComplete = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeValidatedTextStep(),
+        onComplete,
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    stdin.write('GoodName');
+    await delay(350);
+
+    stdin.write('\r');
+    await delay(50);
+
+    expect(onComplete).toHaveBeenCalledWith({ name: 'GoodName' });
+  });
+
+  /* ── Textarea validation: Enter blocked when error ── */
+
+  it('Enter is blocked in textarea when validation error is present', async () => {
+    const onComplete = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: [
+          {
+            id: 'desc',
+            label: 'Desc',
+            type: 'textarea',
+            validate: (v) => (!v.trim() ? 'Required' : null),
+            required: true,
+          },
+        ],
+        onComplete,
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    // Empty textarea — wait for debounce
+    await delay(350);
+
+    // Try to confirm empty textarea with required validate
+    stdin.write('\r');
+    await delay(50);
+
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  /* ── Select validation: Enter blocked when validate returns error ── */
+
+  it('Enter is blocked in select step when validate returns error', async () => {
+    const onComplete = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: [
+          {
+            id: 'priority',
+            label: 'Priority',
+            type: 'select',
+            options: [
+              { value: '0', label: 'Invalid' },
+              { value: '3', label: 'Medium' },
+            ],
+            validate: (v) => {
+              const n = Number(v);
+              return !Number.isInteger(n) || n < 1 || n > 4 ? 'Priority must be 1-4' : null;
+            },
+          },
+        ],
+        onComplete,
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    // First option is '0' (invalid), press Enter
+    stdin.write('\r');
+    await delay(50);
+
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  /* ── validationError reset on step navigation ── */
+
+  it('validationError is reset when advancing to next step', async () => {
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTwoStepWithValidation(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    // Step 1: type a valid title and wait for debounce (no error)
+    stdin.write('Good title');
+    await delay(350);
+
+    // Advance to step 2
+    stdin.write('\r');
+    await delay(50);
+
+    // Now on step 2 (textarea) — no error from step 1 should show
+    expect(lastFrame()!).not.toContain('Title is required');
+    expect(lastFrame()!).toContain('Description');
+  });
+
+  it('validationError is reset when going back to previous step', async () => {
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTwoStepWithValidation(),
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    // Advance to step 2 (textarea)
+    stdin.write('Valid');
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+
+    // On step 2 (textarea): type short text to trigger validation error (len > 0 && < 5)
+    stdin.write('AB');
+    await delay(350);
+    expect(lastFrame()!).toContain('Too short');
+
+    // Press Esc to go back to step 1
+    stdin.write('\x1B');
+    await delay(50);
+
+    // Back on step 1 — validation error from step 2 should be gone
+    expect(lastFrame()!).not.toContain('Too short');
+    expect(lastFrame()!).toContain('Title');
+  });
+
+  /* ── Textarea validation error UI ── */
+
+  it('shows validation error text under textarea field', async () => {
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: [
+          {
+            id: 'desc',
+            label: 'Desc',
+            type: 'textarea',
+            validate: (v) => (v === 'bad' ? 'Invalid value' : null),
+          },
+        ],
+        onComplete: vi.fn(),
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    stdin.write('bad');
+    await delay(350);
+
+    expect(lastFrame()!).toContain('Invalid value');
+  });
+});
+
 describe('FormWizard clipboard paste (onPasteImage / footerExtra)', () => {
   // Kitty keyboard protocol CSI u: codepoint 105 ('i'), modifier 5 (ctrl+1)
   const CTRL_I = '\x1b[105;5u';
