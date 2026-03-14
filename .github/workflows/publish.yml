@@ -37,8 +37,19 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Extract section between "## $VERSION" and next "## " or EOF
+          BODY=$(awk "/^## ${VERSION//./\\.}/{found=1; next} /^## [0-9]/{if(found) exit} found" CHANGELOG.md)
+          if [ -z "$BODY" ]; then
+            BODY="Release ${GITHUB_REF_NAME}"
+          fi
+          # Write to file to avoid quoting issues
+          echo "$BODY" > /tmp/release-notes.md
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
-        run: gh release create "${{ github.ref_name }}" --generate-notes
+        run: gh release create "${{ github.ref_name }}" --notes-file /tmp/release-notes.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
