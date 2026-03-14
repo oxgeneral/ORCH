@@ -16,7 +16,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import type { Task, TaskStatus } from '../../domain/task.js';
 import type { Goal } from '../../domain/goal.js';
-import { tuiColors, DOT, LOZENGE, capLine } from '../colors.js';
+import { tuiColors, DOT, LOZENGE, capLine, lightRule } from '../colors.js';
 import { Spinner } from './Spinner.js';
 import { formatDuration } from '../../cli/output.js';
 
@@ -230,6 +230,46 @@ export const TaskRow = React.memo(function TaskRow({ task, selected, width, agen
 
 // Attach Row as static property for use in App's custom layout
 TaskList.Row = TaskRow;
+
+/* ── Goal section header (matches TeamSectionRow style) ── */
+
+const CIRCLE_PLUS = '\u2295'; // ⊕
+
+interface GoalSectionProps {
+  goalTitle: string;
+  taskCount: number;
+  doneCount: number;
+  width: number;
+}
+
+export function GoalSectionRow({ goalTitle, taskCount, doneCount, width }: GoalSectionProps) {
+  const pct = taskCount > 0 ? Math.round((doneCount / taskCount) * 100) : 0;
+  const label = ` ${CIRCLE_PLUS} ${goalTitle.toUpperCase()} ${DOT} ${taskCount} task${taskCount !== 1 ? 's' : ''} ${DOT} ${pct}% done `;
+  const leftLen = 3;
+  const rightLen = Math.max(0, width - leftLen - label.length - 4); // -4 for paddingX=2
+
+  return (
+    <Box paddingX={2}>
+      <Text color={tuiColors.ghost}>{lightRule(leftLen)}</Text>
+      <Text backgroundColor={chipBg.amber} color={tuiColors.amber} bold>{label}</Text>
+      <Text color={tuiColors.ghost}>{lightRule(rightLen)}</Text>
+    </Box>
+  );
+}
+
+export function UngroupedSectionRow({ taskCount, width }: { taskCount: number; width: number }) {
+  const label = ` ${CIRCLE_PLUS} UNGROUPED ${DOT} ${taskCount} task${taskCount !== 1 ? 's' : ''} `;
+  const leftLen = 3;
+  const rightLen = Math.max(0, width - leftLen - label.length - 4);
+
+  return (
+    <Box paddingX={2}>
+      <Text color={tuiColors.ghost}>{lightRule(leftLen)}</Text>
+      <Text backgroundColor={chipBg.neutral} color={tuiColors.dim}>{label}</Text>
+      <Text color={tuiColors.ghost}>{lightRule(rightLen)}</Text>
+    </Box>
+  );
+}
 
 // Re-export sort order for use in App
 export { STATUS_ORDER };

@@ -16,7 +16,7 @@ import type { OrchestratorState } from '../domain/state.js';
 import type { OrchestratorEvent } from '../domain/events.js';
 import { formatDurationSince, formatTokens } from '../cli/output.js';
 import { tuiColors, HEAVY_RULE, LOOP, TASK_STATUS_COLOR, GOAL_STATUS_COLOR, heavyRule, lightRule, capLine, capText } from './colors.js';
-import { TaskRow, STATUS_ORDER } from './components/TaskList.js';
+import { TaskRow, STATUS_ORDER, GoalSectionRow, UngroupedSectionRow } from './components/TaskList.js';
 import { AgentRow, AGENT_STATUS_ORDER, TeamSectionRow, UnassignedSectionRow } from './components/AgentList.js';
 import { GoalRow, GOAL_STATUS_ORDER } from './components/GoalList.js';
 import { DetailPanel, SectionDivider } from './components/DetailPanel.js';
@@ -456,6 +456,7 @@ export function App({
   const cmdHistory = React.useRef(new CommandHistory()).current;
   const [taskScrollOffset, setTaskScrollOffset] = useState(0);
   const [showAllTasks, setShowAllTasks] = useState(false);
+  const [groupByGoal, setGroupByGoal] = useState(false);
   const [agentScrollOffset, setAgentScrollOffset] = useState(0);
   const [goalScrollOffset, setGoalScrollOffset] = useState(0);
 
@@ -499,11 +500,33 @@ export function App({
     }
   }, [onRefreshTasks, onRefreshAgents, onRefreshState, onListTeams, onRefreshGoals, initialWatchActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Build goal ID → Goal map for TaskRow badges (must precede sortedTasks which uses it for grouping)
+  const goalMap = useMemo(() => {
+    const map = new Map<string, Goal>();
+    for (const g of liveGoals) map.set(g.id, g);
+    return map;
+  }, [liveGoals]);
+
   // Sorted data
-  const sortedTasks = useMemo(
-    () => [...liveTasks].sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)),
-    [liveTasks],
-  );
+  const sortedTasks = useMemo(() => {
+    const sorted = [...liveTasks].sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
+    if (!groupByGoal) return sorted;
+    // When grouped: tasks with goalId first (grouped together), ungrouped last. Within each group, keep status sort.
+    const grouped: Task[] = [];
+    const ungrouped: Task[] = [];
+    const goalOrder: string[] = [];
+    const byGoal = new Map<string, Task[]>();
+    for (const t of sorted) {
+      if (t.goalId && goalMap.has(t.goalId)) {
+        if (!byGoal.has(t.goalId)) { goalOrder.push(t.goalId); byGoal.set(t.goalId, []); }
+        byGoal.get(t.goalId)!.push(t);
+      } else {
+        ungrouped.push(t);
+      }
+    }
+    for (const gid of goalOrder) grouped.push(...byGoal.get(gid)!);
+    return [...grouped, ...ungrouped];
+  }, [liveTasks, groupByGoal, goalMap]);
 
   // Limit visible tasks to TASK_LIST_LIMIT unless "Show All" is toggled
   const visibleTasks = showAllTasks ? sortedTasks : sortedTasks.slice(0, TASK_LIST_LIMIT);
@@ -524,13 +547,6 @@ export function App({
     for (const a of liveAgents) map.set(a.id, a.name);
     return map;
   }, [liveAgents]);
-
-  // Build goal ID → Goal map for TaskRow badges
-  const goalMap = useMemo(() => {
-    const map = new Map<string, Goal>();
-    for (const g of liveGoals) map.set(g.id, g);
-    return map;
-  }, [liveGoals]);
 
   // Build goal ID → linked tasks for GoalRow progress bars
   const tasksByGoalMap = useMemo(() => {
@@ -1216,8 +1232,24 @@ export function App({
   const agentSectionRows = activeTeamCount > 0
     ? activeTeamCount + (hasUnassigned ? 1 : 0)
     : 0;
+  // Count section header rows when grouped by goal
+  const taskGroupSectionRows = useMemo(() => {
+    if (!groupByGoal || goalMap.size === 0) return 0;
+    let sections = 0;
+    const seen = new Set<string>();
+    let hasUngrouped = false;
+    for (const t of visibleTasks) {
+      if (t.goalId && goalMap.has(t.goalId)) {
+        if (!seen.has(t.goalId)) { seen.add(t.goalId); sections++; }
+      } else {
+        hasUngrouped = true;
+      }
+    }
+    if (hasUngrouped) sections++;
+    return sections;
+  }, [groupByGoal, goalMap, visibleTasks]);
   const listItemCount = activeView === 'goals' ? sortedGoals.length + 1 :
-    activeView === 'tasks' ? visibleTasks.length + 1 + (hiddenTaskCount > 0 ? 1 : 0) : // +1 for "+ add" row, +1 for "show all" row
+    activeView === 'tasks' ? visibleTasks.length + 1 + (hiddenTaskCount > 0 ? 1 : 0) + taskGroupSectionRows : // +1 for "+ add" row, +1 for "show all" row, + section headers
     activeView === 'agents' ? liveAgents.length + 1 + agentSectionRows : 0;
   const minListH = Math.min(listItemCount + 1, Math.ceil(contentH * 0.5)); // cap at 50%
   const hasTaskFooter = activeView === 'tasks' && hiddenTaskCount > 0;
@@ -2024,6 +2056,14 @@ export function App({
       return;
     }
 
+    // G: toggle group-by-goal in tasks view
+    if ((input === 'g' || input === 'G') && activeView === 'tasks' && !detailOpen) {
+      setGroupByGoal((v) => !v);
+      setTaskSelectedIndex(0);
+      setTaskScrollOffset(0);
+      return;
+    }
+
     // S: force-stop a running agent (kill process + clean state)
     if ((input === 's' || input === 'S') && activeView === 'agents' && selectedAgent && onForceStopAgent) {
       const isActuallyRunning = Object.values(liveState.running).some((e) => e.agent_id === selectedAgent.id);
@@ -2329,6 +2369,7 @@ export function App({
           agentNameMap={agentNameMap}
           hiddenCount={hiddenTaskCount}
           goalMap={goalMap}
+          groupByGoal={groupByGoal}
         />
       )}
       {/* Onboarding nudge — shown under task list for task_created/run_started */}
@@ -2827,7 +2868,7 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
 
 /* ── Tasks Content ───────────────────────────────────── */
 
-function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, hiddenCount = 0, goalMap }: {
+function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, hiddenCount = 0, goalMap, groupByGoal = false }: {
   tasks: Task[];
   selectedIndex: number;
   scrollOffset?: number;
@@ -2837,42 +2878,106 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
   agentNameMap?: Map<string, string>;
   hiddenCount?: number;
   goalMap?: Map<string, Goal>;
+  groupByGoal?: boolean;
 }) {
   const hasShowAll = hiddenCount > 0;
   // Virtual indices: tasks[0..n-1], show-all row (optional), add row (optional)
+  // Section headers are visual-only and don't consume selection indices (same pattern as AgentsContent)
   const showAllIndex = hasShowAll ? tasks.length : -1;
   const addRowIndex = tasks.length + (hasShowAll ? 1 : 0);
 
   const visible = tasks.slice(scrollOffset, scrollOffset + height);
-  // Show special rows if they fall within visible window
   const showAllVisible = hasShowAll && showAllIndex >= scrollOffset && showAllIndex < scrollOffset + height;
   const addRowVisible = showAddRow && addRowIndex >= scrollOffset && addRowIndex < scrollOffset + height;
 
+  // Pre-compute per-goal task counts for section headers
+  const goalTaskCounts = useMemo(() => {
+    if (!groupByGoal || !goalMap || goalMap.size === 0) return null;
+    const counts = new Map<string, { total: number; done: number }>();
+    for (const t of tasks) {
+      if (t.goalId && goalMap.has(t.goalId)) {
+        const c = counts.get(t.goalId) ?? { total: 0, done: 0 };
+        c.total++;
+        if (t.status === 'done') c.done++;
+        counts.set(t.goalId, c);
+      }
+    }
+    return counts;
+  }, [tasks, groupByGoal, goalMap]);
+
+  // Compute ungrouped count for the ungrouped section header
+  const ungroupedCount = groupByGoal && goalMap
+    ? tasks.filter((t) => !t.goalId || !goalMap.has(t.goalId)).length
+    : 0;
+
+  // Build display rows — insert goal section headers on goal transitions (visual only, like AgentsContent)
+  const isGrouped = groupByGoal && goalMap && goalMap.size > 0 && goalTaskCounts && goalTaskCounts.size > 0;
+  const rows: React.ReactNode[] = [];
+
+  // Track previous goalId to insert headers at group boundaries
+  let prevGoalId: string | undefined | null = scrollOffset > 0
+    ? (tasks[scrollOffset - 1]?.goalId ?? null)
+    : undefined; // undefined = before first row
+
+  for (let i = 0; i < visible.length && rows.length < height; i++) {
+    const task = visible[i]!;
+    const goalId = task.goalId && goalMap?.has(task.goalId) ? task.goalId : null;
+
+    if (isGrouped) {
+      // Insert goal section header when entering a new goal group
+      if (goalId && goalId !== prevGoalId) {
+        const goal = goalMap!.get(goalId)!;
+        const c = goalTaskCounts!.get(goalId) ?? { total: 0, done: 0 };
+        rows.push(
+          <GoalSectionRow key={`gh_${goalId}`} goalTitle={goal.title} taskCount={c.total} doneCount={c.done} width={width} />,
+        );
+        if (rows.length >= height) break;
+      }
+
+      // Insert ungrouped divider when transitioning from grouped to ungrouped tasks
+      if (!goalId && prevGoalId !== null && prevGoalId !== undefined) {
+        rows.push(
+          <UngroupedSectionRow key="__ungrouped__" taskCount={ungroupedCount} width={width} />,
+        );
+        if (rows.length >= height) break;
+      }
+    }
+    prevGoalId = goalId;
+
+    rows.push(
+      <Box key={task.id} paddingX={2}>
+        <TaskRow task={task} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} goalMap={goalMap} />
+      </Box>,
+    );
+  }
+
+  if (showAllVisible && rows.length < height) {
+    rows.push(
+      <Box key="__show_all__" paddingX={2}>
+        <Text color={selectedIndex === showAllIndex ? tuiColors.amber : tuiColors.ghost}>
+          {selectedIndex === showAllIndex ? '  \u25B8 ' : '    '}
+          <Text color={selectedIndex === showAllIndex ? tuiColors.amber : tuiColors.dim}>
+            {'\u25BC'} Show all ({hiddenCount} more) — press <Text bold color={tuiColors.gray}>S</Text>
+          </Text>
+        </Text>
+      </Box>,
+    );
+  }
+
+  if (addRowVisible && rows.length < height) {
+    rows.push(
+      <Box key="__add__" paddingX={2}>
+        <Text color={selectedIndex === addRowIndex ? tuiColors.amber : tuiColors.ghost}>
+          {selectedIndex === addRowIndex ? '  \u25B8 ' : '    '}
+          <Text color={selectedIndex === addRowIndex ? tuiColors.amber : tuiColors.dim}>+ add task...</Text>
+        </Text>
+      </Box>,
+    );
+  }
+
   return (
     <Box flexDirection="column" height={height}>
-      {visible.map((task, i) => (
-        <Box key={task.id} paddingX={2}>
-          <TaskRow task={task} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} goalMap={goalMap} />
-        </Box>
-      ))}
-      {showAllVisible && (
-        <Box key="__show_all__" paddingX={2}>
-          <Text color={selectedIndex === showAllIndex ? tuiColors.amber : tuiColors.ghost}>
-            {selectedIndex === showAllIndex ? '  \u25B8 ' : '    '}
-            <Text color={selectedIndex === showAllIndex ? tuiColors.amber : tuiColors.dim}>
-              {'\u25BC'} Show all ({hiddenCount} more) — press <Text bold color={tuiColors.gray}>S</Text>
-            </Text>
-          </Text>
-        </Box>
-      )}
-      {addRowVisible && (
-        <Box key="__add__" paddingX={2}>
-          <Text color={selectedIndex === addRowIndex ? tuiColors.amber : tuiColors.ghost}>
-            {selectedIndex === addRowIndex ? '  \u25B8 ' : '    '}
-            <Text color={selectedIndex === addRowIndex ? tuiColors.amber : tuiColors.dim}>+ add task...</Text>
-          </Text>
-        </Box>
-      )}
+      {rows}
     </Box>
   );
 }
