@@ -233,6 +233,26 @@ describe('ClaudeAdapter', () => {
       }).rejects.toThrow('exited with code 1');
     });
 
+    it('thrown exit error carries errorKind property (utils.ts classifyAdapterError)', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new ClaudeAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 1), 20);
+
+      let caughtError: unknown;
+      try {
+        for await (const _ev of handle.events) { /* drain */ }
+      } catch (err) {
+        caughtError = err;
+      }
+
+      expect(caughtError).toBeInstanceOf(Error);
+      expect((caughtError as Record<string, unknown>)['errorKind']).toBeDefined();
+    });
+
     it('does not throw on non-zero exit when done event was received', async () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
