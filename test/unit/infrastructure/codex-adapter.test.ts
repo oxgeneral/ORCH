@@ -92,6 +92,30 @@ describe('CodexAdapter', () => {
       expect(endSpy).toHaveBeenCalled();
     });
 
+    it('prepends systemPrompt to stdin when provided (no native --system-prompt support)', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CodexAdapter(pm);
+
+      const writeSpy = vi.spyOn(proc.stdin, 'write');
+
+      adapter.execute(makeParams({ systemPrompt: 'system instructions', prompt: 'user task' }));
+
+      expect(writeSpy).toHaveBeenCalledWith('system instructions\n\nuser task');
+    });
+
+    it('writes only userPrompt to stdin when systemPrompt is absent', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CodexAdapter(pm);
+
+      const writeSpy = vi.spyOn(proc.stdin, 'write');
+
+      adapter.execute(makeParams({ prompt: 'just the task', systemPrompt: undefined }));
+
+      expect(writeSpy).toHaveBeenCalledWith('just the task');
+    });
+
     it('includes --model when config.model is set', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
