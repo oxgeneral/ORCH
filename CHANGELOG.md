@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.3.4 (2026-03-14)
+
+### New Features
+
+- **Goal-Task Visual Linking** — task rows show `⊕ TITLE` badge linking to parent goal, goal rows display `████░░ done/total` progress bar, `G` toggle groups tasks by goal with section headers
+- **Logs view redesign** — separate command bar from filter controls, compact agent filter chips with multi-select popup
+- **Logs filter status bar** — active filter summary showing `agent:X type:Y N/M` count at bottom of logs view
+- **FormWizard inline validation** — validate functions on wizard steps with 300ms debounce, red border on error, Enter blocking until fixed, required field `*` indicator
+- **HelpOverlay** — `?` and `F1` toggle a 3-column help panel (Navigation / Actions / Commands) with amber design
+- **Detail Panel Resize** — `+`/`-`/`M` hotkeys to grow/shrink/maximize the detail panel height
+- **Toast Notifications** — status banners for task completion: done (green, 4s), failed (red, 8s), review (blue, 6s); configurable bell sound (`\x07`) on failed/review events
+- **ErrorHintPanel** — inline error summary in AgentList showing `ERROR_HINTS` message, detail panel shows fix suggestions with `orch doctor` hint
+- **Header tab badge flash** — tab pill blinks 3 times on task status events from other tabs (done=green, failed=red, review=blue)
+- **Inline Agent Shop suggestions** — agent templates shown as selectable hints in wizard name step
+- **Task titles in depends field** — DetailPanel shows human-readable task titles instead of raw `tsk_` IDs
+
+### Bug Fixes
+
+- **TDZ crash in CLI bundle** — disabled esbuild minify in tsup to prevent temporal dead zone crash on startup
+- **goalMap TS2454 error** — moved `goalMap` declaration before `sortedTasks` to fix TypeScript "used before assigned" error
+- **GoalDetailPanel key navigation** — tests updated to use `leftArrow` instead of `G` key for goals tab navigation
+- **Ink OutputCaches OOM** — patched Ink's internal `OutputCaches` with LRU eviction + memoized hot-path renders to prevent memory leak
+- **Wizard suggestion state leak** — reset suggestion state on wizard step navigation to prevent stale suggestions appearing
+- **LogsFilterPicker `a` toggle** — simplified toggle logic to remove dead code where both branches were identical
+
+### Tests
+
+- **1353 tests** (up from 1099 in 0.3.3)
+- New coverage: Goal-Task visual linking (21 tests), FormWizard inline validation (57 tests), HelpOverlay + command categories (86 tests), toast notifications (15 tests), ErrorHintPanel (14 tests), detail panel resize (13 tests), hidden tasks footer (5 tests), wizard validate functions (34 tests)
+
+---
+
 ## 0.3.3 (2026-03-14)
 
 ### Bug Fixes
