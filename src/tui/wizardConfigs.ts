@@ -89,7 +89,8 @@ function mapAgentOptions(agents: Agent[]) {
     .map((a) => {
       const raw = (a.role ?? a.adapter).split('\n')[0]!.trim();
       const hint = raw.length > AGENT_HINT_MAX_LEN ? raw.slice(0, AGENT_HINT_MAX_LEN - 1) + '\u2026' : raw;
-      return { value: a.id, label: a.name, hint };
+      const adapterTag = a.adapter !== 'claude' ? ` (${a.adapter})` : '';
+      return { value: a.id, label: a.name + adapterTag, hint };
     });
 }
 
