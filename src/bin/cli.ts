@@ -37,7 +37,7 @@ const program = new Command();
 program
   .name('orchestry')
   .description('Agents Organizations — CLI orchestrator for AI agents')
-  .version('0.3.3')
+  .version('0.3.4')
   .option('--json', 'Output as JSON')
   .option('--quiet', 'Minimal output (IDs only)')
   .option('--no-color', 'Disable colors')
