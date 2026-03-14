@@ -86,7 +86,8 @@ function parseOpenCodeEvent(line: string): AgentEvent | null {
           const errMsg = typeof state.error === 'string' ? state.error : JSON.stringify(state);
           return { type: 'error', timestamp, data: state, errorKind: classifyAdapterError(errMsg) };
         }
-        return { type: 'tool_call', timestamp, data: { tool: part.tool, ...state } };
+        // Map to { name, input } shape expected by TUI formatToolInput
+        return { type: 'tool_call', timestamp, data: { name: part.tool, input: state.input } };
       }
 
       case 'step_finish': {
@@ -98,7 +99,7 @@ function parseOpenCodeEvent(line: string): AgentEvent | null {
           return { type: 'error', timestamp, data: part, tokens, errorKind: classifyAdapterError(errMsg) };
         }
         if (reason === 'tool-calls') {
-          return { type: 'output', timestamp, data: part, tokens };
+          return null; // intermediate lifecycle — tool_use events carry the actual content
         }
         // reason === 'stop', 'max_tokens', or any other terminal reason → done
         return { type: 'done', timestamp, data: part, tokens };

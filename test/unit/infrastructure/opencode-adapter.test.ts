@@ -208,7 +208,9 @@ describe('OpenCodeAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('tool_call');
-      expect((events[0]!.data as Record<string, unknown>).tool).toBe('write');
+      const data = events[0]!.data as Record<string, unknown>;
+      expect(data.name).toBe('write');
+      expect(data.input).toEqual({ filePath: '/tmp/test.txt', content: 'test' });
     });
 
     it('parses tool_use with error status as error event', async () => {
@@ -263,7 +265,7 @@ describe('OpenCodeAdapter', () => {
       expect(events[0]!.tokens).toEqual({ input: 12416, output: 2, total: 12418 });
     });
 
-    it('parses step_finish reason=tool-calls as output (intermediate)', async () => {
+    it('skips step_finish reason=tool-calls (intermediate lifecycle)', async () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new OpenCodeAdapter(pm);
@@ -279,14 +281,19 @@ describe('OpenCodeAdapter', () => {
           tokens: { total: 500, input: 400, output: 100 },
         },
       }) + '\n');
+      proc.stdout.write(JSON.stringify({
+        type: 'text',
+        part: { text: 'next step' },
+      }) + '\n');
       proc.stdout.end();
       setTimeout(() => proc.emit('close', 0), 20);
 
       const events: AgentEvent[] = [];
       for await (const ev of handle.events) events.push(ev);
 
+      // step_finish tool-calls is skipped, only text event remains
+      expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe('output');
-      expect(events[0]!.tokens).toEqual({ input: 400, output: 100, total: 500 });
     });
 
     it('parses step_finish reason=error as error event', async () => {

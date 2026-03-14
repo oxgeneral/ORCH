@@ -2,11 +2,10 @@
  * Unit tests for agent hint rendering in task/goal create wizard.
  *
  * Covers:
- * 1. Hint has no ## WORKFLOW or other markdown headings
- * 2. Shows only first line of role (clean description)
- * 3. Truncation to 80 chars with ellipsis
- * 4. Agents without role show adapter name
- * 5. Disabled agents are excluded from options
+ * 1. Hint format: [adapter] first-line-of-role
+ * 2. First line truncation to 60 chars with ellipsis
+ * 3. Agents without role show adapter name only
+ * 4. Disabled agents are excluded from options
  */
 
 import { describe, it, expect } from 'vitest';
@@ -36,73 +35,68 @@ function getAgentHint(agents: Agent[], agentId: string): string | undefined {
 
 // ── Tests ──
 
-describe('agent hint in task wizard — no markdown', () => {
-  it('shows only first line of role, strips ## WORKFLOW and rest', () => {
+describe('agent hint format: [adapter] role', () => {
+  it('shows [adapter] prefix + first line of role', () => {
     const agent = makeAgent({
       role: 'Senior TypeScript developer\n## WORKFLOW\n1) Analyze\n2) Implement',
     });
     const hint = getAgentHint([agent], 'agt_1');
-    expect(hint).toBe('Senior TypeScript developer');
+    expect(hint).toBe('[claude] Senior TypeScript developer');
     expect(hint).not.toContain('## WORKFLOW');
   });
 
-  it('strips leading ## heading on first line', () => {
-    const agent = makeAgent({ role: '## Backend Developer\nDoes backend stuff' });
+  it('shows adapter prefix for non-claude adapters', () => {
+    const agent = makeAgent({ adapter: 'opencode', role: 'Backend engineer' });
     const hint = getAgentHint([agent], 'agt_1');
-    // first line is the heading itself — trimmed and shown as-is
-    // (we only strip newlines, not hash chars on first line)
-    expect(hint).toBe('## Backend Developer');
-    expect(hint).not.toContain('\n');
+    expect(hint).toBe('[opencode] Backend engineer');
   });
 
-  it('trims whitespace from first line', () => {
-    const agent = makeAgent({ role: '   QA Engineer   \n## WORKFLOW\nstuff' });
-    const hint = getAgentHint([agent], 'agt_1');
-    expect(hint).toBe('QA Engineer');
-  });
-
-  it('shows adapter name when role is undefined', () => {
+  it('shows adapter name only when role is undefined', () => {
     const agent = makeAgent({ role: undefined });
     const hint = getAgentHint([agent], 'agt_1');
     expect(hint).toBe('claude');
   });
 
-  it('shows empty hint when role is empty string (??-operator only guards null/undefined)', () => {
+  it('shows adapter name only when role is empty string', () => {
     const agent = makeAgent({ role: '' });
-    // '' is not null/undefined so ?? does NOT fall back to adapter
     const hint = getAgentHint([agent], 'agt_1');
-    expect(hint).toBe('');
+    expect(hint).toBe('claude');
+  });
+
+  it('trims whitespace from first line', () => {
+    const agent = makeAgent({ role: '   QA Engineer   \n## WORKFLOW\nstuff' });
+    const hint = getAgentHint([agent], 'agt_1');
+    expect(hint).toBe('[claude] QA Engineer');
   });
 });
 
-describe('agent hint truncation to 80 chars', () => {
-  it('truncates long first line to 79 chars + ellipsis', () => {
+describe('agent hint role truncation to 60 chars', () => {
+  it('truncates long first line with ellipsis', () => {
     const longRole = 'A'.repeat(100) + '\n## WORKFLOW\nstuff';
     const agent = makeAgent({ role: longRole });
     const hint = getAgentHint([agent], 'agt_1');
     expect(hint).toBeDefined();
-    expect(hint!.length).toBe(80); // 79 chars + '…'
-    expect(hint!.endsWith('…')).toBe(true);
+    // [claude] + space + 59 chars + ellipsis
+    expect(hint).toMatch(/^\[claude\] A{59}\u2026$/);
   });
 
-  it('does not truncate roles exactly 80 chars long', () => {
-    const role80 = 'B'.repeat(80);
-    const agent = makeAgent({ role: role80 });
+  it('does not truncate roles at exactly 60 chars', () => {
+    const role60 = 'B'.repeat(60);
+    const agent = makeAgent({ role: role60 });
     const hint = getAgentHint([agent], 'agt_1');
-    expect(hint).toBe(role80);
-    expect(hint!.length).toBe(80);
+    expect(hint).toBe(`[claude] ${role60}`);
   });
 
-  it('does not truncate roles shorter than 80 chars', () => {
+  it('does not truncate short roles', () => {
     const role = 'Short description';
     const agent = makeAgent({ role });
     const hint = getAgentHint([agent], 'agt_1');
-    expect(hint).toBe(role);
+    expect(hint).toBe('[claude] Short description');
   });
 });
 
 describe('agent hint in goal wizard', () => {
-  it('goal wizard agent hint strips markdown same as task wizard', () => {
+  it('goal wizard uses same [adapter] role format', () => {
     const agent = makeAgent({
       id: 'agt_2',
       role: 'CTO / Tech Lead\n## WORKFLOW\n1) Analyze\n2) Delegate',
@@ -110,8 +104,7 @@ describe('agent hint in goal wizard', () => {
     const steps = getGoalWizardSteps([agent]);
     const assigneeStep = steps.find((s) => s.id === 'assignee');
     const option = assigneeStep?.options?.find((o) => o.value === 'agt_2');
-    expect(option?.hint).toBe('CTO / Tech Lead');
-    expect(option?.hint).not.toContain('## WORKFLOW');
+    expect(option?.hint).toBe('[claude] CTO / Tech Lead');
   });
 });
 

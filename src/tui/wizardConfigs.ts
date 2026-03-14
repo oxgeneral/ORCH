@@ -80,17 +80,19 @@ const PRIORITY_OPTIONS = [
 
 // ── Agent options builder ──
 
-const AGENT_HINT_MAX_LEN = 80;
+const AGENT_ROLE_MAX_LEN = 60;
 
 /** Map agents to select options (no sentinel). Shared by buildAgentOptions and team wizard. */
 function mapAgentOptions(agents: Agent[]) {
   return agents
     .filter((a) => a.status !== 'disabled')
     .map((a) => {
-      const raw = (a.role ?? a.adapter).split('\n')[0]!.trim();
-      const hint = raw.length > AGENT_HINT_MAX_LEN ? raw.slice(0, AGENT_HINT_MAX_LEN - 1) + '\u2026' : raw;
-      const adapterTag = a.adapter !== 'claude' ? ` (${a.adapter})` : '';
-      return { value: a.id, label: a.name + adapterTag, hint };
+      const roleLine = (a.role ?? '').split('\n')[0]!.trim();
+      const role = roleLine.length > AGENT_ROLE_MAX_LEN
+        ? roleLine.slice(0, AGENT_ROLE_MAX_LEN - 1) + '\u2026'
+        : roleLine;
+      const hint = role ? `[${a.adapter}] ${role}` : a.adapter;
+      return { value: a.id, label: a.name, hint };
     });
 }
 
