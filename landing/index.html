@@ -438,7 +438,7 @@
 
     .sp-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 1px;
       background: var(--gray-light);
     }
@@ -1704,7 +1704,7 @@
       .stat-value { font-size: 1.4rem; }
 
       .social-proof { padding: 3rem 1.5rem; }
-      .sp-grid { grid-template-columns: repeat(2, 1fr); }
+      .sp-grid { grid-template-columns: repeat(3, 1fr); }
       .sp-cred { flex-wrap: wrap; gap: 1rem; justify-content: center; }
 
       .problem-solution { padding: 4rem 1.5rem; }
@@ -1807,7 +1807,7 @@
           "Git worktree isolation per agent",
           "Inter-agent messaging and broadcasts",
           "State machine task governance (todo, in_progress, review, done)",
-          "Claude, Codex, Cursor, and Shell adapter support",
+          "Claude, OpenCode, Codex, Cursor, and Shell adapter support",
           "TUI dashboard with real-time monitoring",
           "Goal decomposition into tasks",
           "Team-based agent coordination",
@@ -1835,7 +1835,7 @@
             "name": "What AI models does ORCH support?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "ORCH ships with 4 adapters: Claude (Anthropic), Codex (OpenAI), Cursor, and a universal Shell adapter that works with any CLI tool. If it takes a prompt and returns output, ORCH can orchestrate it."
+              "text": "ORCH ships with 5 adapters: Claude (Anthropic), OpenCode (multi-provider via OpenRouter — Gemini, DeepSeek, and more), Codex (OpenAI), Cursor, and a universal Shell adapter that works with any CLI tool. If it takes a prompt and returns output, ORCH can orchestrate it."
             }
           },
           {
@@ -1974,7 +1974,7 @@
       </div>
       <div class="hero-meta">
         <span><strong>15</strong> ready-made agents</span>
-        <span><strong>4</strong> AI providers</span>
+        <span><strong>5</strong> AI providers</span>
         <span><strong>MIT</strong> license</span>
       </div>
     </div>
@@ -2045,6 +2045,11 @@
         <div class="sp-card">
           <div class="sp-card-name">Claude</div>
           <div class="sp-card-org">Anthropic</div>
+          <span class="sp-card-badge native">native</span>
+        </div>
+        <div class="sp-card">
+          <div class="sp-card-name">OpenCode</div>
+          <div class="sp-card-org">Multi-provider</div>
           <span class="sp-card-badge native">native</span>
         </div>
         <div class="sp-card">
@@ -2503,7 +2508,7 @@
       </details>
       <details class="faq-item">
         <summary>What AI models does it support? <span class="faq-toggle"></span></summary>
-        <div class="faq-answer">ORCH ships with 4 adapters: Claude (Anthropic), Codex (OpenAI), Cursor, and a universal Shell adapter that works with any CLI tool. If it takes a prompt and returns output, ORCH can orchestrate it.</div>
+        <div class="faq-answer">ORCH ships with 5 adapters: Claude (Anthropic), OpenCode (multi-provider via OpenRouter — Gemini, DeepSeek, and more), Codex (OpenAI), Cursor, and a universal Shell adapter that works with any CLI tool. If it takes a prompt and returns output, ORCH can orchestrate it.</div>
       </details>
       <details class="faq-item">
         <summary>Will agents mess up my codebase? <span class="faq-toggle"></span></summary>
