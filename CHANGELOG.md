@@ -12,10 +12,13 @@
 - **Detail Panel Resize** — `+`/`-`/`M` hotkeys to grow/shrink/maximize the detail panel height
 - **Toast Notifications** — status banners for task completion: done (green, 4s), failed (red, 8s), review (blue, 6s); configurable bell sound (`\x07`) on failed/review events
 - **ErrorHintPanel** — inline error summary in AgentList showing `ERROR_HINTS` message, detail panel shows fix suggestions with `orch doctor` hint
+- **Adapter error propagation** — `AdapterErrorKind` propagated through events, `agent.last_error` persisted with kind/message/timestamp for post-mortem analysis
 - **Header tab badge flash** — tab pill blinks 3 times on task status events from other tabs (done=green, failed=red, review=blue)
-- **Inline Agent Shop suggestions** — agent templates shown as selectable hints in wizard name step
+- **Inline Agent Shop suggestions** — agent templates shown as selectable hints in wizard name step, filtered by typed text
 - **Task titles in depends field** — DetailPanel shows human-readable task titles instead of raw `tsk_` IDs
-- **Compact AgentRow layout** — optimized agent list layout, removed duplicate task footer
+- **Compact AgentRow layout** — removed role column (visible via Enter detail), running task and errors shown inline after name, adapter/team as plain text
+- **Goal badge before agent** — goal `⊕` badge moved to appear before agent name in TaskRow for better visual grouping
+- **Config wizard simplified** — `/config` now shows all settings sequentially without intermediate "pick a setting" step
 
 ### Bug Fixes
 
@@ -25,11 +28,12 @@
 - **Ink OutputCaches OOM** — patched Ink's internal `OutputCaches` with LRU eviction + memoized hot-path renders to prevent memory leak
 - **Wizard suggestion state leak** — reset suggestion state on wizard step navigation to prevent stale suggestions appearing
 - **LogsFilterPicker `a` toggle** — simplified toggle logic to remove dead code where both branches were identical
+- **Duplicate task footer** — removed sticky "showing N of M tasks" footer (inline "Show all" row remains)
 
 ### Tests
 
-- **1378 tests** (up from 1099 in 0.3.3)
-- New coverage: Goal-Task visual linking (21 tests), FormWizard inline validation (57 tests), HelpOverlay + command categories (86 tests), toast notifications (15 tests), ErrorHintPanel (14 tests), detail panel resize (13 tests), hidden tasks footer (5 tests), wizard validate functions (34 tests), logs filter status bar (4 tests), compact AgentRow layout (tests)
+- **1386 tests** (up from 1099 in 0.3.3)
+- New coverage: Goal-Task visual linking (21 tests), FormWizard inline validation (57 tests), HelpOverlay + command categories (86 tests), toast notifications (15 tests), ErrorHintPanel (14 tests), detail panel resize (13 tests), hidden tasks footer (5 tests), wizard validate functions (34 tests), logs filter status bar (4 tests), onboarding TUI (21 tests), errorKind propagation (9 tests)
 
 ---
 
