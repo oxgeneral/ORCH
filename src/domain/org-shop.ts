@@ -151,7 +151,7 @@ export const ORG_TEMPLATES: OrgTemplate[] = [
     description: 'Technical docs from codebase analysis',
     lead_index: 0,
     agents: [
-      { shop_key: 'architect', name: 'Architect' },
+      { shop_key: 'architect', name: 'Docs Lead' },
       { shop_key: 'tech-writer', name: 'Writer' },
       { shop_key: 'tech-writer', name: 'Writer 2' },
       { shop_key: 'tech-writer', name: 'Editor' },

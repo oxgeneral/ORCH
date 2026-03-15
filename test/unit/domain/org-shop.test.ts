@@ -6,8 +6,8 @@ import { ORG_TEMPLATES, getOrgTemplateByKey } from '../../../src/domain/org-shop
 import { getShopTemplateByKey } from '../../../src/domain/agent-shop.js';
 
 describe('ORG_TEMPLATES', () => {
-  it('has at least 7 templates', () => {
-    expect(ORG_TEMPLATES.length).toBeGreaterThanOrEqual(7);
+  it('has 10 templates', () => {
+    expect(ORG_TEMPLATES.length).toBe(10);
   });
 
   it('all templates have unique keys', () => {

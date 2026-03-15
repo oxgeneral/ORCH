@@ -180,7 +180,7 @@ Deploy a full department with one command:
 | `content-agency` | Strategist, Writer x2, Editor, SEO | Content factory: plan, write, edit, optimize |
 | `data-lab` | Lead Analyst, Data Engineer | 3 CSVs → executive report by morning |
 | `sales-machine` | Sales Director, SDR x2, Copywriter, Growth Analyst | Outbound pipeline: research, outreach, follow-up, close |
-| `docs-team` | Architect, Writer x2, Editor, Reviewer | Technical docs from codebase analysis |
+| `docs-team` | Docs Lead, Writer x2, Editor, Reviewer | Technical docs from codebase analysis |
 
 ```bash
 orch org list                                    # See all companies
