@@ -52,6 +52,9 @@ export class IndexManager<T> {
   /** Promise-chain mutex to serialize updateIndex read-modify-write cycles. */
   private mutex: Promise<void> = Promise.resolve();
 
+  /** True while executing inside withMutex — prevents re-entrant deadlock. */
+  private insideMutex = false;
+
   constructor(config: IndexManagerConfig<T>) {
     this.dir = config.dir;
     this.ext = config.ext;
@@ -86,6 +89,11 @@ export class IndexManager<T> {
   /**
    * Rebuild the index by reading all individual item files.
    * Used as fallback when _index.json is missing or corrupted.
+   *
+   * When called from outside the mutex (standalone), the write is serialized
+   * through {@link withMutex} to prevent races with concurrent updateIndex.
+   * When called from within the mutex (e.g. updateIndex → readIndex fallback),
+   * it writes directly to avoid re-entrant deadlock.
    */
   async rebuildIndex(): Promise<T[]> {
     await ensureDir(this.dir);
@@ -104,7 +112,14 @@ export class IndexManager<T> {
     for (const item of results) {
       if (item != null) items.push(item);
     }
-    await this.writeIndexUnsafe(items);
+
+    // If already inside the mutex (called via updateIndex → readIndex),
+    // write directly to avoid deadlock. Otherwise serialize through mutex.
+    if (this.insideMutex) {
+      await this.writeIndexUnsafe(items);
+    } else {
+      await this.withMutex(() => this.writeIndexUnsafe(items));
+    }
     return items;
   }
 
@@ -144,9 +159,11 @@ export class IndexManager<T> {
     const prev = this.mutex;
     this.mutex = next;
     return prev.then(async () => {
+      this.insideMutex = true;
       try {
         return await fn();
       } finally {
+        this.insideMutex = false;
         release!();
       }
     });
