@@ -182,10 +182,12 @@ export function printTable(
     Math.max(h.length, ...rows.map((r) => stripAnsi(r[i] ?? '').length)),
   );
 
+  const lines: string[] = [];
+
   const headerLine = headers
     .map((h, i) => h.padEnd(colWidths[i]! + padding))
     .join('');
-  console.log(`  ${colors.dim(headerLine)}`);
+  lines.push(`  ${colors.dim(headerLine)}`);
 
   for (const row of rows) {
     const line = row
@@ -195,15 +197,18 @@ export function printTable(
         return cell + ' '.repeat(Math.max(0, pad));
       })
       .join('');
-    console.log(`  ${line}`);
+    lines.push(`  ${line}`);
   }
+
+  process.stdout.write(lines.join('\n') + '\n');
 }
 
 export function printKeyValue(pairs: Array<[string, string]>): void {
   const maxKey = Math.max(...pairs.map(([k]) => k.length));
-  for (const [key, value] of pairs) {
-    console.log(`  ${colors.dim(key.padEnd(maxKey + 2))}${value}`);
-  }
+  const lines = pairs.map(([key, value]) =>
+    `  ${colors.dim(key.padEnd(maxKey + 2))}${value}`,
+  );
+  process.stdout.write(lines.join('\n') + '\n');
 }
 
 export function filePath(p: string): string {
