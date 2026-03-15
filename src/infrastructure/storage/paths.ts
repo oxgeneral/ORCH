@@ -190,9 +190,9 @@ export function findProjectRoot(startDir: string = process.cwd()): string {
     dir = path.dirname(dir);
   }
 
-  // Not found — return original dir (for init command)
-  projectRootCache.set(resolvedStart, startDir);
-  return startDir;
+  // Not found — return resolved dir (for init command)
+  projectRootCache.set(resolvedStart, resolvedStart);
+  return resolvedStart;
 }
 
 /**

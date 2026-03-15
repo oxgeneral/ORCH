@@ -5,7 +5,7 @@
  * 3) reconcile Promise.all: parallel task reads
  */
 import { describe, it, expect, vi } from 'vitest';
-import { DEFAULT_STATE } from '../../../src/domain/state.js';
+import { DEFAULT_STATE, type RunningEntry } from '../../../src/domain/state.js';
 import {
   makeTask,
   makeAgent,
@@ -122,10 +122,11 @@ describe('reconcile parallel task reads via Promise.all', () => {
     const taskStore = createMockTaskStore([task1, task2]);
     const agentStore = createMockAgentStore([agent]);
 
+    const now = new Date().toISOString();
     const stateStore = createMockStateStore({
       running: {
-        tsk_r1: { runId: 'run_1', taskId: 'tsk_r1', agentId: 'agt_1', pid: 1111, started_at: '2025-01-01T00:00:00Z' },
-        tsk_r2: { runId: 'run_2', taskId: 'tsk_r2', agentId: 'agt_1', pid: 2222, started_at: '2025-01-01T00:00:00Z' },
+        tsk_r1: { run_id: 'run_1', task_id: 'tsk_r1', agent_id: 'agt_1', pid: 1111, started_at: now, last_event_at: now },
+        tsk_r2: { run_id: 'run_2', task_id: 'tsk_r2', agent_id: 'agt_1', pid: 2222, started_at: now, last_event_at: now },
       },
     });
 
@@ -157,9 +158,10 @@ describe('reconcile parallel task reads via Promise.all', () => {
     const taskStore = createMockTaskStore(tasks);
     const agentStore = createMockAgentStore([makeAgent({ id: 'agt_1' })]);
 
-    const running: Record<string, any> = {};
+    const now = new Date().toISOString();
+    const running: Record<string, RunningEntry> = {};
     for (const t of tasks) {
-      running[t.id] = { runId: `run_${t.id}`, taskId: t.id, agentId: 'agt_1', pid: 9999, started_at: '2025-01-01T00:00:00Z' };
+      running[t.id] = { run_id: `run_${t.id}`, task_id: t.id, agent_id: 'agt_1', pid: 9999, started_at: now, last_event_at: now };
     }
     const stateStore = createMockStateStore({ running });
 
