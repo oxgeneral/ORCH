@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.3 (2026-03-15)
+
+### Features
+
+- **Reasoning & cache token tracking** — `TokenUsage` now tracks `reasoning`, `cache_read`, `cache_write` separately. Reasoning included in total; cache tokens are informational (subset of input). TUI shows 🧠 when reasoning > 0
+- **Daemon mode architecture** — design doc for sub-10ms CLI responses via persistent background process
+
+### Performance
+
+- **IndexManager** — extracted generic `IndexManager<T>` with `_index.json` cache for all stores (TaskStore, AgentStore, ContextStore, GoalStore, MessageStore). List operations read one file instead of N
+- **Parallel container init** — `requireInit()` + `configStore.read()` run in parallel during CLI startup
+- **Buffered CLI output** — `printTable`/`printKeyValue` buffer into single `process.stdout.write` call
+- **Orchestrator tick** — parallel reconcile checks, `findProjectRoot` caching, lazy globalConfig + editor loading
+- **Lazy requireInit** — removed redundant `requireInit()` calls in read-only commands
+
+### Fixes
+
+- **IndexManager mutex** — promise-chain mutex prevents TOCTOU race on concurrent index reads/writes
+- **Re-entrant deadlock** — `rebuildIndex` no longer deadlocks when called within an existing lock
+- **Token simplification** — use `createTokenUsage` single source of truth, `TokenUsage` type instead of inline duplicates, `useMemo` for TUI header tokens
+
 ## 1.0.2 (2026-03-15)
 
 ### Features
