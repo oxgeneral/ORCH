@@ -266,10 +266,6 @@ The `shell` adapter is the key: **if it runs in a terminal, it's an employee** â
 
 Deploy a full department with one command:
 
-<table>
-<tr>
-<td width="50%" valign="top">
-
 **Engineering**
 
 | Template | Agents | What it does |
@@ -281,9 +277,6 @@ Deploy a full department with one command:
 | `test-factory` | Coverage Lead, Backend x2, QA x2, Reviewer | Coverage from 40% to 80% overnight |
 | `bugfix-dept` | Triager, Fixer x3, QA, Reviewer | 100 issues to 0 in a week |
 
-</td>
-<td width="50%" valign="top">
-
 **Non-Engineering**
 
 | Template | Agents | What it does |
@@ -292,10 +285,6 @@ Deploy a full department with one command:
 | `data-lab` | Lead Analyst, Data Engineer | 3 CSVs â†’ executive report by morning |
 | `sales-machine` | Sales Director, SDR x2, Copywriter, Growth Analyst | Outbound pipeline: research, outreach, follow-up, close |
 | `docs-team` | Docs Lead, Writer x2, Editor, Reviewer | Technical docs from codebase analysis |
-
-</td>
-</tr>
-</table>
 
 ```bash
 orch org list                                    # See all companies
