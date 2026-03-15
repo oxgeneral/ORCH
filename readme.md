@@ -145,7 +145,8 @@ orch run --all --watch
 <tr>
 <td width="50%" valign="top">
 
-**Minimum** — 1-2 agents
+**Minimum** 
+1-2 agents
 
 | | |
 |---|---|
@@ -158,7 +159,8 @@ orch run --all --watch
 </td>
 <td width="50%" valign="top">
 
-**Recommended** — full department, 4-6 agents
+**Recommended** — full department
+4-6 agents
 
 | | |
 |---|---|
