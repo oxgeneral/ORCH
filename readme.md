@@ -36,11 +36,6 @@ npm install -g @oxgeneral/orch      # Install
 cd ~/your-project && orch           # Launch TUI
 ```
 
-```bash
-orch org deploy startup-mvp --goal "Build auth with OAuth2"   # Deploy a team
-orch run --all --watch                                         # Run all agents
-```
-
 <br/>
 
 <!-- Divider -->
