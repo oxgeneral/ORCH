@@ -79,13 +79,6 @@ async function main(): Promise<void> {
   program.parseOptions(process.argv);
   const globalOpts = program.opts();
 
-  const context = createContext({
-    json: globalOpts.json,
-    quiet: globalOpts.quiet,
-    noColor: globalOpts.color === false,
-    ascii: globalOpts.ascii,
-  });
-
   // Determine which subcommand the user wants (before loading anything heavy).
   // Skip leading flags like --json/--quiet to find the real subcommand name.
   const sub = process.argv.slice(2).find((arg) => !arg.startsWith('-'));
@@ -114,7 +107,8 @@ async function main(): Promise<void> {
   }
 
   // Bare `orch` in a directory without .orchestry/ → auto-init + TUI (FTUE).
-  // Must check cwd directly — findProjectRoot() walks up and may find a parent project.
+  // IMPORTANT: must run BEFORE createContext(), because createContext calls
+  // findProjectRoot() which walks up directories and may find a parent project.
   const isBareOrch = process.argv.length <= 2;
   if (isBareOrch && !(await pathExists(path.join(process.cwd(), ORCHESTRY_DIR)))) {
     const { runInit } = await import('../cli/commands/init.js');
@@ -133,6 +127,15 @@ async function main(): Promise<void> {
     await program.parseAsync([...process.argv, 'tui']);
     return;
   }
+
+  // Create context AFTER FTUE check — findProjectRoot() walks up directories
+  // and must not run before auto-init has created .orchestry/ in cwd.
+  const context = createContext({
+    json: globalOpts.json,
+    quiet: globalOpts.quiet,
+    noColor: globalOpts.color === false,
+    ascii: globalOpts.ascii,
+  });
 
   // Decide: light or full container
   const needsFull = !sub || sub in FULL_COMMANDS;
