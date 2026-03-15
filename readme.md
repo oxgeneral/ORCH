@@ -169,8 +169,8 @@ Deploy a full department with one command:
 | `startup-mvp` | CTO, Backend x2, Frontend, QA, Reviewer | Ship an MVP in 48 hours |
 | `pr-review-corp` | Security, Performance, Style, QA, CTO | Automated review for every PR |
 | `migration-squad` | CTO, Migrator x3, QA, Reviewer | JS-to-TS migration over a weekend |
-| `security-dept` | Semgrep, Trivy, Gitleaks, Hunter, Reviewer | Multi-layer security audit |
-| `test-factory` | Coverage, Backend x2, QA x2, Reviewer | Coverage from 40% to 80% overnight |
+| `security-dept` | Lead Auditor, Scanner, Secrets Auditor, Hunter, Reviewer | Multi-layer security audit |
+| `test-factory` | Coverage Lead, Backend x2, QA x2, Reviewer | Coverage from 40% to 80% overnight |
 | `bugfix-dept` | Triager, Fixer x3, QA, Reviewer | 100 issues to 0 in a week |
 
 **Non-Engineering**
@@ -178,8 +178,8 @@ Deploy a full department with one command:
 | Template | Agents | What it does |
 |----------|--------|-------------|
 | `content-agency` | Strategist, Writer x2, Editor, SEO | Content factory: plan, write, edit, optimize |
-| `data-lab` | Shell (pandas, duckdb, matplotlib), Analyst | 3 CSVs → executive report by morning |
-| `sales-machine` | Researcher, Copywriter, Shell (email), QA | Lead gen → personalized sequences → send |
+| `data-lab` | Lead Analyst, Data Engineer | 3 CSVs → executive report by morning |
+| `sales-machine` | Sales Director, SDR x2, Copywriter, Growth Analyst | Outbound pipeline: research, outreach, follow-up, close |
 | `docs-team` | Architect, Writer x2, Editor, Reviewer | Technical docs from codebase analysis |
 
 ```bash

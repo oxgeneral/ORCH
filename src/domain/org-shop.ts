@@ -118,6 +118,46 @@ export const ORG_TEMPLATES: OrgTemplate[] = [
       { shop_key: 'data-engineer', name: 'Data Engineer' },
     ],
   },
+  {
+    key: 'sales-machine',
+    name: 'Sales Machine',
+    description: 'Outbound pipeline: research, outreach, follow-up, close',
+    lead_index: 0,
+    agents: [
+      { shop_key: 'marketer', name: 'Sales Director' },
+      { shop_key: 'content-creator', name: 'SDR' },
+      { shop_key: 'content-creator', name: 'SDR 2' },
+      { shop_key: 'content-creator', name: 'Copywriter' },
+      { shop_key: 'growth-hacker', name: 'Growth Analyst' },
+    ],
+  },
+  {
+    key: 'bugfix-dept',
+    name: 'Bugfix Department',
+    description: '100 issues to 0 in a week',
+    lead_index: 0,
+    agents: [
+      { shop_key: 'architect', name: 'Triager' },
+      { shop_key: 'bug-hunter', name: 'Fixer' },
+      { shop_key: 'bug-hunter', name: 'Fixer 2' },
+      { shop_key: 'bug-hunter', name: 'Fixer 3' },
+      { shop_key: 'qa-engineer', name: 'QA' },
+      { shop_key: 'code-reviewer', name: 'Reviewer' },
+    ],
+  },
+  {
+    key: 'docs-team',
+    name: 'Docs Team',
+    description: 'Technical docs from codebase analysis',
+    lead_index: 0,
+    agents: [
+      { shop_key: 'architect', name: 'Architect' },
+      { shop_key: 'tech-writer', name: 'Writer' },
+      { shop_key: 'tech-writer', name: 'Writer 2' },
+      { shop_key: 'tech-writer', name: 'Editor' },
+      { shop_key: 'code-reviewer', name: 'Reviewer' },
+    ],
+  },
 ];
 
 export function getOrgTemplateByKey(key: string): OrgTemplate | undefined {
