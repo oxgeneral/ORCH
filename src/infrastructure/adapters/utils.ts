@@ -8,10 +8,8 @@
 import type { ChildProcess } from 'node:child_process';
 import type { AgentEvent } from './interface.js';
 import { readLines } from '../process/process-manager.js';
-import { createTokenUsage } from '../../domain/run.js';
+import { type TokenUsage, createTokenUsage } from '../../domain/run.js';
 import { classifyAdapterError } from '../../domain/errors.js';
-
-export type TokenInfo = import('../../domain/run.js').TokenUsage;
 
 /** Combine system and user prompts. Adapters without native system prompt support use this. */
 export function buildFullPrompt(systemPrompt: string | undefined, userPrompt: string): string {
@@ -27,7 +25,7 @@ export function buildFullPrompt(systemPrompt: string | undefined, userPrompt: st
 export function extractTokens(
   parsed: Record<string, unknown>,
   opts?: { statsFallback?: boolean },
-): TokenInfo | undefined {
+): TokenUsage | undefined {
   let usage = parsed.usage as Record<string, unknown> | undefined;
 
   if (!usage && opts?.statsFallback) {

@@ -5,6 +5,8 @@
  * Updated on every mutation. Not intended for git.
  */
 
+import type { TokenUsage } from './run.js';
+
 export interface RunningEntry {
   run_id: string;
   agent_id: string;
@@ -33,7 +35,7 @@ export interface OrchestratorState {
     total_runs: number;
     total_tasks_completed: number;
     total_tasks_failed: number;
-    total_tokens: { input: number; output: number; reasoning: number; total: number; cache_read: number; cache_write: number };
+    total_tokens: TokenUsage;
     total_runtime_ms: number;
   };
 }

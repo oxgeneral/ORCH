@@ -12,7 +12,7 @@ import type { OrchestratorConfig } from '../domain/config.js';
 import type { OrchestratorState, RunningEntry } from '../domain/state.js';
 import type { Task } from '../domain/task.js';
 import { AUTONOMOUS_LABEL } from '../domain/task.js';
-import type { RunEvent } from '../domain/run.js';
+import { type RunEvent, createTokenUsage } from '../domain/run.js';
 import {
   isDispatchable,
   isBlocked,
@@ -974,14 +974,10 @@ export class Orchestrator {
 
         // Capture token usage and result text from done events
         if (event.type === 'done') {
-          if (event.tokens) collectedTokens = {
-            input: event.tokens.input,
-            output: event.tokens.output,
-            reasoning: event.tokens.reasoning ?? 0,
-            total: event.tokens.total,
-            cache_read: event.tokens.cache_read ?? 0,
-            cache_write: event.tokens.cache_write ?? 0,
-          };
+          if (event.tokens) {
+            const { input, output, reasoning, cache_read, cache_write } = event.tokens;
+            collectedTokens = createTokenUsage(input, output, { reasoning, cache_read, cache_write });
+          }
           const data = event.data as Record<string, unknown> | undefined;
           // Claude: { type: 'result', result: '...' }
           // Codex: { type: 'turn.completed', result: '...' }

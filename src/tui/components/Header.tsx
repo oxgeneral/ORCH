@@ -19,6 +19,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { tuiColors, HEAVY_RULE, DOT, LOZENGE, DIAMOND, heavyRule } from '../colors.js';
+import { formatTokens } from '../../cli/output.js';
 import { TABS } from './TabBar.js';
 import type { ViewId } from './TabBar.js';
 import { useAnimTick } from './useAnimTick.js';
@@ -318,7 +319,6 @@ function StatsBar({
 
   /* Token formatting */
   const hasTokens = tokens.total > 0;
-  const fmtK = (n: number): string => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 
   /* Sparkline */
   const sparkWidth = sparklineData && sparklineData.length > 0 ? Math.min(16, sparklineData.length) : 0;
@@ -351,7 +351,7 @@ function StatsBar({
         )}
         {hasTokens && (
           <Text backgroundColor={chipBg.amber} color={tuiColors.cyan}>
-            {' '}{ARROW_UP}{fmtK(tokens.input)} {ARROW_DOWN}{fmtK(tokens.output)}{tokens.reasoning > 0 ? ` ${BRAIN}${fmtK(tokens.reasoning)}` : ''} {DOT} {SIGMA}{fmtK(tokens.total)}{' '}
+            {' '}{ARROW_UP}{formatTokens(tokens.input)} {ARROW_DOWN}{formatTokens(tokens.output)}{tokens.reasoning > 0 ? ` ${BRAIN}${formatTokens(tokens.reasoning)}` : ''} {DOT} {SIGMA}{formatTokens(tokens.total)}{' '}
           </Text>
         )}
       </Box>
