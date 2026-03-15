@@ -128,4 +128,96 @@ describe('ContextStore', () => {
       await expect(fs.access(filePath)).rejects.toThrow();
     });
   });
+
+  describe('_index.json cache', () => {
+    it('creates _index.json on first set()', async () => {
+      await store.set('k1', 'v1');
+      const indexPath = path.join(paths.contextDir, '_index.json');
+      const raw = await fs.readFile(indexPath, 'utf-8');
+      const index = JSON.parse(raw) as Array<{ key: string }>;
+      expect(index).toHaveLength(1);
+      expect(index[0].key).toBe('k1');
+    });
+
+    it('list() reads from _index.json instead of individual files', async () => {
+      await store.set('a', '1');
+      await store.set('b', '2');
+
+      // Verify index has both
+      const entries = await store.list();
+      expect(entries).toHaveLength(2);
+      expect(entries.map(e => e.key)).toEqual(['a', 'b']);
+    });
+
+    it('delete() removes entry from _index.json', async () => {
+      await store.set('a', '1');
+      await store.set('b', '2');
+      await store.delete('a');
+
+      const indexPath = path.join(paths.contextDir, '_index.json');
+      const raw = await fs.readFile(indexPath, 'utf-8');
+      const index = JSON.parse(raw) as Array<{ key: string }>;
+      expect(index).toHaveLength(1);
+      expect(index[0].key).toBe('b');
+    });
+
+    it('rebuilds index when _index.json is missing', async () => {
+      await store.set('x', '1');
+      await store.set('y', '2');
+
+      // Delete the index file
+      const indexPath = path.join(paths.contextDir, '_index.json');
+      await fs.unlink(indexPath);
+
+      // list() should rebuild from individual files
+      const entries = await store.list();
+      expect(entries).toHaveLength(2);
+      expect(entries.map(e => e.key)).toEqual(['x', 'y']);
+
+      // Index should be recreated
+      await expect(fs.access(indexPath)).resolves.not.toThrow();
+    });
+
+    it('rebuilds index when _index.json is corrupted', async () => {
+      await store.set('ok', 'fine');
+
+      // Corrupt the index
+      const indexPath = path.join(paths.contextDir, '_index.json');
+      await fs.writeFile(indexPath, '{{not valid json');
+
+      // list() should rebuild
+      const entries = await store.list();
+      expect(entries).toHaveLength(1);
+      expect(entries[0].key).toBe('ok');
+    });
+
+    it('expired entries cleaned from index on list()', async () => {
+      await store.set('ephemeral', 'gone', 1);
+      await store.set('permanent', 'here');
+
+      await new Promise((r) => setTimeout(r, 10));
+
+      const entries = await store.list();
+      expect(entries).toHaveLength(1);
+      expect(entries[0].key).toBe('permanent');
+
+      // Index should only contain the valid entry
+      const indexPath = path.join(paths.contextDir, '_index.json');
+      const raw = await fs.readFile(indexPath, 'utf-8');
+      const index = JSON.parse(raw) as Array<{ key: string }>;
+      expect(index).toHaveLength(1);
+      expect(index[0].key).toBe('permanent');
+    });
+
+    it('set() updates existing entry in index', async () => {
+      await store.set('k', 'v1');
+      await store.set('k', 'v2');
+
+      const indexPath = path.join(paths.contextDir, '_index.json');
+      const raw = await fs.readFile(indexPath, 'utf-8');
+      const index = JSON.parse(raw) as Array<{ key: string; value: string }>;
+      expect(index).toHaveLength(1);
+      expect(index[0].value).toBe('v2');
+    });
+  });
 });

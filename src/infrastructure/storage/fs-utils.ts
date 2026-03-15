@@ -229,10 +229,26 @@ function parseJsonlLines<T>(lines: string[]): T[] {
 }
 
 /**
+ * Module-level cache of directories already ensured during this process lifetime.
+ * Eliminates redundant fs.mkdir syscalls (~50 per tick loop).
+ */
+const ensuredDirs = new Set<string>();
+
+/**
  * Ensure a directory exists, creating it recursively if needed.
+ * Uses an in-memory cache to skip redundant mkdir syscalls.
  */
 export async function ensureDir(dirPath: string): Promise<void> {
+  if (ensuredDirs.has(dirPath)) return;
   await fs.mkdir(dirPath, { recursive: true });
+  ensuredDirs.add(dirPath);
+}
+
+/**
+ * Clear the ensureDir cache. Intended for tests only.
+ */
+export function clearEnsuredDirs(): void {
+  ensuredDirs.clear();
 }
 
 /**

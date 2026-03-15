@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -11,6 +11,7 @@ import {
   appendJsonl,
   readJsonl,
   ensureDir,
+  clearEnsuredDirs,
   pathExists,
   listFiles,
 } from '../../../src/infrastructure/storage/fs-utils.js';
@@ -137,6 +138,10 @@ describe('appendJsonl / readJsonl', () => {
 });
 
 describe('ensureDir', () => {
+  afterEach(() => {
+    clearEnsuredDirs();
+  });
+
   it('creates nested directories', async () => {
     const dirPath = path.join(tmpDir, 'x', 'y', 'z');
     await ensureDir(dirPath);
@@ -150,6 +155,36 @@ describe('ensureDir', () => {
     await ensureDir(dirPath);
     const stat = await fs.stat(dirPath);
     expect(stat.isDirectory()).toBe(true);
+  });
+
+  it('skips mkdir syscall on second call (cache hit)', async () => {
+    const dirPath = path.join(tmpDir, 'cached');
+    const mkdirSpy = vi.spyOn(fs, 'mkdir');
+
+    await ensureDir(dirPath);
+    expect(mkdirSpy).toHaveBeenCalledTimes(1);
+
+    await ensureDir(dirPath);
+    // Should NOT call mkdir again — served from cache
+    expect(mkdirSpy).toHaveBeenCalledTimes(1);
+
+    mkdirSpy.mockRestore();
+  });
+
+  it('clearEnsuredDirs resets the cache', async () => {
+    const dirPath = path.join(tmpDir, 'resettable');
+    const mkdirSpy = vi.spyOn(fs, 'mkdir');
+
+    await ensureDir(dirPath);
+    expect(mkdirSpy).toHaveBeenCalledTimes(1);
+
+    clearEnsuredDirs();
+
+    await ensureDir(dirPath);
+    // Should call mkdir again after cache was cleared
+    expect(mkdirSpy).toHaveBeenCalledTimes(2);
+
+    mkdirSpy.mockRestore();
   });
 });
 
