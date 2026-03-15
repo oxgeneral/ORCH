@@ -9,12 +9,21 @@
 
 import type { ContextEntry, IContextStore } from './interfaces.js';
 import type { Paths } from './paths.js';
-import { listFiles, readJson, writeJson, ensureDir } from './fs-utils.js';
+import { ensureDir, readJson, writeJson } from './fs-utils.js';
+import { IndexManager } from './index-manager.js';
 import fs from 'node:fs/promises';
-import path from 'node:path';
 
 export class ContextStore implements IContextStore {
-  constructor(private readonly paths: Paths) {}
+  private readonly index: IndexManager<ContextEntry>;
+
+  constructor(private readonly paths: Paths) {
+    this.index = new IndexManager<ContextEntry>({
+      dir: paths.contextDir,
+      ext: '.json',
+      itemPath: (key) => paths.contextPath(key),
+      fileFilter: (f) => f !== '_index.json',
+    });
+  }
 
   async get(key: string): Promise<ContextEntry | null> {
     const entry = await readJson<ContextEntry>(this.paths.contextPath(key));
@@ -53,7 +62,7 @@ export class ContextStore implements IContextStore {
     };
 
     await writeJson(this.paths.contextPath(key), entry);
-    await this.updateIndex(idx => {
+    await this.index.updateIndex(idx => {
       const filtered = idx.filter(e => e.key !== key);
       filtered.push(entry);
       return filtered;
@@ -66,11 +75,11 @@ export class ContextStore implements IContextStore {
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     }
-    await this.updateIndex(idx => idx.filter(e => e.key !== key));
+    await this.index.updateIndex(idx => idx.filter(e => e.key !== key));
   }
 
   async list(): Promise<ContextEntry[]> {
-    const entries = await this.readIndex();
+    const entries = await this.index.readIndex();
 
     // Lazy cleanup of expired entries
     const expired: ContextEntry[] = [];
@@ -87,7 +96,7 @@ export class ContextStore implements IContextStore {
     if (expired.length > 0) {
       // Batch delete expired entries in parallel
       await Promise.all(expired.map(e => this.deleteFile(e.key)));
-      await this.writeIndex(valid);
+      await this.index.writeIndex(valid);
     }
 
     return valid.sort((a, b) => a.key.localeCompare(b.key));
@@ -100,61 +109,6 @@ export class ContextStore implements IContextStore {
       result[entry.key] = entry.value;
     }
     return result;
-  }
-
-  // --- Index management ---
-
-  private get indexPath(): string {
-    return path.join(this.paths.contextDir, '_index.json');
-  }
-
-  /**
-   * Read the index file. Falls back to rebuilding from individual files
-   * if the index is missing or corrupt.
-   */
-  private async readIndex(): Promise<ContextEntry[]> {
-    try {
-      const entries = await readJson<ContextEntry[]>(this.indexPath);
-      if (Array.isArray(entries)) return entries;
-    } catch {
-      // Corrupted JSON — fall through to rebuild
-    }
-    return this.rebuildIndex();
-  }
-
-  /**
-   * Rebuild the index by reading all individual context JSON files.
-   * Used as fallback when _index.json is missing or corrupted.
-   */
-  private async rebuildIndex(): Promise<ContextEntry[]> {
-    await ensureDir(this.paths.contextDir);
-    const files = await listFiles(this.paths.contextDir, '.json');
-
-    const results = await Promise.all(
-      files
-        .filter(f => f !== '_index.json')
-        .map(file => {
-          const key = file.replace('.json', '');
-          return readJson<ContextEntry>(this.paths.contextPath(key));
-        }),
-    );
-
-    const entries = results.filter((e): e is ContextEntry => e !== null);
-    await this.writeIndex(entries);
-    return entries;
-  }
-
-  /** Write the index file atomically. */
-  private async writeIndex(entries: ContextEntry[]): Promise<void> {
-    await ensureDir(this.paths.contextDir);
-    await writeJson(this.indexPath, entries);
-  }
-
-  /** Apply a mutation to the index and write it back. */
-  private async updateIndex(fn: (entries: ContextEntry[]) => ContextEntry[]): Promise<void> {
-    const current = await this.readIndex();
-    const updated = fn(current);
-    await this.writeIndex(updated);
   }
 
   /** Delete just the file (no index update). Used by lazy expiry cleanup. */
