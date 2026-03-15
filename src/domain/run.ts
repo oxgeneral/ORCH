@@ -31,12 +31,28 @@ export interface Run {
 export interface TokenUsage {
   input: number;
   output: number;
+  reasoning: number;
   total: number;
+  /** Cache tokens — informational only, NOT added to total (subset of input). */
+  cache_read: number;
+  cache_write: number;
 }
 
-/** Create TokenUsage with total always computed as input + output. */
-export function createTokenUsage(input: number, output: number): TokenUsage {
-  return { input, output, total: input + output };
+/** Create TokenUsage with total always computed as input + output + reasoning. */
+export function createTokenUsage(
+  input: number,
+  output: number,
+  opts?: { reasoning?: number; cache_read?: number; cache_write?: number },
+): TokenUsage {
+  const reasoning = opts?.reasoning ?? 0;
+  return {
+    input,
+    output,
+    reasoning,
+    total: input + output + reasoning,
+    cache_read: opts?.cache_read ?? 0,
+    cache_write: opts?.cache_write ?? 0,
+  };
 }
 
 export interface RunEvent {

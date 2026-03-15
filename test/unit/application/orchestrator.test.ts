@@ -895,7 +895,7 @@ describe('Orchestrator', () => {
       const adapterEvents: AgentEvent[] = [
         { type: 'output', timestamp: now, data: { text: 'working...' } },
         { type: 'file_change', timestamp: now, data: { path: 'src/foo.ts' } },
-        { type: 'done', timestamp: now, data: { result: 'completed!' }, tokens: { input: 100, output: 200, total: 300 } },
+        { type: 'done', timestamp: now, data: { result: 'completed!' }, tokens: { input: 100, output: 200, reasoning: 0, total: 300, cache_read: 0, cache_write: 0 } },
       ];
 
       const registry = new AdapterRegistry();

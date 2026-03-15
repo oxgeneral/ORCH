@@ -171,9 +171,11 @@ describe('Orchestrator Endurance', () => {
       for (let i = 0; i < 500; i++) {
         const input = 100 + i;
         const output = 200 + i;
+        const reasoning = 50 + i;
         stats.total_tokens.input += input;
         stats.total_tokens.output += output;
-        stats.total_tokens.total = stats.total_tokens.input + stats.total_tokens.output;
+        stats.total_tokens.reasoning += reasoning;
+        stats.total_tokens.total = stats.total_tokens.input + stats.total_tokens.output + stats.total_tokens.reasoning;
         stats.total_runs++;
         stats.total_tasks_completed++;
         stats.total_runtime_ms += 1000 + i;
@@ -181,19 +183,24 @@ describe('Orchestrator Endurance', () => {
 
       expect(Number.isFinite(stats.total_tokens.input)).toBe(true);
       expect(Number.isFinite(stats.total_tokens.output)).toBe(true);
+      expect(Number.isFinite(stats.total_tokens.reasoning)).toBe(true);
       expect(Number.isFinite(stats.total_tokens.total)).toBe(true);
       expect(Number.isNaN(stats.total_tokens.total)).toBe(false);
-      expect(stats.total_tokens.total).toBe(stats.total_tokens.input + stats.total_tokens.output);
+      expect(stats.total_tokens.total).toBe(
+        stats.total_tokens.input + stats.total_tokens.output + stats.total_tokens.reasoning,
+      );
       expect(stats.total_runs).toBe(500);
       expect(stats.total_tasks_completed).toBe(500);
       expect(Number.isFinite(stats.total_runtime_ms)).toBe(true);
 
-      // Verify expected sums: input = sum(100..599), output = sum(200..699)
-      const expectedInput = 500 * 100 + (499 * 500) / 2; // 50000 + 124750
-      const expectedOutput = 500 * 200 + (499 * 500) / 2; // 100000 + 124750
+      // Verify expected sums: input = sum(100..599), output = sum(200..699), reasoning = sum(50..549)
+      const expectedInput = 500 * 100 + (499 * 500) / 2;
+      const expectedOutput = 500 * 200 + (499 * 500) / 2;
+      const expectedReasoning = 500 * 50 + (499 * 500) / 2;
       expect(stats.total_tokens.input).toBe(expectedInput);
       expect(stats.total_tokens.output).toBe(expectedOutput);
-      expect(stats.total_tokens.total).toBe(expectedInput + expectedOutput);
+      expect(stats.total_tokens.reasoning).toBe(expectedReasoning);
+      expect(stats.total_tokens.total).toBe(expectedInput + expectedOutput + expectedReasoning);
     });
 
     it('stats remain correct with zero-token completions', () => {
@@ -203,7 +210,8 @@ describe('Orchestrator Endurance', () => {
         // Some runs report zero tokens
         stats.total_tokens.input += 0;
         stats.total_tokens.output += 0;
-        stats.total_tokens.total = stats.total_tokens.input + stats.total_tokens.output;
+        stats.total_tokens.reasoning += 0;
+        stats.total_tokens.total = stats.total_tokens.input + stats.total_tokens.output + stats.total_tokens.reasoning;
         stats.total_runs++;
       }
 

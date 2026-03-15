@@ -32,7 +32,10 @@ export class StateStore implements IStateStore {
         total_tasks_completed:
           raw.stats?.total_tasks_completed ?? defaults.stats.total_tasks_completed,
         total_tasks_failed: raw.stats?.total_tasks_failed ?? defaults.stats.total_tasks_failed,
-        total_tokens: raw.stats?.total_tokens ?? defaults.stats.total_tokens,
+        total_tokens: {
+          ...defaults.stats.total_tokens,
+          ...(raw.stats?.total_tokens ?? {}),
+        },
         total_runtime_ms: raw.stats?.total_runtime_ms ?? defaults.stats.total_runtime_ms,
       },
     };

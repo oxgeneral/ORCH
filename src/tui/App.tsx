@@ -1219,7 +1219,10 @@ export function App({
   const headerTokens: HeaderTokens = {
     input: liveState.stats.total_tokens.input ?? 0,
     output: liveState.stats.total_tokens.output ?? 0,
+    reasoning: liveState.stats.total_tokens.reasoning ?? 0,
     total: totalTokens,
+    cache_read: liveState.stats.total_tokens.cache_read ?? 0,
+    cache_write: liveState.stats.total_tokens.cache_write ?? 0,
   };
 
   // Fixed rows: Header(5) + gap(1) + SectionLabel(1) + gap(1) + CommandBar(1) = 9

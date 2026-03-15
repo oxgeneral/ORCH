@@ -241,7 +241,7 @@ describe('ClaudeAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('done');
-      expect(events[0]!.tokens).toEqual({ input: 100, output: 50, total: 150 });
+      expect(events[0]!.tokens).toEqual({ input: 100, output: 50, reasoning: 0, total: 150, cache_read: 0, cache_write: 0 });
     });
 
     it('handles non-JSON lines gracefully', async () => {

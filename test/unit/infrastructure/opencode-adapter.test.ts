@@ -262,7 +262,7 @@ describe('OpenCodeAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('done');
-      expect(events[0]!.tokens).toEqual({ input: 12416, output: 2, total: 12418 });
+      expect(events[0]!.tokens).toEqual({ input: 12416, output: 2, reasoning: 0, total: 12418, cache_read: 0, cache_write: 0 });
     });
 
     it('skips step_finish reason=tool-calls (intermediate lifecycle)', async () => {
@@ -408,7 +408,7 @@ describe('OpenCodeAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('done');
-      expect(events[0]!.tokens).toEqual({ input: 7000, output: 1000, total: 8000 });
+      expect(events[0]!.tokens).toEqual({ input: 7000, output: 1000, reasoning: 0, total: 8000, cache_read: 0, cache_write: 0 });
     });
 
     it('parses unknown event type as output', async () => {

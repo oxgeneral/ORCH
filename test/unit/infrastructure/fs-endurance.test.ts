@@ -238,7 +238,7 @@ describe('FS endurance', { timeout: 30_000 }, () => {
         total_runs: 999_999,
         total_tasks_completed: 500_000,
         total_tasks_failed: 10_000,
-        total_tokens: { input: 1_000_000_000, output: 500_000_000, total: 1_500_000_000 },
+        total_tokens: { input: 1_000_000_000, output: 500_000_000, reasoning: 0, total: 1_500_000_000, cache_read: 0, cache_write: 0 },
         total_runtime_ms: 86_400_000 * 10, // 10 days in ms
       },
     };

@@ -45,7 +45,7 @@ describe('StateStore', () => {
         total_runs: 5,
         total_tasks_completed: 3,
         total_tasks_failed: 1,
-        total_tokens: { input: 100, output: 200, total: 300 },
+        total_tokens: { input: 100, output: 200, reasoning: 0, total: 300, cache_read: 0, cache_write: 0 },
         total_runtime_ms: 60000,
       },
     };
@@ -136,5 +136,32 @@ describe('StateStore', () => {
     expect(state.retry_queue).toEqual([]);
     expect(state.stats.total_runs).toBe(10);
     expect(state.stats.total_tasks_completed).toBe(0);
+  });
+
+  it('migrates old total_tokens without reasoning/cache fields', async () => {
+    await fs.writeFile(
+      path.join(tmpDir, '.orchestry', 'state.json'),
+      JSON.stringify({
+        version: 1,
+        running: {},
+        claimed: [],
+        retry_queue: [],
+        stats: {
+          total_runs: 5,
+          total_tasks_completed: 3,
+          total_tasks_failed: 1,
+          total_tokens: { input: 100, output: 200, total: 300 },
+          total_runtime_ms: 60000,
+        },
+      }),
+    );
+
+    const state = await store.read();
+    expect(state.stats.total_tokens.input).toBe(100);
+    expect(state.stats.total_tokens.output).toBe(200);
+    expect(state.stats.total_tokens.total).toBe(300);
+    expect(state.stats.total_tokens.reasoning).toBe(0);
+    expect(state.stats.total_tokens.cache_read).toBe(0);
+    expect(state.stats.total_tokens.cache_write).toBe(0);
   });
 });

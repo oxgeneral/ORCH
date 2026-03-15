@@ -33,7 +33,7 @@ export interface OrchestratorState {
     total_runs: number;
     total_tasks_completed: number;
     total_tasks_failed: number;
-    total_tokens: { input: number; output: number; total: number };
+    total_tokens: { input: number; output: number; reasoning: number; total: number; cache_read: number; cache_write: number };
     total_runtime_ms: number;
   };
 }
@@ -48,7 +48,7 @@ export const DEFAULT_STATE: OrchestratorState = {
     total_runs: 0,
     total_tasks_completed: 0,
     total_tasks_failed: 0,
-    total_tokens: { input: 0, output: 0, total: 0 },
+    total_tokens: { input: 0, output: 0, reasoning: 0, total: 0, cache_read: 0, cache_write: 0 },
     total_runtime_ms: 0,
   },
 };

@@ -114,11 +114,12 @@ function parseOpenCodeEvent(line: string): AgentEvent | null {
 }
 
 /** Extract token usage from opencode step_finish part. */
-function extractOpenCodeTokens(part: Record<string, unknown>): { input: number; output: number; total: number } | undefined {
+function extractOpenCodeTokens(part: Record<string, unknown>): import('../../domain/run.js').TokenUsage | undefined {
   const tokens = part.tokens as Record<string, unknown> | undefined;
   if (!tokens || typeof tokens.input !== 'number') return undefined;
 
   const input = tokens.input;
   const output = typeof tokens.output === 'number' ? tokens.output : 0;
-  return createTokenUsage(input, output);
+  const reasoning = typeof tokens.reasoning === 'number' ? tokens.reasoning : 0;
+  return createTokenUsage(input, output, { reasoning });
 }

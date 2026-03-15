@@ -11,7 +11,7 @@ import { readLines } from '../process/process-manager.js';
 import { createTokenUsage } from '../../domain/run.js';
 import { classifyAdapterError } from '../../domain/errors.js';
 
-export type TokenInfo = { input: number; output: number; total: number };
+export type TokenInfo = import('../../domain/run.js').TokenUsage;
 
 /** Combine system and user prompts. Adapters without native system prompt support use this. */
 export function buildFullPrompt(systemPrompt: string | undefined, userPrompt: string): string {
@@ -38,7 +38,10 @@ export function extractTokens(
   if (usage && typeof usage.input_tokens === 'number') {
     const input = usage.input_tokens;
     const output = typeof usage.output_tokens === 'number' ? usage.output_tokens : 0;
-    return createTokenUsage(input, output);
+    const reasoning = typeof usage.reasoning_tokens === 'number' ? usage.reasoning_tokens : 0;
+    const cache_read = typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : 0;
+    const cache_write = typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : 0;
+    return createTokenUsage(input, output, { reasoning, cache_read, cache_write });
   }
   return undefined;
 }

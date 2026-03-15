@@ -207,7 +207,7 @@ describe('CursorAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('done');
-      expect(events[0]!.tokens).toEqual({ input: 50, output: 25, total: 75 });
+      expect(events[0]!.tokens).toEqual({ input: 50, output: 25, reasoning: 0, total: 75, cache_read: 0, cache_write: 0 });
     });
 
     it('handles non-JSON gracefully', async () => {

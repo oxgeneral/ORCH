@@ -35,6 +35,7 @@ const ARROW_DOWN = '\u2193';         // ↓
 const SIGMA = '\u03A3';              // Σ
 const TRIANGLE_RIGHT = '\u25B6';     // ▶
 const RETRY_ICON = '\u21BB';         // ↻
+const BRAIN = '\u{1F9E0}';              // 🧠
 const BRAILLE_FRAMES = ['\u280B', '\u2819', '\u2839', '\u2838', '\u283C', '\u2834', '\u2826', '\u2827', '\u2807', '\u280F'];
 const SPARK_CHARS = [' ', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
 
@@ -179,7 +180,10 @@ export interface HeaderStats {
 export interface HeaderTokens {
   input: number;
   output: number;
+  reasoning: number;
   total: number;
+  cache_read: number;
+  cache_write: number;
 }
 
 export interface HeaderProps {
@@ -347,7 +351,7 @@ function StatsBar({
         )}
         {hasTokens && (
           <Text backgroundColor={chipBg.amber} color={tuiColors.cyan}>
-            {' '}{ARROW_UP}{fmtK(tokens.input)} {ARROW_DOWN}{fmtK(tokens.output)} {DOT} {SIGMA}{fmtK(tokens.total)}{' '}
+            {' '}{ARROW_UP}{fmtK(tokens.input)} {ARROW_DOWN}{fmtK(tokens.output)}{tokens.reasoning > 0 ? ` ${BRAIN}${fmtK(tokens.reasoning)}` : ''} {DOT} {SIGMA}{fmtK(tokens.total)}{' '}
           </Text>
         )}
       </Box>

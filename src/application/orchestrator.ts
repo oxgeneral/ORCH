@@ -974,7 +974,14 @@ export class Orchestrator {
 
         // Capture token usage and result text from done events
         if (event.type === 'done') {
-          if (event.tokens) collectedTokens = event.tokens;
+          if (event.tokens) collectedTokens = {
+            input: event.tokens.input,
+            output: event.tokens.output,
+            reasoning: event.tokens.reasoning ?? 0,
+            total: event.tokens.total,
+            cache_read: event.tokens.cache_read ?? 0,
+            cache_write: event.tokens.cache_write ?? 0,
+          };
           const data = event.data as Record<string, unknown> | undefined;
           // Claude: { type: 'result', result: '...' }
           // Codex: { type: 'turn.completed', result: '...' }
@@ -1173,7 +1180,11 @@ export class Orchestrator {
     if (tokens) {
       state.stats.total_tokens.input += tokens.input;
       state.stats.total_tokens.output += tokens.output;
-      state.stats.total_tokens.total = state.stats.total_tokens.input + state.stats.total_tokens.output;
+      state.stats.total_tokens.reasoning += tokens.reasoning;
+      state.stats.total_tokens.cache_read += tokens.cache_read;
+      state.stats.total_tokens.cache_write += tokens.cache_write;
+      state.stats.total_tokens.total =
+        state.stats.total_tokens.input + state.stats.total_tokens.output + state.stats.total_tokens.reasoning;
     }
 
     // Auto merge-back: if task used a worktree branch, merge into current branch

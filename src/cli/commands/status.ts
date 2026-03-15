@@ -69,10 +69,17 @@ export function registerStatusCommand(program: Command, container: LightContaine
       }
 
       // Footer
-      const totalTokens = state.stats.total_tokens.total;
+      const tt = state.stats.total_tokens;
+      const tokenParts: string[] = [];
+      if (tt.total > 0) {
+        tokenParts.push(`\u2191${formatTokens(tt.input)}`);
+        tokenParts.push(`\u2193${formatTokens(tt.output)}`);
+        if (tt.reasoning > 0) tokenParts.push(`\u{1F9E0}${formatTokens(tt.reasoning)}`);
+        tokenParts.push(`\u03A3${formatTokens(tt.total)}`);
+      }
       const footer = [
         uptime ? `up ${uptime}` : null,
-        totalTokens > 0 ? `${formatTokens(totalTokens)} tokens` : null,
+        tokenParts.length > 0 ? tokenParts.join(' ') : null,
       ]
         .filter(Boolean)
         .join(' · ');

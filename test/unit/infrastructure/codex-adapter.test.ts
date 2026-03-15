@@ -153,7 +153,7 @@ describe('CodexAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('done');
-      expect(events[0]!.tokens).toEqual({ input: 200, output: 80, total: 280 });
+      expect(events[0]!.tokens).toEqual({ input: 200, output: 80, reasoning: 0, total: 280, cache_read: 0, cache_write: 0 });
     });
 
     it('parses turn.failed as error', async () => {

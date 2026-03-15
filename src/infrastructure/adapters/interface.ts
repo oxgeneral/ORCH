@@ -29,7 +29,7 @@ export interface AgentEvent {
   type: 'output' | 'file_change' | 'command' | 'tool_call' | 'error' | 'done';
   timestamp: string;
   data: unknown;
-  tokens?: { input: number; output: number; total: number };
+  tokens?: { input: number; output: number; reasoning?: number; total: number; cache_read?: number; cache_write?: number };
   errorKind?: AdapterErrorKind;
 }
 
