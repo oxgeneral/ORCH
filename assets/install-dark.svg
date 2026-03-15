@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 160" width="840" height="160">
+  <defs>
+    <linearGradient id="term-bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a1e"/>
+      <stop offset="100%" stop-color="#111114"/>
+    </linearGradient>
+    <linearGradient id="amber-glow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffaf00" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#ffaf00" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#ffaf00" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-10%" width="110%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="12" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Terminal window -->
+  <g filter="url(#shadow)">
+    <rect x="120" y="15" width="600" height="130" rx="10" fill="url(#term-bg)" stroke="#2a2a2a" stroke-width="0.5"/>
+
+    <!-- Title bar -->
+    <rect x="120" y="15" width="600" height="32" rx="10" fill="#1e1e22"/>
+    <rect x="120" y="37" width="600" height="10" fill="#1e1e22"/>
+    <!-- Traffic lights -->
+    <circle cx="142" cy="31" r="5" fill="#ff5f57" opacity="0.8"/>
+    <circle cx="158" cy="31" r="5" fill="#ffbd2e" opacity="0.8"/>
+    <circle cx="174" cy="31" r="5" fill="#28ca42" opacity="0.8"/>
+    <!-- Title -->
+    <text x="420" y="35" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#6b6b6b">terminal</text>
+
+    <!-- Glow effect -->
+    <rect x="120" y="47" width="600" height="98" fill="url(#amber-glow)" rx="0"/>
+
+    <!-- Command 1 -->
+    <text x="145" y="72" font-family="'Courier New', monospace" font-size="13" fill="#6b6b6b">$</text>
+    <text x="162" y="72" font-family="'Courier New', monospace" font-size="13" fill="#f0efe9">npm install -g</text>
+    <text x="302" y="72" font-family="'Courier New', monospace" font-size="13" fill="#ffaf00"> @oxgeneral/orch</text>
+
+    <!-- Command 2 -->
+    <text x="145" y="100" font-family="'Courier New', monospace" font-size="13" fill="#6b6b6b">$</text>
+    <text x="162" y="100" font-family="'Courier New', monospace" font-size="13" fill="#f0efe9">cd ~/your-project &amp;&amp;</text>
+    <text x="382" y="100" font-family="'Courier New', monospace" font-size="13" fill="#ffaf00"> orch</text>
+
+    <!-- Cursor blink -->
+    <rect x="418" y="88" width="8" height="16" fill="#ffaf00" opacity="0.8">
+      <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" repeatCount="indefinite"/>
+    </rect>
+
+    <!-- Result hint -->
+    <text x="145" y="128" font-family="'Courier New', monospace" font-size="10" fill="#4a9" opacity="0.7">
+      ✓ Auto-initializes, opens TUI command center
+    </text>
+  </g>
+</svg>

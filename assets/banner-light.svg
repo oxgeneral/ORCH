@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 320" width="840" height="320">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fafaf8"/>
+      <stop offset="100%" stop-color="#f5f5f0"/>
+    </linearGradient>
+    <linearGradient id="amber-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="amber-shimmer" x1="-100%" y1="0%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+      <animate attributeName="x1" values="-100%;100%;-100%" dur="6s" repeatCount="indefinite"/>
+      <animate attributeName="x2" values="0%;200%;0%" dur="6s" repeatCount="indefinite"/>
+    </linearGradient>
+    <filter id="glow-amber" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="50" result="blur"/>
+      <feComposite in="blur" operator="over"/>
+    </filter>
+    <filter id="glow-sm" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="blur" operator="over"/>
+    </filter>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#000000" stroke-opacity="0.03" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="840" height="320" fill="url(#bg)"/>
+  <rect width="840" height="320" fill="url(#grid)"/>
+
+  <!-- Ambient glow orbs -->
+  <ellipse cx="180" cy="160" rx="200" ry="200" fill="#f59e0b" opacity="0.05" filter="url(#glow-amber)">
+    <animate attributeName="cx" values="180;220;160;180" dur="12s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.05;0.08;0.05" dur="8s" repeatCount="indefinite"/>
+  </ellipse>
+  <ellipse cx="660" cy="140" rx="180" ry="180" fill="#ffaf00" opacity="0.04" filter="url(#glow-amber)">
+    <animate attributeName="cx" values="660;640;680;660" dur="10s" repeatCount="indefinite"/>
+  </ellipse>
+
+  <!-- Diamond logo -->
+  <g transform="translate(420, 95)">
+    <polygon points="0,-32 32,0 0,32 -32,0" fill="url(#amber-grad)" opacity="0.95">
+      <animate attributeName="opacity" values="0.95;1;0.95" dur="4s" repeatCount="indefinite"/>
+    </polygon>
+    <polygon points="0,-20 20,0 0,20 -20,0" fill="#fcd34d" opacity="0.35"/>
+    <circle cx="0" cy="0" r="24" fill="#f59e0b" opacity="0.1" filter="url(#glow-sm)">
+      <animate attributeName="opacity" values="0.1;0.2;0.1" dur="4s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Title -->
+  <text x="420" y="175" text-anchor="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif"
+        font-size="56" font-weight="800" fill="url(#amber-shimmer)" letter-spacing="12">
+    ORCH
+  </text>
+
+  <!-- Animated underline -->
+  <rect x="350" y="190" width="140" height="1.5" fill="#d97706" rx="0.75" opacity="0.5">
+    <animate attributeName="width" values="100;180;100" dur="5s" repeatCount="indefinite"/>
+    <animate attributeName="x" values="370;330;370" dur="5s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.3;0.7;0.3" dur="5s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- Tagline -->
+  <text x="420" y="225" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif"
+        font-size="14" fill="#1a1a1a" opacity="0.9" letter-spacing="0.5">
+    Turn your AI tools into a coordinated engineering team
+  </text>
+
+  <!-- Subtitle -->
+  <text x="420" y="250" text-anchor="middle" font-family="'Courier New', monospace"
+        font-size="11" fill="#888888" letter-spacing="1">
+    AI AGENT RUNTIME &amp; ORCHESTRATOR
+  </text>
+
+  <!-- Bottom stats bar -->
+  <line x1="200" y1="280" x2="640" y2="280" stroke="#000000" stroke-opacity="0.08" stroke-width="0.5"/>
+  <text x="265" y="300" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#888888" letter-spacing="1.5">
+    MIT LICENSE
+  </text>
+  <text x="420" y="300" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#888888" letter-spacing="1.5">
+    ZERO CLOUD
+  </text>
+  <text x="575" y="300" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#888888" letter-spacing="1.5">
+    5 ADAPTERS
+  </text>
+
+  <circle cx="340" cy="297" r="1.5" fill="#d97706" opacity="0.5"/>
+  <circle cx="500" cy="297" r="1.5" fill="#d97706" opacity="0.5"/>
+
+  <!-- Top border accent -->
+  <rect x="0" y="0" width="840" height="2" fill="url(#amber-shimmer)" opacity="0.7"/>
+</svg>

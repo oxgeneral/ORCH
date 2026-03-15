@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 180" width="840" height="180">
+  <defs>
+    <linearGradient id="amber" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ffaf00"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="blur" operator="over"/>
+    </filter>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <rect width="840" height="180" fill="#0a0a0a"/>
+
+  <!-- Main flow: todo → in_progress → review → done -->
+  <!-- todo -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="60" width="120" height="40" rx="20" fill="#161618" stroke="#4a4a4a" stroke-width="1"/>
+    <text x="100" y="84" text-anchor="middle" font-family="'Courier New', monospace" font-size="12" fill="#8a8a8a">todo</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="160" y1="80" x2="220" y2="80" stroke="#ffaf00" stroke-opacity="0.5" stroke-width="1"/>
+  <polygon points="224,80 218,76 218,84" fill="#ffaf00" opacity="0.5"/>
+
+  <!-- in_progress -->
+  <g filter="url(#shadow)">
+    <rect x="225" y="60" width="150" height="40" rx="20" fill="#161618" stroke="#ffaf00" stroke-opacity="0.4" stroke-width="1"/>
+    <text x="300" y="84" text-anchor="middle" font-family="'Courier New', monospace" font-size="12" fill="#ffaf00">in_progress</text>
+    <!-- Animated pulse ring -->
+    <rect x="225" y="60" width="150" height="40" rx="20" fill="none" stroke="#ffaf00" stroke-width="0.5">
+      <animate attributeName="stroke-opacity" values="0.4;0.1;0.4" dur="3s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="375" y1="80" x2="445" y2="80" stroke="#ffaf00" stroke-opacity="0.5" stroke-width="1"/>
+  <polygon points="449,80 443,76 443,84" fill="#ffaf00" opacity="0.5"/>
+
+  <!-- review -->
+  <g filter="url(#shadow)">
+    <rect x="450" y="60" width="120" height="40" rx="20" fill="#161618" stroke="#58a8d0" stroke-opacity="0.4" stroke-width="1"/>
+    <text x="510" y="84" text-anchor="middle" font-family="'Courier New', monospace" font-size="12" fill="#58a8d0">review</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="570" y1="80" x2="640" y2="80" stroke="#ffaf00" stroke-opacity="0.5" stroke-width="1"/>
+  <polygon points="644,80 638,76 638,84" fill="#ffaf00" opacity="0.5"/>
+
+  <!-- done -->
+  <g filter="url(#shadow)">
+    <rect x="645" y="60" width="120" height="40" rx="20" fill="#161618" stroke="#4a9" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="705" y="84" text-anchor="middle" font-family="'Courier New', monospace" font-size="12" fill="#4a9">done</text>
+    <circle cx="705" cy="80" r="22" fill="none" stroke="#4a9" stroke-opacity="0.15" filter="url(#glow)">
+      <animate attributeName="stroke-opacity" values="0.15;0.05;0.15" dur="4s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Retry branch: in_progress → retrying → in_progress -->
+  <path d="M 300,100 L 300,140 L 400,140" fill="none" stroke="#ffaf00" stroke-opacity="0.3" stroke-width="1" stroke-dasharray="4,3"/>
+  <g filter="url(#shadow)">
+    <rect x="400" y="125" width="120" height="34" rx="17" fill="#161618" stroke="#ffaf00" stroke-opacity="0.2" stroke-width="0.5"/>
+    <text x="460" y="146" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#ffaf00" opacity="0.6">retrying</text>
+  </g>
+  <!-- retrying → in_progress curved arrow back -->
+  <path d="M 400,135 C 360,135 340,115 340,100" fill="none" stroke="#ffaf00" stroke-opacity="0.3" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Failed branch -->
+  <path d="M 520,140 L 600,140" fill="none" stroke="#ff5f57" stroke-opacity="0.3" stroke-width="1" stroke-dasharray="4,3"/>
+  <g filter="url(#shadow)">
+    <rect x="600" y="125" width="100" height="34" rx="17" fill="#161618" stroke="#ff5f57" stroke-opacity="0.2" stroke-width="0.5"/>
+    <text x="650" y="146" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#ff5f57" opacity="0.6">failed</text>
+  </g>
+
+  <!-- Label -->
+  <text x="300" y="25" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#4a4a4a" letter-spacing="2">STATE MACHINE — EVERY TRANSITION VALIDATED</text>
+</svg>
