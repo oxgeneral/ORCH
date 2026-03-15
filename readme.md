@@ -240,6 +240,15 @@ Every department gets the same superpowers: state machine governance, retry, mes
 
 ### Works with every tool — AI or not
 
+<!-- Adapters -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/adapters-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/adapters-light.svg">
+  <img alt="Adapters: Claude, OpenCode, Codex, Cursor, Shell" src="./assets/adapters-dark.svg" width="100%">
+</picture>
+
+<br/>
+
 | Adapter | What it runs | Use as |
 |---------|-------------|--------|
 | `claude` | Claude Code CLI | CTO, Backend, Reviewer, Writer, Analyst |

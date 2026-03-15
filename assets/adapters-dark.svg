@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 280" width="840" height="280">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0e0e12"/>
+      <stop offset="100%" stop-color="#0a0a0e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5eead4"/>
+      <stop offset="100%" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="10" cy="10" r="0.4" fill="#ffffff" opacity="0.04"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="840" height="280" fill="url(#bg)"/>
+  <rect width="840" height="280" fill="url(#dots)"/>
+
+  <!-- Title -->
+  <text x="420" y="40" text-anchor="middle" font-family="'Courier New', monospace"
+        font-size="11" fill="#6b6b6b" letter-spacing="6">
+    YOUR TOOLS BECOME YOUR EMPLOYEES
+  </text>
+
+  <!-- 5 adapter columns -->
+  <!-- Claude -->
+  <g>
+    <text x="90" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="18" font-weight="700" fill="#f0efe9" letter-spacing="1">Claude</text>
+    <text x="90" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" fill="#6b6b6b">Anthropic</text>
+    <rect x="52" y="142" width="76" height="24" rx="2" fill="none" stroke="#5eead4" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="90" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#5eead4" letter-spacing="1.5">NATIVE</text>
+  </g>
+
+  <!-- Separator -->
+  <line x1="180" y1="85" x2="180" y2="170" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
+
+  <!-- OpenCode -->
+  <g>
+    <text x="270" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="18" font-weight="700" fill="#f0efe9" letter-spacing="1">OpenCode</text>
+    <text x="270" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" fill="#6b6b6b">Multi-provider</text>
+    <rect x="232" y="142" width="76" height="24" rx="2" fill="none" stroke="#5eead4" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="270" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#5eead4" letter-spacing="1.5">NATIVE</text>
+  </g>
+
+  <!-- Separator -->
+  <line x1="360" y1="85" x2="360" y2="170" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
+
+  <!-- Codex -->
+  <g>
+    <text x="420" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="18" font-weight="700" fill="#f0efe9" letter-spacing="1">Codex</text>
+    <text x="420" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" fill="#6b6b6b">OpenAI</text>
+    <rect x="382" y="142" width="76" height="24" rx="2" fill="none" stroke="#5eead4" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="420" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#5eead4" letter-spacing="1.5">NATIVE</text>
+  </g>
+
+  <!-- Separator -->
+  <line x1="510" y1="85" x2="510" y2="170" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
+
+  <!-- Cursor -->
+  <g>
+    <text x="570" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="18" font-weight="700" fill="#f0efe9" letter-spacing="1">Cursor</text>
+    <text x="570" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" fill="#6b6b6b">Cursor CLI</text>
+    <rect x="532" y="142" width="76" height="24" rx="2" fill="none" stroke="#5eead4" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="570" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#5eead4" letter-spacing="1.5">NATIVE</text>
+  </g>
+
+  <!-- Separator -->
+  <line x1="660" y1="85" x2="660" y2="170" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
+
+  <!-- Shell -->
+  <g>
+    <text x="750" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="18" font-weight="700" fill="#f0efe9" letter-spacing="1">Shell</text>
+    <text x="750" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" fill="#6b6b6b">Any CLI Tool</text>
+    <rect x="700" y="142" width="100" height="24" rx="2" fill="none" stroke="#5eead4" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="750" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#5eead4" letter-spacing="1.5">UNIVERSAL</text>
+  </g>
+
+  <!-- Bottom stats bar -->
+  <line x1="60" y1="210" x2="780" y2="210" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>
+
+  <text x="145" y="248" text-anchor="middle" font-family="'Courier New', monospace" font-size="11" fill="#6b6b6b" letter-spacing="1">
+    <tspan fill="#f0efe9" font-weight="700">MIT</tspan> LICENSED
+  </text>
+  <text x="345" y="248" text-anchor="middle" font-family="'Courier New', monospace" font-size="11" fill="#6b6b6b" letter-spacing="1">
+    <tspan fill="#f0efe9" font-weight="700">97</tspan> SOURCE FILES
+  </text>
+  <text x="530" y="248" text-anchor="middle" font-family="'Courier New', monospace" font-size="11" fill="#6b6b6b" letter-spacing="1">
+    <tspan fill="#f0efe9" font-weight="700">100%</tspan> TYPESCRIPT
+  </text>
+  <text x="715" y="248" text-anchor="middle" font-family="'Courier New', monospace" font-size="11" fill="#6b6b6b" letter-spacing="1">
+    <tspan fill="#f0efe9" font-weight="700">ZERO</tspan> RUNTIME DEPS
+  </text>
+</svg>
