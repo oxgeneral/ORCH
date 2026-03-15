@@ -840,7 +840,9 @@ export function App({
         const combined = [...histMsgs, ...prev];
         return combined.length > MAX_MESSAGES ? combined.slice(-MAX_MESSAGES) : combined;
       });
-    }).catch(() => {});
+    }).catch((err) => {
+      process.stderr.write(`[TUI] onLoadHistory error: ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

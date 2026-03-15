@@ -133,11 +133,15 @@ export function registerTuiCommand(program: Command, container: Container): void
         // Load all runs once (not per-task!) to avoid N×M file reads
         const allRuns: Run[] = await container.runService.listAll();
 
+        // Sort by start time descending and filter to runs with meaningful output
+        allRuns.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+        const validRuns = allRuns.filter((r) => r.status === 'succeeded' || r.status === 'failed');
+
         // Progressive loading: first batch = last 3 runs (fast), second = next 7
         const FIRST_BATCH = 3;
         const TOTAL_RUNS = 10;
-        const firstRuns = allRuns.slice(0, FIRST_BATCH);
-        const restRuns = allRuns.slice(FIRST_BATCH, TOTAL_RUNS);
+        const firstRuns = validRuns.slice(0, FIRST_BATCH);
+        const restRuns = validRuns.slice(FIRST_BATCH, TOTAL_RUNS);
 
         const loadRunEvents = async (run: Run): Promise<HistoryEntry[]> => {
           const events = await container.runService.readEventsTail(run.id, 30);
