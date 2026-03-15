@@ -144,7 +144,60 @@ orch org deploy startup-mvp --goal "Build invoicing SaaS with Stripe"
 orch run --all --watch
 ```
 
-<p align="center"><strong>Requirements:</strong> Node.js >= 20. That's it. No database. No cloud. No Docker.</p>
+### System requirements
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**Minimum** — 1-2 agents
+
+| | |
+|---|---|
+| **OS** | macOS, Linux, WSL2 |
+| **CPU** | 2 cores |
+| **RAM** | 4 GB |
+| **Disk** | 300 MB |
+| **Node.js** | >= 20 |
+
+</td>
+<td width="50%" valign="top">
+
+**Recommended** — full department, 4-6 agents
+
+| | |
+|---|---|
+| **OS** | macOS, Linux, WSL2 |
+| **CPU** | 4+ cores |
+| **RAM** | 8 GB |
+| **Disk** | 1 GB |
+| **Node.js** | >= 20 |
+
+</td>
+</tr>
+</table>
+
+<p align="center">No database. No cloud. No Docker. No GPU — LLMs run via API, not locally.</p>
+
+<details>
+<summary><strong>Why does each agent need ~300 MB?</strong></summary>
+
+<br/>
+
+ORCH itself is lightweight (~120 MB). The RAM goes to the **agent CLI processes** that ORCH spawns — each is a separate Node.js/Python runtime:
+
+| Agent process | RAM per instance | Why |
+|---------------|-----------------|-----|
+| Claude Code CLI | 200-400 MB | Full Node.js runtime + context window |
+| OpenCode | 200-400 MB | Node.js + provider SDK |
+| Codex CLI | 150-300 MB | Python runtime + OpenAI SDK |
+| Cursor CLI | 200-400 MB | Electron-based agent |
+| Shell scripts | 10-50 MB | Depends on the tool |
+
+**Formula:** `120 MB (ORCH) + N × ~300 MB` per concurrent agent.
+2 agents ≈ 0.7 GB, 4 agents ≈ 1.3 GB, 6 agents ≈ 2 GB.
+
+</details>
 
 <br/>
 
