@@ -49,6 +49,9 @@ export class IndexManager<T> {
   private readonly fileFilter: (fileName: string) => boolean;
   private readonly readItemFn: (filePath: string) => Promise<T | null>;
 
+  /** Promise-chain mutex to serialize updateIndex read-modify-write cycles. */
+  private mutex: Promise<void> = Promise.resolve();
+
   constructor(config: IndexManagerConfig<T>) {
     this.dir = config.dir;
     this.ext = config.ext;
@@ -101,20 +104,51 @@ export class IndexManager<T> {
     for (const item of results) {
       if (item != null) items.push(item);
     }
-    await this.writeIndex(items);
+    await this.writeIndexUnsafe(items);
     return items;
   }
 
-  /** Write the index file atomically. */
+  /**
+   * Write the index file atomically.
+   * Serialized through the mutex to prevent races with concurrent updateIndex.
+   */
   async writeIndex(items: T[]): Promise<void> {
+    return this.withMutex(() => this.writeIndexUnsafe(items));
+  }
+
+  /**
+   * Apply a mutation to the index and write it back.
+   *
+   * Serialized through a promise-chain mutex to prevent TOCTOU races
+   * where parallel callers could overwrite each other's changes
+   * (e.g. two `orch task add` invocations losing data).
+   */
+  async updateIndex(fn: (items: T[]) => T[]): Promise<void> {
+    return this.withMutex(async () => {
+      const current = await this.readIndex();
+      const updated = fn(current);
+      await this.writeIndexUnsafe(updated);
+    });
+  }
+
+  /** Internal write without mutex — called only from within withMutex. */
+  private async writeIndexUnsafe(items: T[]): Promise<void> {
     await ensureDir(this.dir);
     await writeJson(this.indexPath, items);
   }
 
-  /** Apply a mutation to the index and write it back. */
-  async updateIndex(fn: (items: T[]) => T[]): Promise<void> {
-    const current = await this.readIndex();
-    const updated = fn(current);
-    await this.writeIndex(updated);
+  /** Promise-chain mutex: serializes all index-mutating operations. */
+  private withMutex<R>(fn: () => Promise<R>): Promise<R> {
+    let release: () => void;
+    const next = new Promise<void>((resolve) => { release = resolve; });
+    const prev = this.mutex;
+    this.mutex = next;
+    return prev.then(async () => {
+      try {
+        return await fn();
+      } finally {
+        release!();
+      }
+    });
   }
 }
