@@ -189,6 +189,11 @@ export class Orchestrator {
 
     await this.loadState();
 
+    // Clean up stale running entries from a previous process (crash/restart).
+    // Tasks that were in_progress are NOT retried — they go to 'cancelled' so
+    // agents don't redo already-committed work after a restart.
+    await this.cleanupStaleRunningEntries();
+
     this.state!.pid = process.pid;
     this.state!.started_at = new Date().toISOString();
     await this.saveState();
@@ -1489,6 +1494,74 @@ export class Orchestrator {
 
   private async loadState(): Promise<void> {
     this.state = await this.deps.stateStore.read();
+  }
+
+  /**
+   * On startup, clean up stale running entries left by a crashed/restarted process.
+   *
+   * Instead of marking orphaned tasks as 'failed' (which triggers retry → agents
+   * redo already-committed work), we cancel them. Users can manually reactivate
+   * specific tasks if needed.
+   */
+  private async cleanupStaleRunningEntries(): Promise<void> {
+    const state = this.state!;
+
+    // Phase 1: Clean up stale running entries with dead PIDs (parallel)
+    const deadEntries = Object.entries(state.running).filter(
+      ([, entry]) => !this.deps.processManager.isAlive(entry.pid),
+    );
+    const cleanedTaskIds = new Set<string>();
+
+    if (deadEntries.length > 0) {
+      for (const [taskId] of deadEntries) {
+        delete state.running[taskId];
+        cleanedTaskIds.add(taskId);
+      }
+
+      await Promise.all(
+        deadEntries.map(async ([taskId, entry]) => {
+          await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch((err) => {
+            this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `startup cleanup: setStatus idle for agent ${entry.agent_id}`, fatal: false });
+          });
+          await this.forceTaskCancelled(taskId);
+          await this.deps.runService.finish(entry.run_id, 'cancelled', undefined, 'Orchestrator restarted').catch((err) => {
+            this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `startup cleanup: finish run ${entry.run_id}`, fatal: false });
+          });
+        }),
+      );
+    }
+
+    // Phase 2: Cancel orphaned in_progress tasks — only when we detected a restart
+    // (dead PIDs found). Without dead PIDs, orphans are handled by normal reconcile.
+    if (cleanedTaskIds.size > 0) {
+      const allTasks = await this.cachedTaskStore.list();
+      const orphaned = allTasks.filter(
+        (t) => t.status === 'in_progress' && !state.running[t.id],
+      );
+      if (orphaned.length > 0) {
+        await Promise.all(orphaned.map((t) => this.forceTaskCancelled(t.id)));
+      }
+
+      const cancelledIds = new Set([...cleanedTaskIds, ...orphaned.map((t) => t.id)]);
+      state.retry_queue = state.retry_queue.filter((r) => !cancelledIds.has(r.task_id));
+      await this.saveState();
+    }
+  }
+
+  /** Cancel a task, falling back to direct store write if transition is invalid. */
+  private async forceTaskCancelled(taskId: string): Promise<void> {
+    try {
+      await this.deps.taskService.updateStatus(taskId, 'cancelled');
+    } catch {
+      const task = await this.deps.taskStore.get(taskId);
+      if (task && !isTerminal(task.status)) {
+        task.status = 'cancelled';
+        task.updated_at = new Date().toISOString();
+        await this.deps.taskStore.save(task).catch((err) => {
+          this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `startup cleanup: force-cancel task ${taskId}`, fatal: false });
+        });
+      }
+    }
   }
 
   private async saveState(): Promise<void> {

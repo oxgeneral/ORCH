@@ -398,8 +398,9 @@ describe('Orchestrator', () => {
       const lastState = writes[writes.length - 1]?.[0] as OrchestratorState;
       expect(lastState.running['tsk_deadpid']).toBeUndefined();
 
-      // Should have enqueued retry (attempts=1 < max_attempts=3)
-      expect(lastState.retry_queue.some((r: any) => r.task_id === 'tsk_deadpid')).toBe(true);
+      // On restart, dead-PID tasks are cancelled (not retried) to prevent
+      // re-executing already committed work. Retry queue should be empty.
+      expect(lastState.retry_queue.some((r: any) => r.task_id === 'tsk_deadpid')).toBe(false);
     }, 10_000);
 
     it('handleRunFailure updates task status and enqueues retry (called directly)', async () => {
