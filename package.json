@@ -1,6 +1,6 @@
 {
   "name": "@oxgeneral/orch",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Open-source orchestration for zero-human companies, processes and departments — deploy AI engineering, editorial, sales, analytics teams from your terminal",
   "type": "module",
   "engines": {
