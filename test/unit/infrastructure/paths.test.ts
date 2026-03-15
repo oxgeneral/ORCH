@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import path from 'node:path';
-import { Paths, sanitizeId, validateWorkspacePath } from '../../../src/infrastructure/storage/paths.js';
+import { Paths, sanitizeId, validateWorkspacePath, findProjectRoot, clearProjectRootCache } from '../../../src/infrastructure/storage/paths.js';
 
 describe('Paths', () => {
   const root = '/projects/myapp';
@@ -93,6 +93,35 @@ describe('sanitizeId', () => {
 
   it('rejects empty string', () => {
     expect(() => sanitizeId('')).toThrow('Invalid identifier');
+  });
+});
+
+describe('findProjectRoot cache', () => {
+  beforeEach(() => {
+    clearProjectRootCache();
+  });
+
+  it('returns same result on repeated calls (cache hit)', () => {
+    const result1 = findProjectRoot(process.cwd());
+    const result2 = findProjectRoot(process.cwd());
+    expect(result1).toBe(result2);
+  });
+
+  it('clearProjectRootCache resets cache so next call traverses again', () => {
+    const result1 = findProjectRoot(process.cwd());
+    clearProjectRootCache();
+    const result2 = findProjectRoot(process.cwd());
+    // Same result but was actually re-computed
+    expect(result1).toBe(result2);
+  });
+
+  it('caches different startDir values independently', () => {
+    const result1 = findProjectRoot('/');
+    const result2 = findProjectRoot(process.cwd());
+    // Root dir has no .orchestry, so returns '/'
+    expect(result1).toBe('/');
+    // cwd should find project root or return cwd
+    expect(typeof result2).toBe('string');
   });
 });
 

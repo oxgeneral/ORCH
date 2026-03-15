@@ -547,39 +547,51 @@ export class Orchestrator {
       }
     }
 
-    // Fix stale agent statuses — agents stuck in 'running' with no running entry
+    // Fetch agents and tasks in parallel for stale/orphan detection
     const runningAgentIds = new Set(Object.values(state.running).map((e) => e.agent_id));
-    const allAgents = await this.cachedAgentStore.list();
-    for (const agent of allAgents) {
-      if (agent.status === 'running' && !runningAgentIds.has(agent.id)) {
-        await this.deps.agentService.setStatus(agent.id, 'idle');
-      }
+    const [allAgents, allTasks] = await Promise.all([
+      this.cachedAgentStore.list(),
+      this.cachedTaskStore.list(),
+    ]);
+
+    // Fix stale agent statuses — agents stuck in 'running' with no running entry (parallel)
+    const staleAgents = allAgents.filter(
+      (a) => a.status === 'running' && !runningAgentIds.has(a.id),
+    );
+    if (staleAgents.length > 0) {
+      await Promise.all(
+        staleAgents.map((agent) => this.deps.agentService.setStatus(agent.id, 'idle')),
+      );
     }
 
-    // Fix orphaned tasks — stuck in 'in_progress' with no running entry
-    const allTasks = await this.cachedTaskStore.list();
-    for (const task of allTasks) {
-      if (task.status === 'in_progress' && !state.running[task.id]) {
-        try {
-          await this.deps.taskService.updateStatus(task.id, 'failed');
-        } catch {
-          // If 'failed' transition is invalid, force-write via store
-          task.status = 'failed';
-          task.updated_at = new Date().toISOString();
-          await this.deps.taskStore.save(task).catch((err) => {
-            this.deps.eventBus.emit({
-              type: 'orchestrator:error',
-              error: err instanceof Error ? err.message : String(err),
-              context: `force-write orphaned task ${task.id}`,
-              fatal: false,
+    // Fix orphaned tasks — stuck in 'in_progress' with no running entry (parallel)
+    const orphanedTasks = allTasks.filter(
+      (t) => t.status === 'in_progress' && !state.running[t.id],
+    );
+    if (orphanedTasks.length > 0) {
+      await Promise.all(
+        orphanedTasks.map(async (task) => {
+          try {
+            await this.deps.taskService.updateStatus(task.id, 'failed');
+          } catch {
+            // If 'failed' transition is invalid, force-write via store
+            task.status = 'failed';
+            task.updated_at = new Date().toISOString();
+            await this.deps.taskStore.save(task).catch((err) => {
+              this.deps.eventBus.emit({
+                type: 'orchestrator:error',
+                error: err instanceof Error ? err.message : String(err),
+                context: `force-write orphaned task ${task.id}`,
+                fatal: false,
+              });
             });
+          }
+          this.deps.eventBus.emit({
+            type: 'task:orphaned',
+            taskId: task.id,
           });
-        }
-        this.deps.eventBus.emit({
-          type: 'task:orphaned',
-          taskId: task.id,
-        });
-      }
+        }),
+      );
     }
 
     // Process retry queue — filter builds new array instead of mutating with splice

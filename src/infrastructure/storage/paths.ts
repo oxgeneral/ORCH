@@ -159,16 +159,30 @@ export function validateWorkspacePath(workspacePath: string, projectRoot: string
 }
 
 /**
+ * Module-level cache for findProjectRoot().
+ * Key: resolved startDir, Value: found project root.
+ * Avoids repeated accessSync() traversals on every CLI invocation.
+ */
+const projectRootCache = new Map<string, string>();
+
+/**
  * Resolve project root by walking up from cwd looking for .orchestry/.
  * Returns cwd if not found (for init command).
+ *
+ * Results are cached per startDir to avoid redundant filesystem traversals.
  */
 export function findProjectRoot(startDir: string = process.cwd()): string {
-  let dir = path.resolve(startDir);
+  const resolvedStart = path.resolve(startDir);
+  const cached = projectRootCache.get(resolvedStart);
+  if (cached !== undefined) return cached;
+
+  let dir = resolvedStart;
   const root = path.parse(dir).root;
 
   while (dir !== root) {
     try {
       accessSync(path.join(dir, '.orchestry'));
+      projectRootCache.set(resolvedStart, dir);
       return dir;
     } catch {
       // Not found, go up
@@ -177,5 +191,14 @@ export function findProjectRoot(startDir: string = process.cwd()): string {
   }
 
   // Not found — return original dir (for init command)
+  projectRootCache.set(resolvedStart, startDir);
   return startDir;
+}
+
+/**
+ * Clear the findProjectRoot cache.
+ * Useful in tests or after `orch init` changes the project structure.
+ */
+export function clearProjectRootCache(): void {
+  projectRootCache.clear();
 }
