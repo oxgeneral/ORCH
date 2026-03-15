@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.2 (2026-03-15)
+
+### Features
+
+- **3 new org templates** — `sales-machine` (Sales Director, SDR x2, Copywriter, Growth Analyst), `bugfix-dept` (Triager, Fixer x3, QA, Reviewer), `docs-team` (Docs Lead, Writer x2, Editor, Reviewer)
+
+### Fixes
+
+- **README sync** — agent descriptions in README now match actual code for `security-dept`, `test-factory`, `data-lab`, `sales-machine`
+- **Org template count test** — tightened from `>= 7` to exact `toBe(10)`
+
 ## 1.0.0 (2026-03-14)
 
 First stable release. Production-ready CLI orchestrator for AI agent teams.
