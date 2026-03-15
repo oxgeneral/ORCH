@@ -205,7 +205,7 @@ describe('IndexManager', () => {
       // Seed initial index
       await manager.writeIndex([]);
 
-      // Run two sequential updates — mutex serializes read-modify-write cycles
+      // Run two sequential updates — each completes before the next starts
       await manager.updateIndex((items) => [...items, { id: 'a', name: 'A' }]);
       await manager.updateIndex((items) => [...items, { id: 'b', name: 'B' }]);
 
