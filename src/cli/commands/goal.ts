@@ -28,7 +28,7 @@ export function registerGoalCommand(program: Command, container: LightContainer)
     .option('--description <desc>', 'Goal description')
     .option('--assignee <agentId>', 'Assign to a specific agent')
     .action(async (title: string, opts: { description?: string; assignee?: string }) => {
-      await container.paths.requireInit();
+
       const g = await container.goalService.create({
         title,
         description: opts.description,
@@ -56,7 +56,7 @@ export function registerGoalCommand(program: Command, container: LightContainer)
     .description('List all goals')
     .option('--status <status>', 'Filter by status')
     .action(async (opts: { status?: GoalStatus }) => {
-      await container.paths.requireInit();
+
       const goals = await container.goalService.list(
         opts.status ? { status: opts.status } : undefined,
       );
@@ -86,7 +86,7 @@ export function registerGoalCommand(program: Command, container: LightContainer)
     .command('show <id>')
     .description('Show goal details')
     .action(async (id: string) => {
-      await container.paths.requireInit();
+
       const [g, tasks, progress] = await Promise.all([
         container.goalService.get(id),
         container.goalService.listTasksForGoal(id),
@@ -136,7 +136,7 @@ export function registerGoalCommand(program: Command, container: LightContainer)
     .command('status <id> <status>')
     .description('Change goal status (active, paused, achieved, abandoned)')
     .action(async (id: string, status: string) => {
-      await container.paths.requireInit();
+
       if (!(GOAL_STATUSES as readonly string[]).includes(status)) {
         printError(`Invalid status "${status}". Valid: ${GOAL_STATUSES.join(', ')}`);
         process.exitCode = 1;
@@ -161,7 +161,7 @@ export function registerGoalCommand(program: Command, container: LightContainer)
     .option('--description <desc>', 'New description')
     .option('--assignee <agentId>', 'New assignee (empty string to unassign)')
     .action(async (id: string, opts: { title?: string; description?: string; assignee?: string }) => {
-      await container.paths.requireInit();
+
       const g = await container.goalService.update(id, opts);
 
       if (container.context.json) {
@@ -179,7 +179,7 @@ export function registerGoalCommand(program: Command, container: LightContainer)
     .alias('rm')
     .description('Delete a goal')
     .action(async (id: string) => {
-      await container.paths.requireInit();
+
       await container.goalService.delete(id);
 
       if (container.context.json) {

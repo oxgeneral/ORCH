@@ -15,7 +15,7 @@ import type { ITemplateEngine } from './infrastructure/template/template-engine.
 import type { IProcessManager } from './infrastructure/process/process-manager.js';
 import type { AdapterRegistry } from './infrastructure/adapters/registry.js';
 
-import type { GlobalConfig } from './domain/global-config.js';
+import { type GlobalConfig, DEFAULT_GLOBAL_CONFIG } from './domain/global-config.js';
 import { Paths } from './infrastructure/storage/paths.js';
 import { TaskStore } from './infrastructure/storage/task-store.js';
 import { AgentStore } from './infrastructure/storage/agent-store.js';
@@ -93,10 +93,7 @@ export async function buildLightContainer(context: CliContext): Promise<LightCon
   // Infrastructure — stores
   const configStore = new ConfigStore(paths);
   const globalConfigStore = new GlobalConfigStore();
-  const [config, globalConfig] = await Promise.all([
-    configStore.read(),
-    globalConfigStore.read(),
-  ]);
+  const config = await configStore.read();
   const taskStore = new TaskStore(paths);
   const agentStore = new AgentStore(paths);
   const runStore = new RunStore(paths);
@@ -125,7 +122,7 @@ export async function buildLightContainer(context: CliContext): Promise<LightCon
     stateStore,
     configStore,
     globalConfigStore,
-    globalConfig,
+    globalConfig: DEFAULT_GLOBAL_CONFIG,
     contextStore,
     messageStore,
     goalStore,
@@ -146,6 +143,10 @@ export async function buildLightContainer(context: CliContext): Promise<LightCon
  */
 export async function buildFullContainer(context: CliContext): Promise<Container> {
   const light = await buildLightContainer(context);
+
+  // Read global config (needed by TUI for activity_filter, notifications)
+  const globalConfig = await light.globalConfigStore.read();
+  light.globalConfig = globalConfig;
 
   // Dynamic imports — avoid loading heavy deps at top level
   const [

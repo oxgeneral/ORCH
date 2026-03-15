@@ -19,7 +19,7 @@ import {
   dim,
   agentName,
 } from '../output.js';
-import { openInEditor, toEditorContent, fromEditorContent } from '../editor.js';
+// editor.ts loaded lazily — only needed for task add --edit and task edit
 
 export function registerTaskCommand(program: Command, container: LightContainer): void {
   const task = program
@@ -43,10 +43,9 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .option('--attach <paths>', 'Comma-separated file paths to attach (screenshots, docs)')
     .option('-e, --edit', 'Open $EDITOR to write the description')
     .action(async (title: string, opts) => {
-      await container.paths.requireInit();
-
       let description = opts.description;
       if (opts.edit) {
+        const { openInEditor, toEditorContent, fromEditorContent } = await import('../editor.js');
         const content = await openInEditor(
           toEditorContent({ title, priority: parseInt(opts.priority, 10), description }),
         );
@@ -84,8 +83,6 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .description('List all tasks')
     .option('--status <status>', 'Filter by status')
     .action(async (opts) => {
-      await container.paths.requireInit();
-
       const tasks = await container.taskService.list(
         opts.status ? { status: opts.status } : undefined,
       );
@@ -135,8 +132,6 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .command('show <id>')
     .description('Show task details')
     .action(async (id: string) => {
-      await container.paths.requireInit();
-
       const t = await container.taskService.get(id);
 
       if (container.context.json) {
@@ -222,9 +217,8 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .command('edit <id>')
     .description('Open task in $EDITOR to modify title, priority and description')
     .action(async (id: string) => {
-      await container.paths.requireInit();
-
       const existing = await container.taskService.get(id);
+      const { openInEditor, toEditorContent, fromEditorContent } = await import('../editor.js');
       const attachmentNote = existing.attachments?.length
         ? `\n# Attachments: ${existing.attachments.join(', ')}`
         : '';
@@ -259,7 +253,6 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .command('assign <task-id> <agent-id>')
     .description('Assign task to agent')
     .action(async (taskId: string, agentId: string) => {
-      await container.paths.requireInit();
       const t = await container.taskService.assign(taskId, agentId);
       printSuccess(`Assigned ${t.id} → ${agentId}`);
     });
@@ -269,7 +262,6 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .command('cancel <id>')
     .description('Cancel a task')
     .action(async (id: string) => {
-      await container.paths.requireInit();
       const task = await container.taskService.get(id);
 
       if (task.status === 'in_progress') {
@@ -288,7 +280,6 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .command('approve <id>')
     .description('Approve a task in review')
     .action(async (id: string) => {
-      await container.paths.requireInit();
       await container.taskService.updateStatus(id, 'done');
       printSuccess(`Approved ${id}`);
     });
@@ -299,7 +290,6 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .description('Reject a task and send it back for rework')
     .option('-r, --reason <reason>', 'Feedback for the agent explaining what to fix')
     .action(async (id: string, opts) => {
-      await container.paths.requireInit();
       await container.taskService.reject(id, opts.reason);
       printSuccess(`Rejected ${id} → todo${opts.reason ? ` (reason: ${opts.reason})` : ''}`);
     });
@@ -309,7 +299,6 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .command('retry <id>')
     .description('Retry a failed task')
     .action(async (id: string) => {
-      await container.paths.requireInit();
       await container.taskService.retry(id);
       printSuccess(`Reset ${id} to todo`);
     });

@@ -14,7 +14,7 @@ export function registerTuiCommand(program: Command, container: Container): void
     .command('tui')
     .description('Launch interactive TUI dashboard')
     .action(async () => {
-      await container.paths.requireInit();
+
 
       const tasks = await container.taskService.list();
       const agents = await container.agentService.list();

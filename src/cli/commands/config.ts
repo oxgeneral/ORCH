@@ -22,7 +22,7 @@ export function registerConfigCommand(program: Command, container: LightContaine
     .command('get <key>')
     .description('Get a config value (dot notation)')
     .action(async (key: string) => {
-      await container.paths.requireInit();
+
       const value = await container.configStore.get(key);
 
       if (container.context.json) {
@@ -37,7 +37,7 @@ export function registerConfigCommand(program: Command, container: LightContaine
     .command('set <key> <value>')
     .description('Set a config value (dot notation)')
     .action(async (key: string, value: string) => {
-      await container.paths.requireInit();
+
 
       // Try to parse as JSON, fallback to string
       let parsed: unknown;
@@ -56,7 +56,7 @@ export function registerConfigCommand(program: Command, container: LightContaine
     .command('edit')
     .description('Open config.yml in $EDITOR')
     .action(async () => {
-      await container.paths.requireInit();
+
 
       const editor = process.env['EDITOR'] || process.env['VISUAL'] || 'vi';
       const parts = editor.split(/\s+/);

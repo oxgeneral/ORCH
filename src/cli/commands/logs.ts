@@ -27,7 +27,7 @@ export function registerLogsCommand(program: Command, container: LightContainer)
       follow?: boolean;
       since?: string;
     }) => {
-      await container.paths.requireInit();
+
 
       const sinceMs = opts.since ? parseDuration(opts.since) : undefined;
 

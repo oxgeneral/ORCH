@@ -19,7 +19,7 @@ export function registerMsgCommand(program: Command, container: LightContainer):
     .option('--ttl <ms>', 'TTL in milliseconds')
     .option('--reply-to <msg-id>', 'Reply to a message')
     .action(async (toAgentId: string, body: string, opts) => {
-      await container.paths.requireInit();
+
       const messages = await container.messageService.send({
         channel: 'direct',
         from_agent_id: opts.from ?? 'cli',
@@ -46,7 +46,7 @@ export function registerMsgCommand(program: Command, container: LightContainer):
     .option('--team <team-id>', 'Limit broadcast to team members')
     .option('--ttl <ms>', 'TTL in milliseconds')
     .action(async (body: string, opts) => {
-      await container.paths.requireInit();
+
       const messages = await container.messageService.send({
         channel: 'broadcast',
         from_agent_id: opts.from ?? 'cli',
@@ -68,7 +68,7 @@ export function registerMsgCommand(program: Command, container: LightContainer):
     .command('inbox <agent-id>')
     .description('Show pending messages for an agent')
     .action(async (agentId: string) => {
-      await container.paths.requireInit();
+
       const pending = await container.messageService.listPendingForAgent(agentId);
       if (container.context.json) {
         console.log(JSON.stringify(pending, null, 2));
@@ -91,7 +91,7 @@ export function registerMsgCommand(program: Command, container: LightContainer):
     .description('List all messages')
     .option('--agent <agent-id>', 'Filter by agent (sent or received)')
     .action(async (opts) => {
-      await container.paths.requireInit();
+
       let messages;
       if (opts.agent) {
         messages = await container.messageService.listForAgent(opts.agent);

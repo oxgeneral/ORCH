@@ -15,7 +15,7 @@ import {
   dim,
   agentName,
 } from '../output.js';
-import { openInEditor, agentToEditorContent, agentFromEditorContent } from '../editor.js';
+// editor.ts loaded lazily — only needed for agent add --edit and agent edit
 
 export function registerAgentCommand(program: Command, container: LightContainer): void {
   const agent = program
@@ -37,11 +37,10 @@ export function registerAgentCommand(program: Command, container: LightContainer
     .option('--skills <skills>', 'Comma-separated list of agent skills')
     .option('-e, --edit', 'Open $EDITOR to write the role description')
     .action(async (name: string, opts) => {
-      await container.paths.requireInit();
-
       let role = opts.role;
 
       if (opts.edit) {
+        const { openInEditor, agentToEditorContent, agentFromEditorContent } = await import('../editor.js');
         const initial = agentToEditorContent({ name, model: opts.model, role });
         const edited = await openInEditor(initial);
         const parsed = agentFromEditorContent(edited);
@@ -78,7 +77,6 @@ export function registerAgentCommand(program: Command, container: LightContainer
     .description('Browse and install pre-built agent templates')
     .option('--list', 'Print all templates (non-interactive)')
     .action(async (opts: { list?: boolean }) => {
-      await container.paths.requireInit();
       const { AGENT_SHOP_TEMPLATES } = await import('../../domain/agent-shop.js');
 
       if (opts.list || !process.stdout.isTTY) {
@@ -114,8 +112,6 @@ export function registerAgentCommand(program: Command, container: LightContainer
     .command('list')
     .description('List all agents')
     .action(async () => {
-      await container.paths.requireInit();
-
       const agents = await container.agentService.list();
 
       if (container.context.json) {
@@ -155,8 +151,6 @@ export function registerAgentCommand(program: Command, container: LightContainer
     .command('status <id>')
     .description('Show agent details')
     .action(async (id: string) => {
-      await container.paths.requireInit();
-
       const a = await container.agentService.get(id);
 
       if (container.context.json) {
@@ -195,9 +189,8 @@ export function registerAgentCommand(program: Command, container: LightContainer
     .command('edit <id>')
     .description('Edit an agent in $EDITOR')
     .action(async (id: string) => {
-      await container.paths.requireInit();
-
       const a = await container.agentService.get(id);
+      const { openInEditor, agentToEditorContent, agentFromEditorContent } = await import('../editor.js');
       const initial = agentToEditorContent({
         name: a.name,
         model: a.config.model,
@@ -227,7 +220,6 @@ export function registerAgentCommand(program: Command, container: LightContainer
     .command('remove <id>')
     .description('Remove an agent')
     .action(async (id: string) => {
-      await container.paths.requireInit();
       await container.agentService.remove(id);
       printSuccess(`Removed agent ${id}`);
     });
@@ -237,7 +229,6 @@ export function registerAgentCommand(program: Command, container: LightContainer
     .command('disable <id>')
     .description('Disable an agent')
     .action(async (id: string) => {
-      await container.paths.requireInit();
       await container.agentService.disable(id);
       printSuccess(`Disabled agent ${id}`);
     });
@@ -247,7 +238,6 @@ export function registerAgentCommand(program: Command, container: LightContainer
     .command('enable <id>')
     .description('Enable an agent')
     .action(async (id: string) => {
-      await container.paths.requireInit();
       await container.agentService.enable(id);
       printSuccess(`Enabled agent ${id}`);
     });
@@ -259,7 +249,6 @@ export function registerAgentCommand(program: Command, container: LightContainer
     .option('--on', 'Enable autonomous mode')
     .option('--off', 'Disable autonomous mode')
     .action(async (id: string, opts: { on?: boolean; off?: boolean }) => {
-      await container.paths.requireInit();
       const current = await container.agentService.get(id);
       const enable = opts.on ? true : opts.off ? false : !current.autonomous;
       const a = await container.agentService.setAutonomous(id, enable);

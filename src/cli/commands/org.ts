@@ -46,7 +46,7 @@ export function registerOrgCommand(program: Command, container: LightContainer):
     .description('Deploy a pre-built AI company')
     .option('--goal <goal>', 'Set a goal for the team')
     .action(async (templateKey: string, opts: { goal?: string }) => {
-      await container.paths.requireInit();
+
 
       const template = getOrgTemplateByKey(templateKey);
       if (!template) {

@@ -21,7 +21,7 @@ export function registerStatusCommand(program: Command, container: LightContaine
     .command('status')
     .description('Show orchestrator status')
     .action(async () => {
-      await container.paths.requireInit();
+
 
       const tasks = await container.taskService.list();
       const agents = await container.agentService.list();

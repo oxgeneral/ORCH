@@ -26,7 +26,7 @@ export function registerContextCommand(program: Command, container: LightContain
     .description('Set a shared context entry')
     .option('--ttl <ms>', 'Time-to-live in milliseconds')
     .action(async (key: string, value: string, opts) => {
-      await container.paths.requireInit();
+
 
       const ttlMs = opts.ttl ? parseInt(opts.ttl, 10) : undefined;
       await container.contextStore.set(key, value, ttlMs);
@@ -46,7 +46,7 @@ export function registerContextCommand(program: Command, container: LightContain
     .command('get <key>')
     .description('Get a shared context entry')
     .action(async (key: string) => {
-      await container.paths.requireInit();
+
 
       const entry = await container.contextStore.get(key);
 
@@ -77,7 +77,7 @@ export function registerContextCommand(program: Command, container: LightContain
     .command('list')
     .description('List all shared context entries')
     .action(async () => {
-      await container.paths.requireInit();
+
 
       const entries = await container.contextStore.list();
 
@@ -114,7 +114,7 @@ export function registerContextCommand(program: Command, container: LightContain
     .command('delete <key>')
     .description('Delete a shared context entry')
     .action(async (key: string) => {
-      await container.paths.requireInit();
+
       await container.contextStore.delete(key);
 
       if (!container.context.quiet && !container.context.json) {

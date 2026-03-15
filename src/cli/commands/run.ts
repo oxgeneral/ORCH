@@ -15,7 +15,7 @@ export function registerRunCommand(program: Command, container: Container): void
     .option('--all', 'Run all todo tasks')
     .option('--watch', 'Watch mode: continuous orchestration')
     .action(async (taskId: string | undefined, opts: { all?: boolean; watch?: boolean }) => {
-      await container.paths.requireInit();
+
 
       if (opts.watch) {
         await runWatch(container);
