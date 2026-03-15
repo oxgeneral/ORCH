@@ -516,6 +516,13 @@ export const AGENT_SHOP_TEMPLATES: AgentShopTemplate[] = [
   },
 ];
 
+/** All known shop template keys. */
+export type AgentShopKey =
+  | 'backend-dev' | 'frontend-dev' | 'qa-engineer' | 'code-reviewer'
+  | 'architect' | 'devops-engineer' | 'bug-hunter' | 'tech-writer'
+  | 'marketer' | 'content-creator' | 'growth-hacker' | 'security-auditor'
+  | 'performance-engineer' | 'data-engineer' | 'fullstack-dev';
+
 /** Look up a shop template by its key. */
 export function getShopTemplateByKey(key: string): AgentShopTemplate | undefined {
   return AGENT_SHOP_TEMPLATES.find((t) => t.key === key);

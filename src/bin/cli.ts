@@ -26,6 +26,7 @@ const LIGHT_COMMANDS: Record<string, (program: Command, container: LightContaine
   msg:     async (p, c) => { const m = await import('../cli/commands/msg.js');     m.registerMsgCommand(p, c); },
   goal:    async (p, c) => { const m = await import('../cli/commands/goal.js');    m.registerGoalCommand(p, c); },
   team:    async (p, c) => { const m = await import('../cli/commands/team.js');    m.registerTeamCommand(p, c); },
+  org:     async (p, c) => { const m = await import('../cli/commands/org.js');     m.registerOrgCommand(p, c); },
 };
 
 /** Commands that need orchestrator + adapters + template engine (heavy path). */
@@ -62,6 +63,7 @@ const COMMAND_STUBS: Array<[name: string, description: string]> = [
   ['msg',     'Inter-agent messaging'],
   ['goal',    'Manage goals'],
   ['team',    'Manage teams'],
+  ['org',     'Pre-built AI companies'],
   ['run',     'Run tasks'],
   ['doctor',  'Check adapters and dependencies'],
   ['tui',     'Launch TUI dashboard'],
