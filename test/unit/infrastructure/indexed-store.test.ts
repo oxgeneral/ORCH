@@ -205,12 +205,33 @@ describe('IndexManager', () => {
       // Seed initial index
       await manager.writeIndex([]);
 
-      // Run two updates — last write wins (no locking in IndexManager)
+      // Run two sequential updates — mutex serializes read-modify-write cycles
       await manager.updateIndex((items) => [...items, { id: 'a', name: 'A' }]);
       await manager.updateIndex((items) => [...items, { id: 'b', name: 'B' }]);
 
       const items = await manager.readIndex();
       expect(items).toHaveLength(2);
+    });
+
+    it('concurrent updateIndex calls are serialized by mutex (no data loss)', async () => {
+      const manager = new IndexManager<TestItem>({
+        dir: tmpDir,
+        ext: '.yml',
+        itemPath: (id) => path.join(tmpDir, `${id}.yml`),
+      });
+
+      await manager.writeIndex([]);
+
+      // Fire both updates concurrently — mutex must serialize them
+      // so both A and B end up in the final index (no lost writes)
+      await Promise.all([
+        manager.updateIndex((items) => [...items, { id: 'a', name: 'A' }]),
+        manager.updateIndex((items) => [...items, { id: 'b', name: 'B' }]),
+      ]);
+
+      const items = await manager.readIndex();
+      const ids = items.map((i) => i.id).sort();
+      expect(ids).toEqual(['a', 'b']);
     });
 
     it('rebuildIndex with empty directory returns empty array', async () => {
