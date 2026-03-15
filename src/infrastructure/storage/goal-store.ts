@@ -2,30 +2,33 @@
  * File-based goal store.
  *
  * Goals are stored as individual YAML files in .orchestry/goals/.
+ * An _index.json file caches the full list for fast list() calls.
  * All writes are atomic (temp → rename).
  */
 
 import { GOAL_STATUS_ORDER, type Goal, type GoalStatus } from '../../domain/goal.js';
 import type { IGoalStore } from './interfaces.js';
 import type { Paths } from './paths.js';
-import { listFiles, readYaml, writeYaml } from './fs-utils.js';
+import { ensureDir, writeYaml, readYaml } from './fs-utils.js';
+import { IndexManager } from './index-manager.js';
 import fs from 'node:fs/promises';
 
 export class GoalStore implements IGoalStore {
-  constructor(private readonly paths: Paths) {}
+  private readonly index: IndexManager<Goal>;
+
+  constructor(private readonly paths: Paths) {
+    this.index = new IndexManager<Goal>({
+      dir: paths.goalsDir,
+      ext: '.yml',
+      itemPath: (id) => paths.goalPath(id),
+    });
+  }
 
   async list(filter?: { status?: GoalStatus }): Promise<Goal[]> {
-    const files = await listFiles(this.paths.goalsDir, '.yml');
+    const all = await this.index.readIndex();
 
-    const results = await Promise.all(
-      files.map(file => {
-        const id = file.replace('.yml', '');
-        return readYaml<Goal>(this.paths.goalPath(id));
-      })
-    );
-
-    const goals = results.filter(
-      (goal): goal is Goal => goal !== null && (!filter?.status || goal.status === filter.status)
+    const goals = all.filter(
+      (goal): goal is Goal => goal !== null && (!filter?.status || goal.status === filter.status),
     );
 
     return goals.sort((a, b) => {
@@ -42,7 +45,13 @@ export class GoalStore implements IGoalStore {
   }
 
   async save(goal: Goal): Promise<void> {
+    await ensureDir(this.paths.goalsDir);
     await writeYaml(this.paths.goalPath(goal.id), goal);
+    await this.index.updateIndex((idx) => {
+      const filtered = idx.filter((g) => g.id !== goal.id);
+      filtered.push(goal);
+      return filtered;
+    });
   }
 
   async delete(id: string): Promise<void> {
@@ -51,6 +60,6 @@ export class GoalStore implements IGoalStore {
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     }
+    await this.index.updateIndex((idx) => idx.filter((g) => g.id !== id));
   }
 }
-
