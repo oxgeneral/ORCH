@@ -260,5 +260,58 @@ describe('IndexManager', () => {
       const stat = await fs.stat(subDir);
       expect(stat.isDirectory()).toBe(true);
     });
+
+    it('updateIndex does not deadlock when _index.json is corrupt (insideMutex path)', async () => {
+      const manager = new IndexManager<TestItem>({
+        dir: tmpDir,
+        ext: '.yml',
+        itemPath: (id) => path.join(tmpDir, `${id}.yml`),
+      });
+
+      // Seed one item file so rebuildIndex returns something
+      await writeYaml(path.join(tmpDir, 'existing.yml'), { id: 'existing', name: 'Existing' });
+      // Write corrupt index — will force rebuildIndex inside the mutex
+      await fs.writeFile(path.join(tmpDir, '_index.json'), '{{corrupt');
+
+      // This must complete without deadlocking: updateIndex → withMutex →
+      // readIndex → rebuildIndex (insideMutex=true → writeIndexUnsafe directly)
+      const result = await Promise.race([
+        manager.updateIndex((items) => [...items, { id: 'new', name: 'New' }]),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('deadlock: updateIndex timed out')), 2000),
+        ),
+      ]);
+
+      expect(result).toBeUndefined(); // updateIndex returns void
+
+      // Final index must contain both the rebuilt item and the appended one
+      const final = await manager.readIndex();
+      const ids = final.map((i) => i.id).sort();
+      expect(ids).toEqual(['existing', 'new']);
+    });
+
+    it('standalone rebuildIndex races are serialized (concurrent calls produce consistent index)', async () => {
+      const manager = new IndexManager<TestItem>({
+        dir: tmpDir,
+        ext: '.yml',
+        itemPath: (id) => path.join(tmpDir, `${id}.yml`),
+      });
+
+      await writeYaml(path.join(tmpDir, 'item.yml'), { id: 'item', name: 'Item' });
+
+      // Both concurrent standalone rebuildIndex calls go through withMutex —
+      // the last one wins but neither should corrupt the index
+      const [items1, items2] = await Promise.all([
+        manager.rebuildIndex(),
+        manager.rebuildIndex(),
+      ]);
+
+      expect(items1).toHaveLength(1);
+      expect(items2).toHaveLength(1);
+
+      const final = await manager.readIndex();
+      expect(final).toHaveLength(1);
+      expect(final[0]!.id).toBe('item');
+    });
   });
 });
