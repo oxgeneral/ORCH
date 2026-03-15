@@ -87,13 +87,15 @@ export interface Container extends LightContainer {
 export async function buildLightContainer(context: CliContext): Promise<LightContainer> {
   const paths = new Paths(context.projectRoot);
 
-  // Fail fast if .orchestry/ does not exist
-  await paths.requireInit();
-
   // Infrastructure — stores
   const configStore = new ConfigStore(paths);
   const globalConfigStore = new GlobalConfigStore();
-  const config = await configStore.read();
+
+  // Parallel: check init + read config (saves one I/O round trip)
+  const [, config] = await Promise.all([
+    paths.requireInit(),
+    configStore.read(),
+  ]);
   const taskStore = new TaskStore(paths);
   const agentStore = new AgentStore(paths);
   const runStore = new RunStore(paths);
