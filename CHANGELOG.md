@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.4 (2026-03-15)
+
+### Fixes
+
+- **Restart safety** — orphaned tasks on restart are now cancelled instead of retried, preventing agents from re-executing already committed work
+- **FTUE parent leak** — `orch` in a new folder no longer picks up a parent directory's `.orchestry/` project
+- **Activity feed** — history now loads correctly on startup (sort by recency, filter cancelled runs, log errors instead of silently swallowing)
+
 ## 1.0.3 (2026-03-15)
 
 ### Features
