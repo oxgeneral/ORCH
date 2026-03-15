@@ -249,15 +249,7 @@ Every department gets the same superpowers: state machine governance, retry, mes
 
 <br/>
 
-| Adapter | What it runs | Use as |
-|---------|-------------|--------|
-| `claude` | Claude Code CLI | CTO, Backend, Reviewer, Writer, Analyst |
-| `opencode` | OpenCode (Gemini, DeepSeek via OpenRouter) | Backend, Frontend, Writer |
-| `codex` | OpenAI Codex CLI | Backend, QA |
-| `cursor` | Cursor Agent CLI (headless) | Frontend, Backend |
-| `shell` | **Anything**: `npm test`, `python bot.py`, Semgrep, `curl`, CRM scripts, email senders, data pipelines | QA, Security, DevOps, Sales, Analytics, Content — any role |
-
-The `shell` adapter is the key: **if it runs in a terminal, it's an employee**. This is how ORCH goes beyond engineering — any CLI tool becomes part of your zero-human company.
+The `shell` adapter is the key: **if it runs in a terminal, it's an employee** — `npm test`, `python bot.py`, Semgrep, `curl`, CRM scripts, data pipelines. This is how ORCH goes beyond engineering — any CLI tool becomes part of your zero-human company.
 
 <br/>
 
