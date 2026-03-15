@@ -203,6 +203,15 @@ class DaemonWatcher {
 // client.ts
 async function tryDaemonCall(method: string, params: unknown): Promise<DaemonResult | null> {
   const sockPath = path.join(projectRoot, '.orchestry', 'daemon.sock');
+  const pidPath = path.join(projectRoot, '.orchestry', 'daemon.pid');
+
+  // 0. Validate daemon PID is alive (avoid connecting to stale socket)
+  const pid = await readPidFile(pidPath);
+  if (pid !== null && !isProcessAlive(pid)) {
+    // Stale daemon — clean up and skip to spawn
+    await fs.unlink(sockPath).catch(() => {});
+    await fs.unlink(pidPath).catch(() => {});
+  }
 
   // 1. Try to connect to existing daemon
   try {
@@ -239,7 +248,10 @@ class IdleTracker {
   private timer: NodeJS.Timeout | null = null;
   private readonly timeoutMs: number;
 
-  constructor(timeoutMs = 30 * 60 * 1000) { // 30 min default
+  private onStop: () => Promise<void>;
+
+  constructor(onStop: () => Promise<void>, timeoutMs = 30 * 60 * 1000) {
+    this.onStop = onStop;
     this.timeoutMs = timeoutMs;
   }
 
@@ -248,8 +260,9 @@ class IdleTracker {
     this.timer = setTimeout(() => this.shutdown(), this.timeoutMs);
   }
 
-  private shutdown(): void {
-    // Clean up: unlink socket, unlink PID file, exit
+  private async shutdown(): Promise<void> {
+    // Graceful: stop server + cleanup files, then exit
+    await this.onStop();
     process.exit(0);
   }
 }
@@ -320,7 +333,7 @@ export interface RpcRequest {
 
 export interface RpcResponse {
   jsonrpc: '2.0';
-  id: number;
+  id: number | null;  // null for parse errors per JSON-RPC 2.0 §5
   result?: unknown;
   error?: { code: number; message: string; data?: unknown };
 }
@@ -380,6 +393,9 @@ export class DaemonServer {
     this.server = net.createServer((conn) => this.handleConnection(conn));
     this.server.listen(sockPath);
 
+    // 4b. Enforce socket permissions (not umask-dependent)
+    await fs.chmod(sockPath, 0o600);
+
     // 5. Write PID file
     await this.writePidFile(projectRoot);
 
@@ -411,9 +427,14 @@ export class DaemonServer {
       conn.write(encodeMessage({ jsonrpc: '2.0', id: req.id, result }));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      const isParseError = err instanceof SyntaxError;
       conn.write(encodeMessage({
-        jsonrpc: '2.0', id: 0,
-        error: { code: RPC_ERRORS.INTERNAL_ERROR, message: msg },
+        jsonrpc: '2.0',
+        id: isParseError ? null : (req?.id ?? null),  // JSON-RPC 2.0 §5: null when id unknown
+        error: {
+          code: isParseError ? RPC_ERRORS.PARSE_ERROR : RPC_ERRORS.INTERNAL_ERROR,
+          message: msg,
+        },
       }));
     }
   }
@@ -460,6 +481,7 @@ export class DaemonRouter {
 
 ```typescript
 import net from 'node:net';
+import path from 'node:path';
 import { encodeMessage, parseMessage } from './protocol.js';
 import type { RpcResponse } from './protocol.js';
 
@@ -686,6 +708,7 @@ Integration test: Start daemon, send RPC, verify response matches direct CLI out
 
 | File | Purpose |
 |------|---------|
+| `src/domain/daemon.ts` | DaemonConfig interface, defaults |
 | `src/daemon/protocol.ts` | JSON-RPC 2.0 types, encode/decode |
 | `src/daemon/server.ts` | Unix socket server, connection handling |
 | `src/daemon/router.ts` | Method → service dispatch |
@@ -712,10 +735,10 @@ Integration test: Start daemon, send RPC, verify response matches direct CLI out
 
 ## 12. Success Metrics
 
-| Metric | Current | Target | Measurement |
-|--------|---------|--------|-------------|
-| `orch task list` (warm daemon) | 55ms | <10ms | `scripts/benchmark.ts` |
-| `orch msg inbox <id>` (warm daemon) | 43ms | <8ms | `scripts/benchmark.ts` |
+| Metric | Current | Target (Node.js client) | Target (native/shell client) | Measurement |
+|--------|---------|------------------------|------------------------------|-------------|
+| `orch task list` (warm daemon) | 55ms | <42ms | <10ms | `scripts/benchmark.ts` |
+| `orch msg inbox <id>` (warm daemon) | 43ms | <42ms | <8ms | `scripts/benchmark.ts` |
 | Daemon memory (idle) | N/A | <30MB RSS | `orch daemon status` |
 | Daemon startup time | N/A | <500ms | Time from spawn to socket ready |
 | Fallback reliability | N/A | 100% | If daemon fails, CLI works as before |
