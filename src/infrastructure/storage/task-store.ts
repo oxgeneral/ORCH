@@ -2,33 +2,28 @@
  * File-based task store.
  *
  * Tasks are stored as individual YAML files in .orchestry/tasks/.
+ * An _index.json file caches the full list for fast list() calls.
  * All writes are atomic (temp → rename).
  */
 
 import type { Task, TaskStatus } from '../../domain/task.js';
 import type { ITaskStore } from './interfaces.js';
 import type { Paths } from './paths.js';
-import { listFiles, readYaml, writeYaml, ensureDir } from './fs-utils.js';
+import { listFiles, readYaml, writeYaml, readJson, writeJson, ensureDir } from './fs-utils.js';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 
 export class TaskStore implements ITaskStore {
   constructor(private readonly paths: Paths) {}
 
   async list(filter?: { status?: TaskStatus; goalId?: string }): Promise<Task[]> {
-    await ensureDir(this.paths.tasksDir);
-    const files = await listFiles(this.paths.tasksDir, '.yml');
+    const all = await this.readIndex();
 
-    const tasksResults = await Promise.all(
-      files.map(file => {
-        const id = file.replace('.yml', '');
-        return readYaml<Task>(this.paths.taskPath(id));
-      })
-    );
-
-    const tasks = tasksResults.filter(
-      (task): task is Task => task !== null
-        && (!filter?.status || task.status === filter.status)
-        && (!filter?.goalId || task.goalId === filter.goalId)
+    const tasks = all.filter(
+      (task): task is Task =>
+        task !== null &&
+        (!filter?.status || task.status === filter.status) &&
+        (!filter?.goalId || task.goalId === filter.goalId),
     );
 
     return tasks.sort((a, b) => {
@@ -47,6 +42,11 @@ export class TaskStore implements ITaskStore {
   async save(task: Task): Promise<void> {
     await ensureDir(this.paths.tasksDir);
     await writeYaml(this.paths.taskPath(task.id), task);
+    await this.updateIndex((idx) => {
+      const filtered = idx.filter((t) => t.id !== task.id);
+      filtered.push(task);
+      return filtered;
+    });
   }
 
   async delete(id: string): Promise<void> {
@@ -55,6 +55,60 @@ export class TaskStore implements ITaskStore {
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     }
+    await this.updateIndex((idx) => idx.filter((t) => t.id !== id));
+  }
+
+  // --- Index management ---
+
+  private get indexPath(): string {
+    return path.join(this.paths.tasksDir, '_index.json');
+  }
+
+  /**
+   * Read the index file. Falls back to rebuilding from individual files
+   * if the index is missing or corrupt.
+   */
+  private async readIndex(): Promise<Task[]> {
+    try {
+      const entries = await readJson<Task[]>(this.indexPath);
+      if (Array.isArray(entries)) return entries;
+    } catch {
+      // Corrupted JSON — fall through to rebuild
+    }
+    return this.rebuildIndex();
+  }
+
+  /**
+   * Rebuild the index by reading all individual task YAML files.
+   * Used as fallback when _index.json is missing or corrupted.
+   */
+  private async rebuildIndex(): Promise<Task[]> {
+    await ensureDir(this.paths.tasksDir);
+    const files = await listFiles(this.paths.tasksDir, '.yml');
+
+    const results = await Promise.all(
+      files.map((file) => {
+        const id = file.replace('.yml', '');
+        return readYaml<Task>(this.paths.taskPath(id));
+      }),
+    );
+
+    const tasks = results.filter((t): t is Task => t !== null);
+    await this.writeIndex(tasks);
+    return tasks;
+  }
+
+  /** Write the index file atomically. */
+  private async writeIndex(tasks: Task[]): Promise<void> {
+    await ensureDir(this.paths.tasksDir);
+    await writeJson(this.indexPath, tasks);
+  }
+
+  /** Apply a mutation to the index and write it back. */
+  private async updateIndex(fn: (tasks: Task[]) => Task[]): Promise<void> {
+    const current = await this.readIndex();
+    const updated = fn(current);
+    await this.writeIndex(updated);
   }
 }
 

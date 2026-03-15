@@ -9,7 +9,7 @@ export default defineConfig([
     clean: true,
     sourcemap: false,
     dts: false,
-    minify: false,
+    minify: true,
     treeshake: true,
     define: { 'process.env.NODE_ENV': '"production"' },
     banner: { js: '#!/usr/bin/env node' },
