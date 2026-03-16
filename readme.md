@@ -15,7 +15,7 @@
   <a href="https://www.orch.one/"><img src="https://img.shields.io/badge/website-orch.one-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="Website" /></a>&nbsp;
   <a href="https://www.npmjs.com/package/@oxgeneral/orch"><img src="https://img.shields.io/npm/v/@oxgeneral/orch?style=for-the-badge&color=f59e0b&labelColor=0a0a0a" alt="npm" /></a>&nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="MIT License" /></a>&nbsp;
-  <a href="#development"><img src="https://img.shields.io/badge/tests-1493%20passing-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="Tests" /></a>
+  <a href="#development"><img src="https://img.shields.io/badge/tests-1647%20passing-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="Tests" /></a>
 </p>
 
 <br/>
@@ -25,6 +25,7 @@
   <a href="#start-coordinating-agents-in-30-seconds">Install</a> &bull;
   <a href="#how-your-ai-team-works">How It Works</a> &bull;
   <a href="#why-founders-choose-orch">Features</a> &bull;
+  <a href="#headless-daemon--cicd">Serve</a> &bull;
   <a href="#pre-built-teams--start-with-a-proven-setup">Templates</a> &bull;
   <a href="#full-cli-reference">CLI</a> &bull;
   <a href="#architecture">Architecture</a> &bull;
@@ -373,6 +374,92 @@ orch org export my-team                          # Save your setup as template
 
 <br/>
 
+## Headless daemon & CI/CD
+
+Run ORCH on a server 24/7 — no terminal, no TUI. Structured JSON logs for Datadog, Grafana Loki, or `jq`.
+
+```bash
+# Daemon mode — runs forever, picks up new tasks automatically
+orch serve
+
+# CI/CD mode — process current tasks and exit
+orch serve --once        # exit 0 = all done, exit 1 = has failures
+```
+
+### Options
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--once` | Process all todo tasks and exit | watch mode |
+| `--tick-interval <ms>` | Override polling interval | 10000 |
+| `--log-file <path>` | Tee logs to a file (append) | stdout only |
+| `--log-format json\|text` | Output format | json |
+| `--verbose` | Include `agent:output` events | off |
+
+### Structured logs
+
+Every event is a single JSON line — pipe to any log aggregator:
+
+```json
+{"ts":"2026-03-17T03:00:10.000Z","level":"info","event":"agent:started","agent_id":"agt_abc","task_id":"tsk_123","adapter":"claude"}
+{"ts":"2026-03-17T03:12:45.000Z","level":"info","event":"task:status_changed","task_id":"tsk_123","from":"in_progress","to":"review"}
+{"ts":"2026-03-17T03:12:46.000Z","level":"info","event":"orchestrator:tick","running":0,"queued":2,"heap_mb":142}
+```
+
+### Deploy with pm2 or systemd
+
+<details>
+<summary><strong>pm2</strong></summary>
+
+```bash
+pm2 start "orch serve" --name orch-daemon --cwd ~/my-project
+pm2 logs orch-daemon     # structured JSON logs
+pm2 stop orch-daemon     # SIGINT → graceful shutdown
+```
+
+</details>
+
+<details>
+<summary><strong>systemd</strong></summary>
+
+```ini
+[Unit]
+Description=ORCH AI Agent Daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/user/my-project
+ExecStart=/usr/local/bin/orch serve
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+</details>
+
+### How it works
+
+- **Watch mode** (default): tick loop runs indefinitely. Add tasks from another terminal (`orch task add`) — daemon picks them up on the next tick.
+- **Once mode** (`--once`): processes all existing todo tasks, skips autonomous task seeding, exits when everything reaches a terminal status.
+- **Lock protection**: only one orchestrator per project (reuses `.orchestry/orchestry.lock`). Second `orch serve` exits with a clear error.
+- **Graceful shutdown**: SIGINT/SIGTERM → stops accepting new tasks → waits for running agents → saves state → releases lock.
+- **Heap monitoring**: every tick logs `heap_mb` — catch memory leaks before OOM.
+- **Idle throttling**: logs every 6th idle tick (~60s) to avoid flooding logs when nothing is happening.
+
+<br/>
+
+<!-- Divider -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
+
+<br/>
+
 ## Full CLI reference
 
 <details>
@@ -461,6 +548,8 @@ orch context set <key> <value>                  # Shared context
 ```bash
 orch run --all --watch             # Launch all agents
 orch run <task-id>                 # Run single task
+orch serve                         # Headless daemon (JSON logs)
+orch serve --once                  # CI/CD: process and exit
 orch status                        # Quick overview
 orch logs <run-id>                 # View run logs
 orch tui                           # Command center (TUI)
@@ -521,7 +610,7 @@ src/
 ```bash
 npm run dev            # Run via tsx
 npm run build          # Build ESM + DTS
-npm test               # 1493 tests via Vitest
+npm test               # 1647 tests via Vitest
 npm run typecheck      # Strict TypeScript
 ```
 
@@ -606,6 +695,15 @@ ORCH is open-source (MIT license). You pay only for the AI APIs you already use 
 <br/>
 
 Five adapters: **Claude Code**, **OpenCode** (Gemini, DeepSeek, any OpenRouter model), **Codex**, **Cursor**, and **Shell** (any CLI tool). Your API keys, your tools — ORCH coordinates them.
+
+</details>
+
+<details>
+<summary><strong>Can I run agents 24/7 on a server?</strong></summary>
+
+<br/>
+
+Yes. `orch serve` runs the orchestrator as a headless daemon — no TUI, structured JSON logs to stdout. Deploy with pm2, systemd, or any process manager. Add tasks from another terminal or machine — the daemon picks them up automatically. Graceful shutdown on SIGINT/SIGTERM.
 
 </details>
 
