@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why ORCH — Every pain we solve</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#06060a;--surface:#0b0b10;--border:#161620;
+      --text:#888;--dim:#444;--bright:#eee8e0;
+      --amber:#ffaf00;--green:#34d399;--blue:#60a5fa;
+      --red:#ef4444;--red-soft:#f87171;--purple:#a78bfa;
+      --mono:'JetBrains Mono',monospace;--serif:'Instrument Serif',serif;
+    }
+    html{font-size:15px;scroll-behavior:smooth}
+    body{background:var(--bg);color:var(--text);font-family:var(--mono);font-weight:300;line-height:1.6}
+    body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.02;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+    ::selection{background:var(--amber);color:var(--bg)}
+
+    .hdr{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 2rem;border-bottom:1px solid var(--border)}
+    .logo{font-size:.75rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;text-decoration:none;color:var(--text)}.logo span{color:var(--amber)}
+    .hdr-r{display:flex;gap:1.2rem;align-items:center}
+    .hdr-r a{color:var(--dim);text-decoration:none;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;transition:color .2s}
+    .hdr-r a:hover{color:var(--bright)}
+    .hdr-r .cta{color:var(--amber);border:1px solid rgba(255,175,0,.25);padding:.3rem .8rem}
+
+    /* --- HERO --- */
+    .hero{text-align:center;padding:4rem 2rem 3rem}
+    .hero-tag{display:inline-flex;align-items:center;gap:.4rem;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;color:var(--amber);border:1px solid rgba(255,175,0,.15);padding:.25rem .7rem;margin-bottom:1.5rem}
+    .hero-tag .dot{width:5px;height:5px;background:var(--amber);border-radius:50%;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .hero h1{font-family:var(--serif);font-weight:400;font-size:clamp(1.8rem,4vw,2.8rem);color:var(--bright);line-height:1.15;margin-bottom:.6rem}
+    .hero h1 em{font-style:italic;color:var(--amber)}
+    .hero p{color:var(--dim);font-size:.75rem;max-width:500px;margin:0 auto}
+
+    /* --- COUNTER --- */
+    .counter{text-align:center;padding:0 2rem 2rem;font-size:.7rem;color:var(--dim)}
+    .counter b{color:var(--green);font-weight:500;font-size:1.1rem}
+    .counter .of{color:var(--dim)}
+    .counter .unsolved{color:var(--red-soft)}
+
+    /* --- PAIN CARDS --- */
+    .cards{max-width:820px;margin:0 auto;padding:0 2rem 4rem;display:flex;flex-direction:column;gap:1px}
+
+    .card{
+      display:grid;grid-template-columns:1fr 1fr;
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:4px;overflow:hidden;
+      opacity:0;transform:translateY(15px);
+      transition:opacity .5s,transform .5s;
+    }
+    .card.visible{opacity:1;transform:translateY(0)}
+    .card.solved .solution{border-left-color:rgba(52,211,153,.15)}
+    .card.partial .solution{border-left-color:rgba(255,175,0,.15)}
+    .card.missing .solution{border-left-color:rgba(248,113,113,.15)}
+
+    .pain,.solution{padding:1rem 1.2rem}
+    .pain{position:relative}
+    .pain::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--red);opacity:.4}
+    .solution{border-left:1px solid var(--border)}
+
+    .card-label{font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
+    .pain .card-label{color:var(--red-soft)}
+    .solution .card-label{color:var(--green)}
+    .card.partial .solution .card-label{color:var(--amber)}
+    .card.missing .solution .card-label{color:var(--red-soft)}
+
+    .status-dot{width:5px;height:5px;border-radius:50%}
+    .card.solved .status-dot{background:var(--green)}
+    .card.partial .status-dot{background:var(--amber)}
+    .card.missing .status-dot{background:var(--red)}
+
+    .card-title{font-size:.75rem;color:var(--bright);font-weight:400;margin-bottom:.3rem;line-height:1.4}
+    .card-desc{font-size:.6rem;color:var(--dim);line-height:1.5}
+    .card-desc code{color:var(--amber);font-size:.55rem;background:rgba(255,175,0,.06);padding:.1rem .3rem;border-radius:2px}
+
+    .card-tag{display:inline-block;font-size:.45rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;margin-top:.4rem}
+    .card.solved .card-tag{color:var(--green);border:1px solid rgba(52,211,153,.2)}
+    .card.partial .card-tag{color:var(--amber);border:1px solid rgba(255,175,0,.2)}
+    .card.missing .card-tag{color:var(--red-soft);border:1px solid rgba(248,113,113,.2)}
+
+    /* --- SECTION DIVIDERS --- */
+    .section-div{
+      max-width:820px;margin:2rem auto;padding:0 2rem;
+      display:flex;align-items:center;gap:.8rem;
+    }
+    .section-div::before,.section-div::after{content:'';flex:1;height:1px;background:var(--border)}
+    .section-div span{font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+
+    /* --- BOTTOM CTA --- */
+    .bottom{text-align:center;padding:3rem 2rem 4rem;max-width:600px;margin:0 auto}
+    .bottom h2{font-family:var(--serif);font-size:1.6rem;color:var(--bright);font-weight:400;margin-bottom:.5rem}
+    .bottom h2 em{font-style:italic;color:var(--amber)}
+    .bottom p{color:var(--dim);font-size:.7rem;margin-bottom:1.5rem}
+    .bottom .cta-btn{display:inline-flex;background:var(--amber);color:var(--bg);padding:.65rem 1.6rem;font-family:var(--mono);font-size:.75rem;font-weight:500;text-decoration:none;transition:all .2s}
+    .bottom .cta-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(255,175,0,.3)}
+    .bottom .sub{margin-top:.8rem;font-size:.55rem;color:var(--dim)}
+
+    @media(max-width:640px){
+      .card{grid-template-columns:1fr}
+      .solution{border-left:none;border-top:1px solid var(--border)}
+      .pain::before{display:none}
+    }
+  </style>
+</head>
+<body>
+
+<header class="hdr">
+  <a href="/" class="logo">ORC<span>H</span></a>
+  <div class="hdr-r">
+    <a href="/">&larr; Back</a>
+    <a href="/demo">Demo</a>
+    <a href="https://github.com/oxgeneral/ORCH" class="cta">GitHub</a>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="hero-tag"><span class="dot"></span> Why ORCH</div>
+  <h1>Every pain we <em>already solve</em></h1>
+  <p>10 real problems with multi-agent coordination. How ORCH handles each one. What's still in progress.</p>
+</div>
+
+<div class="counter"><b>10</b> <span class="of">solved &nbsp;&middot;&nbsp;</span> <b style="color:var(--amber)">3</b> <span class="of">in progress &nbsp;&middot;&nbsp;</span> <b style="color:var(--red-soft)">2</b> <span class="unsolved">coming soon</span></div>
+
+<div class="section-div"><span>Coordination</span></div>
+
+<div class="cards">
+
+<div class="card solved">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">Agents overwrite each other's files</div>
+    <div class="card-desc">Two agents edit the same file. Merge conflict. You spend 20 minutes fixing it manually. Work gets lost.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Solved</div>
+    <div class="card-title">Git worktree isolation</div>
+    <div class="card-desc">Each agent works in its own git worktree on a separate branch. Parallel execution without file conflicts. Scope overlap detection prevents assignment of conflicting tasks.</div>
+    <div class="card-tag">shipped</div>
+  </div>
+</div>
+
+<div class="card solved">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">Agent crashes at 2 AM. You don't notice.</div>
+    <div class="card-desc">An agent stalls or dies silently. You wake up to zero progress. Half a night wasted. Context lost on restart.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Solved</div>
+    <div class="card-title">Auto-retry + stall detection</div>
+    <div class="card-desc">Exponential backoff retry with error context. Stall detection kills zombies and re-queues tasks. Previous failure context is injected into retry prompt.</div>
+    <div class="card-tag">shipped</div>
+  </div>
+</div>
+
+<div class="card solved">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">Tab-switching between 3 terminals</div>
+    <div class="card-desc">Constantly switching between Claude, Codex, Cursor tabs. "Which one was doing what?" Cognitive overload. 40-60% of time spent routing, not building.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Solved</div>
+    <div class="card-title">TUI dashboard</div>
+    <div class="card-desc">One terminal. All agents, tasks, goals, activity feed, token costs — real-time. Keyboard-driven. You see everything at a glance.</div>
+    <div class="card-tag">shipped</div>
+  </div>
+</div>
+
+<div class="card solved">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">Copy-pasting context between agents</div>
+    <div class="card-desc">Agent A finished auth module. Agent B needs to know. You manually copy output from one terminal to another. Context gets truncated, lost, or stale.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Solved</div>
+    <div class="card-title">Inter-agent messaging</div>
+    <div class="card-desc">Direct messages, team broadcasts, shared context store. Automatically injected into prompts at dispatch. <code>orch msg send</code> / <code>orch msg broadcast</code></div>
+    <div class="card-tag">shipped</div>
+  </div>
+</div>
+
+<div class="card solved">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">Tasks get lost, no process</div>
+    <div class="card-desc">No formal tracking. "Did that agent finish?" "Was the code reviewed?" Things slip through. Broken code ends up in main.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Solved</div>
+    <div class="card-title">State machine governance</div>
+    <div class="card-desc">Every task flows through <code>todo</code> → <code>in_progress</code> → <code>review</code> → <code>done</code>. Mandatory review gate. Nothing merges without your approval. No task gets lost.</div>
+    <div class="card-tag">shipped</div>
+  </div>
+</div>
+
+</div>
+
+<div class="section-div"><span>Planning</span></div>
+
+<div class="cards">
+
+<div class="card solved">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">"How do I split this into tasks for agents?"</div>
+    <div class="card-desc">You know you want auth. But how to break it into 5 independent tasks that agents can do in parallel? Wrong granularity = wasted time.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Solved</div>
+    <div class="card-title">Goal decomposition</div>
+    <div class="card-desc">Describe your goal in plain English. CTO agent decomposes it into tasks with dependencies and priorities. You review the plan, then run. <code>orch goal add</code></div>
+    <div class="card-tag">shipped</div>
+  </div>
+</div>
+
+<div class="card solved">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">Manually assigning tasks to agents</div>
+    <div class="card-desc">You decide which agent gets which task. Waste time matching capabilities to tasks. Forget an agent is free.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Solved</div>
+    <div class="card-title">Priority dispatch</div>
+    <div class="card-desc">P1-first, goal-linked tasks prioritized. Idle agents automatically pick up next available task by skill match. No manual assignment needed.</div>
+    <div class="card-tag">shipped</div>
+  </div>
+</div>
+
+<div class="card solved">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">"I don't know where to start"</div>
+    <div class="card-desc">New tool, new concepts. Agents, tasks, teams, goals, adapters — too many things at once. You close the tab and go back to Claude.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Solved</div>
+    <div class="card-title">10 org templates</div>
+    <div class="card-desc"><code>orch org deploy startup-mvp</code> — pre-built team with roles, prompts, and workflow. Also: security-dept, test-factory, content-agency, sales-machine, and 5 more.</div>
+    <div class="card-tag">shipped</div>
+  </div>
+</div>
+
+</div>
+
+<div class="section-div"><span>Quality</span></div>
+
+<div class="cards">
+
+<div class="card solved">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">Result is "almost right" — easier to fix yourself</div>
+    <div class="card-desc">Agent's code is 90% there. You need small tweaks. But re-prompting means re-explaining everything. Faster to just edit manually.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Solved</div>
+    <div class="card-title">Rework loop</div>
+    <div class="card-desc">Reject task with feedback → agent retries with your notes injected. Full context preserved. No re-explanation. <code>orch task reject --feedback "fix X"</code></div>
+    <div class="card-tag">shipped</div>
+  </div>
+</div>
+
+<div class="card solved">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">Locked into one AI provider</div>
+    <div class="card-desc">You use Claude for everything because switching is friction. But Codex is better for tests, Cursor for multi-file edits, shell for scripts.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Solved</div>
+    <div class="card-title">5 adapters, one state machine</div>
+    <div class="card-desc">Claude, OpenCode (Gemini/DeepSeek), Codex, Cursor, Shell — all coordinated through the same orchestrator. Best tool for each job.</div>
+    <div class="card-tag">shipped</div>
+  </div>
+</div>
+
+</div>
+
+<div class="section-div"><span>In progress</span></div>
+
+<div class="cards">
+
+<div class="card partial">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">Can't try without API keys</div>
+    <div class="card-desc">You install ORCH but need Claude/Codex API keys to see anything work. 15+ minutes before first "wow". Most people leave before that.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> In progress</div>
+    <div class="card-title"><code>orch demo</code></div>
+    <div class="card-desc">Zero-key demo mode using shell agents. See 3 agents complete 5 tasks in 60 seconds. Full TUI experience without any API credentials.</div>
+    <div class="card-tag">building</div>
+  </div>
+</div>
+
+<div class="card partial">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">Afraid to run on real project</div>
+    <div class="card-desc">"What if agents mess up my code?" Git worktree helps, but the fear of first run is real. You want to see what WOULD happen first.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> In progress</div>
+    <div class="card-title"><code>--dry-run</code> mode</div>
+    <div class="card-desc">Agents plan but don't execute. See "Agent would modify: src/auth.ts (+45, -12)" without touching your code. Try before you commit.</div>
+    <div class="card-tag">building</div>
+  </div>
+</div>
+
+<div class="card partial">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">"Why did the orchestrator do X?"</div>
+    <div class="card-desc">Task stuck in retrying. Why? Who assigned it? When did it stall? You dig through logs. No clear answer in 10 seconds.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> In progress</div>
+    <div class="card-title"><code>orch explain</code></div>
+    <div class="card-desc">Human-readable decision timeline: created → assigned (why this agent) → started → stalled (detected after 5m) → retried → done. One command.</div>
+    <div class="card-tag">building</div>
+  </div>
+</div>
+
+</div>
+
+<div class="section-div"><span>Coming soon</span></div>
+
+<div class="cards">
+
+<div class="card missing">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">No idea how much this will cost</div>
+    <div class="card-desc">You leave agents running overnight. Morning surprise: $87 in API costs. No budget controls. No projection. No pause.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Coming soon</div>
+    <div class="card-title">Budget caps + cost projection</div>
+    <div class="card-desc"><code>max_cost_per_run</code> in config. Auto-pause when budget is exhausted. TUI shows projected total cost based on remaining tasks.</div>
+    <div class="card-tag">planned</div>
+  </div>
+</div>
+
+<div class="card missing">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">No one else is using this</div>
+    <div class="card-desc">Zero adopters listed. No case studies. No testimonials. "If it's good, why is no one using it?" Social proof is missing.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Coming soon</div>
+    <div class="card-title"><code>orch report --share</code></div>
+    <div class="card-desc">Beautiful shareable report after each run: "5 agents, 23 tasks, $14, 89h saved." Post to X/LinkedIn. Every successful run becomes social proof.</div>
+    <div class="card-tag">planned</div>
+  </div>
+</div>
+
+</div>
+
+<div class="bottom">
+  <h2>10 solved. 5 more <em>in progress.</em></h2>
+  <p>ORCH already handles the hardest parts of multi-agent coordination — isolation, retry, state tracking, messaging. The rest is coming fast.</p>
+  <a href="https://github.com/oxgeneral/ORCH#start-coordinating-agents-in-30-seconds" class="cta-btn">Try it on your project &rarr;</a>
+  <div class="sub">MIT license &middot; zero cloud &middot; one npm install</div>
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.15 });
+
+document.querySelectorAll('.card').forEach(c => observer.observe(c));
+</script>
+
+</body>
+</html>
