@@ -3,798 +3,598 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ORCH Demo — Watch 5 AI Agents Ship a Feature</title>
-  <meta name="description" content="Interactive demo: see how ORCH coordinates 5 AI agents to implement OAuth2 in parallel while you sleep.">
+  <title>ORCH — Before vs After</title>
+  <meta name="description" content="See the difference: manual AI agent juggling vs ORCH orchestration.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 
     :root {
-      --bg: #08080a;
-      --surface: #0e0e12;
-      --border: #1a1a22;
-      --border-active: #2a2a35;
-      --text: #c8c8d0;
-      --text-dim: #55555f;
-      --text-bright: #f0efe9;
+      --bg: #06060a;
+      --surface: #0c0c10;
+      --border: #18181f;
+      --text: #999;
+      --dim: #444;
+      --bright: #e8e8e0;
       --amber: #ffaf00;
-      --amber-dim: rgba(255,175,0,0.08);
-      --amber-glow: rgba(255,175,0,0.15);
       --green: #34d399;
-      --green-dim: rgba(52,211,153,0.08);
       --blue: #60a5fa;
-      --blue-dim: rgba(96,165,250,0.08);
-      --red: #f87171;
-      --red-dim: rgba(248,113,113,0.08);
+      --red: #ef4444;
+      --red-soft: #f87171;
       --purple: #a78bfa;
       --mono: 'JetBrains Mono', monospace;
       --serif: 'Instrument Serif', serif;
     }
 
-    html { font-size: 15px; }
-
+    html { font-size: 14px; }
     body {
       background: var(--bg);
       color: var(--text);
       font-family: var(--mono);
       font-weight: 300;
-      line-height: 1.6;
       min-height: 100vh;
-      overflow-x: hidden;
     }
-
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      pointer-events: none;
-      opacity: 0.025;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    }
-
     ::selection { background: var(--amber); color: var(--bg); }
 
-    /* --- LAYOUT --- */
-    .page {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 2rem 1.5rem 4rem;
+    /* --- GRAIN --- */
+    body::before {
+      content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:0.025;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     }
 
     /* --- HEADER --- */
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1.5rem 0;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 2.5rem;
+    .hdr {
+      display:flex;align-items:center;justify-content:space-between;
+      padding:1.2rem 2rem;border-bottom:1px solid var(--border);
     }
-
-    .logo {
-      font-size: 0.8rem;
-      font-weight: 500;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      text-decoration: none;
-      color: var(--text);
-    }
-    .logo span { color: var(--amber); }
-
-    .header-links {
-      display: flex;
-      gap: 1.5rem;
-      align-items: center;
-    }
-    .header-links a {
-      color: var(--text-dim);
-      text-decoration: none;
-      font-size: 0.7rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      transition: color 0.2s;
-    }
-    .header-links a:hover { color: var(--text-bright); }
-    .header-links .install-link {
-      color: var(--amber);
-      border: 1px solid rgba(255,175,0,0.25);
-      padding: 0.35rem 0.9rem;
-    }
-    .header-links .install-link:hover {
-      background: rgba(255,175,0,0.08);
-    }
+    .logo{font-size:0.75rem;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;text-decoration:none;color:var(--text)}
+    .logo span{color:var(--amber)}
+    .hdr-r{display:flex;gap:1.2rem;align-items:center}
+    .hdr-r a{color:var(--dim);text-decoration:none;font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;transition:color .2s}
+    .hdr-r a:hover{color:var(--bright)}
+    .hdr-r .cta{color:var(--amber);border:1px solid rgba(255,175,0,.25);padding:.3rem .8rem}
 
     /* --- INTRO --- */
-    .intro {
-      text-align: center;
-      margin-bottom: 3rem;
+    .intro{text-align:center;padding:3rem 2rem 2rem}
+    .intro h1{font-family:var(--serif);font-weight:400;font-size:clamp(1.6rem,3.5vw,2.4rem);color:var(--bright);line-height:1.2;margin-bottom:.6rem}
+    .intro h1 em{font-style:italic;color:var(--amber)}
+    .intro p{color:var(--dim);font-size:.75rem;max-width:480px;margin:0 auto}
+
+    /* --- SPLIT --- */
+    .split{
+      display:grid;grid-template-columns:1fr 1fr;
+      gap:0;max-width:1100px;margin:2rem auto 0;
+      border:1px solid var(--border);border-radius:6px;overflow:hidden;
+      position:relative;
+    }
+    .split::before{
+      content:'';position:absolute;top:0;bottom:0;left:50%;width:1px;
+      background:var(--border);z-index:2;
     }
 
-    .intro-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.6rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--amber);
-      border: 1px solid rgba(255,175,0,0.2);
-      padding: 0.3rem 0.8rem;
-      margin-bottom: 1.5rem;
+    /* --- PANEL --- */
+    .panel{background:var(--surface);min-height:480px;display:flex;flex-direction:column}
+
+    .panel-hdr{
+      display:flex;align-items:center;gap:.5rem;
+      padding:.6rem 1rem;border-bottom:1px solid var(--border);
+      font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;
     }
-    .intro-badge .dot {
-      width: 5px; height: 5px;
-      background: var(--amber);
-      border-radius: 50%;
-      animation: pulse 2s infinite;
+    .panel-hdr .dot{width:7px;height:7px;border-radius:50%}
+    .panel.chaos .panel-hdr{color:var(--red-soft)}
+    .panel.chaos .panel-hdr .dot{background:var(--red)}
+    .panel.orch .panel-hdr{color:var(--amber)}
+    .panel.orch .panel-hdr .dot{background:var(--amber)}
+
+    .panel-body{flex:1;padding:.8rem;overflow:hidden;position:relative}
+
+    /* --- CHAOS SIDE --- */
+    .tabs{display:flex;gap:0;margin-bottom:.5rem}
+    .tab{
+      padding:.3rem .7rem;font-size:.55rem;color:var(--dim);
+      border:1px solid var(--border);border-bottom:none;
+      cursor:default;transition:all .3s;position:relative;
+      background:rgba(255,255,255,.01);
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
+    .tab.active{color:var(--bright);background:var(--surface);border-color:var(--border)}
+    .tab.crashed{color:var(--red);animation:tabFlash 1s infinite}
+    @keyframes tabFlash{0%,100%{background:rgba(239,68,68,.03)}50%{background:rgba(239,68,68,.1)}}
+
+    .term{
+      background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:3px;
+      padding:.5rem .6rem;font-size:.6rem;line-height:1.7;
+      min-height:140px;position:relative;
+    }
+    .term .ln{opacity:0;transform:translateY(3px);animation:lineIn .25s forwards}
+    @keyframes lineIn{to{opacity:1;transform:translateY(0)}}
+    .term .prompt{color:var(--green)}
+    .term .cmd{color:var(--bright)}
+    .term .out{color:var(--dim)}
+    .term .err{color:var(--red)}
+    .term .warn{color:var(--amber)}
+
+    .chaos-status{
+      margin-top:.5rem;padding:.4rem .6rem;
+      font-size:.55rem;color:var(--dim);
+      border-top:1px solid var(--border);
+    }
+    .chaos-status .val{color:var(--red-soft);font-weight:500}
+    .chaos-status .stress{color:var(--red);font-weight:500;animation:stressPulse 2s infinite}
+    @keyframes stressPulse{0%,100%{opacity:.6}50%{opacity:1}}
+
+    /* --- ORCH SIDE --- */
+    .agents{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.6rem}
+    .ag{
+      display:flex;align-items:center;gap:.5rem;
+      padding:.35rem .5rem;border:1px solid var(--border);border-radius:3px;
+      font-size:.6rem;transition:all .4s;position:relative;overflow:hidden;
+    }
+    .ag::before{
+      content:'';position:absolute;left:0;top:0;bottom:0;width:2px;
+      background:var(--dim);transition:background .3s;
+    }
+    .ag.working{border-color:rgba(96,165,250,.2);background:rgba(96,165,250,.03)}
+    .ag.working::before{background:var(--blue)}
+    .ag.done{border-color:rgba(52,211,153,.2);background:rgba(52,211,153,.03)}
+    .ag.done::before{background:var(--green)}
+    .ag.retry{border-color:rgba(255,175,0,.2);background:rgba(255,175,0,.03)}
+    .ag.retry::before{background:var(--amber)}
+    .ag.review{border-color:rgba(167,139,250,.2);background:rgba(167,139,250,.03)}
+    .ag.review::before{background:var(--purple)}
+
+    .ag-name{color:var(--bright);font-weight:500;width:70px}
+    .ag-task{flex:1;color:var(--dim)}
+    .ag.working .ag-task{color:var(--blue)}
+    .ag.done .ag-task{color:var(--green)}
+    .ag.retry .ag-task{color:var(--amber)}
+    .ag.review .ag-task{color:var(--purple)}
+
+    .ag-bar{width:50px;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+    .ag-fill{height:100%;width:0%;transition:width .5s;border-radius:2px}
+    .ag.working .ag-fill{background:var(--blue)}
+    .ag.done .ag-fill{background:var(--green);width:100%!important}
+    .ag.retry .ag-fill{background:var(--amber)}
+    .ag.review .ag-fill{background:var(--purple);width:100%!important}
+
+    .orch-feed{
+      border-top:1px solid var(--border);padding-top:.4rem;
+      font-size:.55rem;max-height:120px;overflow-y:auto;
+      scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+    }
+    .orch-feed::-webkit-scrollbar{width:3px}
+    .orch-feed::-webkit-scrollbar-thumb{background:var(--border)}
+    .fi{display:flex;gap:.4rem;padding:.15rem 0;opacity:0;animation:lineIn .2s forwards}
+    .fi-t{color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+    .fi-m{color:var(--text)}
+    .fi-m b{color:var(--bright);font-weight:500}
+    .fi-m .ok{color:var(--green)}
+    .fi-m .rt{color:var(--amber)}
+    .fi-m .br{color:var(--blue);font-size:.5rem}
+
+    .orch-stats{
+      display:flex;gap:1rem;padding:.4rem 0;
+      border-top:1px solid var(--border);margin-top:.4rem;
+      font-size:.55rem;
+    }
+    .os-v{color:var(--bright);font-weight:500}
+    .os-v.a{color:var(--amber)}
+    .os-v.g{color:var(--green)}
+
+    /* --- VS BADGE --- */
+    .vs{
+      position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;
+      width:36px;height:36px;border-radius:50%;
+      background:var(--bg);border:1px solid var(--border);
+      display:flex;align-items:center;justify-content:center;
+      font-size:.6rem;font-weight:700;color:var(--dim);
     }
 
-    .intro h1 {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: clamp(1.8rem, 4vw, 2.8rem);
-      color: var(--text-bright);
-      line-height: 1.15;
-      margin-bottom: 0.8rem;
+    /* --- BOTTOM --- */
+    .bottom{
+      max-width:1100px;margin:0 auto;
+      display:grid;grid-template-columns:1fr 1fr;
+      gap:0;border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;
     }
-    .intro h1 em {
-      font-style: italic;
-      color: var(--amber);
+    .bottom-panel{
+      padding:.8rem 1rem;font-size:.7rem;text-align:center;
     }
+    .bottom-panel.chaos-r{border-right:1px solid var(--border)}
+    .bottom-panel .headline{font-family:var(--serif);font-size:1.1rem;color:var(--bright);margin-bottom:.2rem}
+    .bottom-panel.chaos-r .headline{color:var(--red-soft)}
+    .bottom-panel.orch-r .headline{color:var(--green)}
+    .bottom-panel .sub{color:var(--dim);font-size:.6rem}
 
-    .intro p {
-      color: var(--text-dim);
-      font-size: 0.8rem;
-      max-width: 550px;
-      margin: 0 auto;
+    /* --- OUTCOME + CTA --- */
+    .outcome{
+      text-align:center;padding:2.5rem 2rem;max-width:600px;margin:0 auto;
+      opacity:0;transform:translateY(10px);transition:all .6s;
     }
+    .outcome.show{opacity:1;transform:translateY(0)}
+    .outcome h2{font-family:var(--serif);font-size:1.6rem;color:var(--bright);font-weight:400;margin-bottom:.4rem}
+    .outcome h2 em{font-style:italic;color:var(--green)}
+    .outcome p{color:var(--dim);font-size:.75rem;margin-bottom:1.2rem}
+    .outcome .cta{
+      display:inline-flex;background:var(--amber);color:var(--bg);
+      padding:.65rem 1.6rem;font-family:var(--mono);font-size:.75rem;
+      font-weight:500;text-decoration:none;transition:all .2s;
+    }
+    .outcome .cta:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(255,175,0,.3)}
 
-    /* --- SCENARIO --- */
-    .scenario {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 2rem;
+    /* --- START --- */
+    .start-wrap{
+      position:absolute;inset:0;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      background:rgba(6,6,10,.88);backdrop-filter:blur(6px);z-index:10;
+      transition:opacity .5s,visibility .5s;
     }
-
-    .scenario-bar {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.7rem 1rem;
-      background: rgba(255,255,255,0.02);
-      border-bottom: 1px solid var(--border);
-      font-size: 0.65rem;
-      color: var(--text-dim);
+    .start-wrap.gone{opacity:0;visibility:hidden;pointer-events:none}
+    .start-btn{
+      display:inline-flex;align-items:center;gap:.5rem;
+      background:var(--amber);color:var(--bg);border:none;
+      padding:.7rem 1.8rem;font-family:var(--mono);font-size:.8rem;
+      font-weight:500;cursor:pointer;transition:all .2s;
     }
-    .scenario-bar .tag {
-      color: var(--amber);
-      border: 1px solid rgba(255,175,0,0.2);
-      padding: 0.15rem 0.5rem;
-      font-size: 0.6rem;
-      letter-spacing: 0.05em;
-    }
-
-    .scenario-body {
-      padding: 1.2rem 1.2rem 0.6rem;
-    }
-
-    .goal-display {
-      display: flex;
-      align-items: baseline;
-      gap: 0.6rem;
-      padding: 0.8rem 1rem;
-      background: var(--amber-dim);
-      border: 1px solid rgba(255,175,0,0.12);
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      font-size: 0.75rem;
-    }
-    .goal-display .label {
-      color: var(--amber);
-      font-weight: 500;
-      white-space: nowrap;
-    }
-    .goal-display .value {
-      color: var(--text-bright);
-    }
-
-    .team-grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-    }
-
-    .agent-card {
-      background: rgba(255,255,255,0.015);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 0.6rem 0.5rem;
-      text-align: center;
-      transition: all 0.4s ease;
-      position: relative;
-      overflow: hidden;
-    }
-    .agent-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: var(--text-dim);
-      transition: background 0.4s;
-    }
-    .agent-card.working::before { background: var(--blue); }
-    .agent-card.done::before { background: var(--green); }
-    .agent-card.retrying::before { background: var(--amber); }
-    .agent-card.reviewing::before { background: var(--purple); }
-    .agent-card.waiting::before { background: var(--text-dim); }
-
-    .agent-card.working { border-color: rgba(96,165,250,0.2); background: var(--blue-dim); }
-    .agent-card.done { border-color: rgba(52,211,153,0.2); background: var(--green-dim); }
-    .agent-card.retrying { border-color: rgba(255,175,0,0.2); background: var(--amber-dim); }
-    .agent-card.reviewing { border-color: rgba(167,139,250,0.2); background: rgba(167,139,250,0.05); }
-
-    .agent-name {
-      font-size: 0.7rem;
-      font-weight: 500;
-      color: var(--text-bright);
-      margin-bottom: 0.15rem;
-    }
-    .agent-adapter {
-      font-size: 0.55rem;
-      color: var(--text-dim);
-      margin-bottom: 0.3rem;
-    }
-    .agent-status {
-      font-size: 0.55rem;
-      color: var(--text-dim);
-      transition: color 0.3s;
-      min-height: 1.1em;
-    }
-    .agent-card.working .agent-status { color: var(--blue); }
-    .agent-card.done .agent-status { color: var(--green); }
-    .agent-card.retrying .agent-status { color: var(--amber); }
-    .agent-card.reviewing .agent-status { color: var(--purple); }
-
-    .agent-progress {
-      height: 2px;
-      background: var(--border);
-      border-radius: 1px;
-      margin-top: 0.4rem;
-      overflow: hidden;
-    }
-    .agent-progress-fill {
-      height: 100%;
-      width: 0%;
-      border-radius: 1px;
-      transition: width 0.5s ease;
-    }
-    .agent-card.working .agent-progress-fill { background: var(--blue); }
-    .agent-card.done .agent-progress-fill { background: var(--green); width: 100% !important; }
-    .agent-card.retrying .agent-progress-fill { background: var(--amber); }
-    .agent-card.reviewing .agent-progress-fill { background: var(--purple); width: 100% !important; }
-
-    /* --- ACTIVITY FEED --- */
-    .feed {
-      border-top: 1px solid var(--border);
-      padding-top: 0.8rem;
-      margin-bottom: 0.8rem;
-    }
-    .feed-title {
-      font-size: 0.6rem;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.5rem;
-    }
-    .feed-list {
-      max-height: 200px;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: var(--border) transparent;
-    }
-    .feed-list::-webkit-scrollbar { width: 4px; }
-    .feed-list::-webkit-scrollbar-track { background: transparent; }
-    .feed-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-    .feed-item {
-      display: flex;
-      gap: 0.6rem;
-      padding: 0.25rem 0;
-      font-size: 0.65rem;
-      opacity: 0;
-      transform: translateY(4px);
-      animation: feedIn 0.3s forwards;
-    }
-    @keyframes feedIn {
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .feed-time { color: var(--text-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .feed-icon { width: 1.2em; text-align: center; flex-shrink: 0; }
-    .feed-msg { color: var(--text); }
-    .feed-msg strong { color: var(--text-bright); font-weight: 500; }
-    .feed-msg .cost { color: var(--amber); }
-    .feed-msg .branch { color: var(--blue); font-size: 0.6rem; }
-    .feed-msg .retry { color: var(--amber); }
-    .feed-msg .done { color: var(--green); }
-
-    /* --- STATS BAR --- */
-    .run-stats {
-      display: flex;
-      gap: 1.5rem;
-      padding: 0.8rem 0;
-      border-top: 1px solid var(--border);
-      font-size: 0.65rem;
-    }
-    .run-stat .label { color: var(--text-dim); }
-    .run-stat .value { color: var(--text-bright); font-weight: 500; }
-    .run-stat .value.amber { color: var(--amber); }
-    .run-stat .value.green { color: var(--green); }
-
-    /* --- START BUTTON --- */
-    .start-overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: rgba(8,8,10,0.85);
-      backdrop-filter: blur(8px);
-      z-index: 10;
-      transition: opacity 0.5s, visibility 0.5s;
-    }
-    .start-overlay.hidden {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-
-    .start-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      background: var(--amber);
-      color: var(--bg);
-      border: none;
-      padding: 0.8rem 2rem;
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      font-weight: 500;
-      cursor: pointer;
-      letter-spacing: 0.03em;
-      transition: all 0.2s;
-    }
-    .start-btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 20px rgba(255,175,0,0.3);
-    }
-    .start-btn .play { font-size: 1rem; }
-
-    .start-hint {
-      margin-top: 0.8rem;
-      font-size: 0.6rem;
-      color: var(--text-dim);
-    }
-
-    .scenario-wrap {
-      position: relative;
-    }
-
-    /* --- OUTCOME --- */
-    .outcome {
-      text-align: center;
-      padding: 2.5rem 1.5rem;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      margin-bottom: 2rem;
-      opacity: 0;
-      transform: translateY(10px);
-      transition: all 0.6s ease;
-    }
-    .outcome.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .outcome-headline {
-      font-family: var(--serif);
-      font-size: clamp(1.4rem, 3vw, 2rem);
-      color: var(--text-bright);
-      font-weight: 400;
-      margin-bottom: 0.5rem;
-    }
-    .outcome-headline em {
-      font-style: italic;
-      color: var(--green);
-    }
-
-    .outcome-stats {
-      display: flex;
-      justify-content: center;
-      gap: 2rem;
-      margin: 1.2rem 0;
-      font-size: 0.75rem;
-    }
-    .outcome-stat .num {
-      font-size: 1.5rem;
-      font-weight: 500;
-      color: var(--text-bright);
-    }
-    .outcome-stat .num.amber { color: var(--amber); }
-    .outcome-stat .num.green { color: var(--green); }
-    .outcome-stat .lbl { color: var(--text-dim); font-size: 0.6rem; margin-top: 0.1rem; }
-
-    .outcome-sleep {
-      color: var(--text-dim);
-      font-size: 0.75rem;
-      margin-bottom: 1.5rem;
-    }
-    .outcome-sleep strong { color: var(--amber); font-weight: 400; }
-
-    .outcome-cta {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      background: var(--amber);
-      color: var(--bg);
-      text-decoration: none;
-      padding: 0.7rem 1.8rem;
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      font-weight: 500;
-      transition: all 0.2s;
-    }
-    .outcome-cta:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 20px rgba(255,175,0,0.3);
-    }
+    .start-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(255,175,0,.3)}
+    .start-sub{margin-top:.6rem;font-size:.55rem;color:var(--dim)}
 
     /* --- CLOCK --- */
-    .clock {
-      position: fixed;
-      top: 1.2rem;
-      right: 1.5rem;
-      font-size: 1.8rem;
-      font-weight: 300;
-      color: var(--text-dim);
-      font-variant-numeric: tabular-nums;
-      z-index: 50;
-      transition: color 0.5s;
-      letter-spacing: 0.05em;
+    .clock{
+      position:fixed;top:1rem;right:1.8rem;
+      font-size:1.6rem;font-weight:300;color:var(--dim);
+      font-variant-numeric:tabular-nums;z-index:50;
+      letter-spacing:.05em;transition:color .5s;
     }
-    .clock.sleeping { color: rgba(255,175,0,0.3); }
-    .clock.morning { color: var(--green); }
+    .clock.sleep{color:rgba(255,175,0,.25)}
+    .clock.wake{color:var(--green)}
+    .sleep-tag{
+      position:fixed;top:3.2rem;right:1.8rem;
+      font-size:.5rem;color:var(--amber);letter-spacing:.1em;
+      text-transform:uppercase;opacity:0;transition:opacity .5s;z-index:50;
+    }
+    .sleep-tag.on{opacity:1}
 
-    .sleep-indicator {
-      position: fixed;
-      top: 3.5rem;
-      right: 1.5rem;
-      font-size: 0.55rem;
-      color: var(--amber);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      opacity: 0;
-      transition: opacity 0.5s;
-      z-index: 50;
-    }
-    .sleep-indicator.visible { opacity: 1; }
-
-    /* --- RESPONSIVE --- */
-    @media (max-width: 768px) {
-      .team-grid { grid-template-columns: repeat(3, 1fr); }
-      .outcome-stats { gap: 1rem; flex-wrap: wrap; }
-      .clock { font-size: 1.2rem; top: 0.8rem; right: 1rem; }
-      .sleep-indicator { top: 2.5rem; right: 1rem; }
-    }
-    @media (max-width: 480px) {
-      .team-grid { grid-template-columns: repeat(2, 1fr); }
-      .header-links .back-link { display: none; }
+    @media(max-width:768px){
+      .split,.bottom{grid-template-columns:1fr;gap:0}
+      .split::before{display:none}
+      .vs{display:none}
+      .panel{min-height:auto}
+      .bottom-panel.chaos-r{border-right:none;border-bottom:1px solid var(--border)}
     }
   </style>
 </head>
 <body>
 
 <div class="clock" id="clock">22:00</div>
-<div class="sleep-indicator" id="sleepIndicator">you're asleep</div>
+<div class="sleep-tag" id="sleepTag">you're asleep</div>
 
-<div class="page">
-  <header class="header">
-    <a href="/" class="logo">ORC<span>H</span></a>
-    <div class="header-links">
-      <a href="/" class="back-link">&larr; Back to site</a>
-      <a href="https://github.com/oxgeneral/ORCH" class="install-link">npm i -g @oxgeneral/orch</a>
-    </div>
-  </header>
-
-  <div class="intro">
-    <div class="intro-badge"><span class="dot"></span> Interactive Demo</div>
-    <h1>Watch 5 agents ship <em>OAuth2</em></h1>
-    <p>A simulated run showing how ORCH coordinates agents in parallel. Real output structure, real state machine, real messaging.</p>
+<header class="hdr">
+  <a href="/" class="logo">ORC<span>H</span></a>
+  <div class="hdr-r">
+    <a href="/">&larr; Back</a>
+    <a href="https://github.com/oxgeneral/ORCH" class="cta">npm i -g @oxgeneral/orch</a>
   </div>
+</header>
 
-  <div class="scenario-wrap">
-    <div class="start-overlay" id="startOverlay">
-      <button class="start-btn" id="startBtn">
-        <span class="play">&#9654;</span> Start orchestration run
-      </button>
-      <div class="start-hint">Simulated run &middot; no API keys needed &middot; ~45 seconds</div>
-    </div>
+<div class="intro">
+  <h1>Same task. <em>Two realities.</em></h1>
+  <p>6 tasks, 3 AI agents. Left: you manage them manually. Right: ORCH handles it.</p>
+</div>
 
-    <div class="scenario" id="scenario">
-      <div class="scenario-bar">
-        <span class="tag">startup-mvp</span>
-        orch run --all --watch
+<div style="position:relative;max-width:1100px;margin:0 auto;padding:0 2rem">
+
+<div class="start-wrap" id="startWrap">
+  <button class="start-btn" id="startBtn">&#9654; Run both side by side</button>
+  <div class="start-sub">~40 seconds &middot; no API keys</div>
+</div>
+
+<div class="split" id="splitView">
+  <div class="vs">vs</div>
+
+  <!-- LEFT: CHAOS -->
+  <div class="panel chaos">
+    <div class="panel-hdr"><span class="dot"></span> Without ORCH</div>
+    <div class="panel-body" id="chaosBody">
+      <div class="tabs" id="chaosTabs">
+        <div class="tab active" data-t="1">Terminal 1</div>
+        <div class="tab" data-t="2">Terminal 2</div>
+        <div class="tab" data-t="3">Terminal 3</div>
       </div>
-      <div class="scenario-body">
-        <div class="goal-display">
-          <span class="label">GOAL</span>
-          <span class="value">Implement user authentication with OAuth2 + JWT</span>
-        </div>
-
-        <div class="team-grid" id="teamGrid">
-          <div class="agent-card waiting" id="agent-cto">
-            <div class="agent-name">CTO</div>
-            <div class="agent-adapter">claude</div>
-            <div class="agent-status">idle</div>
-            <div class="agent-progress"><div class="agent-progress-fill"></div></div>
-          </div>
-          <div class="agent-card waiting" id="agent-backend-a">
-            <div class="agent-name">Backend A</div>
-            <div class="agent-adapter">claude</div>
-            <div class="agent-status">idle</div>
-            <div class="agent-progress"><div class="agent-progress-fill"></div></div>
-          </div>
-          <div class="agent-card waiting" id="agent-backend-b">
-            <div class="agent-name">Backend B</div>
-            <div class="agent-adapter">codex</div>
-            <div class="agent-status">idle</div>
-            <div class="agent-progress"><div class="agent-progress-fill"></div></div>
-          </div>
-          <div class="agent-card waiting" id="agent-qa">
-            <div class="agent-name">QA</div>
-            <div class="agent-adapter">codex</div>
-            <div class="agent-status">idle</div>
-            <div class="agent-progress"><div class="agent-progress-fill"></div></div>
-          </div>
-          <div class="agent-card waiting" id="agent-reviewer">
-            <div class="agent-name">Reviewer</div>
-            <div class="agent-adapter">claude</div>
-            <div class="agent-status">idle</div>
-            <div class="agent-progress"><div class="agent-progress-fill"></div></div>
-          </div>
-        </div>
-
-        <div class="feed">
-          <div class="feed-title">Activity Feed</div>
-          <div class="feed-list" id="feedList"></div>
-        </div>
-
-        <div class="run-stats" id="runStats">
-          <div class="run-stat"><span class="label">tasks </span><span class="value" id="statTasks">0/6</span></div>
-          <div class="run-stat"><span class="label">agents </span><span class="value" id="statAgents">0 active</span></div>
-          <div class="run-stat"><span class="label">tokens </span><span class="value" id="statTokens">0</span></div>
-          <div class="run-stat"><span class="label">cost </span><span class="value amber" id="statCost">$0.00</span></div>
-          <div class="run-stat"><span class="label">elapsed </span><span class="value" id="statElapsed">0m</span></div>
-        </div>
-      </div>
+      <div class="term" id="chaosTerm"></div>
+      <div class="chaos-status" id="chaosStatus"></div>
     </div>
   </div>
 
-  <div class="outcome" id="outcome">
-    <div class="outcome-headline">6 PRs ready. You were <em>sleeping</em>.</div>
-    <div class="outcome-stats">
-      <div class="outcome-stat"><div class="num green">6</div><div class="lbl">PRs in review</div></div>
-      <div class="outcome-stat"><div class="num">28</div><div class="lbl">minutes</div></div>
-      <div class="outcome-stat"><div class="num">15,100</div><div class="lbl">tokens</div></div>
-      <div class="outcome-stat"><div class="num amber">$4.20</div><div class="lbl">total cost</div></div>
+  <!-- RIGHT: ORCH -->
+  <div class="panel orch">
+    <div class="panel-hdr"><span class="dot"></span> With ORCH</div>
+    <div class="panel-body" id="orchBody">
+      <div class="agents" id="orchAgents">
+        <div class="ag" id="ag-cto"><span class="ag-name">CTO</span><span class="ag-task">idle</span><div class="ag-bar"><div class="ag-fill"></div></div></div>
+        <div class="ag" id="ag-be-a"><span class="ag-name">Backend A</span><span class="ag-task">idle</span><div class="ag-bar"><div class="ag-fill"></div></div></div>
+        <div class="ag" id="ag-be-b"><span class="ag-name">Backend B</span><span class="ag-task">idle</span><div class="ag-bar"><div class="ag-fill"></div></div></div>
+        <div class="ag" id="ag-qa"><span class="ag-name">QA</span><span class="ag-task">idle</span><div class="ag-bar"><div class="ag-fill"></div></div></div>
+        <div class="ag" id="ag-rev"><span class="ag-name">Reviewer</span><span class="ag-task">idle</span><div class="ag-bar"><div class="ag-fill"></div></div></div>
+      </div>
+      <div class="orch-feed" id="orchFeed"></div>
+      <div class="orch-stats" id="orchStats">
+        <div><span class="os-v" id="oTasks">0/6</span> tasks</div>
+        <div><span class="os-v" id="oTokens">0</span> tokens</div>
+        <div><span class="os-v a" id="oCost">$0.00</span> cost</div>
+      </div>
     </div>
-    <div class="outcome-sleep">You went to sleep at <strong>22:05</strong>. Agents kept working until <strong>22:33</strong>.</div>
-    <a href="https://github.com/oxgeneral/ORCH#start-coordinating-agents-in-30-seconds" class="outcome-cta">Try it on your project &rarr;</a>
   </div>
 </div>
 
+<div class="bottom" id="bottomBar" style="opacity:0;transition:opacity .5s">
+  <div class="bottom-panel chaos-r">
+    <div class="headline" id="chaosResult">---</div>
+    <div class="sub" id="chaosSub"></div>
+  </div>
+  <div class="bottom-panel orch-r">
+    <div class="headline" id="orchResult">---</div>
+    <div class="sub" id="orchSub"></div>
+  </div>
+</div>
+</div>
+
+<div class="outcome" id="outcome">
+  <h2>Same 6 tasks. <em>Different night.</em></h2>
+  <p>ORCH finished in 28 minutes for $4.20. You were sleeping. Manually, you'd still be fixing merge conflicts at 2am.</p>
+  <a href="https://github.com/oxgeneral/ORCH#start-coordinating-agents-in-30-seconds" class="cta">Try it on your project &rarr;</a>
+</div>
+
 <script>
-const agents = {
-  cto:        { el: null, name: 'CTO' },
-  'backend-a': { el: null, name: 'Backend A' },
-  'backend-b': { el: null, name: 'Backend B' },
-  qa:         { el: null, name: 'QA' },
-  reviewer:   { el: null, name: 'Reviewer' },
-};
+const $ = id => document.getElementById(id);
+const wait = ms => new Promise(r => setTimeout(r, ms));
 
-const feedList = document.getElementById('feedList');
-const clock = document.getElementById('clock');
-const sleepIndicator = document.getElementById('sleepIndicator');
-let tokenCount = 0;
-let costTotal = 0;
-let tasksComplete = 0;
+// --- CLOCK ---
+function setClock(t, cls) {
+  $('clock').textContent = t;
+  $('clock').className = 'clock' + (cls ? ' ' + cls : '');
+}
 
-Object.keys(agents).forEach(k => {
-  agents[k].el = document.getElementById('agent-' + k);
-});
+// --- CHAOS SIDE ---
+const chaosTerm = $('chaosTerm');
+const chaosStatus = $('chaosStatus');
+let chaosLines = { 1: [], 2: [], 3: [] };
+let activeTab = 1;
 
-function setAgent(id, cls, status, progress) {
-  const a = agents[id];
-  a.el.className = 'agent-card ' + cls;
-  a.el.querySelector('.agent-status').textContent = status;
-  if (progress !== undefined) {
-    a.el.querySelector('.agent-progress-fill').style.width = progress + '%';
+function showTab(n) {
+  activeTab = n;
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', +t.dataset.t === n);
+  });
+  chaosTerm.innerHTML = chaosLines[n].join('');
+}
+
+function addChaos(tab, html) {
+  chaosLines[tab] += `<div class="ln">${html}</div>`;
+  if (tab === activeTab) {
+    chaosTerm.innerHTML = chaosLines[tab];
+    chaosTerm.scrollTop = chaosTerm.scrollHeight;
   }
 }
 
-function addFeed(time, icon, msg) {
-  const div = document.createElement('div');
-  div.className = 'feed-item';
-  div.innerHTML = `<span class="feed-time">${time}</span><span class="feed-icon">${icon}</span><span class="feed-msg">${msg}</span>`;
-  feedList.appendChild(div);
-  feedList.scrollTop = feedList.scrollHeight;
+function setChaosStatus(html) { chaosStatus.innerHTML = html; }
+
+function crashTab(n) {
+  document.querySelector(`.tab[data-t="${n}"]`).classList.add('crashed');
 }
 
-function updateStats(active, elapsed) {
-  document.getElementById('statTasks').textContent = tasksComplete + '/6';
-  document.getElementById('statAgents').textContent = active + ' active';
-  document.getElementById('statTokens').textContent = tokenCount.toLocaleString();
-  document.getElementById('statCost').textContent = '$' + costTotal.toFixed(2);
-  document.getElementById('statElapsed').textContent = elapsed + 'm';
+// --- ORCH SIDE ---
+function setAg(id, cls, task, pct) {
+  const el = $('ag-' + id);
+  el.className = 'ag ' + cls;
+  el.querySelector('.ag-task').textContent = task;
+  if (pct !== undefined) el.querySelector('.ag-fill').style.width = pct + '%';
 }
 
-function setClock(time, cls) {
-  clock.textContent = time;
-  clock.className = 'clock' + (cls ? ' ' + cls : '');
+const orchFeed = $('orchFeed');
+function addFeed(time, msg) {
+  orchFeed.innerHTML += `<div class="fi"><span class="fi-t">${time}</span><span class="fi-m">${msg}</span></div>`;
+  orchFeed.scrollTop = orchFeed.scrollHeight;
 }
 
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+let oTokens = 0, oCost = 0, oDone = 0;
+function updateStats() {
+  $('oTasks').textContent = oDone + '/6';
+  $('oTokens').textContent = oTokens.toLocaleString();
+  $('oCost').textContent = '$' + oCost.toFixed(2);
+}
 
-async function runDemo() {
-  document.getElementById('startOverlay').classList.add('hidden');
+// --- MAIN SEQUENCE ---
+async function run() {
+  $('startWrap').classList.add('gone');
+  chaosLines = { 1: '', 2: '', 3: '' };
 
-  // 22:00 — Deploy
+  // 22:00 — Both start
   setClock('22:00');
-  addFeed('22:00', '&#9654;', '<strong>Deploying</strong> team startup-mvp &mdash; 5 agents');
+
+  // CHAOS: open first terminal
+  addChaos(1, '<span class="prompt">$</span> <span class="cmd">claude "Implement OAuth2 flow"</span>');
+  setChaosStatus('Switching tabs... <span class="val">1 agent running</span>');
+
+  // ORCH: deploy
+  addFeed('22:00', '<b>CTO</b> decomposing goal...');
+  setAg('cto', 'working', 'decomposing...', 30);
   await wait(800);
 
-  // CTO decomposes
-  setAgent('cto', 'working', 'decomposing goal...', 20);
-  addFeed('22:00', '&#9881;', '<strong>CTO</strong> decomposing goal into tasks...');
-  await wait(1200);
-  setAgent('cto', 'working', 'creating 6 tasks', 60);
-  tokenCount += 1200; costTotal += 0.32;
-  updateStats(1, 1);
-  await wait(800);
-  setAgent('cto', 'done', 'created 6 tasks', 100);
-  addFeed('22:01', '&#10003;', '<strong>CTO</strong> created 6 tasks from goal <span class="done">DONE</span>');
-  tokenCount += 600; costTotal += 0.18;
-  updateStats(0, 1);
+  // CHAOS: open second terminal
+  addChaos(2, '<span class="prompt">$</span> <span class="cmd">codex "Write JWT token service"</span>');
+  showTab(2);
+  setChaosStatus('Switching tabs... <span class="val">2 agents running</span>');
   await wait(600);
 
-  // 22:03 — Dispatch Backend A + B
-  setClock('22:03');
-  setAgent('backend-a', 'working', 'OAuth2 flow', 10);
-  addFeed('22:03', '&#9654;', '<strong>Backend A</strong> &rarr; "Implement OAuth2 flow" <span class="branch">[feature/oauth]</span>');
-  await wait(300);
-  setAgent('backend-b', 'working', 'JWT service', 10);
-  addFeed('22:03', '&#9654;', '<strong>Backend B</strong> &rarr; "JWT token service" <span class="branch">[feature/jwt]</span>');
-  updateStats(2, 3);
-  await wait(600);
-
-  // 22:05 — You go to sleep
-  setClock('22:05', 'sleeping');
-  sleepIndicator.classList.add('visible');
-  addFeed('22:05', '&#128564;', 'You closed the laptop and went to sleep.');
-  await wait(1500);
-
-  // Backend B progress
-  setAgent('backend-b', 'working', 'writing JWT utils', 40);
-  tokenCount += 1800; costTotal += 0.45;
-  updateStats(2, 8);
-  await wait(1000);
-  setAgent('backend-a', 'working', 'OAuth2 providers', 35);
-  setAgent('backend-b', 'working', 'token validation', 70);
-  tokenCount += 1400; costTotal += 0.38;
-  updateStats(2, 12);
-  await wait(1200);
-
-  // 22:15 — Backend B done
-  setClock('22:15');
-  setAgent('backend-b', 'done', 'DONE (12m)', 100);
-  tasksComplete++;
-  addFeed('22:15', '&#10003;', '<strong>Backend B</strong> DONE <span class="cost">4,200 tokens &middot; $0.83</span>');
-  tokenCount += 1200; costTotal += 0.32;
-  updateStats(1, 15);
-  await wait(600);
-
-  // QA starts
-  setAgent('qa', 'working', 'testing JWT service', 15);
-  addFeed('22:15', '&#9654;', '<strong>QA</strong> &rarr; "Test JWT service" <span class="branch">[test/jwt]</span>');
-  updateStats(2, 15);
-  await wait(800);
-
-  // Backend A progress
-  setAgent('backend-a', 'working', 'callback handlers', 65);
-  tokenCount += 2100; costTotal += 0.52;
-  await wait(1000);
-
-  // 22:22 — Backend A done
-  setClock('22:22');
-  setAgent('backend-a', 'done', 'DONE (19m)', 100);
-  tasksComplete++;
-  addFeed('22:22', '&#10003;', '<strong>Backend A</strong> DONE <span class="cost">8,100 tokens &middot; $1.62</span>');
-  tokenCount += 2500; costTotal += 0.58;
-  updateStats(1, 22);
-  await wait(600);
-
-  // Messaging
-  addFeed('22:22', '&#9993;', '<strong>Backend A</strong> &rarr; <strong>QA</strong>: "OAuth module ready, test with mock provider"');
-  await wait(800);
-
-  // QA progress + RETRY
-  setAgent('qa', 'working', 'running tests...', 60);
-  await wait(800);
-
-  setClock('22:24');
-  setAgent('qa', 'retrying', 'RETRY attempt 2/3', 30);
-  addFeed('22:24', '&#8635;', '<strong>QA</strong> <span class="retry">RETRY</span> attempt 2/3 &mdash; assertion timeout on callback test');
-  tokenCount += 800; costTotal += 0.18;
-  updateStats(1, 24);
-  await wait(1200);
-
-  // QA succeeds
-  setAgent('qa', 'working', 'retesting...', 70);
-  await wait(800);
-
-  setClock('22:28');
-  setAgent('qa', 'done', 'DONE (6m)', 100);
-  tasksComplete += 2;
-  addFeed('22:28', '&#10003;', '<strong>QA</strong> DONE <span class="cost">2,800 tokens &middot; $0.54</span>');
-  tokenCount += 1000; costTotal += 0.22;
-  updateStats(0, 28);
-  await wait(600);
-
-  // Reviewer starts
-  setClock('22:29');
-  setAgent('reviewer', 'reviewing', 'reviewing OAuth2', 20);
-  addFeed('22:29', '&#9654;', '<strong>Reviewer</strong> &rarr; "Review OAuth2 implementation"');
-  updateStats(1, 29);
-  await wait(1200);
-
-  setAgent('reviewer', 'reviewing', 'checking all PRs', 60);
-  tokenCount += 1500; costTotal += 0.35;
-  await wait(1000);
-
-  // 22:33 — All done
-  setClock('22:33');
-  setAgent('reviewer', 'done', 'DONE — approved', 100);
-  tasksComplete += 2;
-  addFeed('22:33', '&#10003;', '<strong>Reviewer</strong> DONE &mdash; all 6 tasks approved <span class="done">&#10003;</span>');
-  tokenCount = 15100; costTotal = 4.20;
-  updateStats(0, 28);
+  // CHAOS: open third
+  addChaos(3, '<span class="prompt">$</span> <span class="cmd">claude "Write auth middleware"</span>');
+  showTab(3);
+  setChaosStatus('Switching tabs... <span class="val">3 agents running</span>');
   await wait(500);
-  addFeed('22:33', '&#10003;', '<strong>6 PRs</strong> merged &rarr; main &middot; <span class="cost">$4.20</span> &middot; you were asleep since 22:05');
-  await wait(1500);
 
-  // Morning
-  setClock('08:00', 'morning');
-  sleepIndicator.classList.remove('visible');
-  addFeed('08:00', '&#9728;', 'You woke up. <strong>6 PRs ready for final review.</strong> Approve. Merge. Ship.');
+  // ORCH: CTO done
+  setAg('cto', 'done', '6 tasks created', 100);
+  oTokens += 1800; oCost += 0.50;
+  oDone = 0; updateStats();
+  addFeed('22:01', '<b>CTO</b> created 6 tasks <span class="ok">&#10003;</span>');
+  await wait(400);
+
+  // ORCH: dispatch
+  setAg('be-a', 'working', 'OAuth2 flow', 10);
+  setAg('be-b', 'working', 'JWT service', 10);
+  addFeed('22:03', '<b>Backend A</b> &rarr; OAuth2 <span class="br">[feature/oauth]</span>');
+  addFeed('22:03', '<b>Backend B</b> &rarr; JWT <span class="br">[feature/jwt]</span>');
+  await wait(600);
+
+  // 22:05 — CHAOS: context switching
+  setClock('22:05');
+  showTab(1);
+  addChaos(1, '<span class="out">  ... generating OAuth2 provider config...</span>');
+  setChaosStatus('You check Terminal 1... <span class="val">still running</span>');
+  await wait(500);
+  showTab(2);
+  addChaos(2, '<span class="out">  ... writing token validation...</span>');
+  setChaosStatus('Switch to Terminal 2... <span class="val">copy context from T1?</span>');
+  await wait(500);
+
+  // ORCH: you go to sleep
+  setClock('22:05', 'sleep');
+  $('sleepTag').classList.add('on');
+  addFeed('22:05', '&#128564; You went to sleep.');
   await wait(800);
 
-  // Show outcome
-  document.getElementById('outcome').classList.add('visible');
+  // CHAOS: more switching
+  showTab(1);
+  setChaosStatus('You\'re still watching terminals... <span class="stress">can\'t sleep</span>');
+  await wait(600);
+  showTab(3);
+  addChaos(3, '<span class="out">  ... middleware needs JWT secret from Terminal 2...</span>');
+  addChaos(3, '<span class="warn">  &#9888; Where is the JWT_SECRET? Check Terminal 2 output</span>');
+  setChaosStatus('Copy-paste from T2 to T3... <span class="stress">context lost</span>');
+  await wait(800);
+
+  // ORCH: progress
+  setAg('be-a', 'working', 'OAuth2 providers', 45);
+  setAg('be-b', 'working', 'token validation', 60);
+  oTokens += 3200; oCost += 0.83; updateStats();
+  await wait(600);
+
+  // CHAOS: merge conflict
+  setClock('22:15');
+  showTab(1);
+  addChaos(1, '<span class="out">  &#10003; Done. Committing to feature/oauth...</span>');
+  await wait(400);
+  showTab(2);
+  addChaos(2, '<span class="out">  &#10003; Done. Committing to main...</span>');
+  addChaos(2, '<span class="err">  CONFLICT (content): Merge conflict in src/auth/index.ts</span>');
+  addChaos(2, '<span class="err">  Both agents modified the same file!</span>');
+  setChaosStatus('&#9888; <span class="val">MERGE CONFLICT</span> — you fix it manually');
+  await wait(1000);
+
+  // ORCH: Backend B done, no conflicts
+  setAg('be-b', 'done', 'DONE (12m)', 100);
+  oDone++; oTokens += 1200; oCost += 0.32; updateStats();
+  addFeed('22:15', '<b>Backend B</b> DONE — 4,200 tokens <span class="ok">&#10003;</span>');
+  setAg('qa', 'working', 'testing JWT', 15);
+  addFeed('22:15', '<b>QA</b> &rarr; testing JWT <span class="br">[test/jwt]</span>');
+  await wait(600);
+
+  // CHAOS: fixing conflict
+  showTab(2);
+  addChaos(2, '<span class="prompt">$</span> <span class="cmd">git merge --abort</span>');
+  addChaos(2, '<span class="prompt">$</span> <span class="cmd">git checkout -b feature/jwt</span>');
+  addChaos(2, '<span class="out">  Recreating branch... re-running codex...</span>');
+  setChaosStatus('Fixing conflict... <span class="stress">20 min lost</span>');
+  await wait(800);
+
+  // ORCH: Backend A done
+  setClock('22:22');
+  setAg('be-a', 'done', 'DONE (19m)', 100);
+  oDone++; oTokens += 2500; oCost += 0.58; updateStats();
+  addFeed('22:22', '<b>Backend A</b> DONE — 8,100 tokens <span class="ok">&#10003;</span>');
+  addFeed('22:22', '<b>Backend A</b> &rarr; <b>QA</b>: "OAuth ready for testing"');
+  await wait(600);
+
+  // CHAOS: agent crash at 2am setup
+  showTab(3);
+  addChaos(3, '<span class="out">  ... middleware tests passing...</span>');
+  await wait(400);
+  addChaos(3, '<span class="err">  Error: SIGTERM — process killed (OOM)</span>');
+  addChaos(3, '<span class="err">  Agent crashed. No auto-retry.</span>');
+  crashTab(3);
+  setChaosStatus('&#9888; <span class="val">Terminal 3 CRASHED</span> — you restart manually');
+  await wait(1000);
+
+  // ORCH: QA retry (self-healing)
+  setClock('22:24');
+  setAg('qa', 'retry', 'RETRY 2/3', 30);
+  addFeed('22:24', '<b>QA</b> <span class="rt">RETRY</span> 2/3 — assertion timeout');
+  oTokens += 800; oCost += 0.18; updateStats();
+  await wait(1000);
+  setAg('qa', 'working', 'retesting...', 70);
+  await wait(600);
+
+  // CHAOS: restarting crashed agent
+  showTab(3);
+  addChaos(3, '<span class="prompt">$</span> <span class="cmd">claude "Write auth middleware" --continue</span>');
+  addChaos(3, '<span class="warn">  Context lost. Starting from scratch...</span>');
+  setChaosStatus('Restarting T3... <span class="stress">context gone, starting over</span>');
+  await wait(800);
+
+  // ORCH: QA done
+  setClock('22:28');
+  setAg('qa', 'done', 'DONE (6m)', 100);
+  oDone += 2; oTokens += 1000; oCost += 0.22; updateStats();
+  addFeed('22:28', '<b>QA</b> DONE — all tests pass <span class="ok">&#10003;</span>');
+  await wait(400);
+
+  // ORCH: Reviewer
+  setAg('rev', 'review', 'reviewing all PRs', 40);
+  addFeed('22:29', '<b>Reviewer</b> &rarr; reviewing 6 PRs');
+  await wait(800);
+
+  // CHAOS: it's midnight, still going
+  setClock('00:15');
+  showTab(1);
+  setChaosStatus('It\'s midnight. You\'re still here. <span class="stress">2h 15m in</span>');
+  addChaos(1, '<span class="out">  Now manually running tests...</span>');
+  addChaos(1, '<span class="prompt">$</span> <span class="cmd">npm test</span>');
+  await wait(600);
+
+  // ORCH: all done
+  setClock('22:33');
+  setAg('rev', 'done', 'DONE — approved', 100);
+  oDone = 6; oTokens = 15100; oCost = 4.20; updateStats();
+  addFeed('22:33', '<b>Reviewer</b> approved all 6 PRs <span class="ok">&#10003;</span>');
+  addFeed('22:33', '&#10003; <b>6 PRs merged &rarr; main</b> &middot; $4.20 &middot; 28 min');
+  await wait(800);
+
+  // CHAOS: 2am crash
+  setClock('02:00');
+  showTab(2);
+  addChaos(2, '<span class="err">  Rate limit exceeded. Waiting 60s...</span>');
+  setChaosStatus('2 AM. Rate limited. <span class="stress">4 hours in. 3/6 tasks done.</span>');
+  await wait(800);
+
+  // Final — morning
+  setClock('08:00', 'wake');
+  $('sleepTag').classList.remove('on');
+  addFeed('08:00', '&#9728; You woke up. <b>6 PRs ready.</b> Approve and merge.');
+  await wait(500);
+
+  // Show results
+  $('bottomBar').style.opacity = '1';
+  $('chaosResult').textContent = '3/6 tasks at 2 AM';
+  $('chaosSub').textContent = '4+ hours · merge conflicts · crashed agent · context lost · no sleep';
+  $('orchResult').textContent = '6/6 tasks at 22:33';
+  $('orchSub').textContent = '28 min · $4.20 · zero conflicts · auto-retry · you slept 10 hours';
+  await wait(800);
+
+  $('outcome').classList.add('show');
 }
 
-document.getElementById('startBtn').addEventListener('click', runDemo);
+$('startBtn').addEventListener('click', run);
 </script>
-
 </body>
 </html>
