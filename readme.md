@@ -7,7 +7,7 @@
 
 <p align="center">
   <strong>Open-source orchestration for zero-human companies, processes and departments.</strong><br/>
-  <sub>Engineering, editorial, sales, analytics — deploy entire AI departments from your terminal. Free forever.</sub>
+  <sub>Run multiple AI agents on one project — without babysitting any of them.<br/>Coordinate Claude, Codex, Cursor and any CLI tool in parallel. One npm install. Zero infrastructure.</sub>
 </p>
 
 <p align="center">
@@ -21,11 +21,11 @@
 <br/>
 
 <p align="center">
-  <a href="#you-re-still-babysitting-ai-agents">Problem</a> &bull;
-  <a href="#launch-your-ai-company-in-30-seconds">Install</a> &bull;
-  <a href="#your-ai-company-org-chart">Org Chart</a> &bull;
+  <a href="#you-hired-ai-agents-now-youre-managing-them-full-time">Problem</a> &bull;
+  <a href="#start-coordinating-agents-in-30-seconds">Install</a> &bull;
+  <a href="#how-your-ai-team-works">How It Works</a> &bull;
   <a href="#why-founders-choose-orch">Features</a> &bull;
-  <a href="#pre-built-ai-companies">Templates</a> &bull;
+  <a href="#pre-built-teams--start-with-a-proven-setup">Templates</a> &bull;
   <a href="#full-cli-reference">CLI</a> &bull;
   <a href="#architecture">Architecture</a> &bull;
   <a href="#faq">FAQ</a>
@@ -51,7 +51,7 @@ cd ~/your-project && orch           # Launch TUI
   <video src="https://github.com/user-attachments/assets/c7c3ab77-e718-4e5a-a8cf-bfc446ace64e" width="100%" controls autoplay loop muted></video>
 </div>
 <p align="center">
-  <em>Command center: engineering shipping code, editorial publishing content, QA testing — all at once, while you sleep.</em>
+  <em>Set a goal at 10pm. Five agents decompose, implement, test, and review. You wake up to pull requests.</em>
 </p>
 
 <br/>
@@ -65,17 +65,22 @@ cd ~/your-project && orch           # Launch TUI
 
 <br/>
 
-## You're still babysitting AI agents
+## You hired AI agents. Now you're managing them full-time.
 
-You have 3 AI assistants open. Claude is implementing auth in one terminal. Codex is writing tests in another. A shell script runs migrations somewhere else.
+You bought Claude, Codex, maybe Cursor. Each one is powerful alone. But your actual job isn't "use AI tools" — it's **ship a product at the speed of a full team, while being one person.**
 
-You're the human router — switching tabs, copy-pasting context, manually tracking who's doing what, restarting crashed agents at 2am.
+Here's what that looks like today:
 
-**You're not the founder. You're the intern.**
+- You open 3 terminals. Copy-paste context between them. Forget which agent is doing what.
+- One agent edits a file another is working on. Merge conflict. You fix it manually.
+- An agent crashes at 2am. You don't notice until morning. Half a night wasted.
+- You spend **40-60% of your time routing agents** instead of building your product.
+
+**You're not the founder. You're the bottleneck.**
 
 <br/>
 
-## What if you had an entire AI department?
+## What if your agents coordinated themselves?
 
 ```
 $ orch org deploy startup-mvp --goal "Implement user auth with OAuth2"
@@ -119,7 +124,7 @@ $ orch run --all --watch
 
 <br/>
 
-## Launch your AI company in 30 seconds
+## Start coordinating agents in 30 seconds
 
 <!-- Install Card -->
 <picture>
@@ -130,9 +135,9 @@ $ orch run --all --watch
 
 <br/>
 
-That's it. ORCH auto-initializes, opens the TUI command center. Add agents and tasks right from there.
+That's it. ORCH auto-initializes and opens the TUI dashboard. Add agents, set goals, and run — right from there.
 
-Or deploy a pre-built department:
+Or deploy a pre-built team:
 
 ```bash
 orch org deploy startup-mvp --goal "Build invoicing SaaS with Stripe"
@@ -176,6 +181,10 @@ orch run --all --watch
 
 <p align="center">No database. No cloud. No Docker. No GPU — LLMs run via API, not locally.</p>
 
+### Your code is safe
+
+> **Every agent works in an isolated git worktree.** Your `main` branch is never touched until you explicitly approve and merge. Mandatory review step in the state machine — no code ships without your OK. Agents can't overwrite each other's work.
+
 <details>
 <summary><strong>Why does each agent need ~300 MB?</strong></summary>
 
@@ -207,7 +216,7 @@ ORCH itself is lightweight (~120 MB). The RAM goes to the **agent CLI processes*
 
 <br/>
 
-## Your AI company org chart
+## How your AI team works
 
 <table>
 <tr>
@@ -262,7 +271,7 @@ Every transition validated. No task gets lost. No code merges without approval.
 
 ## Not just engineering
 
-ORCH orchestrates **any process** — not just code. The shell adapter runs any CLI tool, which means any workflow becomes a zero-human department:
+ORCH orchestrates **any process** — not just code. The shell adapter runs any CLI tool, which means any workflow becomes an automated pipeline:
 
 | Department | Agents | What they do |
 |-----------|--------|-------------|
@@ -309,7 +318,7 @@ Every department gets the same superpowers: state machine governance, retry, mes
 
 <br/>
 
-The `shell` adapter is the key: **if it runs in a terminal, it's an employee** — `npm test`, `python bot.py`, Semgrep, `curl`, CRM scripts, data pipelines. This is how ORCH goes beyond engineering — any CLI tool becomes part of your zero-human company.
+The `shell` adapter is the key: **if it runs in a terminal, it's an agent** — `npm test`, `python bot.py`, Semgrep, `curl`, CRM scripts, data pipelines. Any CLI tool gets state tracking, retry, and coordination for free.
 
 <br/>
 
@@ -322,9 +331,9 @@ The `shell` adapter is the key: **if it runs in a terminal, it's an employee** �
 
 <br/>
 
-## Pre-built AI companies
+## Pre-built teams — start with a proven setup
 
-Deploy a full department with one command:
+Deploy a full team with one command:
 
 **Engineering**
 
@@ -347,10 +356,10 @@ Deploy a full department with one command:
 | `docs-team` | Docs Lead, Writer x2, Editor, Reviewer | Technical docs from codebase analysis |
 
 ```bash
-orch org list                                    # See all companies
+orch org list                                    # See all teams
 orch org deploy startup-mvp                      # Deploy the default
 orch org deploy startup-mvp --goal "Build X"     # Deploy with a goal
-orch org export my-company                       # Save your setup as template
+orch org export my-team                          # Save your setup as template
 ```
 
 <br/>
@@ -538,13 +547,9 @@ If ORCH saves you time — **[Star it on GitHub](https://github.com/oxgeneral/OR
 
 <br/>
 
-## Used by / Early Adopters
+## Ship something with ORCH?
 
-> Running a zero-human company with ORCH? [Let us know](https://github.com/oxgeneral/ORCH/issues/new?title=Zero-human+company+with+ORCH&body=Tell+us+about+your+setup) — we'd love to feature you here.
-
-<!-- ADOPTERS_START -->
-*Be the first to launch your AI company here.*
-<!-- ADOPTERS_END -->
+> Using ORCH on a real project? [Share your setup](https://github.com/oxgeneral/ORCH/issues/new?title=Using+ORCH&body=Tell+us+about+your+setup) — we'd love to hear how it went.
 
 <br/>
 
@@ -591,7 +596,7 @@ No. The shell adapter runs any CLI tool — which means ORCH orchestrates any pr
 
 <br/>
 
-ORCH is free forever (MIT). You pay only for the AI APIs you already use (Claude, Codex, etc.). The TUI shows token counts per agent per run in real-time — no surprise bills.
+ORCH is open-source (MIT license). You pay only for the AI APIs you already use — Claude, Codex, etc. The TUI shows token costs per agent per run in real-time. Typical full run: **$4-8 in tokens**. No surprise bills.
 
 </details>
 
@@ -634,7 +639,8 @@ Paperclip needs PostgreSQL, a web server, and cloud setup. ORCH needs `npm insta
 <br/>
 
 <p align="center">
-  <a href="LICENSE"><strong>MIT</strong></a> — build whatever you want.
+  <a href="LICENSE"><strong>MIT</strong></a> — build whatever you want.<br/>
+  <sub>This is how zero-human engineering teams start.</sub>
 </p>
 
 <br/>
