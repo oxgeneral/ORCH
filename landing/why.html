@@ -124,7 +124,7 @@
   <p>10 real problems with multi-agent coordination. How ORCH handles each one. What's still in progress.</p>
 </div>
 
-<div class="counter"><b>10</b> <span class="of">solved &nbsp;&middot;&nbsp;</span> <b style="color:var(--amber)">3</b> <span class="of">in progress &nbsp;&middot;&nbsp;</span> <b style="color:var(--red-soft)">2</b> <span class="unsolved">coming soon</span></div>
+<div class="counter"><b>10</b> <span class="of">solved &nbsp;&middot;&nbsp;</span> <b style="color:var(--amber)">3</b> <span class="of">in progress &nbsp;&middot;&nbsp;</span> <b style="color:var(--red-soft)">3</b> <span class="unsolved">coming soon</span></div>
 
 <div class="section-div"><span>Coordination</span></div>
 
@@ -364,10 +364,24 @@
   </div>
 </div>
 
+<div class="card missing">
+  <div class="pain">
+    <div class="card-label">Pain</div>
+    <div class="card-title">Want agents running 24/7 on a server, not just locally</div>
+    <div class="card-desc">You want to deploy ORCH to a VPS and have agents continuously process tasks — like a CI pipeline, but for AI work. Right now ORCH runs in your terminal and stops when you close it.</div>
+  </div>
+  <div class="solution">
+    <div class="card-label"><span class="status-dot"></span> Coming soon</div>
+    <div class="card-title">Server / daemon mode</div>
+    <div class="card-desc">Run ORCH as a persistent background process: <code>orch serve</code>. Watches for new tasks, dispatches agents, retries failures — headless, 24/7. Deploy on any VPS with <code>pm2</code> or <code>systemd</code>. REST API for external integrations.</div>
+    <div class="card-tag">planned</div>
+  </div>
+</div>
+
 </div>
 
 <div class="bottom">
-  <h2>10 solved. 5 more <em>in progress.</em></h2>
+  <h2>10 solved. 6 more <em>in progress.</em></h2>
   <p>ORCH already handles the hardest parts of multi-agent coordination — isolation, retry, state tracking, messaging. The rest is coming fast.</p>
   <a href="https://github.com/oxgeneral/ORCH#start-coordinating-agents-in-30-seconds" class="cta-btn">Try it on your project &rarr;</a>
   <div class="sub">MIT license &middot; zero cloud &middot; one npm install</div>
