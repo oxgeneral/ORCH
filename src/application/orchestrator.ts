@@ -83,6 +83,9 @@ export class Orchestrator {
   private taskCreatedUnsub: (() => void) | null = null;
   private tickInProgress = false;
 
+  /** Set by `orch serve --once` to prevent autonomous task seeding. */
+  skipAutonomousSeeding = false;
+
   /** Promise-chain mutex to serialize critical state mutations. */
   private stateMutex: Promise<void> = Promise.resolve();
 
@@ -433,7 +436,9 @@ export class Orchestrator {
 
         await this.loadState();
         await this.reconcile();
-        await this.seedAutonomousTasks();
+        if (!this.skipAutonomousSeeding) {
+          await this.seedAutonomousTasks();
+        }
         await this.dispatchAll();
 
         const tasks = await this.cachedTaskStore.list();

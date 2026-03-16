@@ -34,6 +34,7 @@ const FULL_COMMANDS: Record<string, (program: Command, container: Container) => 
   run:     async (p, c) => { const m = await import('../cli/commands/run.js');     m.registerRunCommand(p, c); },
   doctor:  async (p, c) => { const m = await import('../cli/commands/doctor.js');  m.registerDoctorCommand(p, c); },
   tui:     async (p, c) => { const m = await import('../cli/commands/tui.js');     m.registerTuiCommand(p, c); },
+  serve:   async (p, c) => { const m = await import('../cli/commands/serve.js');   m.registerServeCommand(p, c); },
 };
 
 const program = new Command();
@@ -67,6 +68,7 @@ const COMMAND_STUBS: Array<[name: string, description: string]> = [
   ['run',     'Run tasks'],
   ['doctor',  'Check adapters and dependencies'],
   ['tui',     'Launch TUI dashboard'],
+  ['serve',   'Headless daemon mode with structured logs'],
   ['init',    'Initialize project'],
   ['update',  'Check for updates'],
 ];
@@ -208,7 +210,7 @@ async function main(): Promise<void> {
   // Start background update check (cache-only — never blocks CLI).
   // TUI and update commands handle their own checks.
   let updateMod: typeof import('../cli/update-check.js') | undefined;
-  const skipUpdateCheck = sub === 'tui' || sub === 'update';
+  const skipUpdateCheck = sub === 'tui' || sub === 'update' || sub === 'serve';
   const updateCheck = skipUpdateCheck
     ? Promise.resolve(null)
     : import('../cli/update-check.js').then((m) => {
