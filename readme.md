@@ -596,7 +596,7 @@ No. The shell adapter runs any CLI tool — which means ORCH orchestrates any pr
 
 <br/>
 
-ORCH is open-source (MIT license). You pay only for the AI APIs you already use — Claude, Codex, etc. The TUI shows token costs per agent per run in real-time. Typical full run: **$4-8 in tokens**. No surprise bills.
+ORCH is open-source (MIT license). You pay only for the AI APIs you already use — Claude, Codex, etc. The TUI shows token costs per agent per run in real-time. Example: 5 agents, 6 tasks — **$4.20 in tokens**. No surprise bills.
 
 </details>
 
