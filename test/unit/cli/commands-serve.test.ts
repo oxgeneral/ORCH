@@ -14,6 +14,10 @@ describe('serve command', () => {
       taskStore: {
         list: vi.fn(async () => []),
       } as any,
+      eventBus: {
+        onAny: vi.fn(() => vi.fn()),
+        on: vi.fn(() => vi.fn()),
+      } as any,
     });
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -54,7 +58,7 @@ describe('serve command', () => {
     it('ignores invalid tick interval', async () => {
       await program.parseAsync(['serve', '--tick-interval', 'abc'], { from: 'user' });
 
-      expect(container.config.scheduling.poll_interval_ms).toBe(5000); // original from makeContainer
+      expect(container.config.scheduling.poll_interval_ms).toBe(5000);
     });
   });
 
@@ -66,7 +70,7 @@ describe('serve command', () => {
 
       await program.parseAsync(['serve', '--once'], { from: 'user' });
 
-      expect(container.orchestrator.startWatch).toHaveBeenCalled();
+      expect(container.orchestrator.startWatch).toHaveBeenCalledWith({ skipAutonomousSeeding: true });
       expect(container.orchestrator.stop).toHaveBeenCalled();
     });
 
@@ -89,6 +93,17 @@ describe('serve command', () => {
       await program.parseAsync(['serve', '--once'], { from: 'user' });
 
       expect(process.exitCode).toBe(1);
+    });
+  });
+
+  describe('--log-format validation', () => {
+    it('rejects unknown log format', async () => {
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+      await program.parseAsync(['serve', '--log-format', 'yaml'], { from: 'user' });
+
+      expect(process.exitCode).toBe(2);
+      stderrSpy.mockRestore();
     });
   });
 });

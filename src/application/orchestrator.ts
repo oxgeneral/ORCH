@@ -83,8 +83,8 @@ export class Orchestrator {
   private taskCreatedUnsub: (() => void) | null = null;
   private tickInProgress = false;
 
-  /** Set by `orch serve --once` to prevent autonomous task seeding. */
-  skipAutonomousSeeding = false;
+  /** When true, `tick()` skips `seedAutonomousTasks()`. Set via `startWatch()` options. */
+  private skipAutonomousSeeding = false;
 
   /** Promise-chain mutex to serialize critical state mutations. */
   private stateMutex: Promise<void> = Promise.resolve();
@@ -182,7 +182,9 @@ export class Orchestrator {
    * Start watch mode — continuous tick loop.
    * Acquires a PID lock to prevent multiple orchestrators.
    */
-  async startWatch(): Promise<void> {
+  async startWatch(opts?: { skipAutonomousSeeding?: boolean }): Promise<void> {
+    this.skipAutonomousSeeding = opts?.skipAutonomousSeeding ?? false;
+
     // Acquire lock — only one orchestrator per project
     const lockResult = await acquireLock(this.deps.lockPath);
     if (!lockResult.acquired) {

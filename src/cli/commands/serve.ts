@@ -37,7 +37,14 @@ export function registerServeCommand(program: Command, container: Container): vo
     });
 }
 
+const VALID_LOG_FORMATS: ReadonlySet<string> = new Set(['json', 'text']);
+
 async function runServe(container: Container, opts: ServeOpts): Promise<void> {
+  if (opts.logFormat && !VALID_LOG_FORMATS.has(opts.logFormat)) {
+    printError(`Unknown --log-format "${opts.logFormat}". Valid: json, text`);
+    process.exitCode = 2;
+    return;
+  }
   const format: LogFormat = opts.logFormat === 'text' ? 'text' : 'json';
 
   // Build output streams
@@ -86,6 +93,7 @@ async function runServe(container: Container, opts: ServeOpts): Promise<void> {
       const result = await runOnce(
         container.orchestrator,
         container.taskStore,
+        container.eventBus,
       );
 
       logger.log('info', 'serve:finished', {
