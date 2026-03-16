@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Why ORCH — Every pain we solve</title>
+  <meta name="description" content="10 real problems with multi-agent coordination. How ORCH handles each one.">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="Why ORCH — Every pain we solve">
+  <meta property="og:description" content="10 real problems with multi-agent coordination. How ORCH handles each one. What's still in progress.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.orch.one/why">
+  <meta property="og:image" content="https://www.orch.one/og-image.png">
+  <link rel="canonical" href="https://www.orch.one/why">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -11,7 +22,7 @@
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
     :root{
       --bg:#06060a;--surface:#0b0b10;--border:#161620;
-      --text:#888;--dim:#444;--bright:#eee8e0;
+      --text:#888;--dim:#777;--bright:#eee8e0;
       --amber:#ffaf00;--green:#34d399;--blue:#60a5fa;
       --red:#ef4444;--red-soft:#f87171;--purple:#a78bfa;
       --mono:'JetBrains Mono',monospace;--serif:'Instrument Serif',serif;
@@ -30,7 +41,7 @@
 
     /* --- HERO --- */
     .hero{text-align:center;padding:4rem 2rem 3rem}
-    .hero-tag{display:inline-flex;align-items:center;gap:.4rem;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;color:var(--amber);border:1px solid rgba(255,175,0,.15);padding:.25rem .7rem;margin-bottom:1.5rem}
+    .hero-tag{display:inline-flex;align-items:center;gap:.4rem;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--amber);border:1px solid rgba(255,175,0,.15);padding:.25rem .7rem;margin-bottom:1.5rem}
     .hero-tag .dot{width:5px;height:5px;background:var(--amber);border-radius:50%;animation:pulse 2s infinite}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
     .hero h1{font-family:var(--serif);font-weight:400;font-size:clamp(1.8rem,4vw,2.8rem);color:var(--bright);line-height:1.15;margin-bottom:.6rem}
@@ -63,7 +74,7 @@
     .pain::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--red);opacity:.4}
     .solution{border-left:1px solid var(--border)}
 
-    .card-label{font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
+    .card-label{font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
     .pain .card-label{color:var(--red-soft)}
     .solution .card-label{color:var(--green)}
     .card.partial .solution .card-label{color:var(--amber)}
@@ -75,10 +86,10 @@
     .card.missing .status-dot{background:var(--red)}
 
     .card-title{font-size:.75rem;color:var(--bright);font-weight:400;margin-bottom:.3rem;line-height:1.4}
-    .card-desc{font-size:.6rem;color:var(--dim);line-height:1.5}
-    .card-desc code{color:var(--amber);font-size:.55rem;background:rgba(255,175,0,.06);padding:.1rem .3rem;border-radius:2px}
+    .card-desc{font-size:.7rem;color:var(--dim);line-height:1.5}
+    .card-desc code{color:var(--amber);font-size:.65rem;background:rgba(255,175,0,.06);padding:.1rem .3rem;border-radius:2px}
 
-    .card-tag{display:inline-block;font-size:.45rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;margin-top:.4rem}
+    .card-tag{display:inline-block;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;margin-top:.4rem}
     .card.solved .card-tag{color:var(--green);border:1px solid rgba(52,211,153,.2)}
     .card.partial .card-tag{color:var(--amber);border:1px solid rgba(255,175,0,.2)}
     .card.missing .card-tag{color:var(--red-soft);border:1px solid rgba(248,113,113,.2)}
@@ -89,7 +100,7 @@
       display:flex;align-items:center;gap:.8rem;
     }
     .section-div::before,.section-div::after{content:'';flex:1;height:1px;background:var(--border)}
-    .section-div span{font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+    .section-div span{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
 
     /* --- BOTTOM CTA --- */
     .bottom{text-align:center;padding:3rem 2rem 4rem;max-width:600px;margin:0 auto}
@@ -98,16 +109,41 @@
     .bottom p{color:var(--dim);font-size:.7rem;margin-bottom:1.5rem}
     .bottom .cta-btn{display:inline-flex;background:var(--amber);color:var(--bg);padding:.65rem 1.6rem;font-family:var(--mono);font-size:.75rem;font-weight:500;text-decoration:none;transition:all .2s}
     .bottom .cta-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(255,175,0,.3)}
-    .bottom .sub{margin-top:.8rem;font-size:.55rem;color:var(--dim)}
+    .bottom .sub{margin-top:.8rem;font-size:.65rem;color:var(--dim)}
 
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 1rem;
+      z-index: 200;
+      background: var(--amber);
+      color: var(--bg);
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    .skip-link:focus { top: 0.5rem; }
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 2px;
+    }
     @media(max-width:640px){
       .card{grid-template-columns:1fr}
       .solution{border-left:none;border-top:1px solid var(--border)}
       .pain::before{display:none}
     }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
   </style>
 </head>
 <body>
+<a href="#main-content" class="skip-link">Skip to content</a>
 
 <header class="hdr">
   <a href="/" class="logo">ORC<span>H</span></a>
@@ -118,6 +154,7 @@
   </div>
 </header>
 
+<main id="main-content">
 <div class="hero">
   <div class="hero-tag"><span class="dot"></span> Why ORCH</div>
   <h1>Every pain we <em>already solve</em></h1>
@@ -386,6 +423,7 @@
   <a href="https://github.com/oxgeneral/ORCH#start-coordinating-agents-in-30-seconds" class="cta-btn">Try it on your project &rarr;</a>
   <div class="sub">MIT license &middot; zero cloud &middot; one npm install</div>
 </div>
+</main>
 
 <script>
 const observer = new IntersectionObserver((entries) => {

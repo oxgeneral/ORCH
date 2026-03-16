@@ -44,7 +44,7 @@
     :root {
       --black: #0a0a0a;
       --white: #f0efe9;
-      --gray: #6b6b6b;
+      --gray: #808080;
       --gray-light: #2a2a2a;
       --accent: #ffaf00;
       --accent-dim: rgba(255,175,0,0.12);
@@ -219,7 +219,7 @@
 
     .comparison-label {
       text-align: center;
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--gray);
@@ -390,7 +390,7 @@
 
     .cta-label {
       display: inline-block;
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--accent);
@@ -440,7 +440,7 @@
     .install-cmd .prompt-sign { color: var(--accent); }
 
     .install-cmd .copy-hint {
-      font-size: 0.55rem;
+      font-size: 0.65rem;
       color: var(--gray-light);
       text-transform: uppercase;
       letter-spacing: 0.1em;
@@ -495,7 +495,7 @@
       display: flex;
       justify-content: center;
       gap: 2.5rem;
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       color: #333;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -541,7 +541,7 @@
     .footer-social a:hover { color: var(--white); }
 
     .footer-col h4 {
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       color: var(--gray);
@@ -630,6 +630,20 @@
       text-decoration: none;
     }
     .skip-link:focus { top: 0.5rem; }
+
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
   </style>
 
   <!-- Structured Data -->
@@ -956,34 +970,6 @@
     </div>
   </section>
 
-  <!-- ORCH VS SUPERSET DEEP DIVE -->
-  <section class="when-section" id="orch-vs-superset">
-    <div class="when-inner">
-      <div class="when-grid">
-        <div class="when-col when-use">
-          <h2><em>ORCH</em> vs Superset</h2>
-          <ul>
-            <li><strong>Team coordination, not just parallelism.</strong> Superset launches agents side by side and lets you watch. ORCH gives each agent a role, routes tasks by dependency, and lets agents <em>message each other</em> directly &mdash; no human routing required</li>
-            <li><strong>State machine governance.</strong> In ORCH every task flows through <code>todo → in_progress → review → done</code>. A downstream agent cannot consume output until it passes review. Superset has no review gate &mdash; diffs land when the agent finishes</li>
-            <li><strong>Autonomous operation.</strong> Assign a goal and ORCH generates, dispatches, and retries tasks automatically. Superset requires you to create and monitor each task manually</li>
-            <li><strong>CLI-native &amp; CI/CD ready.</strong> ORCH runs headless with <code>orch run --all</code> in any pipeline. Superset is a desktop GUI app &mdash; it requires a display and a human nearby</li>
-            <li><strong>Zero install friction.</strong> <code>npm install -g @oxgeneral/orch</code> &mdash; done. Superset requires downloading a macOS app (Bun, Git 2.20+, GitHub CLI, Caddy runtime deps)</li>
-          </ul>
-        </div>
-        <div class="when-col when-alt">
-          <h2>When <span class="alt-em">Superset</span> wins</h2>
-          <ul>
-            <li>You want a <strong>visual desktop interface</strong> to watch agents work in real time with a polished GUI</li>
-            <li>You need a <strong>built-in diff viewer and IDE deep-links</strong> (VS Code, Cursor, JetBrains) without leaving the tool</li>
-            <li>You prefer <strong>manual task management</strong> &mdash; you create and review each agent task yourself</li>
-            <li>You work on <strong>macOS exclusively</strong> and want a native desktop experience (Windows/Linux untested in Superset)</li>
-            <li>You don't need <strong>inter-agent messaging, goals, teams, or autonomous task generation</strong> &mdash; just parallel execution</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ORCH VS PAPERCLIP -->
   <section class="when-section">
     <div class="when-inner">
@@ -1006,35 +992,6 @@
             <li>You want a <strong>web dashboard</strong> with approval gates and board-level controls</li>
             <li>You need <strong>multi-company isolation</strong> from a single deployment</li>
             <li>Your agents span <strong>business functions</strong> (sales, marketing, ops) not coding tasks</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ORCH VS SUPERSET DEEP DIVE -->
-  <section class="when-section" id="vs-superset-detail">
-    <div class="when-inner">
-      <div class="when-grid">
-        <div class="when-col when-use">
-          <h2><em>ORCH</em> vs Superset</h2>
-          <ul>
-            <li><strong>Managed vs Run.</strong> Superset launches agents and shows you diffs. ORCH manages what agents work on, in what order, with automatic retry and mandatory review before downstream work begins</li>
-            <li><strong>State machine.</strong> ORCH validates every task transition: <code>todo → in_progress → review → done</code>. A failed agent goes to <code>retrying</code>, not silently done. Superset has no equivalent</li>
-            <li><strong>Auto-recovery.</strong> Agent stalled for 5 minutes? ORCH detects it, kills the zombie process, and redispatches. Agent crashed? Exponential backoff retry. Superset sends a notification — you restart manually</li>
-            <li><strong>Agent communication.</strong> ORCH agents share context via <code>orch context set</code> and send each other messages via <code>orch msg send</code>. Superset agents are isolated — coordination is your job</li>
-            <li><strong>Goals.</strong> Set a goal in ORCH, and idle agents are automatically given work to achieve it. Superset has no goal or task-generation concept</li>
-            <li><strong>CI/CD.</strong> <code>orch run --all</code> runs your full agent team headlessly in any pipeline. Superset is a desktop GUI — no CI integration</li>
-          </ul>
-        </div>
-        <div class="when-col when-alt">
-          <h2>When <span class="alt-em">Superset</span> wins</h2>
-          <ul>
-            <li>You prefer a <strong>desktop GUI</strong> over a terminal tool</li>
-            <li>Your tasks are <strong>fully independent</strong> — no agent depends on another's output</li>
-            <li>You want a <strong>built-in diff viewer</strong> and IDE deep-links (VS Code, Xcode, JetBrains)</li>
-            <li>Human review at the <strong>end of the run</strong> is sufficient for your workflow</li>
-            <li>You don't need retry logic — your tasks are short and <strong>rarely fail</strong></li>
           </ul>
         </div>
       </div>

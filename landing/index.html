@@ -45,7 +45,7 @@
     :root {
       --black: #0a0a0a;
       --white: #f0efe9;
-      --gray: #6b6b6b;
+      --gray: #808080;
       --gray-light: #2a2a2a;
       --accent: #ffaf00;
       --accent-dim: rgba(255,175,0,0.12);
@@ -73,6 +73,11 @@
     ::selection {
       background: var(--accent);
       color: var(--black);
+    }
+
+    a:focus-visible, button:focus-visible, .btn-primary:focus-visible, .btn-ghost:focus-visible, .install-cmd:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
 
     /* --- NOISE OVERLAY --- */
@@ -149,6 +154,7 @@
     /* --- HERO --- */
     .hero {
       min-height: 100vh;
+      min-height: 100dvh;
       display: grid;
       grid-template-columns: 1fr 1fr;
       align-items: center;
@@ -316,7 +322,7 @@
 
     .term-title {
       margin-left: auto;
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       color: #444;
       letter-spacing: 0.08em;
     }
@@ -346,7 +352,7 @@
       position: absolute;
       bottom: 3rem;
       right: 3rem;
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       color: #333;
       letter-spacing: 0.1em;
       writing-mode: vertical-rl;
@@ -362,7 +368,7 @@
       flex-direction: column;
       align-items: center;
       gap: 0.5rem;
-      font-size: 0.55rem;
+      font-size: 0.65rem;
       color: #333;
       letter-spacing: 0.2em;
       text-transform: uppercase;
@@ -400,7 +406,7 @@
     .stat-value.green { color: var(--green); }
 
     .stat-label {
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       color: var(--gray);
       text-transform: uppercase;
       letter-spacing: 0.15em;
@@ -420,7 +426,7 @@
     }
 
     .sp-label {
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       color: var(--gray);
       letter-spacing: 0.2em;
       text-transform: uppercase;
@@ -451,14 +457,14 @@
     }
 
     .sp-card-org {
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       color: var(--gray);
       letter-spacing: 0.1em;
     }
 
     .sp-card-badge {
       display: inline-block;
-      font-size: 0.5rem;
+      font-size: 0.65rem;
       padding: 2px 6px;
       margin-top: 0.6rem;
       border: 1px solid var(--gray-light);
@@ -476,7 +482,7 @@
     }
 
     .sp-logos-label {
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       color: var(--gray-light);
       letter-spacing: 0.2em;
       text-transform: uppercase;
@@ -497,7 +503,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.55rem;
+      font-size: 0.65rem;
       color: #333;
       letter-spacing: 0.05em;
       text-transform: uppercase;
@@ -511,7 +517,7 @@
       display: flex;
       justify-content: center;
       gap: 3rem;
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       color: var(--gray);
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -544,7 +550,7 @@
     }
 
     .ps-header .label {
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--gray);
@@ -633,7 +639,7 @@
 
     .ps-item .tag {
       display: inline-block;
-      font-size: 0.5rem;
+      font-size: 0.65rem;
       padding: 2px 6px;
       margin-top: 0.8rem;
       letter-spacing: 0.08em;
@@ -687,7 +693,7 @@
     }
 
     .section-header .label {
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--gray);
@@ -748,7 +754,7 @@
 
     .terminal-title {
       margin-left: auto;
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       color: #444;
       letter-spacing: 0.08em;
     }
@@ -813,7 +819,7 @@
     .ss-dot:nth-child(1) { background: #ff5f57; }
     .ss-dot:nth-child(2) { background: #febc2e; }
     .ss-dot:nth-child(3) { background: #28c840; }
-    .ss-title { margin-left: auto; font-size: 0.6rem; color: #444; letter-spacing: 0.1em; text-transform: uppercase; }
+    .ss-title { margin-left: auto; font-size: 0.65rem; color: #444; letter-spacing: 0.1em; text-transform: uppercase; }
 
     /* --- MID-PAGE CTA --- */
     .mid-cta {
@@ -911,7 +917,7 @@
     .feature-category.is-new .fc-icon svg { stroke: var(--accent); }
 
     .fc-label {
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       color: var(--gray);
@@ -920,7 +926,7 @@
     .feature-category.is-new .fc-label { color: var(--accent); }
 
     .fc-badge {
-      font-size: 0.5rem;
+      font-size: 0.65rem;
       padding: 1px 5px;
       border: 1px solid var(--accent);
       color: var(--accent);
@@ -990,7 +996,7 @@
     }
 
     .teams-header .label {
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--accent);
@@ -1097,7 +1103,7 @@
     .td-dot:nth-child(1) { background: #ff5f57; }
     .td-dot:nth-child(2) { background: #febc2e; }
     .td-dot:nth-child(3) { background: #28c840; }
-    .td-title { margin-left: auto; font-size: 0.55rem; color: #444; letter-spacing: 0.1em; text-transform: uppercase; }
+    .td-title { margin-left: auto; font-size: 0.65rem; color: #444; letter-spacing: 0.1em; text-transform: uppercase; }
 
     .teams-demo-body {
       padding: 1.2rem 1.5rem;
@@ -1204,7 +1210,7 @@
 
     .step-cmd {
       display: inline-block;
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       color: var(--accent);
       background: var(--accent-dim);
       padding: 0.2rem 0.6rem;
@@ -1243,7 +1249,7 @@
     .use-case-card:hover { background: #0e0e0e; }
 
     .uc-persona {
-      font-size: 0.5rem;
+      font-size: 0.65rem;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       padding: 2px 6px;
@@ -1271,7 +1277,7 @@
 
     .uc-agents {
       margin-top: 1rem;
-      font-size: 0.55rem;
+      font-size: 0.65rem;
       color: #333;
       letter-spacing: 0.05em;
     }
@@ -1391,7 +1397,7 @@
 
     .cta-label {
       display: inline-block;
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--accent);
@@ -1441,7 +1447,7 @@
     .install-cmd .prompt-sign { color: var(--accent); }
 
     .install-cmd .copy-hint {
-      font-size: 0.55rem;
+      font-size: 0.65rem;
       color: var(--gray-light);
       text-transform: uppercase;
       letter-spacing: 0.1em;
@@ -1496,7 +1502,7 @@
       display: flex;
       justify-content: center;
       gap: 2.5rem;
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       color: #333;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -1542,7 +1548,7 @@
     .footer-social a:hover { color: var(--white); }
 
     .footer-col h4 {
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       color: var(--gray);
@@ -1609,10 +1615,13 @@
       nav { padding: 0 1.5rem; }
       .nav-links a:not(.nav-cta) { display: none; }
 
-      .hero { padding: 7rem 1.5rem 3rem; }
+      .hero { grid-template-columns: 1fr; padding: 7rem 1.5rem 3rem; min-height: auto; }
+      .hero h1 { font-size: clamp(2rem, 7vw, 3rem); }
+      .hero-visual { margin-top: 2rem; }
       .hero-version { display: none; }
       .scroll-hint { display: none; }
       .hero-meta { flex-wrap: wrap; gap: 1rem; }
+      .hero-actions { flex-wrap: wrap; }
 
       .stats-bar { gap: 1.5rem; padding: 1.5rem; flex-wrap: wrap; }
       .stat-value { font-size: 1.4rem; }
@@ -1802,7 +1811,7 @@
     .diff-hook-label {
       display: inline-block;
       margin-right: 0.6rem;
-      font-size: 0.6rem;
+      font-size: 0.65rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--accent);
@@ -1967,6 +1976,15 @@
     @keyframes faqReveal {
       from { opacity: 0; transform: translateY(-8px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
     }
   </style>
 
@@ -2137,7 +2155,7 @@
 </head>
 <body>
 
-  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <a href="#main-content" class="skip-link">Skip to content</a>
 
   <!-- NAV -->
   <nav>

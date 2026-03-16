@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ORCH — Before vs After</title>
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="ORCH — Before vs After">
+  <meta property="og:description" content="See the difference: manual AI agent juggling vs ORCH orchestration.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.orch.one/demo">
+  <meta property="og:image" content="https://www.orch.one/og-image.png">
+  <link rel="canonical" href="https://www.orch.one/demo">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="description" content="See the difference: manual AI agent juggling vs ORCH orchestration.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +26,7 @@
       --surface: #0c0c10;
       --border: #18181f;
       --text: #999;
-      --dim: #444;
+      --dim: #777;
       --bright: #e8e8e0;
       --amber: #ffaf00;
       --green: #34d399;
@@ -80,7 +90,7 @@
     .panel-hdr{
       display:flex;align-items:center;gap:.5rem;
       padding:.6rem 1rem;border-bottom:1px solid var(--border);
-      font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;
+      font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;
     }
     .panel-hdr .dot{width:7px;height:7px;border-radius:50%}
     .panel.chaos .panel-hdr{color:var(--red-soft)}
@@ -93,7 +103,7 @@
     /* --- CHAOS SIDE --- */
     .tabs{display:flex;gap:0;margin-bottom:.5rem}
     .tab{
-      padding:.3rem .7rem;font-size:.55rem;color:var(--dim);
+      padding:.3rem .7rem;font-size:.65rem;color:var(--dim);
       border:1px solid var(--border);border-bottom:none;
       cursor:default;transition:all .3s;position:relative;
       background:rgba(255,255,255,.01);
@@ -104,7 +114,7 @@
 
     .term{
       background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:3px;
-      padding:.5rem .6rem;font-size:.6rem;line-height:1.7;
+      padding:.5rem .6rem;font-size:.7rem;line-height:1.7;
       min-height:140px;position:relative;
     }
     .term .ln{opacity:0;transform:translateY(3px);animation:lineIn .25s forwards}
@@ -117,7 +127,7 @@
 
     .chaos-status{
       margin-top:.5rem;padding:.4rem .6rem;
-      font-size:.55rem;color:var(--dim);
+      font-size:.65rem;color:var(--dim);
       border-top:1px solid var(--border);
     }
     .chaos-status .val{color:var(--red-soft);font-weight:500}
@@ -129,7 +139,7 @@
     .ag{
       display:flex;align-items:center;gap:.5rem;
       padding:.35rem .5rem;border:1px solid var(--border);border-radius:3px;
-      font-size:.6rem;transition:all .4s;position:relative;overflow:hidden;
+      font-size:.7rem;transition:all .4s;position:relative;overflow:hidden;
     }
     .ag::before{
       content:'';position:absolute;left:0;top:0;bottom:0;width:2px;
@@ -160,7 +170,7 @@
 
     .orch-feed{
       border-top:1px solid var(--border);padding-top:.4rem;
-      font-size:.55rem;max-height:120px;overflow-y:auto;
+      font-size:.65rem;max-height:120px;overflow-y:auto;
       scrollbar-width:thin;scrollbar-color:var(--border) transparent;
     }
     .orch-feed::-webkit-scrollbar{width:3px}
@@ -171,12 +181,12 @@
     .fi-m b{color:var(--bright);font-weight:500}
     .fi-m .ok{color:var(--green)}
     .fi-m .rt{color:var(--amber)}
-    .fi-m .br{color:var(--blue);font-size:.5rem}
+    .fi-m .br{color:var(--blue);font-size:.65rem}
 
     .orch-stats{
       display:flex;gap:1rem;padding:.4rem 0;
       border-top:1px solid var(--border);margin-top:.4rem;
-      font-size:.55rem;
+      font-size:.65rem;
     }
     .os-v{color:var(--bright);font-weight:500}
     .os-v.a{color:var(--amber)}
@@ -188,7 +198,7 @@
       width:36px;height:36px;border-radius:50%;
       background:var(--bg);border:1px solid var(--border);
       display:flex;align-items:center;justify-content:center;
-      font-size:.6rem;font-weight:700;color:var(--dim);
+      font-size:.65rem;font-weight:700;color:var(--dim);
     }
 
     /* --- BOTTOM --- */
@@ -204,7 +214,7 @@
     .bottom-panel .headline{font-family:var(--serif);font-size:1.1rem;color:var(--bright);margin-bottom:.2rem}
     .bottom-panel.chaos-r .headline{color:var(--red-soft)}
     .bottom-panel.orch-r .headline{color:var(--green)}
-    .bottom-panel .sub{color:var(--dim);font-size:.6rem}
+    .bottom-panel .sub{color:var(--dim);font-size:.65rem}
 
     /* --- OUTCOME + CTA --- */
     .outcome{
@@ -237,7 +247,7 @@
       font-weight:500;cursor:pointer;transition:all .2s;
     }
     .start-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(255,175,0,.3)}
-    .start-sub{margin-top:.6rem;font-size:.55rem;color:var(--dim)}
+    .start-sub{margin-top:.6rem;font-size:.65rem;color:var(--dim)}
 
     /* --- CLOCK --- */
     .clock{
@@ -250,10 +260,29 @@
     .clock.wake{color:var(--green)}
     .sleep-tag{
       position:fixed;top:3.2rem;right:1.8rem;
-      font-size:.5rem;color:var(--amber);letter-spacing:.1em;
+      font-size:.65rem;color:var(--amber);letter-spacing:.1em;
       text-transform:uppercase;opacity:0;transition:opacity .5s;z-index:50;
     }
     .sleep-tag.on{opacity:1}
+
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 1rem;
+      z-index: 200;
+      background: var(--amber);
+      color: var(--bg);
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    .skip-link:focus { top: 0.5rem; }
+
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 2px;
+    }
 
     @media(max-width:768px){
       .split,.bottom{grid-template-columns:1fr;gap:0}
@@ -261,10 +290,21 @@
       .vs{display:none}
       .panel{min-height:auto}
       .bottom-panel.chaos-r{border-right:none;border-bottom:1px solid var(--border)}
+      .clock { display: none; }
+      .sleep-tag { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
     }
   </style>
 </head>
 <body>
+<a href="#main-content" class="skip-link">Skip to content</a>
 
 <div class="clock" id="clock">22:00</div>
 <div class="sleep-tag" id="sleepTag">you're asleep</div>
@@ -277,6 +317,7 @@
   </div>
 </header>
 
+<main id="main-content">
 <div class="intro">
   <h1>Same task. <em>Two realities.</em></h1>
   <p>6 tasks, 3 AI agents. Left: you manage them manually. Right: ORCH handles it.</p>
@@ -344,6 +385,7 @@
   <p>ORCH finished in 28 minutes for $4.20. You were sleeping. Manually, you'd still be fixing merge conflicts at 2am.</p>
   <a href="https://github.com/oxgeneral/ORCH#start-coordinating-agents-in-30-seconds" class="cta">Try it on your project &rarr;</a>
 </div>
+</main>
 
 <script>
 const $ = id => document.getElementById(id);
