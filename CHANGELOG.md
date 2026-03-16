@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.5 (2026-03-17)
+
+### Features
+
+- **`orch serve` — headless daemon mode** — run the orchestrator as a background process for 24/7 operation on servers. Compatible with pm2 and systemd
+  - Structured JSON logging to stdout (machine-parseable for Datadog, Grafana Loki, `jq`)
+  - `--log-format text` for human-readable output
+  - `--once` mode for CI/CD — process all todo tasks and exit (exit 0 = all done, exit 1 = failures)
+  - `--log-file <path>` — tee logs to file in addition to stdout
+  - `--verbose` — include high-frequency `agent:output` events (off by default)
+  - `--tick-interval <ms>` — override polling interval
+  - Heap memory monitoring in tick events for 24/7 stability tracking
+  - Idle tick throttling — logs every 6th idle tick to reduce noise
+  - Graceful shutdown on SIGINT/SIGTERM — waits for running agents, saves state, releases lock
+  - Lock conflict detection — clear error when another orchestrator is already running
+
+### Architecture
+
+- `StructuredLogger` class (`src/cli/serve/structured-logger.ts`) — transforms `OrchestratorEvent` union into flat JSON/text log records
+- `runOnce()` function (`src/cli/serve/once-runner.ts`) — polls for task completion with orchestrator shutdown safety
+- `startWatch()` now accepts `{ skipAutonomousSeeding }` option — keeps CLI concerns out of the orchestrator
+
 ## 1.0.4 (2026-03-15)
 
 ### Fixes
