@@ -401,8 +401,8 @@ orch serve --once        # exit 0 = all done, exit 1 = has failures
 Every event is a single JSON line — pipe to any log aggregator:
 
 ```json
-{"ts":"2026-03-17T03:00:10.000Z","level":"info","event":"agent:started","agent_id":"agt_abc","task_id":"tsk_123","adapter":"claude"}
-{"ts":"2026-03-17T03:12:45.000Z","level":"info","event":"task:status_changed","task_id":"tsk_123","from":"in_progress","to":"review"}
+{"ts":"2026-03-17T03:00:10.000Z","level":"info","event":"agent:started","agentId":"agt_abc","taskId":"tsk_123","runId":"run_xyz"}
+{"ts":"2026-03-17T03:12:45.000Z","level":"info","event":"task:status_changed","taskId":"tsk_123","from":"in_progress","to":"review"}
 {"ts":"2026-03-17T03:12:46.000Z","level":"info","event":"orchestrator:tick","running":0,"queued":2,"heap_mb":142}
 ```
 
