@@ -358,7 +358,7 @@ function setClock(t, cls) {
 // --- CHAOS SIDE ---
 const chaosTerm = $('chaosTerm');
 const chaosStatus = $('chaosStatus');
-let chaosLines = { 1: [], 2: [], 3: [] };
+let chaosLines = { 1: '', 2: '', 3: '' };
 let activeTab = 1;
 
 function showTab(n) {
@@ -366,7 +366,7 @@ function showTab(n) {
   document.querySelectorAll('.tab').forEach(t => {
     t.classList.toggle('active', +t.dataset.t === n);
   });
-  chaosTerm.innerHTML = chaosLines[n].join('');
+  chaosTerm.innerHTML = chaosLines[n];
 }
 
 function addChaos(tab, html) {
