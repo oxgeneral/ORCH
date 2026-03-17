@@ -56,6 +56,7 @@ export interface FormWizardProps {
 }
 
 const CURSOR = '\u2588'; // █
+const CMD_KEY = process.platform === 'darwin' ? '\u2318' : 'Ctrl';
 
 // ── Text editing helpers ─────────────────────────────────────────────
 
@@ -139,9 +140,10 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   const isLastStep = currentStep >= totalSteps - 1;
 
   // Pre-compute textarea visual lines for navigation and rendering
-  const taLineNumWidth = String(taLines.length).length;
-  const taGutterWidth = taLineNumWidth + 4; // " {num} │ "
-  const taContentWidth = Math.max(1, width - taGutterWidth);
+  const { taLineNumWidth, taContentWidth } = useMemo(() => {
+    const lnw = String(taLines.length).length;
+    return { taLineNumWidth: lnw, taContentWidth: Math.max(1, width - lnw - 4) };
+  }, [taLines.length, width]);
 
   const taVisualLines = useMemo((): VisualLine[] => {
     if (!step || step.type !== 'textarea') return [];
@@ -153,7 +155,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       }
     }
     return result;
-  }, [step, taLines, taContentWidth]);
+  }, [step?.id, step?.type, taLines, taContentWidth]);
 
   const taCursorVisualRow = useMemo(() => {
     for (let i = 0; i < taVisualLines.length; i++) {
@@ -529,14 +531,16 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       }
       if (key.ctrl && input === 'w') {
         setDirty(true);
-        const line = taLines[taCursorRow] ?? '';
-        const newPos = wordBoundaryBack(line, taCursorCol);
+        const row = taCursorRow;
+        const col = taCursorCol;
         setTaLines((lines) => {
+          const currentLine = lines[row] ?? '';
+          const newPos = wordBoundaryBack(currentLine, col);
           const newLines = [...lines];
-          newLines[taCursorRow] = line.slice(0, newPos) + line.slice(taCursorCol);
+          newLines[row] = currentLine.slice(0, newPos) + currentLine.slice(col);
+          setTaCursorCol(newPos);
           return newLines;
         });
-        setTaCursorCol(newPos);
         return;
       }
       // Option+Left / Meta+B: word backward
@@ -768,7 +772,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       <Box marginTop={0}>
         <Text color={tuiColors.white} bold>  {step.label}</Text>
         {step.required && <Text color={tuiColors.red}> *</Text>}
-        {!step.required && <Text color={tuiColors.dim}> (optional, {step.type === 'textarea' ? `${process.platform === 'darwin' ? '\u2318' : 'Ctrl'}+Enter` : 'Enter'} to skip)</Text>}
+        {!step.required && <Text color={tuiColors.dim}> (optional, {step.type === 'textarea' ? `${CMD_KEY}+Enter` : 'Enter'} to skip)</Text>}
       </Box>
 
       {/* Step description / guidance */}
@@ -949,13 +953,13 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
             : step.type === 'multiselect'
               ? '\u2191\u2193 move  Space toggle  Enter confirm'
               : step.type === 'textarea'
-                ? `Enter newline  ${process.platform === 'darwin' ? '\u2318' : 'Ctrl'}+Enter confirm  \u2190\u2191\u2192\u2193 navigate`
+                ? `Enter newline  ${CMD_KEY}+Enter confirm  \u2190\u2191\u2192\u2193 navigate`
                 : browsingSuggestions
                   ? '\u2191\u2193 browse  Enter select  \u2191 back to input'
                   : step.suggestions
                     ? '\u2190\u2192 move  Enter confirm  \u2193 browse templates'
                     : '\u2190\u2192 move  Enter confirm'}
-          {onPasteImage && (step.type === 'text' || step.type === 'textarea') ? `  ${process.platform === 'darwin' ? '\u2318' : 'Ctrl'}+V paste image` : ''}
+          {onPasteImage && (step.type === 'text' || step.type === 'textarea') ? `  ${CMD_KEY}+V paste image` : ''}
           {'  Esc '}
           {currentStep > 0 ? 'back' : 'cancel'}
         </Text>
