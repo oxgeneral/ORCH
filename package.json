@@ -1,7 +1,7 @@
 {
   "name": "@oxgeneral/orch",
   "version": "1.0.5",
-  "description": "Open-source orchestration for zero-human companies, processes and departments — deploy AI engineering, editorial, sales, analytics teams from your terminal",
+  "description": "AI agent runtime — orchestrate Claude, Cursor, Codex & OpenCode as one team. Multi-agent task automation with state machine, auto-retry, inter-agent messaging, goals and teams. Zero-config CLI + programmatic API.",
   "type": "module",
   "engines": {
     "node": ">=20.0.0"
@@ -38,24 +38,33 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
+    "ai-agent",
     "ai-agent-runtime",
+    "agent-orchestrator",
     "agent-orchestration",
-    "ai-agents",
     "multi-agent",
+    "ai-agents",
     "ai-team",
-    "orchestrator",
+    "llm-orchestration",
+    "task-automation",
     "claude",
+    "claude-code",
     "codex",
     "cursor",
     "opencode",
-    "claude-code",
     "openai",
     "llm",
+    "cli-tool",
     "cli",
+    "developer-tools",
+    "devtools",
     "typescript",
-    "git-worktree",
+    "automation",
     "workflow",
-    "devops"
+    "devops",
+    "git-worktree",
+    "state-machine",
+    "orchestrator"
   ],
   "author": "Agents Organizations Contributors",
   "license": "MIT",
