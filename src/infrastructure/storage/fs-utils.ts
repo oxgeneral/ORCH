@@ -131,6 +131,8 @@ export async function appendJsonl(filePath: string, record: unknown): Promise<vo
 interface HandleEntry {
   handle: FileHandle;
   idleTimer: ReturnType<typeof setTimeout>;
+  /** Timestamp when the idle timer was last set — avoids redundant timer resets on hot paths. */
+  timerSetAt: number;
 }
 
 /** Idle time before a cached file handle is auto-closed (milliseconds). */
@@ -144,8 +146,14 @@ const inFlightOpens = new Map<string, Promise<FileHandle>>();
 async function getOrCreateHandle(filePath: string): Promise<FileHandle> {
   const existing = appendHandles.get(filePath);
   if (existing) {
-    clearTimeout(existing.idleTimer);
-    existing.idleTimer = setTimeout(() => evictHandle(filePath), HANDLE_IDLE_MS);
+    // Only reset the idle timer when past the midpoint — avoids timer churn on hot paths
+    // (hundreds of writes/sec during Claude streaming, each would otherwise clearTimeout/setTimeout)
+    const now = Date.now();
+    if (now - existing.timerSetAt > HANDLE_IDLE_MS / 2) {
+      clearTimeout(existing.idleTimer);
+      existing.idleTimer = setTimeout(() => evictHandle(filePath), HANDLE_IDLE_MS);
+      existing.timerSetAt = now;
+    }
     return existing.handle;
   }
   // Deduplicate concurrent opens for the same path
@@ -161,9 +169,13 @@ async function getOrCreateHandle(filePath: string): Promise<FileHandle> {
       const entry: HandleEntry = {
         handle,
         idleTimer: setTimeout(() => evictHandle(filePath), HANDLE_IDLE_MS),
+        timerSetAt: Date.now(),
       };
       appendHandles.set(filePath, entry);
       return handle;
+    }).catch((err) => {
+      inFlightOpens.delete(filePath);
+      throw err;
     });
     inFlightOpens.set(filePath, opening);
   }
