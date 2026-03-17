@@ -149,6 +149,7 @@ export function createMockRunStore(): IRunStore {
     readEvents: vi.fn(async (runId: string) => events.get(runId) ?? []),
     readEventsTail: vi.fn(async (_runId: string, _count: number) => []),
     streamEvents: vi.fn(async function* () {}),
+    closeRunEvents: vi.fn(),
   };
 }
 

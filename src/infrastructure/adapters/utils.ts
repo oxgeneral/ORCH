@@ -71,13 +71,20 @@ export function createStreamingEvents(
     });
 
     if (proc.stdout) {
-      for await (const line of readLines(proc.stdout)) {
-        if (signal?.aborted) break;
-        const event = parseEvent(line);
-        if (event) {
-          if (event.type === 'done') gotDoneEvent = true;
-          yield event;
+      try {
+        for await (const line of readLines(proc.stdout)) {
+          if (signal?.aborted) break;
+          const event = parseEvent(line);
+          if (event) {
+            if (event.type === 'done') gotDoneEvent = true;
+            yield event;
+          }
         }
+      } finally {
+        // Destroy the stream to release the FD immediately rather than waiting
+        // for the process to die — critical for rapid abort/restart cycles.
+        // destroy() is idempotent: safe on an already-ended stream.
+        proc.stdout.destroy();
       }
     }
 

@@ -321,5 +321,10 @@ export function registerTuiCommand(program: Command, container: Container): void
       if (watchStarted) {
         await container.orchestrator.stop().catch(() => {});
       }
+
+      // Release all remaining EventBus subscriptions.
+      // React's useEffect cleanup already removed the TUI wildcard handler during unmount;
+      // this is a belt-and-suspenders hygiene call for embedded/test scenarios.
+      container.eventBus.clear();
     });
 }

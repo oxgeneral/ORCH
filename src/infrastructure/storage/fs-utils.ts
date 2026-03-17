@@ -7,6 +7,7 @@
 
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
 import path from 'node:path';
 import yaml from 'js-yaml';
 
@@ -119,13 +120,84 @@ export async function appendJsonl(filePath: string, record: unknown): Promise<vo
     }
   }
 
-  const fd = await fs.open(filePath, 'a');
-  try {
-    await fd.write(line, null, 'utf-8');
-  } finally {
-    await fd.close();
+  const handle = await getOrCreateHandle(filePath);
+  await handle.write(line, null, 'utf-8');
+}
+
+// ── Append file handle cache ─────────────────────────────────────────
+// Keeps one FileHandle (O_APPEND) per file path to avoid open/close per event.
+// Idle handles are auto-closed after HANDLE_IDLE_MS.
+
+interface HandleEntry {
+  handle: FileHandle;
+  idleTimer: ReturnType<typeof setTimeout>;
+}
+
+/** Idle time before a cached file handle is auto-closed (milliseconds). */
+const HANDLE_IDLE_MS = 10_000;
+
+/** Module-level cache of open append handles, keyed by absolute file path. */
+const appendHandles = new Map<string, HandleEntry>();
+/** In-flight open() promises — prevents duplicate FDs for the same path under concurrent calls. */
+const inFlightOpens = new Map<string, Promise<FileHandle>>();
+
+async function getOrCreateHandle(filePath: string): Promise<FileHandle> {
+  const existing = appendHandles.get(filePath);
+  if (existing) {
+    clearTimeout(existing.idleTimer);
+    existing.idleTimer = setTimeout(() => evictHandle(filePath), HANDLE_IDLE_MS);
+    return existing.handle;
+  }
+  // Deduplicate concurrent opens for the same path
+  let opening = inFlightOpens.get(filePath);
+  if (!opening) {
+    opening = fs.open(filePath, 'a').then((handle) => {
+      inFlightOpens.delete(filePath);
+      // If another call already populated the cache (race lost), close the duplicate
+      if (appendHandles.has(filePath)) {
+        handle.close().catch(() => {});
+        return appendHandles.get(filePath)!.handle;
+      }
+      const entry: HandleEntry = {
+        handle,
+        idleTimer: setTimeout(() => evictHandle(filePath), HANDLE_IDLE_MS),
+      };
+      appendHandles.set(filePath, entry);
+      return handle;
+    });
+    inFlightOpens.set(filePath, opening);
+  }
+  return opening;
+}
+
+function evictHandle(filePath: string): void {
+  const entry = appendHandles.get(filePath);
+  if (!entry) return;
+  appendHandles.delete(filePath);
+  clearTimeout(entry.idleTimer);
+  entry.handle.close().catch(() => {});
+}
+
+/**
+ * Explicitly close the append handle for a file path.
+ * Call this when a run completes to reclaim the FD immediately.
+ */
+export function closeAppendHandle(filePath: string): void {
+  evictHandle(filePath);
+}
+
+/**
+ * Close all cached append handles.
+ * Call on process exit and in test teardown.
+ */
+export function closeAllAppendHandles(): void {
+  for (const filePath of [...appendHandles.keys()]) {
+    evictHandle(filePath);
   }
 }
+
+// Auto-cleanup on process exit
+process.once('exit', closeAllAppendHandles);
 
 /** Max file size for full readJsonl (50 MB). Larger files use tail read. */
 const MAX_JSONL_READ_SIZE = 50 * 1024 * 1024;

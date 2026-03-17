@@ -14,6 +14,7 @@ import {
   appendJsonl,
   readJsonl,
   readJsonlTail,
+  closeAppendHandle,
   ensureDir,
   listFiles,
   pathExists,
@@ -58,6 +59,10 @@ export class RunStore implements IRunStore {
    */
   async readEventsTail(runId: string, count: number): Promise<RunEvent[]> {
     return readJsonlTail<RunEvent>(this.paths.runEventsPath(runId), count);
+  }
+
+  closeRunEvents(runId: string): void {
+    closeAppendHandle(this.paths.runEventsPath(runId));
   }
 
   async *streamEvents(runId: string, signal?: AbortSignal): AsyncGenerator<RunEvent> {

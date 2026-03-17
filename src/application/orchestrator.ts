@@ -970,7 +970,8 @@ export class Orchestrator {
         });
       });
     } catch (err) {
-      // Rollback claim
+      // Rollback claim and clean up abort controller (process never launched)
+      this.abortControllers.delete(taskId);
       this.unclaim(taskId);
       await this.saveState();
       throw err;
@@ -1114,6 +1115,9 @@ export class Orchestrator {
         // runService.finish emits agent:completed
         await this.handleRunFailure(taskId, entry, error, errorKind);
       }
+    } finally {
+      // Release the cached JSONL append handle FD for this run
+      this.deps.runStore.closeRunEvents(runId);
     }
   }
 
@@ -1375,6 +1379,18 @@ export class Orchestrator {
 
     // Track runtime (reuse runtimeMs computed above)
     state.stats.total_runtime_ms += runtimeMs;
+
+    // Clean up worktree if one was created for this task
+    if (task.proof?.branch) {
+      await this.deps.workspaceManager.cleanup(taskId).catch((err) => {
+        this.deps.eventBus.emit({
+          type: 'orchestrator:error',
+          error: err instanceof Error ? err.message : String(err),
+          context: `workspace cleanup for ${taskId}`,
+          fatal: false,
+        });
+      });
+    }
 
     // Clean up running entry
     delete state.running[taskId];

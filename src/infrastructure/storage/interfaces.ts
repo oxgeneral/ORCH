@@ -40,6 +40,7 @@ export interface IRunStore {
   readEvents(runId: string): Promise<RunEvent[]>;
   readEventsTail(runId: string, count: number): Promise<RunEvent[]>;
   streamEvents(runId: string, signal?: AbortSignal): AsyncGenerator<RunEvent>;
+  closeRunEvents(runId: string): void;
 }
 
 export interface IStateStore {
