@@ -1,5 +1,5 @@
 <!-- Hero Banner -->
-![ORCH — AI Agent Runtime](./assets/banner-dark.svg)
+![ORCH — AI Agent Runtime](./assets/banner-dark.png)
 
 <p align="center">
   <strong>Open-source orchestration for zero-human companies, processes and departments.</strong><br/>
@@ -36,7 +36,7 @@ cd ~/your-project && orch           # Launch TUI
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
@@ -50,7 +50,7 @@ cd ~/your-project && orch           # Launch TUI
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
@@ -105,14 +105,14 @@ $ orch run --all --watch
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
 ## Start coordinating agents in 30 seconds
 
 <!-- Install Card -->
-![Install ORCH](./assets/install-dark.svg)
+![Install ORCH](./assets/install-dark.png)
 
 <br/>
 
@@ -189,7 +189,7 @@ ORCH itself is lightweight (~120 MB). The RAM goes to the **agent CLI processes*
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
@@ -227,14 +227,14 @@ Agents talk to each other — direct messages, team broadcasts, shared context s
 Nothing touches `main` until reviewed. Every task flows through the state machine:
 
 <!-- State Machine -->
-![State Machine: todo → in_progress → review → done](./assets/statemachine-dark.svg)
+![State Machine: todo → in_progress → review → done](./assets/statemachine-dark.png)
 
 Every transition validated. No task gets lost. No code merges without approval.
 
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
@@ -257,21 +257,21 @@ Every department gets the same superpowers: state machine governance, retry, mes
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
 ## Why founders choose ORCH
 
 <!-- Features Grid -->
-![ORCH Features](./assets/features-dark.svg)
+![ORCH Features](./assets/features-dark.png)
 
 <br/>
 
 ### Works with every tool — AI or not
 
 <!-- Adapters -->
-![Adapters: Claude, OpenCode, Codex, Cursor, Shell](./assets/adapters-dark.svg)
+![Adapters: Claude, OpenCode, Codex, Cursor, Shell](./assets/adapters-dark.png)
 
 <br/>
 
@@ -280,7 +280,7 @@ The `shell` adapter is the key: **if it runs in a terminal, it's an agent** — 
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
@@ -318,7 +318,7 @@ orch org export my-team                          # Save your setup as template
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
@@ -400,7 +400,7 @@ WantedBy=multi-user.target
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
@@ -507,7 +507,7 @@ orch config edit                   # Open in $EDITOR
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
@@ -516,7 +516,7 @@ orch config edit                   # Open in $EDITOR
 ORCH is an engine first, CLI second. The core has zero dependencies on CLI/TUI layers — you can import `@oxgeneral/orch` as a library and build your own interface.
 
 <!-- Architecture Diagram -->
-![ORCH Architecture — Layered DDD](./assets/architecture-dark.svg)
+![ORCH Architecture — Layered DDD](./assets/architecture-dark.png)
 
 <br/>
 
@@ -553,7 +553,7 @@ npm run typecheck      # Strict TypeScript
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
@@ -575,7 +575,7 @@ If ORCH saves you time — **[Star it on GitHub](https://github.com/oxgeneral/OR
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
@@ -656,7 +656,7 @@ Paperclip needs PostgreSQL, a web server, and cloud setup. ORCH needs `npm insta
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.svg)
+![](./assets/divider-dark.png)
 
 <br/>
 
