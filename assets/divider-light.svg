@@ -9,9 +9,7 @@
     </linearGradient>
   </defs>
   <rect x="100" y="15" width="640" height="1" fill="url(#line-grad)" rx="0.5">
-    <animate attributeName="opacity" values="0.6;1;0.6" dur="4s" repeatCount="indefinite"/>
-  </rect>
+</rect>
   <polygon points="420,10 425,16 420,22 415,16" fill="#d97706" opacity="0.5">
-    <animate attributeName="opacity" values="0.3;0.7;0.3" dur="4s" repeatCount="indefinite"/>
-  </polygon>
+</polygon>
 </svg>

@@ -43,8 +43,7 @@
 
     <!-- Cursor blink -->
     <rect x="418" y="88" width="8" height="16" fill="#ffaf00" opacity="0.8">
-      <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" repeatCount="indefinite"/>
-    </rect>
+</rect>
 
     <!-- Result hint -->
     <text x="145" y="128" font-family="'Courier New', monospace" font-size="10" fill="#4a9" opacity="0.7">

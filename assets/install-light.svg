@@ -35,8 +35,7 @@
     <text x="382" y="100" font-family="'Courier New', monospace" font-size="13" fill="#d97706"> orch</text>
 
     <rect x="418" y="88" width="8" height="16" fill="#d97706" opacity="0.8">
-      <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" repeatCount="indefinite"/>
-    </rect>
+</rect>
 
     <text x="145" y="128" font-family="'Courier New', monospace" font-size="10" fill="#16a34a" opacity="0.7">
       ✓ Auto-initializes, opens TUI command center

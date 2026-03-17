@@ -27,8 +27,7 @@
     <rect x="225" y="60" width="150" height="40" rx="20" fill="#ffffff" stroke="#d97706" stroke-opacity="0.5" stroke-width="1"/>
     <text x="300" y="84" text-anchor="middle" font-family="'Courier New', monospace" font-size="12" fill="#d97706">in_progress</text>
     <rect x="225" y="60" width="150" height="40" rx="20" fill="none" stroke="#d97706" stroke-width="0.5">
-      <animate attributeName="stroke-opacity" values="0.5;0.15;0.5" dur="3s" repeatCount="indefinite"/>
-    </rect>
+</rect>
   </g>
 
   <line x1="375" y1="80" x2="445" y2="80" stroke="#d97706" stroke-opacity="0.5" stroke-width="1"/>
@@ -46,8 +45,7 @@
     <rect x="645" y="60" width="120" height="40" rx="20" fill="#ffffff" stroke="#16a34a" stroke-opacity="0.5" stroke-width="1"/>
     <text x="705" y="84" text-anchor="middle" font-family="'Courier New', monospace" font-size="12" fill="#16a34a">done</text>
     <circle cx="705" cy="80" r="22" fill="none" stroke="#16a34a" stroke-opacity="0.1" filter="url(#glow)">
-      <animate attributeName="stroke-opacity" values="0.1;0.03;0.1" dur="4s" repeatCount="indefinite"/>
-    </circle>
+</circle>
   </g>
 
   <path d="M 300,100 L 300,140 L 400,140" fill="none" stroke="#d97706" stroke-opacity="0.3" stroke-width="1" stroke-dasharray="4,3"/>
