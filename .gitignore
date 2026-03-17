@@ -43,3 +43,5 @@ npm-debug.log*
 
 .playwright-mcp
 archive
+
+docs
