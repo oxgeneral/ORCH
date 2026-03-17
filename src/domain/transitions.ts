@@ -54,6 +54,11 @@ export function isDispatchable(status: TaskStatus): boolean {
 /**
  * Check if a task is blocked by unfinished dependencies.
  * Accepts either a Task[] (O(d×n) lookup) or a Map<string, Task> (O(d×1) lookup).
+ *
+ * Missing dependencies (deleted from store) are treated as resolved —
+ * a deleted task should not permanently block dependents.
+ * Dependencies are validated at creation time (task-service), so a missing
+ * dep at runtime means it was deleted after the dependent was created.
  */
 export function isBlocked(task: Task, allTasks: Task[] | Map<string, Task>): boolean {
   if (task.depends_on.length === 0) return false;
@@ -61,13 +66,17 @@ export function isBlocked(task: Task, allTasks: Task[] | Map<string, Task>): boo
   if (allTasks instanceof Map) {
     return task.depends_on.some((depId) => {
       const dep = allTasks.get(depId);
-      return !dep || dep.status !== 'done';
+      // Missing dep → treat as resolved (deleted = done)
+      if (!dep) return false;
+      return dep.status !== 'done';
     });
   }
 
   return task.depends_on.some((depId) => {
     const dep = allTasks.find((t) => t.id === depId);
-    return !dep || dep.status !== 'done';
+    // Missing dep → treat as resolved (deleted = done)
+    if (!dep) return false;
+    return dep.status !== 'done';
   });
 }
 

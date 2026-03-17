@@ -124,9 +124,9 @@ describe('isBlocked', () => {
     expect(isBlocked(task, [dep, task])).toBe(true);
   });
 
-  it('returns true when a dependency does not exist', () => {
+  it('returns false when a dependency does not exist (deleted = resolved)', () => {
     const task = makeTask({ depends_on: ['tsk_missing'] });
-    expect(isBlocked(task, [task])).toBe(true);
+    expect(isBlocked(task, [task])).toBe(false);
   });
 
   it('handles multiple dependencies (all must be done)', () => {
@@ -134,6 +134,18 @@ describe('isBlocked', () => {
     const dep2 = makeTask({ id: 'tsk_d2', status: 'todo' });
     const task = makeTask({ depends_on: ['tsk_d1', 'tsk_d2'] });
     expect(isBlocked(task, [dep1, dep2, task])).toBe(true);
+  });
+
+  it('returns true when one dep is missing and another is not done', () => {
+    const dep = makeTask({ id: 'tsk_d1', status: 'in_progress' });
+    const task = makeTask({ depends_on: ['tsk_missing', 'tsk_d1'] });
+    expect(isBlocked(task, [dep, task])).toBe(true);
+  });
+
+  it('returns false when one dep is missing and another is done', () => {
+    const dep = makeTask({ id: 'tsk_d1', status: 'done' });
+    const task = makeTask({ depends_on: ['tsk_missing', 'tsk_d1'] });
+    expect(isBlocked(task, [dep, task])).toBe(false);
   });
 
   describe('Map<string, Task> overload', () => {
@@ -156,10 +168,10 @@ describe('isBlocked', () => {
       expect(isBlocked(task, taskMap)).toBe(true);
     });
 
-    it('returns true when a dependency is missing from map', () => {
+    it('returns false when a dependency is missing from map (deleted = resolved)', () => {
       const task = makeTask({ depends_on: ['tsk_missing'] });
       const taskMap = new Map([[task.id, task]]);
-      expect(isBlocked(task, taskMap)).toBe(true);
+      expect(isBlocked(task, taskMap)).toBe(false);
     });
 
     it('handles multiple dependencies via Map (all must be done)', () => {
