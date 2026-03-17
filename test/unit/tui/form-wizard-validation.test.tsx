@@ -19,6 +19,7 @@ import { render } from 'ink-testing-library';
 import { FormWizard, type WizardStep } from '../../../src/tui/components/FormWizard.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const CTRL_ENTER = '\x1b[13;5u';
 
 function makeTextStep(overrides?: Partial<WizardStep>): WizardStep[] {
   return [{ id: 'name', label: 'Name', type: 'text', required: true, ...overrides }];
@@ -279,7 +280,7 @@ describe('FormWizard inline validation', () => {
     expect(lastFrame()!).toContain('Fix the error above');
   });
 
-  it('blocks Enter and shows Fix the error above for textarea step with error', async () => {
+  it('blocks Ctrl+Enter and shows Fix the error above for textarea step with error', async () => {
     const onComplete = vi.fn();
     const { stdin, lastFrame } = render(
       React.createElement(FormWizard, {
@@ -295,7 +296,7 @@ describe('FormWizard inline validation', () => {
 
     stdin.write('x');
     await delay(400);
-    stdin.write('\r');
+    stdin.write(CTRL_ENTER);
     await delay(50);
 
     expect(onComplete).not.toHaveBeenCalled();
@@ -483,7 +484,7 @@ describe('FormWizard inline validation', () => {
     expect(onComplete).toHaveBeenCalledWith({ name: 'anything' });
   });
 
-  it('no validation error for textarea step without validate fn — Enter works normally', async () => {
+  it('no validation error for textarea step without validate fn — Ctrl+Enter works normally', async () => {
     const onComplete = vi.fn();
     const { stdin } = render(
       React.createElement(FormWizard, {
@@ -499,7 +500,7 @@ describe('FormWizard inline validation', () => {
 
     stdin.write('some text');
     await delay(400);
-    stdin.write('\r');
+    stdin.write(CTRL_ENTER);
     await delay(50);
 
     expect(onComplete).toHaveBeenCalledWith({ body: 'some text' });

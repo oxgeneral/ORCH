@@ -18,6 +18,7 @@ import type { OrchestratorState } from '../../../src/domain/state.js';
 import { makeTask } from '../application/helpers.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const CTRL_ENTER = '\x1b[13;5u';
 
 // Kitty keyboard protocol CSI u sequence for Ctrl+V (codepoint 118, modifier 5=ctrl+1)
 const CTRL_V = '\x1b[118;5u';
@@ -70,7 +71,7 @@ describe('App paste image during task wizard', () => {
     await delay(50);
     stdin.write('\r'); // priority (default P3)
     await delay(50);
-    stdin.write('\r'); // description (skip)
+    stdin.write(CTRL_ENTER); // description (textarea skip)
     await delay(150);
 
     expect(receivedTitle).toBe('Task with image');
@@ -134,7 +135,7 @@ describe('App paste image during task wizard', () => {
     await delay(50);
     stdin.write('\r'); // priority
     await delay(50);
-    stdin.write('\r'); // description
+    stdin.write(CTRL_ENTER); // description (textarea)
     await delay(150);
 
     expect(receivedAttachments).toBeDefined();
@@ -175,7 +176,7 @@ describe('App paste image during task wizard', () => {
     await delay(50);
     stdin.write('\r'); // priority
     await delay(50);
-    stdin.write('\r'); // description
+    stdin.write(CTRL_ENTER); // description (textarea)
     await delay(150);
 
     expect(receivedAttachments).toBeUndefined();

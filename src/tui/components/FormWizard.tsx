@@ -57,6 +57,44 @@ export interface FormWizardProps {
 
 const CURSOR = '\u2588'; // █
 
+// ── Text editing helpers ─────────────────────────────────────────────
+
+/** Wrap a logical line into visual segments of at most maxWidth characters. */
+function wrapTextLine(line: string, maxWidth: number): string[] {
+  if (maxWidth <= 0 || line.length <= maxWidth) return [line];
+  const segs: string[] = [];
+  for (let i = 0; i < line.length; i += maxWidth) {
+    segs.push(line.slice(i, i + maxWidth));
+  }
+  return segs;
+}
+
+/** Visual line metadata for textarea rendering and navigation. */
+interface VisualLine {
+  logicalRow: number;
+  startCol: number;
+  text: string;
+  isFirst: boolean;
+}
+
+/** Find word boundary backward from pos (for Ctrl+W / Option+Left). */
+function wordBoundaryBack(text: string, pos: number): number {
+  if (pos <= 0) return 0;
+  let i = pos - 1;
+  while (i > 0 && text[i - 1] === ' ') i--;
+  while (i > 0 && text[i - 1] !== ' ') i--;
+  return i;
+}
+
+/** Find word boundary forward from pos (for Option+Right). */
+function wordBoundaryForward(text: string, pos: number): number {
+  if (pos >= text.length) return text.length;
+  let i = pos;
+  while (i < text.length && text[i] !== ' ') i++;
+  while (i < text.length && text[i] === ' ') i++;
+  return i;
+}
+
 export function FormWizard({ title, steps, onComplete, onCancel, width, height, onPasteImage, footerExtra, onSuggestionSelected }: FormWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -99,6 +137,34 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   const step = activeSteps[currentStep];
   const totalSteps = activeSteps.length;
   const isLastStep = currentStep >= totalSteps - 1;
+
+  // Pre-compute textarea visual lines for navigation and rendering
+  const taLineNumWidth = String(taLines.length).length;
+  const taGutterWidth = taLineNumWidth + 4; // " {num} │ "
+  const taContentWidth = Math.max(1, width - taGutterWidth);
+
+  const taVisualLines = useMemo((): VisualLine[] => {
+    if (!step || step.type !== 'textarea') return [];
+    const result: VisualLine[] = [];
+    for (let r = 0; r < taLines.length; r++) {
+      const segs = wrapTextLine(taLines[r] ?? '', taContentWidth);
+      for (let s = 0; s < segs.length; s++) {
+        result.push({ logicalRow: r, startCol: s * taContentWidth, text: segs[s]!, isFirst: s === 0 });
+      }
+    }
+    return result;
+  }, [step, taLines, taContentWidth]);
+
+  const taCursorVisualRow = useMemo(() => {
+    for (let i = 0; i < taVisualLines.length; i++) {
+      const vl = taVisualLines[i]!;
+      if (vl.logicalRow !== taCursorRow) continue;
+      if (taCursorCol >= vl.startCol && taCursorCol < vl.startCol + taContentWidth) return i;
+      // Cursor at end of line: belongs to the last visual line of this logical row
+      if (taCursorCol >= vl.startCol && (i + 1 >= taVisualLines.length || taVisualLines[i + 1]!.logicalRow !== taCursorRow)) return i;
+    }
+    return 0;
+  }, [taVisualLines, taCursorRow, taCursorCol, taContentWidth]);
 
   // Multiselect toggled values (set of selected option values)
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
@@ -351,6 +417,35 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         setSuggestionIndex(0);
         return;
       }
+      // Terminal shortcuts for text input
+      if (key.ctrl && input === 'a') { setCursorPos(0); return; }
+      if (key.ctrl && input === 'e') { setCursorPos(textInput.length); return; }
+      if (key.ctrl && input === 'k') {
+        setDirty(true);
+        setTextInput((v) => v.slice(0, cursorPos));
+        return;
+      }
+      if (key.ctrl && input === 'u') {
+        setDirty(true);
+        setTextInput((v) => v.slice(cursorPos));
+        setCursorPos(0);
+        return;
+      }
+      if (key.ctrl && input === 'w') {
+        setDirty(true);
+        const newPos = wordBoundaryBack(textInput, cursorPos);
+        setTextInput((v) => v.slice(0, newPos) + v.slice(cursorPos));
+        setCursorPos(newPos);
+        return;
+      }
+      if (key.meta && (key.leftArrow || input === 'b')) {
+        setCursorPos(wordBoundaryBack(textInput, cursorPos));
+        return;
+      }
+      if (key.meta && (key.rightArrow || input === 'f')) {
+        setCursorPos(wordBoundaryForward(textInput, cursorPos));
+        return;
+      }
       if (key.leftArrow) {
         setCursorPos((p) => Math.max(0, p - 1));
         return;
@@ -381,8 +476,8 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     }
 
     if (step.type === 'textarea') {
-      // Enter (without shift): confirm textarea
-      if (key.return && !key.shift) {
+      // Ctrl+Enter / Cmd+Enter: confirm textarea
+      if (key.return && (key.ctrl || key.meta)) {
         const val = taLines.join('\n').trim();
         if (step.required && !val) { setDirty(true); return; }
         if (validationError !== null) {
@@ -395,8 +490,9 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         goToNextStep(val);
         return;
       }
-      // Shift+Enter: new line
-      if (key.return && key.shift) {
+      // Enter (plain or Shift+Enter): insert newline
+      if (key.return) {
+        setDirty(true);
         setTaLines((lines) => {
           const line = lines[taCursorRow] ?? '';
           const before = line.slice(0, taCursorCol);
@@ -409,18 +505,70 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         setTaCursorCol(0);
         return;
       }
-      // Arrow navigation
+      // Terminal shortcuts
+      if (key.ctrl && input === 'a') { setTaCursorCol(0); return; }
+      if (key.ctrl && input === 'e') { setTaCursorCol((taLines[taCursorRow] ?? '').length); return; }
+      if (key.ctrl && input === 'k') {
+        setDirty(true);
+        setTaLines((lines) => {
+          const newLines = [...lines];
+          newLines[taCursorRow] = (newLines[taCursorRow] ?? '').slice(0, taCursorCol);
+          return newLines;
+        });
+        return;
+      }
+      if (key.ctrl && input === 'u') {
+        setDirty(true);
+        setTaLines((lines) => {
+          const newLines = [...lines];
+          newLines[taCursorRow] = (newLines[taCursorRow] ?? '').slice(taCursorCol);
+          return newLines;
+        });
+        setTaCursorCol(0);
+        return;
+      }
+      if (key.ctrl && input === 'w') {
+        setDirty(true);
+        const line = taLines[taCursorRow] ?? '';
+        const newPos = wordBoundaryBack(line, taCursorCol);
+        setTaLines((lines) => {
+          const newLines = [...lines];
+          newLines[taCursorRow] = line.slice(0, newPos) + line.slice(taCursorCol);
+          return newLines;
+        });
+        setTaCursorCol(newPos);
+        return;
+      }
+      // Option+Left / Meta+B: word backward
+      if (key.meta && (key.leftArrow || input === 'b')) {
+        setTaCursorCol(wordBoundaryBack(taLines[taCursorRow] ?? '', taCursorCol));
+        return;
+      }
+      // Option+Right / Meta+F: word forward
+      if (key.meta && (key.rightArrow || input === 'f')) {
+        setTaCursorCol(wordBoundaryForward(taLines[taCursorRow] ?? '', taCursorCol));
+        return;
+      }
+      // Arrow navigation (visual lines — accounts for word-wrap)
       if (key.upArrow) {
-        if (taCursorRow > 0) {
-          setTaCursorRow((r) => r - 1);
-          setTaCursorCol((c) => Math.min(c, (taLines[taCursorRow - 1] ?? '').length));
+        if (taCursorVisualRow > 0) {
+          const curVl = taVisualLines[taCursorVisualRow];
+          const targetVl = taVisualLines[taCursorVisualRow - 1]!;
+          const visualCol = taCursorCol - (curVl?.startCol ?? 0);
+          const newCol = Math.min(targetVl.startCol + visualCol, targetVl.startCol + targetVl.text.length);
+          setTaCursorRow(targetVl.logicalRow);
+          setTaCursorCol(newCol);
         }
         return;
       }
       if (key.downArrow) {
-        if (taCursorRow < taLines.length - 1) {
-          setTaCursorRow((r) => r + 1);
-          setTaCursorCol((c) => Math.min(c, (taLines[taCursorRow + 1] ?? '').length));
+        if (taCursorVisualRow < taVisualLines.length - 1) {
+          const curVl = taVisualLines[taCursorVisualRow];
+          const targetVl = taVisualLines[taCursorVisualRow + 1]!;
+          const visualCol = taCursorCol - (curVl?.startCol ?? 0);
+          const newCol = Math.min(targetVl.startCol + visualCol, targetVl.startCol + targetVl.text.length);
+          setTaCursorRow(targetVl.logicalRow);
+          setTaCursorCol(newCol);
         }
         return;
       }
@@ -620,7 +768,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       <Box marginTop={0}>
         <Text color={tuiColors.white} bold>  {step.label}</Text>
         {step.required && <Text color={tuiColors.red}> *</Text>}
-        {!step.required && <Text color={tuiColors.dim}> (optional, Enter to skip)</Text>}
+        {!step.required && <Text color={tuiColors.dim}> (optional, {step.type === 'textarea' ? `${process.platform === 'darwin' ? '\u2318' : 'Ctrl'}+Enter` : 'Enter'} to skip)</Text>}
       </Box>
 
       {/* Step description / guidance */}
@@ -687,34 +835,36 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         );
       })()}
 
-      {/* Textarea (multiline editor) */}
+      {/* Textarea (multiline editor with visual wrapping) */}
       {step.type === 'textarea' && (() => {
         const taVisibleH = Math.max(3, height - 6);
         let taScrollStart = 0;
-        if (taCursorRow >= taVisibleH) {
-          taScrollStart = taCursorRow - taVisibleH + 1;
+        if (taCursorVisualRow >= taVisibleH) {
+          taScrollStart = taCursorVisualRow - taVisibleH + 1;
         }
-        const visibleLines = taLines.slice(taScrollStart, taScrollStart + taVisibleH);
-        const lineNumWidth = String(taLines.length).length;
+        const visibleVLines = taVisualLines.slice(taScrollStart, taScrollStart + taVisibleH);
         return (
           <Box flexDirection="column">
             <Box flexDirection="column" borderStyle={visibleError ? 'round' : undefined} borderColor={visibleError ? tuiColors.red : undefined}>
-              {visibleLines.map((line, i) => {
-                const realRow = i + taScrollStart;
-                const lineNum = String(realRow + 1).padStart(lineNumWidth, ' ');
-                const isCursorLine = realRow === taCursorRow;
+              {visibleVLines.map((vl, i) => {
+                const vRow = i + taScrollStart;
+                const lineNum = vl.isFirst
+                  ? String(vl.logicalRow + 1).padStart(taLineNumWidth, ' ')
+                  : ''.padStart(taLineNumWidth, ' ');
+                const isCursorLine = vRow === taCursorVisualRow;
+                const cursorColInVisual = taCursorCol - vl.startCol;
                 return (
-                  <Box key={realRow}>
+                  <Box key={`${vl.logicalRow}-${vl.startCol}`}>
                     <Text color={tuiColors.dim}> {lineNum} </Text>
                     <Text color={tuiColors.ghost}>{'\u2502'} </Text>
                     {isCursorLine ? (
                       <>
-                        <Text color={tuiColors.white}>{line.slice(0, taCursorCol)}</Text>
+                        <Text color={tuiColors.white}>{vl.text.slice(0, cursorColInVisual)}</Text>
                         <Text color={tuiColors.amber}>{CURSOR}</Text>
-                        <Text color={tuiColors.white}>{line.slice(taCursorCol)}</Text>
+                        <Text color={tuiColors.white}>{vl.text.slice(cursorColInVisual)}</Text>
                       </>
                     ) : (
-                      <Text color={tuiColors.silver}>{line || ' '}</Text>
+                      <Text color={tuiColors.silver}>{vl.text || (vl.isFirst ? ' ' : '')}</Text>
                     )}
                   </Box>
                 );
@@ -722,7 +872,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
               {/* Show placeholder on empty textarea */}
               {taLines.length === 1 && taLines[0] === '' && step.placeholder && (
                 <Box>
-                  <Text color={tuiColors.dim}>  {''.padStart(lineNumWidth, ' ')}  {step.placeholder}</Text>
+                  <Text color={tuiColors.dim}>  {''.padStart(taLineNumWidth, ' ')}  {step.placeholder}</Text>
                 </Box>
               )}
             </Box>
@@ -799,7 +949,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
             : step.type === 'multiselect'
               ? '\u2191\u2193 move  Space toggle  Enter confirm'
               : step.type === 'textarea'
-                ? 'Shift+Enter newline  Enter confirm  \u2190\u2191\u2192\u2193 navigate'
+                ? `Enter newline  ${process.platform === 'darwin' ? '\u2318' : 'Ctrl'}+Enter confirm  \u2190\u2191\u2192\u2193 navigate`
                 : browsingSuggestions
                   ? '\u2191\u2193 browse  Enter select  \u2191 back to input'
                   : step.suggestions

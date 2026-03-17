@@ -20,6 +20,9 @@ import { DEFAULT_STATE } from '../../../src/domain/state.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Kitty keyboard protocol CSI u for Ctrl+Enter (textarea confirm)
+const CTRL_ENTER = '\x1b[13;5u';
+
 // Clean up global animation timer between tests to prevent leaks
 afterEach(() => { _resetAnimTick(); });
 
@@ -746,8 +749,8 @@ describe('App', () => {
     stdin.write('\r');
     await delay(50);
 
-    // Step 3: description (textarea, optional) — Enter to skip
-    stdin.write('\r');
+    // Step 3: description (textarea, optional) — Ctrl+Enter to skip
+    stdin.write(CTRL_ENTER);
     await delay(100);
 
     expect(createdTitle).toBe('Build API');
@@ -831,8 +834,8 @@ describe('App', () => {
     // Step 2: priority — Enter for default
     stdin.write('\r');
     await delay(50);
-    // Step 3: description (textarea) — Enter to skip
-    stdin.write('\r');
+    // Step 3: description (textarea) — Ctrl+Enter to skip
+    stdin.write(CTRL_ENTER);
     await delay(100);
     expect(lastFrame()!).toContain('disk full');
   });
