@@ -61,4 +61,6 @@ process.stderr.write(`
   Get started:
     $ ${bold('orch')}
 
+  ${dim('⭐ Like it? Star us on GitHub: https://github.com/oxgeneral/ORCH')}
+
 `);
