@@ -1,43 +1,8 @@
 # ORCH — Launch Promotion Playbook
 
 > **Goal**: Publish to all channels in under 30 minutes.
-> **Test count**: 1647 (verified green) · **Stars**: 9/10 — 1 star away from milestone! · **npm downloads**: 1,513/week
+> **Test count**: 1647 (verified green) · **Stars**: 9/10 — 1 star away from milestone!
 > **Repo**: https://github.com/oxgeneral/ORCH
-
----
-
-## 🚨 URGENT: ONE CLICK TO 10 STARS — DO THIS NOW
-
-**We need exactly 1 more star. These 3 actions take under 5 minutes total:**
-
-### Action A — awesome-claude-code (easiest, highest impact, 28.7K audience)
-Branch already created. Just open the PR:
-👉 **[Click here → Create PR](https://github.com/oxgeneral/awesome-claude-code/compare/main...oxgeneral:add-orch-orchestrator)**
-→ Click "Create pull request" → "Submit"
-
-OR use the issue form:
-👉 **[Submit via Issue Form](https://github.com/hesreallyhim/awesome-claude-code/issues/new?template=recommend-resource.yml)**
-Fill in:
-- Display Name: `ORCH`
-- Category: `Tooling`
-- Sub-Category: `Orchestrators`
-- Link: `https://github.com/oxgeneral/ORCH`
-- Author: `oxgeneral`
-- License: `MIT`
-- Description: `CLI orchestrator that manages Claude Code, Codex, and Cursor as a typed task queue with state machine (todo→in_progress→review→done), auto-retry, inter-agent messaging, and TUI dashboard. 1647 passing tests.`
-
-### Action B — Reddit r/ClaudeAI (612K members, any day, any time)
-👉 **[Submit post here](https://www.reddit.com/r/ClaudeAI/submit)**
-Title: `I built ORCH — a CLI orchestrator that manages Claude Code as a typed task queue with state machine, auto-retry, and TUI dashboard`
-Body: See Channel 2b below ↓
-
-### Action C — Dev.to comment (already written, just paste)
-👉 **[Open this article](https://dev.to/lightningdev123/top-5-cli-coding-agents-in-2026-3pia)**
-Content: See `docs/content/devto-comment-top5-agents.md` — copy & paste as a comment
-
-**Once any one of these lands a star, the goal is achieved!**
-
----
 
 ---
 
@@ -114,7 +79,7 @@ ORCH reads the goal, breaks it into tasks, and assigns them to idle agents autom
 
 Quick start (30 seconds):
 
-  $ npm install -g @oxgeneral/orch
+  $ npm install -g @oxgeneral/orch --registry=https://npm.pkg.github.com
   $ cd ~/your-project && orch init && orch
 
 TUI launches with Tasks/Agents/Goals tabs. Create tasks from the dashboard — no CLI memorization needed.
@@ -212,7 +177,7 @@ orch run --all
 
 **Install**:
 ```bash
-npm install -g @oxgeneral/orch
+npm install -g @oxgeneral/orch --registry=https://npm.pkg.github.com
 cd your-project && orch init && orch
 ```
 
@@ -300,7 +265,7 @@ orch run --all
 
 **Install**:
 ```bash
-npm install -g @oxgeneral/orch
+npm install -g @oxgeneral/orch --registry=https://npm.pkg.github.com
 cd your-project && orch init && orch
 ```
 
@@ -665,7 +630,7 @@ $ orch msg send <agent-id> "auth module uses JWT RS256, check src/auth/keys.ts"
 ## Quick start
 
 ```bash
-$ npm install -g @oxgeneral/orch
+$ npm install -g @oxgeneral/orch --registry=https://npm.pkg.github.com
 $ cd your-project && orch init && orch
 ```
 
@@ -813,7 +778,7 @@ Key features:
 
 Stack: TypeScript, Node 20+, 1647 tests, MIT
 
-$ npm install -g @oxgeneral/orch
+$ npm install -g @oxgeneral/orch --registry=https://npm.pkg.github.com
 $ orch init && orch  # TUI dashboard launches immediately
 
 https://github.com/oxgeneral/ORCH
@@ -1162,441 +1127,11 @@ If you're using Claude Code for complex projects and spending time manually coor
 
 ---
 
-## Channel 11 — FINAL PUSH: Awesome Lists PRs + Community Integrations ⭐
-
-> **Goal**: Get indexed in high-traffic awesome lists for permanent organic discovery. One list submission = passive stars for months.
-> **Priority**: Do these async — no time pressure, submissions take 1–5 days to merge.
-
----
-
-### 11.1 — sindresorhus/awesome ⭐ THE ULTIMATE LIST (350K stars)
-
-**URL**: https://github.com/sindresorhus/awesome/blob/main/readme.md
-**How to submit**: Open a PR to `readme.md`, add entry in the appropriate section
-**Relevant section**: Look for "AI", "Machine Learning", or "Tools" — or propose adding under a new "AI Agents" category
-**PR title**: `Add ORCH — CLI orchestrator for AI agent teams`
-
-> ⚠️ **Note**: sindresorhus/awesome is highly selective. Projects typically need meaningful traction. Submit anyway to get on the radar — and as stars grow, the PR will get more attention.
-
-**PR body** (post this as the PR description):
-
-```markdown
-## Add ORCH to the list
-
-### About the project
-
-**ORCH** is an open-source CLI orchestrator for managing teams of AI agents (Claude Code, OpenAI Codex, Cursor, shell scripts) as a typed task queue with a validated state machine.
-
-- GitHub: https://github.com/oxgeneral/ORCH
-- npm: `@oxgeneral/orch`
-- License: MIT
-- Tests: 1647 (Vitest, all green)
-- Language: TypeScript (strict mode)
-
-### Why it belongs here
-
-ORCH solves a concrete developer problem: when running 3+ AI agents in parallel, the developer becomes the manual scheduler, retry handler, and context router. ORCH automates this with:
-
-1. **Validated state machine** — `todo → in_progress → review → done` with enforced transitions
-2. **Reactive dispatch** — new tasks reach agents in <500ms via event bus
-3. **File-only state** — `.orchestry/` YAML+JSONL, zero infrastructure, git-trackable
-4. **Inter-agent messaging** — agents share context mid-run
-5. **Autonomous goal mode** — set a high-level Goal, ORCH generates and assigns tasks automatically
-
-### Suggested entry
-
-```markdown
-- [ORCH](https://github.com/oxgeneral/ORCH) - CLI orchestrator for AI agent teams. Manages Claude, Codex, Cursor, and shell agents as a typed task queue with state machine, reactive dispatch, and zero-infrastructure file state.
-```
-
-### Compliance
-
-- [x] I have read the [contribution guidelines](https://github.com/sindresorhus/awesome/blob/main/contributing.md)
-- [x] The project is open source (MIT)
-- [x] The README has a clear description and installation instructions
-- [x] The project is actively maintained (last commit: this week)
-```
-
----
-
-### 11.2 — filipecalegario/awesome-generative-ai ⭐ AI TOOLS DIRECTORY
-
-**URL**: https://github.com/filipecalegario/awesome-generative-ai
-**How to submit**: Open a PR — add entry in reverse chronological order (newest at top of section)
-**Target section**: "Multi-agents" (under "Autonomous LLM Agents" in the LLMs section)
-**PR title**: `Add ORCH — CLI orchestrator for AI agent teams (multi-agent section)`
-
-**Entry to add** (paste at the TOP of the Multi-agents section):
-
-```markdown
-* [ORCH](https://github.com/oxgeneral/ORCH) - open-source CLI orchestrator for managing teams of AI agents (Claude, Codex, Cursor, shell) with validated state machine, reactive dispatch, inter-agent messaging, and file-only state. TypeScript, MIT.
-```
-
-**PR body**:
-
-```markdown
-## Add ORCH to Multi-agents section
-
-**Tool**: ORCH — CLI orchestrator for AI agent teams
-**GitHub**: https://github.com/oxgeneral/ORCH
-**Category**: Multi-agents (under Autonomous LLM Agents)
-
-ORCH is an open-source TypeScript CLI that orchestrates teams of AI agents (Claude Code, OpenAI Codex, Cursor, local shell scripts) as a typed task queue. It provides:
-
-- Validated state machine (`todo → in_progress → review → done`)
-- Reactive task dispatch (<500ms latency, event-driven)
-- Inter-agent messaging (`orch msg send`)
-- Autonomous goal mode (set goal → ORCH generates + assigns tasks)
-- File-only state (`.orchestry/` YAML+JSONL, zero infrastructure)
-- 1647 passing tests, MIT license
-
-This fits the "Multi-agents" category as it specifically manages multi-agent coordination and communication patterns.
-```
-
----
-
-### 11.3 — caramaschiHG/awesome-ai-agents-2026 ⭐ AI AGENTS DIRECTORY 2026
-
-**URL**: https://github.com/caramaschiHG/awesome-ai-agents-2026
-**How to submit**: Open a PR — add entry in the table format
-**Target section**: "🔗 Multi-Agent Platforms" OR "⚡ Task and Workflow Agents"
-**PR title**: `Add ORCH — open-source CLI multi-agent orchestrator`
-
-**Entry to add** (table row format):
-
-```markdown
-| [ORCH](https://github.com/oxgeneral/ORCH) | Open-source CLI orchestrator for AI agent teams. State machine, reactive dispatch, inter-agent messaging, autonomous goal mode. TypeScript, MIT. | Free / Open Source |
-```
-
-**PR body**:
-
-```markdown
-## Add ORCH to Multi-Agent Platforms section
-
-**Tool**: ORCH
-**URL**: https://github.com/oxgeneral/ORCH
-**Category**: Multi-Agent Platforms (or Task and Workflow Agents)
-**Pricing**: Free / Open Source (MIT)
-
-ORCH is a TypeScript CLI that turns Claude Code, Codex, Cursor, and shell scripts into a coordinated agent team with:
-- Validated state machine with mandatory review gates
-- Reactive task dispatch and automatic retries
-- Inter-agent messaging and shared context store
-- Autonomous goal decomposition
-- 1647 tests, zero infrastructure required
-
-Active project with 417+ commits.
-```
-
----
-
-### 11.4 — ai-collection (Email Submission)
-
-**URL**: https://ai-collection.org
-**How to submit**: Email to `pavel@ai-collection.org`
-**Subject line**: `Submission: ORCH — CLI orchestrator for AI agent teams`
-
-**Email body** (copy-paste):
-
-```
-Hi Pavel,
-
-I'd like to submit ORCH for inclusion in the AI Collection.
-
-Name: ORCH
-URL: https://github.com/oxgeneral/ORCH
-Category: Code & Database Assistant (or Developer Tools)
-
-Description:
-ORCH is an open-source CLI orchestrator for managing teams of AI agents (Claude Code, OpenAI Codex, Cursor, shell scripts) as a typed task queue. It eliminates the need to manually route context between parallel AI agents by providing:
-
-- Validated state machine (todo → in_progress → review → done)
-- Parallel agent dispatch with dependency resolution
-- Automatic retries and stall detection
-- Inter-agent messaging (agents share context mid-run)
-- Autonomous goal mode (set a goal, ORCH generates and assigns tasks)
-- File-only state (no database, no cloud, git-trackable)
-
-Technical specs: TypeScript, Node 20+, 1647 passing tests, MIT license.
-
-Target users: developers running 3+ AI agents simultaneously who need automated coordination instead of manual tab-switching.
-
-Let me know if you need a screenshot or any additional information.
-
-Best,
-[your name]
-```
-
----
-
-### 11.5 — moazbuilds/CodeMachine-CLI Discussions (Integration Opportunity)
-
-**URL**: https://github.com/moazbuilds/CodeMachine-CLI/discussions/new
-**Category**: General (or Ideas)
-**Title**: `Integration idea: ORCH as orchestration layer for CodeMachine workflows`
-
-**Post body** (markdown):
-
-```markdown
-Hi CodeMachine team and community,
-
-First, great work on CodeMachine — the workflow capture-and-replay concept is genuinely useful for teams that need repeatable AI coding patterns.
-
-I built **ORCH** (https://github.com/oxgeneral/ORCH) — an open-source CLI orchestrator for multi-agent teams — and I think there's a natural integration opportunity here.
-
-## How they complement each other
-
-**CodeMachine** excels at: capturing AI coding workflows once and running them repeatably across projects.
-
-**ORCH** excels at: managing the parallel execution, state tracking, retries, and inter-agent communication when running multiple agents simultaneously.
-
-## Potential integration
-
-ORCH could use CodeMachine workflows as executable "recipes" for its agents:
-
-```bash
-# Register a CodeMachine workflow as an ORCH agent
-orch agent add "CodeMachineWorker" \
-  --adapter shell \
-  --role "Execute the auth-workflow recipe against the current project"
-
-# Queue tasks that run CodeMachine workflows
-orch task add "Apply auth-workflow to new module" --assignee CodeMachineWorker
-orch run --all
-# → ORCH handles retries if the workflow fails, stall detection, dependency ordering
-```
-
-## What ORCH brings to CodeMachine users
-
-- **Parallel execution**: run multiple CodeMachine workflows simultaneously with automatic conflict detection (scope overlap)
-- **Dependency resolution**: workflow B waits for workflow A to complete before starting
-- **Automatic retries**: if a workflow fails, ORCH retries with exponential backoff
-- **State visibility**: TUI dashboard shows all running workflows, their status, and token costs
-
-## Thoughts?
-
-Would love to hear if CodeMachine users have tried something like this, or if the CodeMachine team has thought about native orchestration primitives.
-
-ORCH is MIT — happy to add a CodeMachine adapter natively if there's interest.
-```
-
----
-
-### 11.6 — Updated Author Checklist
-
-```
-FINAL PUSH checklist (async — do when you have 30 min):
-[ ] 11.1 sindresorhus/awesome PR — paste PR body above, submit
-[ ] 11.2 filipecalegario/awesome-generative-ai PR — add entry to Multi-agents section
-[ ] 11.3 caramaschiHG/awesome-ai-agents-2026 PR — add table row
-[ ] 11.4 ai-collection email — send to pavel@ai-collection.org
-[ ] 11.5 CodeMachine-CLI Discussion — paste post, submit
-```
-
----
-
-## Channel 12 — Anthropic Community Forum + Discord ⭐ CLAUDE DEVS FIRST-PARTY
-
-> **Target**: Anthropic's own community — developers who already use Claude Code and are most likely to star.
-> **community.anthropic.com** — if/when accessible, post in "Show & Tell" or "Projects" category.
-> **Discord**: discord.com/invite/6PPFFzqPDZ (70,400 members) — post in #show-and-tell or #tools channel.
-> **Note**: As of 2026-03-17 community.anthropic.com returned ECONNREFUSED — may not be publicly available yet. Post to Discord first; check forum availability before posting there.
-
----
-
-### 12.1 — Anthropic Community Forum Post
-
-**URL** (try in order):
-1. `https://community.anthropic.com/c/show-and-tell`
-2. `https://community.anthropic.com/c/projects`
-3. `https://community.anthropic.com/new-topic` (manual category selection)
-
-**Title** (copy exactly):
-```
-ORCH — CLI runtime for Claude Code agent teams (state machine, parallel dispatch, auto-retry)
-```
-
-**Body** (3–4 sentences, paste as-is):
-
-```
-If you're running multiple Claude Code sessions for different tasks and manually routing context between terminals, ORCH removes that overhead — it's a CLI orchestrator that manages Claude Code + Codex + Cursor + shell as a typed agent task queue with a validated state machine (todo → in_progress → review → done), automatic retries, stall detection, and inter-agent messaging. Each agent gets a role; you queue tasks with dependencies; `orch run --all` dispatches everything in parallel and handles the rest.
-
-npm install -g @oxgeneral/orch
-Repo: https://github.com/oxgeneral/ORCH · 1647 tests · MIT · adapters: claude, codex, cursor, shell
-```
-
-**Category**: Show & Tell (preferred) or Projects
-**Tags** (if supported): `claude`, `cli`, `agents`, `orchestration`, `typescript`
-
----
-
-### 12.2 — Anthropic Discord Post
-
-**Server**: discord.com/invite/6PPFFzqPDZ (official Anthropic & Claude.ai community, 70,400 members)
-**Channel**: #show-and-tell → fallback: #tools → fallback: #built-with-claude → fallback: #general
-
-**Message** (copy exactly — single block, no title needed for Discord):
-
-```
-If you're running multiple Claude Code agents and manually routing context between terminals, check out **ORCH** — a CLI that manages Claude + Codex + Cursor as a coordinated team with a validated state machine, auto-retry, stall detection, and a TUI dashboard.
-
-Each agent gets a role + task queue; tasks flow through `todo → in_progress → review → done`; inter-agent messaging lets Claude instances share context mid-run.
-
-`npm install -g @oxgeneral/orch` | https://github.com/oxgeneral/ORCH · 1647 tests · MIT
-```
-
-**Note**: Keep it 3 lines — Discord rewards concise messages. Paste the code block as-is; the backtick format renders nicely.
-
----
-
-### 12.3 — Author Checklist
-
-```
-[ ] 12.1 community.anthropic.com — check if accessible, post in Show & Tell / Projects
-[ ] 12.2 Anthropic Discord — join server, find #show-and-tell or #tools, paste message above
-[ ] Both posts: respond to comments within 4 hours (high-value audience)
-```
-
----
-
-## 🔥 HIGHEST PRIORITY: awesome-claude-code Submission (28,700 stars)
-
-> **HUMAN ACTION REQUIRED** — bots and CLI tools are explicitly banned from this repo. You MUST submit via GitHub UI.
-
-**URL**: https://github.com/hesreallyhim/awesome-claude-code/issues/new?template=recommend-resource.yml
-
-**Fill out the form with these exact values:**
-
-| Field | Value |
-|-------|-------|
-| Display Name | ORCH |
-| Category | Tooling |
-| Sub-Category | Tooling: Orchestrators |
-| Primary Link | https://github.com/oxgeneral/ORCH |
-| Author Name | oxgeneral |
-| Author Link | https://github.com/oxgeneral |
-| License | MIT |
-
-**Description** (paste exactly):
-```
-CLI runtime for orchestrating Claude Code, Codex, and Cursor as typed agent teams with a validated state machine (todo → in_progress → review → done), automatic retries, stall detection, inter-agent messaging, goals system, and TUI dashboard. Zero infrastructure — file-only state.
-```
-
-**Validate Claims field:**
-```
-Install via: npm install -g @oxgeneral/orch
-Run: cd ~/your-project && orch init && orch task add "Implement auth" -p 1 && orch agent add "Dev" --adapter claude --role "Senior TypeScript developer" && orch run --all
-Watch agents claim tasks, execute, and report back in the TUI dashboard.
-```
-
-**Specific Task:**
-```
-Run: orch goal set "Build a REST API endpoint for user authentication" && orch run --all
-ORCH will break the goal into tasks and dispatch them to idle agents automatically.
-```
-
-**Checklist**: Check all boxes (resources is over 1 week old ✓, links public ✓, no other open issues ✓)
-
-**Expected**: Bot auto-validates → maintainer reviews → PR auto-created → merged in days/weeks
-
----
-
----
-
-## Channel 13 — Newsletters
-
-> **Submission format**: headline + 2-3 sentences + link. Each blurb is tailored to the newsletter's audience. Submit via the URL below each entry.
-
----
-
-### 13.1 — JavaScript Weekly
-
-**Submission URL**: https://javascriptweekly.com/issues/submit
-**Audience**: ~168,000 JavaScript developers
-**Fit**: TypeScript-first npm package, CLI tooling, Node.js ecosystem
-
-**Headline** (copy exactly):
-```
-ORCH — Open-source TypeScript runtime for orchestrating AI agent teams from the CLI
-```
-
-**Body** (paste as-is):
-```
-If you're running multiple AI coding sessions in parallel — Claude for features, Codex for tests, Cursor for refactoring — ORCH gives them a shared task queue, validated state machine (todo → in_progress → review → done), automatic retries, and inter-agent messaging, all from a single CLI. Written in strict TypeScript (ESM, Node 20+), 1,647 Vitest tests, zero infrastructure — state lives in plain YAML/JSON files. One npm install away from turning your scattered AI tools into a coordinated engineering team.
-
-npm install -g @oxgeneral/orch
-https://github.com/oxgeneral/ORCH — MIT · @oxgeneral/orch on npm
-```
-
-**Category hint**: Tools & Libraries
-**Notes**: Cooperpress editorial team reviews manually. Best submitted Tuesday–Thursday. Keep description factual — no marketing language.
-
----
-
-### 13.2 — TLDR DevOps
-
-**Submission URL**: https://tldr.tech/devops (click "Advertise" → use sponsor form, or submit via https://tldr.tech/submit)
-**Audience**: ~340,000 DevOps engineers
-**Fit**: Automation tooling, AI agent pipelines, zero-infra deployment
-
-**Headline** (copy exactly):
-```
-ORCH — CLI runtime that coordinates Claude, Codex, and Cursor as an automated agent team
-```
-
-**Body** (paste as-is):
-```
-ORCH is an open-source AI agent orchestrator you deploy in seconds: npm install -g @oxgeneral/orch. It manages parallel AI agent execution with a validated state machine, stall detection, automatic retries, and a real-time TUI dashboard — no Docker, no cloud infrastructure, no database. Define a goal, attach agents (Claude, Codex, Cursor, or any shell command), run orch run --all, and agents claim tasks, execute, and report back while you sleep. Built for DevOps teams already using 3+ AI tools who spend more time routing context than shipping product.
-
-https://github.com/oxgeneral/ORCH — 1,647 tests · TypeScript · MIT
-```
-
-**Category hint**: Tools / AI Automation
-**Notes**: TLDR prioritizes actionable, concise content. Lead with the install command — their audience appreciates immediate reproducibility.
-
----
-
-### 13.3 — Node Weekly
-
-**Submission URL**: https://nodeweekly.com/issues/submit
-**Audience**: Node.js and server-side JavaScript developers
-**Fit**: ESM-native Node.js package, TypeScript strict, 1,647 Vitest tests
-
-**Headline** (copy exactly):
-```
-ORCH — Node.js CLI runtime for managing multi-agent AI teams with a state machine and TUI
-```
-
-**Body** (paste as-is):
-```
-ORCH (@oxgeneral/orch) is a Node 20+ ESM package that turns Claude, Codex, Cursor, and any shell command into a coordinated AI agent team. It ships a full agent runtime: validated task state machine (todo → in_progress → review → done), parallel dispatch, stall detection with auto-retry, LiquidJS prompt templates, inter-agent messaging, goals decomposition, and an Ink/React TUI dashboard — all backed by plain files, no external services. The engine is also importable as a library via src/index.ts for programmatic use in any Node.js app. Strict TypeScript throughout, 1,647 Vitest tests, MIT license.
-
-npm install -g @oxgeneral/orch
-https://github.com/oxgeneral/ORCH
-```
-
-**Category hint**: Code & Tools
-**Notes**: Node Weekly values technical depth over marketing. Mention the library API angle — Node Weekly readers often want embeddable packages, not just CLIs.
-
----
-
-### 13 — Author Checklist
-
-```
-[ ] 13.1 JavaScript Weekly — https://javascriptweekly.com/issues/submit
-[ ] 13.2 TLDR DevOps     — https://tldr.tech/submit (or advertise form)
-[ ] 13.3 Node Weekly     — https://nodeweekly.com/issues/submit
-[ ] Monitor: check back in 1–2 weeks for issue inclusion confirmation
-[ ] If accepted: reply to any follow-up from editor within 24h
-```
-
----
-
 ## Package Info
 
 ```
 npm name:    @oxgeneral/orch
-registry:    https://registry.npmjs.org
+registry:    https://npm.pkg.github.com
 license:     MIT
 tests:       1647 (Vitest, all green)
 typescript:  strict + noUncheckedIndexedAccess

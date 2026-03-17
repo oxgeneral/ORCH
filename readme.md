@@ -14,7 +14,6 @@
   <a href="https://github.com/oxgeneral/ORCH/stargazers"><img src="https://img.shields.io/github/stars/oxgeneral/ORCH?style=for-the-badge&color=f59e0b&labelColor=0a0a0a" alt="GitHub Stars" /></a>&nbsp;
   <a href="https://www.orch.one/"><img src="https://img.shields.io/badge/website-orch.one-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="Website" /></a>&nbsp;
   <a href="https://www.npmjs.com/package/@oxgeneral/orch"><img src="https://img.shields.io/npm/v/@oxgeneral/orch?style=for-the-badge&color=f59e0b&labelColor=0a0a0a" alt="npm" /></a>&nbsp;
-  <a href="https://www.npmjs.com/package/@oxgeneral/orch"><img src="https://img.shields.io/npm/dw/@oxgeneral/orch?style=for-the-badge&color=f59e0b&labelColor=0a0a0a&label=downloads%2Fweek" alt="npm weekly downloads" /></a>&nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="MIT License" /></a>&nbsp;
   <a href="#development"><img src="https://img.shields.io/badge/tests-1647%20passing-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="Tests" /></a>
 </p>
@@ -628,18 +627,7 @@ npm run typecheck      # Strict TypeScript
 
 ## Community
 
-<p align="center">
-  <a href="https://github.com/oxgeneral/ORCH/stargazers">
-    <img src="https://img.shields.io/github/stars/oxgeneral/ORCH?style=for-the-badge&color=f59e0b&labelColor=0a0a0a" alt="GitHub Stars" />
-  </a>
-</p>
-
-<p align="center">
-  If ORCH saves you time — <strong><a href="https://github.com/oxgeneral/ORCH">⭐ Star it on GitHub</a></strong><br/>
-  <sub>Each star helps other developers find the project. Takes 2 seconds.</sub>
-</p>
-
-## Star History
+If ORCH saves you time — **[Star it on GitHub](https://github.com/oxgeneral/ORCH)** — it helps other founders find the project.
 
 [![Star History Chart](https://api.star-history.com/svg?repos=oxgeneral/ORCH&type=Date)](https://star-history.com/#oxgeneral/ORCH&Date)
 
