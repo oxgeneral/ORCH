@@ -1,0 +1,71 @@
+name: Feature Request
+description: Suggest an idea to make ORCH better
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for ORCH? We'd love to hear it! Please describe the problem you're trying to solve and your proposed solution.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Description
+      description: A clear description of the problem or pain point. What are you trying to do that ORCH doesn't support well today?
+      placeholder: "I'm frustrated when I try to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like. Include CLI commands, config examples, or API sketches if applicable.
+      placeholder: |
+        I'd like a new command:
+        ```bash
+        orch agent clone <source-id> --name "new-agent"
+        ```
+        This would copy the role, adapter, and skills from an existing agent.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or workarounds you've considered.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of ORCH does this relate to?
+      options:
+        - CLI commands
+        - TUI dashboard
+        - Orchestrator engine
+        - Adapters (claude, codex, cursor, opencode, shell)
+        - Storage / state management
+        - Configuration
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or references that help explain the feature.
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I'm willing to submit a PR for this feature.
+          required: false

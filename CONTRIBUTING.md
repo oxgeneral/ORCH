@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to ORCH! Whether you're fixing a bug, adding a feature, writing docs, or building a new adapter — this guide will get you started quickly.
 
+> :star: If ORCH saves you time, please [star the repo](https://github.com/oxgeneral/ORCH/stargazers) to help others discover it.
+
 > **New here?** Look for issues labeled [`good first issue`](https://github.com/oxgeneral/ORCH/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — they're scoped, well-documented, and ready for a PR.
 
 ---

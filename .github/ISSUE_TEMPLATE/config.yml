@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/oxgeneral/ORCH/discussions
+    about: Ask questions, share ideas, or show off what you've built with ORCH.
+  - name: Documentation
+    url: https://github.com/oxgeneral/ORCH#readme
+    about: Check the README and docs before opening an issue.
