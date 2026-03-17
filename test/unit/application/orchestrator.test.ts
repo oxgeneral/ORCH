@@ -924,6 +924,8 @@ describe('Orchestrator', () => {
 
       expect(outputEvents.length).toBeGreaterThanOrEqual(1);
       expect(fileEvents.length).toBeGreaterThanOrEqual(1);
+      // Regression: file path must NOT be 'undefined' (bug-dom-002 — event.data was nulled before emit)
+      expect(fileEvents[0]!.path).toBe('src/foo.ts');
     });
   });
 
