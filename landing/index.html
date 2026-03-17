@@ -889,6 +889,10 @@
 
     .feature-category:hover { background: #0e0e0e; }
 
+    .feature-category:last-child:nth-child(odd) {
+      grid-column: 1 / -1;
+    }
+
     .feature-category.is-new {
       border-top: 2px solid var(--accent);
     }
@@ -2029,7 +2033,9 @@
           "TUI dashboard with real-time monitoring",
           "Goal decomposition into tasks",
           "Team-based agent coordination",
-          "Zero cloud dependencies"
+          "Zero cloud dependencies",
+          "Headless daemon mode (orch serve) with structured JSON logs",
+          "CI/CD integration with --once mode and exit codes"
         ],
         "author": {
           "@type": "Organization",
@@ -2086,6 +2092,14 @@
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Yes. Run orch in any git repository. It creates a .orchestry/ directory and you are ready to go. No configuration required — sensible defaults and pre-configured agent templates included."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I run agents 24/7 on a server?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. orch serve runs the orchestrator as a headless daemon with structured JSON logs to stdout. Deploy with pm2 or systemd. Add tasks from another terminal — the daemon picks them up automatically. Use --once for CI/CD pipelines."
             }
           },
           {
@@ -2267,7 +2281,7 @@
   <!-- DIFFERENTIATION HOOK -->
   <div class="diff-hook">
     <span class="diff-hook-label">Why ORCH?</span>
-    Unlike parallel launchers, ORCH agents <strong>talk to each other</strong>, share context, and track work through a <strong>formal state machine</strong>.
+    Unlike parallel launchers, ORCH agents <strong>talk to each other</strong>, share context, track work through a <strong>formal state machine</strong>, and <strong>run 24/7 as a daemon</strong>.
   </div>
 
   <!-- SOCIAL PROOF -->
@@ -2377,6 +2391,17 @@
         <p>The orchestrator dispatches, monitors, retries with backoff, and merges &mdash; unattended. You review the results.</p>
         <span class="tag">automated</span>
       </div>
+
+      <div class="ps-item problem">
+        <h3>Close laptop, agents die</h3>
+        <p>Agents only run while your terminal is open. Close the lid at night &mdash; everything stops. No CI/CD integration.</p>
+        <span class="tag">fragile</span>
+      </div>
+      <div class="ps-item solution">
+        <h3>Daemon runs 24/7</h3>
+        <p><code>orch serve</code> runs headless on any server. Structured JSON logs, graceful shutdown, pm2/systemd ready. Agents work while you sleep.</p>
+        <span class="tag">always on</span>
+      </div>
     </div>
 
     <div class="ps-cta">
@@ -2444,6 +2469,16 @@
         <div class="terminal-line" style="animation-delay:4.9s">
           <span class="ok">&nbsp;&nbsp;&#10003;</span> <span class="dim">Task approved &middot; merging</span> <span class="branch">[feature/auth]</span> <span class="dim">&rarr; main</span>
         </div>
+        <div class="terminal-spacer"></div>
+        <div class="terminal-line" style="animation-delay:5.3s">
+          <span class="dim">&nbsp;&nbsp;# or run headless on a server:</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:5.6s">
+          <span class="prompt">$</span> <span class="cmd">orch serve</span> <span class="flag">--log-file</span> <span class="str">orch.jsonl</span>
+        </div>
+        <div class="terminal-line" style="animation-delay:5.9s">
+          <span class="ok">&nbsp;&nbsp;&#9679; Watching</span> <span class="dim">&mdash; daemon mode &middot; JSON logs &middot; Ctrl+C to stop</span>
+        </div>
       </div>
     </div>
   </section>
@@ -2475,7 +2510,7 @@
   <section class="features" id="features">
     <div class="features-header">
       <h2>Built for<br><em>real projects</em>, not demos</h2>
-      <span class="count">12 features &middot; production-grade</span>
+      <span class="count">13 features &middot; production-grade</span>
     </div>
     <div class="features-categories">
       <div class="feature-category is-new">
@@ -2505,6 +2540,21 @@
           <li><strong>Goals & Autonomy</strong> &mdash; define goals, agents generate and execute tasks autonomously</li>
           <li><strong>Reactive Dispatch</strong> &mdash; sub-second task pickup, no polling, events trigger agents immediately</li>
           <li><strong>Smart Retries</strong> &mdash; exponential backoff, stall detection, zombie cleanup</li>
+        </ul>
+      </div>
+
+      <div class="feature-category is-new">
+        <div class="fc-top">
+          <div class="fc-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M6 9h12M6 13h8M6 17h4"/></svg></div>
+          <span class="fc-label">Daemon</span>
+          <span class="fc-badge">new</span>
+        </div>
+        <h3 class="fc-title">Runs 24/7. Even while you sleep.</h3>
+        <p class="fc-desc"><code style="font-size:0.68rem;color:var(--accent)">orch serve</code> &mdash; headless daemon mode. Structured JSON logs for Datadog, Grafana, or <code style="font-size:0.68rem;color:var(--accent)">jq</code>. Deploy with pm2 or systemd. Add tasks from any terminal &mdash; daemon picks them up.</p>
+        <ul class="fc-items">
+          <li><strong>Watch mode</strong> &mdash; runs indefinitely, picks up new tasks on every tick</li>
+          <li><strong>Once mode</strong> &mdash; process all tasks and exit with code 0/1 &mdash; perfect for CI/CD</li>
+          <li><strong>Graceful shutdown</strong> &mdash; SIGINT/SIGTERM &rarr; waits for agents &rarr; saves state &rarr; releases lock</li>
         </ul>
       </div>
 
@@ -2720,6 +2770,12 @@
         <div class="uc-agents">Agents: <span>Shell (c8), Backend A/B, QA A/B, Reviewer</span></div>
       </div>
       <div class="use-case-card">
+        <span class="uc-persona highlight">CI/CD</span>
+        <h3>Headless Agent Pipeline</h3>
+        <p>Deploy <code style="font-size:0.65rem;color:var(--accent)">orch serve</code> on a VPS with pm2. Push tasks via CLI from your laptop. Agents execute 24/7, structured JSON logs stream to Grafana. Wake up to completed PRs, not stale terminals.</p>
+        <div class="uc-agents">Mode: <span>orch serve --log-file /var/log/orch.jsonl</span></div>
+      </div>
+      <div class="use-case-card">
         <span class="uc-persona highlight">Data</span>
         <h3>Analytics Pipeline</h3>
         <p>Drop three CSVs, get an executive report by morning. Shell agents clean data, DuckDB joins and computes KPIs, matplotlib generates charts, and a Content Creator writes the narrative with anomaly callouts.</p>
@@ -2760,6 +2816,10 @@
         <div class="faq-answer">Yes. Run <code>orch</code> in any git repository. It creates a <code>.orchestry/</code> directory and you're ready to go. No configuration required &mdash; sensible defaults and pre-configured agent templates included.</div>
       </details>
       <details class="faq-item">
+        <summary>Can I run agents 24/7 on a server? <span class="faq-toggle"></span></summary>
+        <div class="faq-answer"><code>orch serve</code> runs the orchestrator as a headless daemon &mdash; no TUI required. Structured JSON logs to stdout for Datadog, Grafana Loki, or <code>jq</code>. Deploy with pm2 or systemd. Add tasks from another terminal &mdash; the daemon picks them up on the next tick. Use <code>--once</code> for CI/CD pipelines (exit 0 = all done, exit 1 = failures).</div>
+      </details>
+      <details class="faq-item">
         <summary>What happens when an agent fails? <span class="faq-toggle"></span></summary>
         <div class="faq-answer">ORCH retries with exponential backoff. If an agent stalls, the process is killed and the task is re-queued. Failed runs preserve full event logs. No state is lost.</div>
       </details>
@@ -2796,7 +2856,7 @@
       <span><strong>MIT</strong> licensed</span>
       <span><strong>5</strong> adapters</span>
       <span><strong>0</strong> cloud deps</span>
-      <span><strong>0</strong> cloud deps</span>
+      <span><strong>24/7</strong> daemon mode</span>
     </div>
   </section>
 
