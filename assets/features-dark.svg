@@ -57,7 +57,8 @@
     <circle cx="600" cy="40" r="12" fill="#ffaf00" opacity="0.1" filter="url(#icon-glow)"/>
     <circle cx="600" cy="40" r="9" fill="none" stroke="url(#amber)" stroke-width="1.5"/>
     <circle cx="604" cy="37" r="7" fill="#161618"/>
-<text x="600" y="75" font-family="'Segoe UI', Arial, sans-serif" font-size="13" font-weight="700" fill="#f0efe9">Runs While You Sleep</text>
+    <animate attributeType="XML" attributeName="opacity" values="1;1" dur="1s"/>
+    <text x="600" y="75" font-family="'Segoe UI', Arial, sans-serif" font-size="13" font-weight="700" fill="#f0efe9">Runs While You Sleep</text>
     <text x="600" y="95" font-family="'Segoe UI', Arial, sans-serif" font-size="10.5" fill="#8a8a8a">
       <tspan x="600" dy="0">Auto-retry, stall detection, backoff.</tspan>
       <tspan x="600" dy="15">Deploy at night, review in the</tspan>

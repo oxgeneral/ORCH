@@ -12,8 +12,9 @@
       <stop offset="0%" stop-color="#d97706"/>
       <stop offset="50%" stop-color="#f59e0b"/>
       <stop offset="100%" stop-color="#d97706"/>
-
-</linearGradient>
+      <animate attributeName="x1" values="-100%;100%;-100%" dur="6s" repeatCount="indefinite"/>
+      <animate attributeName="x2" values="0%;200%;0%" dur="6s" repeatCount="indefinite"/>
+    </linearGradient>
     <filter id="glow-amber" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="50" result="blur"/>
       <feComposite in="blur" operator="over"/>
@@ -33,18 +34,22 @@
 
   <!-- Ambient glow orbs -->
   <ellipse cx="180" cy="100" rx="200" ry="200" fill="#f59e0b" opacity="0.05" filter="url(#glow-amber)">
-
-</ellipse>
+    <animate attributeName="cx" values="180;220;160;180" dur="12s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.05;0.08;0.05" dur="8s" repeatCount="indefinite"/>
+  </ellipse>
   <ellipse cx="660" cy="100" rx="180" ry="180" fill="#ffaf00" opacity="0.04" filter="url(#glow-amber)">
-</ellipse>
+    <animate attributeName="cx" values="660;640;680;660" dur="10s" repeatCount="indefinite"/>
+  </ellipse>
 
   <!-- Diamond logo -->
   <g transform="translate(420, 60)">
     <polygon points="0,-32 32,0 0,32 -32,0" fill="url(#amber-grad)" opacity="0.95">
-</polygon>
+      <animate attributeName="opacity" values="0.95;1;0.95" dur="4s" repeatCount="indefinite"/>
+    </polygon>
     <polygon points="0,-20 20,0 0,20 -20,0" fill="#fcd34d" opacity="0.35"/>
     <circle cx="0" cy="0" r="24" fill="#f59e0b" opacity="0.1" filter="url(#glow-sm)">
-</circle>
+      <animate attributeName="opacity" values="0.1;0.2;0.1" dur="4s" repeatCount="indefinite"/>
+    </circle>
   </g>
 
   <!-- Title -->
@@ -55,9 +60,10 @@
 
   <!-- Animated underline -->
   <rect x="350" y="155" width="140" height="1.5" fill="#d97706" rx="0.75" opacity="0.5">
-
-
-</rect>
+    <animate attributeName="width" values="100;180;100" dur="5s" repeatCount="indefinite"/>
+    <animate attributeName="x" values="370;330;370" dur="5s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.3;0.7;0.3" dur="5s" repeatCount="indefinite"/>
+  </rect>
 
   <!-- Top border accent -->
   <rect x="0" y="0" width="840" height="2" fill="url(#amber-shimmer)" opacity="0.7"/>

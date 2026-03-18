@@ -1,5 +1,9 @@
 <!-- Hero Banner -->
-![ORCH — AI Agent Runtime](./assets/banner-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/banner-dark.svg?v=2">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/banner-light.svg?v=2">
+  <img alt="ORCH — AI Agent Runtime" src="./assets/banner-dark.svg?v=2" width="100%">
+</picture>
 
 <p align="center">
   <strong>Open-source orchestration for zero-human companies, processes and departments.</strong><br/>
@@ -36,7 +40,11 @@ cd ~/your-project && orch           # Launch TUI
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -50,7 +58,11 @@ cd ~/your-project && orch           # Launch TUI
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -105,14 +117,22 @@ $ orch run --all --watch
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
 ## Start coordinating agents in 30 seconds
 
 <!-- Install Card -->
-![Install ORCH](./assets/install-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/install-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/install-light.svg">
+  <img alt="Install ORCH" src="./assets/install-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -189,7 +209,11 @@ ORCH itself is lightweight (~120 MB). The RAM goes to the **agent CLI processes*
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -227,14 +251,22 @@ Agents talk to each other — direct messages, team broadcasts, shared context s
 Nothing touches `main` until reviewed. Every task flows through the state machine:
 
 <!-- State Machine -->
-![State Machine: todo → in_progress → review → done](./assets/statemachine-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/statemachine-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/statemachine-light.svg">
+  <img alt="State Machine: todo → in_progress → review → done" src="./assets/statemachine-dark.svg" width="100%">
+</picture>
 
 Every transition validated. No task gets lost. No code merges without approval.
 
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -257,21 +289,33 @@ Every department gets the same superpowers: state machine governance, retry, mes
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
 ## Why founders choose ORCH
 
 <!-- Features Grid -->
-![ORCH Features](./assets/features-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/features-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/features-light.svg">
+  <img alt="ORCH Features" src="./assets/features-dark.svg" width="100%">
+</picture>
 
 <br/>
 
 ### Works with every tool — AI or not
 
 <!-- Adapters -->
-![Adapters: Claude, OpenCode, Codex, Cursor, Shell](./assets/adapters-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/adapters-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/adapters-light.svg">
+  <img alt="Adapters: Claude, OpenCode, Codex, Cursor, Shell" src="./assets/adapters-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -280,7 +324,11 @@ The `shell` adapter is the key: **if it runs in a terminal, it's an agent** — 
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -318,7 +366,11 @@ orch org export my-team                          # Save your setup as template
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -400,7 +452,11 @@ WantedBy=multi-user.target
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -507,7 +563,11 @@ orch config edit                   # Open in $EDITOR
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -516,7 +576,11 @@ orch config edit                   # Open in $EDITOR
 ORCH is an engine first, CLI second. The core has zero dependencies on CLI/TUI layers — you can import `@oxgeneral/orch` as a library and build your own interface.
 
 <!-- Architecture Diagram -->
-![ORCH Architecture — Layered DDD](./assets/architecture-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/architecture-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/architecture-light.svg">
+  <img alt="ORCH Architecture — Layered DDD" src="./assets/architecture-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -553,7 +617,11 @@ npm run typecheck      # Strict TypeScript
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -575,7 +643,11 @@ If ORCH saves you time — **[Star it on GitHub](https://github.com/oxgeneral/OR
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
@@ -656,7 +728,11 @@ Paperclip needs PostgreSQL, a web server, and cloud setup. ORCH needs `npm insta
 <br/>
 
 <!-- Divider -->
-![](./assets/divider-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/divider-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/divider-light.svg">
+  <img alt="" src="./assets/divider-dark.svg" width="100%">
+</picture>
 
 <br/>
 
