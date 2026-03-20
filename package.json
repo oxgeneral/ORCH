@@ -33,7 +33,7 @@
     "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "postinstall": "node scripts/postinstall.js || true",
+    "postinstall": "node scripts/postinstall.cjs || true",
     "benchmark": "tsx scripts/benchmark.ts",
     "load-test": "tsx scripts/load-test.ts",
     "prepublishOnly": "npm run build"

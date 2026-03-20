@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Post-install: patch Ink caches + show banner.
+ * Post-install: patch Ink caches, install Claude Code skill, show banner.
  * Pure Node.js, no dependencies.
  */
 
+const { readFileSync, writeFileSync, existsSync, mkdirSync } = require('node:fs');
+const { join } = require('node:path');
+const { homedir } = require('node:os');
+
 // Patch Ink's unbounded caches before anything else
 try {
-  const { readFileSync, writeFileSync, existsSync } = require('node:fs');
-  const { join } = require('node:path');
   const inkBuild = join(__dirname, '..', 'node_modules', 'ink', 'build');
   const MAX = 2000;
 
@@ -48,24 +50,20 @@ try {
 } catch { /* non-fatal: caches will just be unbounded */ }
 
 // Install Claude Code skill to ~/.claude/skills/orch/
+let skillInstalled = false;
 try {
-  const { readFileSync, writeFileSync, existsSync, mkdirSync } = require('node:fs');
-  const { join } = require('node:path');
-  const { homedir } = require('node:os');
-
   const skillSource = join(__dirname, '..', 'skills', 'orch', 'SKILL.md');
   const skillDir = join(homedir(), '.claude', 'skills', 'orch');
   const skillDest = join(skillDir, 'SKILL.md');
 
-  if (existsSync(skillSource)) {
+  const content = readFileSync(skillSource, 'utf8');
+  let existing = '';
+  try { existing = readFileSync(skillDest, 'utf8'); } catch { /* file absent */ }
+  if (content !== existing) {
     mkdirSync(skillDir, { recursive: true });
-    const content = readFileSync(skillSource, 'utf8');
-    // Only write if content changed (avoid unnecessary disk writes)
-    const existing = existsSync(skillDest) ? readFileSync(skillDest, 'utf8') : '';
-    if (content !== existing) {
-      writeFileSync(skillDest, content);
-    }
+    writeFileSync(skillDest, content);
   }
+  skillInstalled = true;
 } catch { /* non-fatal: skill just won't be available in Claude Code */ }
 
 // Skip banner in CI or non-interactive environments
@@ -75,7 +73,6 @@ if (process.env.CI || !process.stderr.isTTY) process.exit(0);
 const dim = (s) => `\x1b[38;5;240m${s}\x1b[0m`;
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
 const green = (s) => `\x1b[38;5;72m${s}\x1b[0m`;
-const skillInstalled = require('node:fs').existsSync(require('node:path').join(require('node:os').homedir(), '.claude', 'skills', 'orch', 'SKILL.md'));
 
 process.stderr.write(`
   ${green('✓')} ${bold('orchestry')} installed
