@@ -82,7 +82,7 @@ export class Orchestrator {
   private immediateDispatchTimer: ReturnType<typeof setTimeout> | null = null;
   private taskCreatedUnsub: (() => void) | null = null;
   private tickInProgress = false;
-  private stoppedResolve: (() => void) | null = null;
+  private stoppedResolvers: Array<() => void> = [];
 
   /** When true, `tick()` skips `seedAutonomousTasks()`. Set via `startWatch()` options. */
   private skipAutonomousSeeding = false;
@@ -241,7 +241,6 @@ export class Orchestrator {
       ),
       this.deps.config.scheduling.poll_interval_ms,
     );
-
   }
 
   /**
@@ -251,7 +250,7 @@ export class Orchestrator {
   waitForStop(): Promise<void> {
     if (this.shuttingDown) return Promise.resolve();
     return new Promise<void>((resolve) => {
-      this.stoppedResolve = resolve;
+      this.stoppedResolvers.push(resolve);
     });
   }
 
@@ -350,11 +349,9 @@ export class Orchestrator {
     // Remove signal handlers
     this.removeSignalHandlers();
 
-    // Resolve the stopped promise so startWatch() callers unblock
-    if (this.stoppedResolve) {
-      this.stoppedResolve();
-      this.stoppedResolve = null;
-    }
+    // Resolve all stopped promises so waitForStop() callers unblock
+    for (const resolve of this.stoppedResolvers) resolve();
+    this.stoppedResolvers = [];
   }
 
   /**
@@ -1577,9 +1574,7 @@ export class Orchestrator {
 
     // Always clear claimed — any claim that survived a restart is guaranteed stale
     // (the process that set it is dead). This fixes tasks stuck in "claimed" after crash.
-    if (state.claimed.size > 0) {
-      state.claimed = new Set<string>();
-    }
+    state.claimed = new Set<string>();
 
     // Phase 2: Cancel orphaned in_progress tasks — only when we detected a restart
     // (dead PIDs found). Without dead PIDs, orphans are handled by normal reconcile.

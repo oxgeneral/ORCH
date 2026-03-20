@@ -84,7 +84,7 @@ export async function releaseLock(lockPath: string): Promise<void> {
  * Call this periodically (e.g. every tick) so stale-lock detection works.
  */
 export async function touchLock(lockPath: string): Promise<void> {
-  const now = new Date();
+  const now = Date.now() / 1000;
   await fs.utimes(lockPath, now, now).catch(() => {});
 }
 

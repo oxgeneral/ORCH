@@ -102,29 +102,28 @@ export class WorkspaceManager implements IWorkspaceManager {
       // Not a worktree or git not available — fall through to rm
     }
 
-    // Delete the branch so future worktree adds for the same task don't fail with code 255
-    if (branch) {
-      try {
-        const { process: proc } = this.processManager.spawn(
-          'git',
-          ['branch', '-D', branch],
-          { cwd: this.projectRoot },
-        );
-        await new Promise<void>((resolve) => {
-          proc.on('close', () => resolve());
-          proc.on('error', () => resolve());
-        });
-      } catch {
-        // Branch may not exist or git not available
-      }
-    }
+    // Delete branch + remove directory concurrently (independent of each other)
+    const branchDeletion = branch
+      ? (async () => {
+          try {
+            const { process: proc } = this.processManager.spawn(
+              'git',
+              ['branch', '-D', branch],
+              { cwd: this.projectRoot },
+            );
+            await new Promise<void>((resolve) => {
+              proc.on('close', () => resolve());
+              proc.on('error', () => resolve());
+            });
+          } catch {
+            // Branch may not exist or git not available
+          }
+        })()
+      : Promise.resolve();
 
-    // Remove directory regardless (handles isolated mode and worktree cleanup failures)
-    try {
-      await fs.rm(workspacePath, { recursive: true, force: true });
-    } catch {
-      // Workspace may not exist
-    }
+    const dirRemoval = fs.rm(workspacePath, { recursive: true, force: true }).catch(() => {});
+
+    await Promise.all([branchDeletion, dirRemoval]);
   }
 
   validate(workspacePath: string, projectRoot: string): void {
@@ -161,9 +160,9 @@ export class WorkspaceManager implements IWorkspaceManager {
       proc.on('close', (code) => {
         if (code === 0) resolve();
         else reject(new WorkspaceError(
-              `git worktree add failed with code ${code}`,
-              'Run: git worktree prune && git branch | grep orchestry | xargs -r git branch -D',
-            ));
+          `git worktree add failed with code ${code}`,
+          'Run: git worktree prune && git branch | grep orchestry | xargs -r git branch -D',
+        ));
       });
       proc.on('error', reject);
     });
