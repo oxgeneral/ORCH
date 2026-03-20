@@ -22,6 +22,7 @@ import {
 vi.mock('../../../src/infrastructure/storage/lock.js', () => ({
   acquireLock: vi.fn(async () => ({ acquired: true, pid: process.pid })),
   releaseLock: vi.fn(async () => {}),
+  touchLock: vi.fn(async () => {}),
 }));
 
 /** Clean up an orchestrator instance to prevent timer leaks between tests */

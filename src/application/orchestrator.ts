@@ -23,7 +23,7 @@ import {
 } from '../domain/transitions.js';
 import { NoAgentsError, TaskAlreadyRunningError, LockConflictError, WorkspaceError, classifyAdapterError } from '../domain/errors.js';
 import { scopesOverlap, ScopeIndex } from '../domain/scope.js';
-import { acquireLock, releaseLock } from '../infrastructure/storage/lock.js';
+import { acquireLock, releaseLock, touchLock } from '../infrastructure/storage/lock.js';
 import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IContextStore, IGoalStore } from '../infrastructure/storage/interfaces.js';
 import { CachedTaskStore, CachedAgentStore, CachedGoalStore } from '../infrastructure/storage/cached-stores.js';
 import type { AdapterRegistry } from '../infrastructure/adapters/registry.js';
@@ -82,6 +82,7 @@ export class Orchestrator {
   private immediateDispatchTimer: ReturnType<typeof setTimeout> | null = null;
   private taskCreatedUnsub: (() => void) | null = null;
   private tickInProgress = false;
+  private stoppedResolve: (() => void) | null = null;
 
   /** When true, `tick()` skips `seedAutonomousTasks()`. Set via `startWatch()` options. */
   private skipAutonomousSeeding = false;
@@ -240,6 +241,18 @@ export class Orchestrator {
       ),
       this.deps.config.scheduling.poll_interval_ms,
     );
+
+  }
+
+  /**
+   * Returns a promise that resolves when stop() completes.
+   * Use in long-running modes (serve, run --watch) to keep the process alive.
+   */
+  waitForStop(): Promise<void> {
+    if (this.shuttingDown) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      this.stoppedResolve = resolve;
+    });
   }
 
   /**
@@ -336,6 +349,12 @@ export class Orchestrator {
 
     // Remove signal handlers
     this.removeSignalHandlers();
+
+    // Resolve the stopped promise so startWatch() callers unblock
+    if (this.stoppedResolve) {
+      this.stoppedResolve();
+      this.stoppedResolve = null;
+    }
   }
 
   /**
@@ -453,6 +472,8 @@ export class Orchestrator {
           queued,
         });
       });
+      // Touch lock file to prove we're alive (prevents stale-lock false positives from PID recycling)
+      await touchLock(this.deps.lockPath);
     } finally {
       this.tickInProgress = false;
     }
@@ -1221,8 +1242,8 @@ export class Orchestrator {
             taskId,
             branch: task.proof.branch,
           });
-          // Clean up worktree after successful merge
-          await this.deps.workspaceManager.cleanup(taskId).catch((err) => {
+          // Clean up worktree and branch after successful merge
+          await this.deps.workspaceManager.cleanup(taskId, task.proof.branch).catch((err) => {
             this.deps.eventBus.emit({
               type: 'orchestrator:error',
               error: err instanceof Error ? err.message : String(err),
@@ -1380,9 +1401,9 @@ export class Orchestrator {
     // Track runtime (reuse runtimeMs computed above)
     state.stats.total_runtime_ms += runtimeMs;
 
-    // Clean up worktree if one was created for this task
+    // Clean up worktree and branch if one was created for this task
     if (task.proof?.branch) {
-      await this.deps.workspaceManager.cleanup(taskId).catch((err) => {
+      await this.deps.workspaceManager.cleanup(taskId, task.proof.branch).catch((err) => {
         this.deps.eventBus.emit({
           type: 'orchestrator:error',
           error: err instanceof Error ? err.message : String(err),
@@ -1552,6 +1573,12 @@ export class Orchestrator {
           });
         }),
       );
+    }
+
+    // Always clear claimed — any claim that survived a restart is guaranteed stale
+    // (the process that set it is dead). This fixes tasks stuck in "claimed" after crash.
+    if (state.claimed.size > 0) {
+      state.claimed = new Set<string>();
     }
 
     // Phase 2: Cancel orphaned in_progress tasks — only when we detected a restart

@@ -57,7 +57,7 @@ export const DEFAULT_CONFIG: OrchestratorConfig = {
       approval_policy: 'auto',
       max_turns: 50,
       timeout_ms: 3_600_000,
-      stall_timeout_ms: 300_000,
+      stall_timeout_ms: 600_000,
       workspace_mode: 'worktree',
     },
     task: {

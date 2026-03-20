@@ -42,6 +42,7 @@ export function makeContainer(overrides: Partial<Container> = {}): Container {
       runTask: vi.fn(async () => {}),
       runAll: vi.fn(async () => {}),
       startWatch: vi.fn(async () => {}),
+      waitForStop: vi.fn(async () => {}),
       stop: vi.fn(async () => {}),
     },
     eventBus: {

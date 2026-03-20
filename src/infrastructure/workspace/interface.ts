@@ -15,6 +15,6 @@ export interface PrepareResult {
 export interface IWorkspaceManager {
   prepare(task: Task, agent: Agent, config: OrchestratorConfig): Promise<PrepareResult>;
   mergeBack(branch: string): Promise<MergeResult>;
-  cleanup(taskId: string): Promise<void>;
+  cleanup(taskId: string, branch?: string): Promise<void>;
   validate(workspacePath: string, projectRoot: string): void;
 }

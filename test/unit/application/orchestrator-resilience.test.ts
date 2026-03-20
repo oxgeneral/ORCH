@@ -31,6 +31,7 @@ import {
 vi.mock('../../../src/infrastructure/storage/lock.js', () => ({
   acquireLock: vi.fn(async () => ({ acquired: true, pid: process.pid })),
   releaseLock: vi.fn(async () => {}),
+  touchLock: vi.fn(async () => {}),
 }));
 
 describe('Orchestrator resilience', () => {

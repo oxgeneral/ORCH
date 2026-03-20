@@ -103,8 +103,11 @@ async function runServe(container: Container, opts: ServeOpts): Promise<void> {
 
       process.exitCode = result === 'has_failed' ? 1 : 0;
     } else {
-      // Watch mode: orchestrator owns SIGINT/SIGTERM → stop() → Node exits naturally
+      // Watch mode: start the tick loop, then wait until stop() is called.
+      // startWatch() resolves after setup + initial tick; waitForStop() keeps
+      // the process alive so the logger stays subscribed for all subsequent ticks.
       await container.orchestrator.startWatch();
+      await container.orchestrator.waitForStop();
     }
   } finally {
     unsub();

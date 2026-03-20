@@ -84,7 +84,7 @@ export class WorkspaceManager implements IWorkspaceManager {
     return this.mergeStrategy.mergeBack(branch);
   }
 
-  async cleanup(taskId: string): Promise<void> {
+  async cleanup(taskId: string, branch?: string): Promise<void> {
     const workspacePath = path.join(this.orchestryDir, 'workspaces', sanitizeId(taskId));
 
     // Try git worktree remove first (cleans up .git/worktrees/ metadata)
@@ -100,6 +100,23 @@ export class WorkspaceManager implements IWorkspaceManager {
       });
     } catch {
       // Not a worktree or git not available — fall through to rm
+    }
+
+    // Delete the branch so future worktree adds for the same task don't fail with code 255
+    if (branch) {
+      try {
+        const { process: proc } = this.processManager.spawn(
+          'git',
+          ['branch', '-D', branch],
+          { cwd: this.projectRoot },
+        );
+        await new Promise<void>((resolve) => {
+          proc.on('close', () => resolve());
+          proc.on('error', () => resolve());
+        });
+      } catch {
+        // Branch may not exist or git not available
+      }
     }
 
     // Remove directory regardless (handles isolated mode and worktree cleanup failures)
@@ -143,7 +160,10 @@ export class WorkspaceManager implements IWorkspaceManager {
     await new Promise<void>((resolve, reject) => {
       proc.on('close', (code) => {
         if (code === 0) resolve();
-        else reject(new Error(`git worktree add failed with code ${code}`));
+        else reject(new WorkspaceError(
+              `git worktree add failed with code ${code}`,
+              'Run: git worktree prune && git branch | grep orchestry | xargs -r git branch -D',
+            ));
       });
       proc.on('error', reject);
     });

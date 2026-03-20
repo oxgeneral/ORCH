@@ -37,14 +37,23 @@ export async function acquireLock(lockPath: string): Promise<LockResult> {
   }
 }
 
+/** Lock is stale if mtime is older than this. Set high enough to survive slow ticks (worktree ops + adapter spawns). */
+const LOCK_STALE_MS = 60_000;
+
 async function doAcquire(lockPath: string): Promise<LockResult> {
   // Check for existing lock
   const existing = await readLockPid(lockPath);
   if (existing !== null) {
     if (isProcessAlive(existing)) {
-      return { acquired: false, pid: existing };
+      // Guard against PID recycling: if the lock file hasn't been touched
+      // recently (via touchLock), the original holder is likely dead and
+      // the OS recycled its PID for an unrelated process.
+      const stale = await isLockStaleByAge(lockPath);
+      if (!stale) {
+        return { acquired: false, pid: existing };
+      }
     }
-    // Stale lock — remove it; open('wx') below is the true atomicity guard
+    // Stale lock (dead PID or untouched mtime) — remove it
     await fs.unlink(lockPath).catch(() => {});
   }
 
@@ -68,6 +77,15 @@ async function doAcquire(lockPath: string): Promise<LockResult> {
  */
 export async function releaseLock(lockPath: string): Promise<void> {
   await fs.unlink(lockPath).catch(() => {});
+}
+
+/**
+ * Touch the lock file (update mtime) to prove the holder is still alive.
+ * Call this periodically (e.g. every tick) so stale-lock detection works.
+ */
+export async function touchLock(lockPath: string): Promise<void> {
+  const now = new Date();
+  await fs.utimes(lockPath, now, now).catch(() => {});
 }
 
 /**
@@ -105,6 +123,15 @@ async function readLockPid(lockPath: string): Promise<number | null> {
     return isNaN(pid) ? null : pid;
   } catch {
     return null;
+  }
+}
+
+async function isLockStaleByAge(lockPath: string): Promise<boolean> {
+  try {
+    const stat = await fs.stat(lockPath);
+    return Date.now() - stat.mtimeMs > LOCK_STALE_MS;
+  } catch {
+    return true;
   }
 }
 
