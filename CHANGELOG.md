@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.7 (2026-03-21)
+
+### Features
+
+- **Claude Code `/orch` skill** — after `npm install`, the `/orch` slash command is automatically registered in Claude Code. Describe what you need in natural language and Claude translates it into the right `orch` CLI commands
+- **Postinstall auto-registration** — skill file is copied to `~/.claude/skills/orch/` during install with change detection (only writes when content differs)
+
+### Improvements
+
+- **Postinstall script** — renamed to `.cjs` for ESM package compatibility, hoisted requires to module scope, removed TOCTOU patterns
+
 ## 1.0.6 (2026-03-20)
 
 ### Fixes
