@@ -23,6 +23,7 @@
 <p align="center">
   <a href="#you-hired-ai-agents-now-youre-managing-them-full-time">Problem</a> &bull;
   <a href="#start-coordinating-agents-in-30-seconds">Install</a> &bull;
+  <a href="#claude-code-integration">Claude Code</a> &bull;
   <a href="#how-your-ai-team-works">How It Works</a> &bull;
   <a href="#why-founders-choose-orch">Features</a> &bull;
   <a href="#headless-daemon--cicd">Serve</a> &bull;
@@ -137,6 +138,16 @@ $ orch run --all --watch
 <br/>
 
 That's it. ORCH auto-initializes and opens the TUI dashboard. Add agents, set goals, and run — right from there.
+
+### Claude Code integration
+
+After install, the `/orch` skill is automatically available in **Claude Code**. Just type `/orch` and describe what you need in natural language:
+
+```
+/orch deploy a team to refactor the auth module and add tests
+```
+
+Claude will translate your intent into the right `orch` commands — create agents, tasks, goals, and run the orchestration. No need to memorize CLI flags.
 
 Or deploy a pre-built team:
 
