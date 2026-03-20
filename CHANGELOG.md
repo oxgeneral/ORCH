@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.6 (2026-03-20)
+
+### Fixes
+
+- **Worktree branch cleanup** — `git branch -D` now runs on worktree cleanup, preventing `code 255` errors on task retry (BUG-1)
+- **Stale claimed recovery** — `state.claimed` is cleared on orchestrator restart so tasks are no longer stuck after crash (BUG-2, BUG-7)
+- **Stall timeout default** — increased from 5 min to 10 min to reduce false failures on complex prompts (BUG-3)
+- **`orch serve` logging** — fixed premature logger unsubscribe that caused silence after first tick; added `waitForStop()` lifecycle method (BUG-4)
+- **Worktree error handling** — `prepareWorktree()` now throws `WorkspaceError` so tasks are properly force-failed instead of silently stuck (BUG-5)
+- **Stale lock detection** — lock file mtime is touched every tick; `acquireLock()` treats untouched locks (>60s) as stale even if PID is recycled (BUG-6)
+
+### Performance
+
+- **Parallel cleanup** — `git branch -D` and `fs.rm` now run concurrently via `Promise.all` during worktree cleanup
+- **Lock heartbeat** — `touchLock()` uses `Date.now() / 1000` instead of `new Date()` to avoid per-tick heap allocation
+
 ## 1.0.5 (2026-03-17)
 
 ### Features
