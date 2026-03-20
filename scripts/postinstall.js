@@ -47,6 +47,27 @@ try {
   }
 } catch { /* non-fatal: caches will just be unbounded */ }
 
+// Install Claude Code skill to ~/.claude/skills/orch/
+try {
+  const { readFileSync, writeFileSync, existsSync, mkdirSync } = require('node:fs');
+  const { join } = require('node:path');
+  const { homedir } = require('node:os');
+
+  const skillSource = join(__dirname, '..', 'skills', 'orch', 'SKILL.md');
+  const skillDir = join(homedir(), '.claude', 'skills', 'orch');
+  const skillDest = join(skillDir, 'SKILL.md');
+
+  if (existsSync(skillSource)) {
+    mkdirSync(skillDir, { recursive: true });
+    const content = readFileSync(skillSource, 'utf8');
+    // Only write if content changed (avoid unnecessary disk writes)
+    const existing = existsSync(skillDest) ? readFileSync(skillDest, 'utf8') : '';
+    if (content !== existing) {
+      writeFileSync(skillDest, content);
+    }
+  }
+} catch { /* non-fatal: skill just won't be available in Claude Code */ }
+
 // Skip banner in CI or non-interactive environments
 if (process.env.CI || !process.stderr.isTTY) process.exit(0);
 
@@ -54,13 +75,14 @@ if (process.env.CI || !process.stderr.isTTY) process.exit(0);
 const dim = (s) => `\x1b[38;5;240m${s}\x1b[0m`;
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
 const green = (s) => `\x1b[38;5;72m${s}\x1b[0m`;
+const skillInstalled = require('node:fs').existsSync(require('node:path').join(require('node:os').homedir(), '.claude', 'skills', 'orch', 'SKILL.md'));
 
 process.stderr.write(`
   ${green('✓')} ${bold('orchestry')} installed
-
+${skillInstalled ? `  ${green('✓')} Claude Code skill ${bold('/orch')} registered\n` : ''}
   Get started:
     $ ${bold('orch')}
-
+${skillInstalled ? `    ${dim('or use')} ${bold('/orch')} ${dim('in Claude Code')}\n` : ''}
   ${dim('⭐ Like it? Star us on GitHub: https://github.com/oxgeneral/ORCH')}
 
 `);
