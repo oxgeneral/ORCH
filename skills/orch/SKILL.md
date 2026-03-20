@@ -269,6 +269,106 @@ scheduling:
   retry_max_delay_ms: 300000    # Max retry delay (5min)
 ```
 
+## Creating Agents — Sources and Best Practices
+
+### Quick: Use Pre-Built Templates
+
+```bash
+orch agent shop              # Interactive picker — 15 templates
+orch agent shop --list       # Print all templates non-interactively
+orch org deploy <template>   # Deploy a full team with one command
+```
+
+### Agent Shop Templates (src/domain/agent-shop.ts)
+
+Each template includes a detailed role prompt, model, skills, and approval policy:
+
+| Template | Role | Model | Skills |
+|----------|------|-------|--------|
+| `backend-dev` | APIs, services, DB layers | claude-sonnet-4-6 | feature-dev |
+| `frontend-dev` | React UI, components, CSS | claude-sonnet-4-6 | feature-dev, frontend-design |
+| `qa-engineer` | Tests, coverage analysis | claude-sonnet-4-6 | testing-suite |
+| `code-reviewer` | PR review, bugs, security | claude-opus-4-6 | feature-dev:code-reviewer |
+| `architect` | System design, architecture | claude-opus-4-6 | feature-dev:code-architect |
+| `devops-engineer` | CI/CD, infrastructure | claude-sonnet-4-6 | devops-automation |
+| `bug-hunter` | Find bugs, reproduce, fix | claude-sonnet-4-6 | feature-dev |
+| `tech-writer` | Docs, READMEs, API docs | claude-sonnet-4-6 | perfect-readme |
+| `security-auditor` | Security scanning, vulns | claude-opus-4-6 | testing-suite |
+| `performance-engineer` | Optimization, profiling | claude-sonnet-4-6 | testing-suite |
+| `data-engineer` | Data pipelines, ETL | claude-sonnet-4-6 | — |
+| `fullstack-dev` | End-to-end development | claude-sonnet-4-6 | feature-dev |
+| `marketer` | Marketing strategy, copy | claude-sonnet-4-6 | marketing-psychology |
+| `content-creator` | Blog posts, social media | claude-sonnet-4-6 | — |
+| `growth-hacker` | Growth experiments | claude-sonnet-4-6 | marketing-psychology |
+
+### Org Templates (src/domain/org-shop.ts)
+
+Pre-built teams — deploy with `orch org deploy <key> --goal "..."`:
+
+| Template | Agents | Use Case |
+|----------|--------|----------|
+| `startup-mvp` | CTO + 2 Backend + Frontend + QA + Reviewer | Ship MVP fast |
+| `pr-review-corp` | CTO + Security + Performance + Style + QA | Auto-review PRs |
+| `migration-squad` | CTO + 3 Migrators + QA + Reviewer | JS→TS migration |
+| `security-dept` | Lead + Scanner + Secrets + Hunter + Reviewer | Security audit |
+| `test-factory` | Lead + 2 Backend + 3 QA + Reviewer | Coverage boost |
+| `bugfix-dept` | Triager + 3 Fixers + QA + Reviewer | Issue backlog |
+| `docs-team` | Lead + 2 Writers + Editor + Reviewer | Documentation |
+| `content-agency` | Strategist + 2 Writers + Editor + SEO | Content |
+| `data-lab` | Lead Analyst + Data Engineer | Data analysis |
+| `sales-machine` | Director + 2 SDRs + Copywriter + Growth | Outbound |
+
+### Custom Agents: Role Prompt Structure
+
+When creating custom agents with `orch agent add`, follow this proven structure from the shop templates:
+
+```
+# [Role Name]
+
+[One-line description of what this agent does]
+
+## WORKFLOW
+1) READ — understand the task scope
+2) EXPLORE — analyze existing code/data with appropriate skills
+3) PLAN — outline approach before executing
+4) EXECUTE — do the work following conventions
+5) VERIFY — self-review, run tests
+6) REPORT — summarize what was done, flag risks
+
+## RULES
+- [Convention 1]
+- [Convention 2]
+- [Safety guardrail]
+```
+
+### Skills Available for Agents
+
+Assign skills via `--skills` flag or edit agent YAML:
+
+| Skill | Best For |
+|-------|----------|
+| `feature-dev` | Guided feature development with architecture focus |
+| `feature-dev:code-explorer` | Deep codebase analysis |
+| `feature-dev:code-architect` | Architecture design |
+| `feature-dev:code-reviewer` | Code review |
+| `frontend-design` | UI/UX design and implementation |
+| `testing-suite` | Test generation, coverage analysis |
+| `devops-automation` | Cloud infrastructure, Terraform |
+| `product-manager-toolkit` | RICE prioritization, PRD templates |
+| `marketing-psychology` | Behavioral science for marketing |
+| `ajtbd` | Advanced Jobs-to-be-Done methodology |
+| `perfect-readme` | GitHub README design |
+| `claude-api` | Claude API / Anthropic SDK integration |
+
+### Tips
+
+- Use `claude-opus-4-6` for strategic/review roles (architect, reviewer, lead) — higher quality reasoning
+- Use `claude-sonnet-4-6` for execution roles (developer, QA, writer) — faster, cheaper
+- Set `--approval-policy suggest` for strategic agents so humans review decisions
+- Set `--approval-policy auto` for execution agents for fully autonomous operation
+- Use `--workspace-mode shared` for analysis/strategy agents (they read, don't write code)
+- Use `--workspace-mode worktree` for coding agents (isolated branches, no conflicts)
+
 ## Important Notes
 
 - Always run `orch doctor` first if something seems wrong
