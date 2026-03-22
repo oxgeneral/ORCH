@@ -49,33 +49,19 @@ export interface ISkillLoader {
 
 export class SkillLoader implements ISkillLoader {
   private readonly cache = new Map<string, string>();
-  private libraryDir: string | null;
   private readonly libraryDirPromise: Promise<string>;
   private availableCache: string[] | null = null;
 
   constructor(libraryDir?: string) {
-    if (libraryDir) {
-      this.libraryDir = libraryDir;
-      this.libraryDirPromise = Promise.resolve(libraryDir);
-    } else {
-      this.libraryDir = null;
-      this.libraryDirPromise = resolveLibraryDir().then((dir) => {
-        this.libraryDir = dir;
-        return dir;
-      });
-    }
-  }
-
-  private async getLibraryDir(): Promise<string> {
-    return this.libraryDir ?? this.libraryDirPromise;
+    this.libraryDirPromise = libraryDir
+      ? Promise.resolve(libraryDir)
+      : resolveLibraryDir();
   }
 
   async loadSkills(skillNames: string[]): Promise<string> {
-    // Filter: only library skills (no colon = not MCP)
     const librarySkills = skillNames.filter((s) => !s.includes(':'));
     if (librarySkills.length === 0) return '';
 
-    // Parallel reads (convention: Promise.all for file I/O)
     const results = await Promise.all(librarySkills.map((name) => this.loadOne(name)));
     const sections = librarySkills
       .map((name, i) => (results[i] ? `### ${name}\n\n${results[i]}` : null))
@@ -88,7 +74,7 @@ export class SkillLoader implements ISkillLoader {
   async listAvailable(): Promise<string[]> {
     if (this.availableCache) return this.availableCache;
 
-    const dir = await this.getLibraryDir();
+    const dir = await this.libraryDirPromise;
     const entries = await listFiles(dir, '.md');
     this.availableCache = entries
       .map((e) => e.replace(/\.md$/, ''))
@@ -97,24 +83,21 @@ export class SkillLoader implements ISkillLoader {
   }
 
   private async loadOne(name: string): Promise<string | null> {
-    // Cache hit
     const cached = this.cache.get(name);
     if (cached !== undefined) return cached || null;
 
-    // Validate name (prevent path traversal)
     if (!VALID_SKILL_NAME.test(name)) {
       return null;
     }
 
-    const dir = await this.getLibraryDir();
+    const dir = await this.libraryDirPromise;
     const filePath = join(dir, `${name}.md`);
     try {
       const content = await readFile(filePath, 'utf8');
       this.cache.set(name, content);
       return content;
     } catch {
-      // Unknown skill — warn once, cache empty to avoid repeated reads
-      console.warn(`[orch] skill library: "${name}" not found in ${dir}`);
+      process.stderr.write(`[orch] skill library: "${name}" not found in ${dir}\n`);
       this.cache.set(name, '');
       return null;
     }

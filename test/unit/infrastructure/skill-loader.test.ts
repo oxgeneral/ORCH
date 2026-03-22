@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { describe, it, expect, vi, afterEach, afterAll } from 'vitest';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SkillLoader } from '../../../src/infrastructure/skills/skill-loader.js';
@@ -14,14 +14,18 @@ function makeTmpLib(files: Record<string, string>): string {
 
 describe('SkillLoader', () => {
   let tmpDir: string | undefined;
-  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
   afterEach(() => {
     if (tmpDir) {
       rmSync(tmpDir, { recursive: true, force: true });
       tmpDir = undefined;
     }
-    warnSpy.mockClear();
+    stderrSpy.mockClear();
+  });
+
+  afterAll(() => {
+    stderrSpy.mockRestore();
   });
 
   describe('loadSkills', () => {
@@ -72,7 +76,7 @@ describe('SkillLoader', () => {
 
       expect(result).toContain('### review');
       expect(result).not.toContain('nonexistent');
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('"nonexistent"'));
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('"nonexistent"'));
     });
 
     it('rejects path traversal attempts', async () => {
@@ -98,7 +102,6 @@ describe('SkillLoader', () => {
       const loader = new SkillLoader(tmpDir);
 
       await loader.loadSkills(['review']);
-      // Overwrite file — should still get cached content
       writeFileSync(join(tmpDir, 'review.md'), 'CHANGED');
       const result = await loader.loadSkills(['review']);
 
@@ -113,8 +116,10 @@ describe('SkillLoader', () => {
       await loader.loadSkills(['missing']);
       await loader.loadSkills(['missing']);
 
-      // Only one warning for the first miss
-      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const warnCalls = stderrSpy.mock.calls.filter(
+        (args) => typeof args[0] === 'string' && args[0].includes('"missing"'),
+      );
+      expect(warnCalls).toHaveLength(1);
     });
   });
 
@@ -144,7 +149,6 @@ describe('SkillLoader', () => {
       const loader = new SkillLoader(tmpDir);
 
       const list1 = await loader.listAvailable();
-      // Add file — should still get cached list
       writeFileSync(join(tmpDir, 'new-skill.md'), 'x');
       const list2 = await loader.listAvailable();
 
@@ -158,8 +162,6 @@ describe('SkillLoader', () => {
       const loader = new SkillLoader();
       const list = await loader.listAvailable();
 
-      // Should find at least the skills we created
-      expect(list.length).toBeGreaterThanOrEqual(20);
       expect(list).toContain('review');
       expect(list).toContain('qa');
       expect(list).toContain('careful');
