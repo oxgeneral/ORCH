@@ -20,7 +20,7 @@ const SOURCE = readFileSync(SCRIPT, 'utf8');
 // Source-level checks (no subprocess needed)
 // ---------------------------------------------------------------------------
 
-describe('postinstall.js — source content', () => {
+describe('postinstall.cjs — source content', () => {
   it('contains correct GitHub link', () => {
     expect(SOURCE).toContain('https://github.com/oxgeneral/ORCH');
   });
@@ -62,7 +62,7 @@ describe('postinstall.js — source content', () => {
 // Runtime behavior — CI suppression
 // ---------------------------------------------------------------------------
 
-describe('postinstall.js — CI suppression', () => {
+describe('postinstall.cjs — CI suppression', () => {
   it('exits 0 without banner output when CI=1', () => {
     const result = spawnSync('node', [SCRIPT], {
       env: { ...process.env, CI: '1' },
@@ -88,7 +88,7 @@ describe('postinstall.js — CI suppression', () => {
 // Runtime behavior — non-TTY suppression
 // ---------------------------------------------------------------------------
 
-describe('postinstall.js — non-TTY suppression', () => {
+describe('postinstall.cjs — non-TTY suppression', () => {
   it('exits 0 without banner when stderr is piped (non-TTY)', () => {
     // spawnSync with pipe stdio → stderr.isTTY is undefined (falsy)
     const result = spawnSync('node', [SCRIPT], {
