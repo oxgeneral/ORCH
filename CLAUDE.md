@@ -83,6 +83,26 @@ Key utilities in `src/infrastructure/storage/fs-utils.ts`:
 
 `src/tui/App.tsx` — Ink/React dashboard with batched message queue (80ms flush) to prevent OOM from high-frequency events. Detail strings capped at 2KB. RunId maps have LRU cap of 500.
 
+### Skill Library
+
+`src/infrastructure/skills/skill-loader.ts` — loads plain Markdown skills from `skills/library/` (26 skills). Two types:
+- **Library skills**: alphanumeric+hyphen names (e.g. `qa`, `review`, `ship`) — Markdown content injected into agent prompts at dispatch time
+- **MCP skills**: colon-separated names (e.g. `testing-suite:generate-tests`) — handled natively by Claude CLI, skipped by SkillLoader
+
+`SkillLoader` has process-lifetime in-memory cache, parallel reads via `Promise.all()`, and path traversal prevention (`VALID_SKILL_NAME` regex). Skills are auto-loaded by the orchestrator during dispatch based on each agent's `skills` field.
+
+### Serve Mode
+
+`orch serve` — headless daemon for CI/CD and server deployments. Files: `src/cli/commands/serve.ts`, `src/cli/serve/once-runner.ts`, `src/cli/serve/structured-logger.ts`.
+
+- `--once` — process all todo tasks, exit when all reach terminal status (exit code 1 if any failed)
+- `--log-format json|text` — structured JSON (default) or human-readable text logs to stdout
+- `--log-file <path>` — append logs to file alongside stdout
+- `--tick-interval <ms>` — override polling interval
+- `--verbose` — include high-frequency `agent:output` events
+
+`StructuredLogger` transforms `OrchestratorEvent` into flat log records. Idle tick throttling (every 6th idle tick logged) prevents log spam. Graceful shutdown with stream flush. Designed for pm2, systemd, or background execution.
+
 ## Conventions
 
 - **ESM**: `"type": "module"` — all local imports require `.js` extension (`import { Foo } from './foo.js'`)
