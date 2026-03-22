@@ -1,8 +1,7 @@
 # ТЗ: `orch serve` — Server / Daemon Mode
 
-> **Status**: ✅ Implemented in v1.0.5. This spec is now reference documentation.
+> **Status**: ✅ Phase 1 (Headless Daemon) implemented in v1.0.5. Phases 2–3 remain planned.
 
-> **Статус**: ✅ Implemented (v1.0.5)
 > **Приоритет**: P2
 > **Effort**: Фаза 1 — 3-5 дней, Фаза 2 — 5-7 дней, Фаза 3 — 3-5 дней/интеграция
 > **Автор**: AJTBD-исследование (2026-03-16)
