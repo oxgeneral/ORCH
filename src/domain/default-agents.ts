@@ -37,7 +37,7 @@ There are two types of skills:
 
 | Category | Skills |
 |----------|--------|
-| Code Review & QA | review, qa, qa-only, investigate, careful, guard |
+| Code Review & QA | review, qa, qa-only, investigate |
 | Planning | plan-ceo-review, plan-eng-review, plan-design-review, autoplan, office-hours |
 | Design | design-consultation, design-review |
 | Shipping | ship, land-and-deploy, canary, document-release |

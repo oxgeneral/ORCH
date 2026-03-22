@@ -8,10 +8,10 @@
  * Content is cached in-process for the lifetime of the SkillLoader instance.
  */
 
-import { readFile, readdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { listFiles, pathExists } from '../storage/fs-utils.js';
 
 /** Valid skill name: lowercase alphanumeric + hyphens only. */
 const VALID_SKILL_NAME = /^[a-z0-9-]+$/;
@@ -20,14 +20,14 @@ const VALID_SKILL_NAME = /^[a-z0-9-]+$/;
  * Resolve the skills/library/ directory relative to the package root.
  * Works in both dev mode (src/infrastructure/skills/) and production (dist/).
  */
-function resolveLibraryDir(): string {
+async function resolveLibraryDir(): Promise<string> {
   const thisDir = dirname(fileURLToPath(import.meta.url));
 
   // Walk up from current file until we find skills/library/
   let dir = thisDir;
   for (let i = 0; i < 5; i++) {
     const candidate = join(dir, 'skills', 'library');
-    if (existsSync(candidate)) return candidate;
+    if (await pathExists(candidate)) return candidate;
     dir = dirname(dir);
   }
 
@@ -49,15 +49,25 @@ export interface ISkillLoader {
 
 export class SkillLoader implements ISkillLoader {
   private readonly cache = new Map<string, string>();
-  private readonly libraryDir: string;
+  private libraryDir: string | null;
+  private readonly libraryDirPromise: Promise<string>;
   private availableCache: string[] | null = null;
 
   constructor(libraryDir?: string) {
     if (libraryDir) {
       this.libraryDir = libraryDir;
+      this.libraryDirPromise = Promise.resolve(libraryDir);
     } else {
-      this.libraryDir = resolveLibraryDir();
+      this.libraryDir = null;
+      this.libraryDirPromise = resolveLibraryDir().then((dir) => {
+        this.libraryDir = dir;
+        return dir;
+      });
     }
+  }
+
+  private async getLibraryDir(): Promise<string> {
+    return this.libraryDir ?? this.libraryDirPromise;
   }
 
   async loadSkills(skillNames: string[]): Promise<string> {
@@ -78,17 +88,12 @@ export class SkillLoader implements ISkillLoader {
   async listAvailable(): Promise<string[]> {
     if (this.availableCache) return this.availableCache;
 
-    try {
-      const entries = await readdir(this.libraryDir);
-      this.availableCache = entries
-        .filter((e) => e.endsWith('.md'))
-        .map((e) => e.replace(/\.md$/, ''))
-        .sort();
-      return this.availableCache;
-    } catch {
-      this.availableCache = [];
-      return [];
-    }
+    const dir = await this.getLibraryDir();
+    const entries = await listFiles(dir, '.md');
+    this.availableCache = entries
+      .map((e) => e.replace(/\.md$/, ''))
+      .sort();
+    return this.availableCache;
   }
 
   private async loadOne(name: string): Promise<string | null> {
@@ -101,14 +106,15 @@ export class SkillLoader implements ISkillLoader {
       return null;
     }
 
-    const filePath = join(this.libraryDir, `${name}.md`);
+    const dir = await this.getLibraryDir();
+    const filePath = join(dir, `${name}.md`);
     try {
       const content = await readFile(filePath, 'utf8');
       this.cache.set(name, content);
       return content;
     } catch {
       // Unknown skill — warn once, cache empty to avoid repeated reads
-      console.warn(`[orch] skill library: "${name}" not found in ${this.libraryDir}`);
+      console.warn(`[orch] skill library: "${name}" not found in ${dir}`);
       this.cache.set(name, '');
       return null;
     }
