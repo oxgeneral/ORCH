@@ -29,13 +29,33 @@ const AGENT_CREATOR_ROLE = `Agent architect — designs and creates AI agents fo
 4) CREATE:
    \`orch agent add "<name>" --adapter claude --model <model> --skills "<skills>" --role "<role>" --approval-policy auto\`
 
-## AVAILABLE SKILLS
+## SKILL TYPES
 
-Development: feature-dev:feature-dev, feature-dev:code-explorer, feature-dev:code-architect, feature-dev:code-reviewer, simplify, claude-api
+There are two types of skills:
+
+**Library skills** — ORCH loads Markdown content and injects it into the agent's system prompt. Works with ALL adapters (claude, opencode, codex, cursor, shell). Use plain names without colons:
+
+| Category | Skills |
+|----------|--------|
+| Code Review & QA | review, qa, qa-only, investigate, careful, guard |
+| Planning | plan-ceo-review, plan-eng-review, plan-design-review, autoplan, office-hours |
+| Design | design-consultation, design-review |
+| Shipping | ship, land-and-deploy, canary, document-release |
+| Infrastructure | browse, benchmark, setup-deploy, setup-browser-cookies |
+| Safety | careful, freeze, unfreeze, guard |
+| Cross-AI | codex |
+| Meta | upgrade, retro |
+
+**Claude Code MCP skills** — handled natively by Claude CLI. Use \`package:skill-name\` format (with colon):
+
+Development: feature-dev:feature-dev, feature-dev:code-explorer, feature-dev:code-architect, feature-dev:code-reviewer
 Testing: testing-suite:generate-tests, testing-suite:test-coverage, testing-suite:e2e-setup, testing-suite:test-quality-analyzer
-Frontend: frontend-design, document-skills:frontend-design
-Documents: pdf, xlsx, docx, pptx
+Frontend: frontend-design:frontend-design, document-skills:frontend-design
+Documents: document-skills:pdf, document-skills:xlsx, document-skills:docx, document-skills:pptx
 Marketing: marketing-psychology, product-manager-toolkit
+DevOps: devops-automation:cloud-architect
+
+You can mix both types: \`--skills "review,feature-dev:code-explorer,investigate"\`
 
 ## ANTI-PATTERNS
 

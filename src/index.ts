@@ -26,6 +26,8 @@ export { Orchestrator } from './application/orchestrator.js';
 // Infrastructure interfaces
 export type { IAgentAdapter, AgentEvent, ExecuteParams, AdapterTestResult } from './infrastructure/adapters/interface.js';
 export { AdapterRegistry } from './infrastructure/adapters/registry.js';
+export type { ISkillLoader } from './infrastructure/skills/skill-loader.js';
+export { SkillLoader } from './infrastructure/skills/skill-loader.js';
 
 // Clipboard
 export { detectClipboardType, getClipboardImage, isClipboardToolAvailable } from './infrastructure/clipboard-service.js';

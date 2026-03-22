@@ -14,6 +14,7 @@ import type { IWorkspaceManager } from './infrastructure/workspace/interface.js'
 import type { ITemplateEngine } from './infrastructure/template/template-engine.js';
 import type { IProcessManager } from './infrastructure/process/process-manager.js';
 import type { AdapterRegistry } from './infrastructure/adapters/registry.js';
+import type { ISkillLoader } from './infrastructure/skills/skill-loader.js';
 
 import { type GlobalConfig, DEFAULT_GLOBAL_CONFIG } from './domain/global-config.js';
 import { Paths } from './infrastructure/storage/paths.js';
@@ -75,6 +76,7 @@ export interface Container extends LightContainer {
   adapterRegistry: AdapterRegistry;
   workspaceManager: IWorkspaceManager;
   templateEngine: ITemplateEngine;
+  skillLoader: ISkillLoader;
   doctorService: DoctorService;
   orchestrator: Orchestrator;
 }
@@ -161,6 +163,7 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     { OpenCodeAdapter },
     { WorkspaceManager },
     { LiquidTemplateEngine },
+    { SkillLoader },
     { Orchestrator },
     { DoctorService },
   ] = await Promise.all([
@@ -173,12 +176,14 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     import('./infrastructure/adapters/opencode.js'),
     import('./infrastructure/workspace/workspace-manager.js'),
     import('./infrastructure/template/template-engine.js'),
+    import('./infrastructure/skills/skill-loader.js'),
     import('./application/orchestrator.js'),
     import('./application/doctor-service.js'),
   ]);
 
   const processManager = new ProcessManager();
   const templateEngine = new LiquidTemplateEngine();
+  const skillLoader = new SkillLoader();
   const workspaceManager = new WorkspaceManager(
     context.projectRoot,
     light.paths.root,
@@ -210,6 +215,7 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     contextStore: light.contextStore,
     messageService: light.messageService,
     goalStore: light.goalStore,
+    skillLoader,
     config: light.config,
     projectRoot: context.projectRoot,
     lockPath: light.paths.lockPath,
@@ -221,6 +227,7 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     adapterRegistry,
     workspaceManager,
     templateEngine,
+    skillLoader,
     doctorService,
     orchestrator,
   };

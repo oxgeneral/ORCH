@@ -32,6 +32,7 @@ import type { ITemplateEngine } from '../infrastructure/template/template-engine
 import { buildPromptContext, DEFAULT_SYSTEM_TEMPLATE, DEFAULT_USER_TEMPLATE, type RetryContext, type GoalContext } from '../infrastructure/template/template-engine.js';
 import type { IProcessManager } from '../infrastructure/process/process-manager.js';
 import type { AgentEvent } from '../infrastructure/adapters/interface.js';
+import type { ISkillLoader } from '../infrastructure/skills/skill-loader.js';
 import type { EventBus } from './event-bus.js';
 import type { TaskService } from './task-service.js';
 import type { AgentService } from './agent-service.js';
@@ -59,6 +60,7 @@ export interface OrchestratorDeps {
   contextStore?: IContextStore;
   messageService?: import('./message-service.js').MessageService;
   goalStore?: IGoalStore;
+  skillLoader?: ISkillLoader;
   config: OrchestratorConfig;
   projectRoot: string;
   lockPath: string;
@@ -898,6 +900,19 @@ export class Orchestrator {
         // Split mode: system prompt (cacheable) + user prompt (dynamic)
         systemPrompt = await this.deps.templateEngine.render(systemTemplate, context);
         prompt = await this.deps.templateEngine.render(userTemplate, context);
+      }
+
+      // Augment prompt with library skill content
+      if (this.deps.skillLoader && agent.config.skills?.length) {
+        const skillBlock = await this.deps.skillLoader.loadSkills(agent.config.skills);
+        if (skillBlock) {
+          if (systemPrompt !== undefined) {
+            systemPrompt = systemPrompt + '\n\n' + skillBlock;
+          } else {
+            // Legacy single-template path — append to combined prompt
+            prompt = prompt + '\n\n' + skillBlock;
+          }
+        }
       }
 
       // Create run

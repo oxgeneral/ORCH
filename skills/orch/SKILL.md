@@ -343,22 +343,60 @@ When creating custom agents with `orch agent add`, follow this proven structure 
 
 ### Skills Available for Agents
 
-Assign skills via `--skills` flag or edit agent YAML:
+Assign skills via `--skills` flag or edit agent YAML. You can mix both types: `--skills "review,feature-dev:code-explorer,investigate"`.
+
+#### Library Skills (injected into system prompt — works with ALL adapters)
+
+Content from the skill library is loaded and appended to the agent's system prompt at execution time. Use plain names (no colons):
 
 | Skill | Best For |
 |-------|----------|
-| `feature-dev` | Guided feature development with architecture focus |
-| `feature-dev:code-explorer` | Deep codebase analysis |
-| `feature-dev:code-architect` | Architecture design |
-| `feature-dev:code-reviewer` | Code review |
-| `frontend-design` | UI/UX design and implementation |
-| `testing-suite` | Test generation, coverage analysis |
-| `devops-automation` | Cloud infrastructure, Terraform |
+| `review` | Pre-landing code review with auto-fix, checklists, adversarial review |
+| `qa` | Full QA testing + browser testing + bug fixing + health scoring |
+| `qa-only` | QA testing without auto-fixes (report only) |
+| `ship` | Automated ship workflow: merge, test, coverage audit, PR creation |
+| `office-hours` | YC-style product thinking, design docs, premise challenge |
+| `investigate` | Systematic debugging with root cause methodology, 3-strike hypothesis |
+| `careful` | Safety guardrails for destructive commands |
+| `guard` | Full safety mode (careful + freeze combined) |
+| `freeze` | Restrict edits to a specific directory |
+| `unfreeze` | Clear freeze boundary |
+| `design-consultation` | Design system creation, visual language definition |
+| `design-review` | Design review with accessibility, responsiveness checks |
+| `plan-ceo-review` | CEO-level strategic review of plans |
+| `plan-eng-review` | Engineering review of technical plans |
+| `plan-design-review` | Design review of plans |
+| `autoplan` | Auto-review pipeline with decision principles |
+| `land-and-deploy` | Merge PR, wait for CI, verify production health |
+| `canary` | Post-deploy canary monitoring |
+| `document-release` | Auto-update documentation after ship |
+| `retro` | Weekly engineering retrospective with trends |
+| `browse` | Headless browser navigation and testing |
+| `benchmark` | Performance benchmarking with before/after metrics |
+| `codex` | OpenAI Codex cross-review / multi-AI challenge |
+| `setup-deploy` | Configure deployment settings |
+| `setup-browser-cookies` | Import browser cookies for authenticated QA |
+| `upgrade` | Upgrade skills to latest version |
+
+#### Claude Code MCP Skills (native — Claude adapter only)
+
+Handled natively by Claude CLI. Use `package:skill-name` format (with colon):
+
+| Skill | Best For |
+|-------|----------|
+| `feature-dev:feature-dev` | Guided feature development with architecture focus |
+| `feature-dev:code-explorer` | Deep codebase analysis and tracing |
+| `feature-dev:code-architect` | Architecture design and blueprints |
+| `feature-dev:code-reviewer` | Code review with confidence filtering |
+| `testing-suite:generate-tests` | Test generation with edge cases |
+| `testing-suite:test-coverage` | Coverage analysis and gap identification |
+| `testing-suite:e2e-setup` | End-to-end testing configuration |
+| `testing-suite:test-quality-analyzer` | Test suite quality metrics |
+| `devops-automation:cloud-architect` | Cloud infrastructure, Terraform |
+| `frontend-design:frontend-design` | UI/UX design and implementation |
+| `document-skills:frontend-design` | Frontend design (document-skills variant) |
 | `product-manager-toolkit` | RICE prioritization, PRD templates |
 | `marketing-psychology` | Behavioral science for marketing |
-| `ajtbd` | Advanced Jobs-to-be-Done methodology |
-| `perfect-readme` | GitHub README design |
-| `claude-api` | Claude API / Anthropic SDK integration |
 
 ### Tips
 
