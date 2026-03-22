@@ -15,7 +15,7 @@
   <a href="https://www.orch.one/"><img src="https://img.shields.io/badge/website-orch.one-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="Website" /></a>&nbsp;
   <a href="https://www.npmjs.com/package/@oxgeneral/orch"><img src="https://img.shields.io/npm/v/@oxgeneral/orch?style=for-the-badge&color=f59e0b&labelColor=0a0a0a" alt="npm" /></a>&nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="MIT License" /></a>&nbsp;
-  <a href="#development"><img src="https://img.shields.io/badge/tests-1647%20passing-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="Tests" /></a>
+  <a href="#development"><img src="https://img.shields.io/badge/tests-1694%20passing-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="Tests" /></a>
 </p>
 
 <br/>
@@ -621,7 +621,7 @@ src/
 ```bash
 npm run dev            # Run via tsx
 npm run build          # Build ESM + DTS
-npm test               # 1647 tests via Vitest
+npm test               # 1694 tests via Vitest
 npm run typecheck      # Strict TypeScript
 ```
 
