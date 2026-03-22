@@ -70,7 +70,7 @@ const FRONTEND_DEV_ROLE = `Frontend engineer — builds React UI components, pag
 
 const QA_ENGINEER_ROLE = `QA engineer — writes tests, analyzes coverage, and ensures code quality across the project.
 
-Uses the \`qa\` library skill for full QA methodology including browser testing, health scoring, bug triage, and fix loops. Uses \`qa-only\` for report-only mode without auto-fixes.
+Uses the \`qa\` library skill for full QA methodology including browser testing, health scoring, bug triage, and fix loops. For report-only mode without auto-fixes, add \`qa-only\` skill instead.
 
 ## WORKFLOW
 
@@ -143,7 +143,7 @@ Uses \`plan-eng-review\` for structured engineering review of technical plans, a
 
 const DEVOPS_ENGINEER_ROLE = `DevOps engineer — manages CI/CD pipelines, infrastructure, deployment automation, and cloud configuration.
 
-Uses \`ship\` for automated deployment pipelines, \`land-and-deploy\` for production deployment verification, and \`canary\` for post-deploy monitoring.
+Uses \`ship\` for automated deployment pipelines and \`canary\` for post-deploy monitoring. For production deployment verification, add \`land-and-deploy\` skill to the agent when needed.
 
 ## WORKFLOW
 
@@ -152,7 +152,7 @@ Uses \`ship\` for automated deployment pipelines, \`land-and-deploy\` for produc
 3) DESIGN the change — plan the infrastructure or pipeline modification with rollback strategy.
 4) IMPLEMENT — write IaC (Terraform, CloudFormation, Docker, K8s manifests) or pipeline configs (GitHub Actions, GitLab CI).
 5) VALIDATE — dry-run or plan the change; verify no destructive modifications to production resources.
-6) DEPLOY — use the ship/land-and-deploy skills for structured deployment with health checks.
+6) DEPLOY — use the ship skill for structured deployment with health checks.
 7) MONITOR — use canary skill for post-deploy verification.
 8) DOCUMENT — update runbooks, env variable lists, and deployment docs.
 
@@ -423,7 +423,7 @@ export const AGENT_SHOP_TEMPLATES: AgentShopTemplate[] = [
     adapter: 'claude',
     model: 'claude-sonnet-4-6',
     approval_policy: 'auto',
-    skills: ['qa', 'qa-only', 'testing-suite:generate-tests', 'testing-suite:test-coverage'],
+    skills: ['qa', 'testing-suite:generate-tests', 'testing-suite:test-coverage'],
     role: QA_ENGINEER_ROLE,
   },
   {
@@ -453,7 +453,7 @@ export const AGENT_SHOP_TEMPLATES: AgentShopTemplate[] = [
     adapter: 'claude',
     model: 'claude-sonnet-4-6',
     approval_policy: 'auto',
-    skills: ['ship', 'land-and-deploy', 'canary', 'devops-automation:cloud-architect'],
+    skills: ['ship', 'canary', 'devops-automation:cloud-architect'],
     role: DEVOPS_ENGINEER_ROLE,
   },
   {
@@ -483,7 +483,7 @@ export const AGENT_SHOP_TEMPLATES: AgentShopTemplate[] = [
     adapter: 'claude',
     model: 'claude-sonnet-4-6',
     approval_policy: 'auto',
-    skills: ['office-hours', 'marketing-psychology', 'product-manager-toolkit'],
+    skills: ['office-hours'],
     role: MARKETER_ROLE,
   },
   {
@@ -493,7 +493,7 @@ export const AGENT_SHOP_TEMPLATES: AgentShopTemplate[] = [
     adapter: 'claude',
     model: 'claude-sonnet-4-6',
     approval_policy: 'auto',
-    skills: ['marketing-psychology'],
+    skills: ['office-hours'],
     role: CONTENT_CREATOR_ROLE,
   },
   {
