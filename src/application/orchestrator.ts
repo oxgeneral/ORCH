@@ -769,15 +769,42 @@ export class Orchestrator {
       try {
         await this.dispatchTask(task.id);
       } catch (err) {
-        // Workspace errors are permanent — force-fail the task to prevent infinite retry loop.
-        // Cannot use taskService.updateStatus because todo → failed is not a valid transition.
+        // Dispatch failed before agent started — handle workspace and other errors.
+        // Respect max_attempts: retry if budget remains, fail only when exhausted.
         if (err instanceof WorkspaceError) {
           try {
             const t = await this.deps.taskStore.get(task.id);
             if (t && !isTerminal(t.status)) {
-              t.status = 'failed';
+              t.attempts = (t.attempts ?? 0) + 1;
+              const nextStatus = resolveFailureStatus(t);
+              t.status = nextStatus;
               t.updated_at = new Date().toISOString();
               await this.deps.taskStore.save(t);
+
+              // If task exhausted retries, cascade-fail dependents
+              if (nextStatus === 'failed') {
+                await this.cascadeFailDependents(t.id, allTasks, `dependency ${t.id} failed: ${err.message}`);
+              } else {
+                // Schedule retry with backoff (0-based: attempts already incremented)
+                const delay = calculateRetryDelay(
+                  t.attempts - 1,
+                  this.deps.config.scheduling.retry_base_delay_ms,
+                  this.deps.config.scheduling.retry_max_delay_ms,
+                );
+                const alreadyQueued = state.retry_queue.some((r) => r.task_id === t.id);
+                if (!alreadyQueued) {
+                  if (state.retry_queue.length >= this.maxRetryQueueSize) {
+                    state.retry_queue.shift();
+                  }
+                  state.retry_queue.push({
+                    task_id: t.id,
+                    attempt: t.attempts + 1,
+                    due_at: new Date(Date.now() + delay).toISOString(),
+                    error: err.message,
+                  });
+                }
+                await this.saveState();
+              }
             }
           } catch {
             // Task may already be in a terminal state
@@ -792,6 +819,76 @@ export class Orchestrator {
           fatal: false,
         });
       }
+    }
+  }
+
+  /**
+   * When a task permanently fails, cascade-fail all tasks that depend on it
+   * (directly or transitively). Prevents dependent tasks from hanging as TODO forever.
+   */
+  private async cascadeFailDependents(
+    failedTaskId: string,
+    allTasks: Task[],
+    reason: string,
+  ): Promise<void> {
+    // Build reverse-dependency index: parentId → tasks that depend on it
+    const reverseDeps = new Map<string, Task[]>();
+    for (const t of allTasks) {
+      for (const dep of t.depends_on) {
+        let arr = reverseDeps.get(dep);
+        if (!arr) { arr = []; reverseDeps.set(dep, arr); }
+        arr.push(t);
+      }
+    }
+
+    const queue = [failedTaskId];
+    const visited = new Set<string>();
+    let cascadedAny = false;
+
+    while (queue.length > 0) {
+      const parentId = queue.shift()!;
+      if (visited.has(parentId)) continue;
+      visited.add(parentId);
+
+      const dependents = reverseDeps.get(parentId);
+      if (!dependents) continue;
+
+      // Collect tasks to fail at this BFS level
+      const toFail: Array<{ task: Task; previousStatus: string }> = [];
+      for (const t of dependents) {
+        if (isTerminal(t.status) || visited.has(t.id)) continue;
+        toFail.push({ task: t, previousStatus: t.status });
+        queue.push(t.id);
+      }
+
+      if (toFail.length === 0) continue;
+
+      // Parallel saves — don't mutate shared allTasks objects
+      const now = new Date().toISOString();
+      await Promise.all(toFail.map(({ task }) =>
+        this.deps.taskStore.save({ ...task, status: 'failed', updated_at: now }),
+      ));
+
+      // Emit events after saves
+      for (const { task, previousStatus } of toFail) {
+        this.deps.eventBus.emit({
+          type: 'task:status_changed',
+          taskId: task.id,
+          from: previousStatus as import('../domain/task.js').TaskStatus,
+          to: 'failed',
+        });
+        this.deps.eventBus.emit({
+          type: 'task:cascade_failed',
+          taskId: task.id,
+          failedDependencyId: failedTaskId,
+          reason,
+        });
+      }
+      cascadedAny = true;
+    }
+
+    if (cascadedAny) {
+      this.cachedTaskStore.invalidate();
     }
   }
 
@@ -1408,6 +1505,10 @@ export class Orchestrator {
       });
     } else {
       state.stats.total_tasks_failed++;
+
+      // Cascade-fail tasks that depend on this permanently failed task
+      const allTasks = await this.cachedTaskStore.list();
+      await this.cascadeFailDependents(taskId, allTasks, `dependency ${taskId} failed: ${error}`);
     }
 
     // Track runtime (reuse runtimeMs computed above)

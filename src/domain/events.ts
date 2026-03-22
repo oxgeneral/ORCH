@@ -24,6 +24,7 @@ export type OrchestratorEvent =
   | { type: 'orchestrator:tick'; running: number; queued: number }
   | { type: 'orchestrator:stall_detected'; runId: string }
   | { type: 'task:scope_overlap'; taskId: string; overlappingTaskId: string; patterns: string[] }
+  | { type: 'task:cascade_failed'; taskId: string; failedDependencyId: string; reason: string }
   | { type: 'workspace:merge_succeeded'; taskId: string; branch: string }
   | { type: 'workspace:merge_conflict'; taskId: string; branch: string; conflictInfo: string }
   | { type: 'task:orphaned'; taskId: string }
