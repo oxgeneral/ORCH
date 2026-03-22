@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.9 (2026-03-22)
+
+### Fixes
+
+- **WorkspaceError retry** — workspace errors no longer force-fail tasks on first attempt. Now respects `max_attempts` with exponential backoff via retry queue, matching the behavior of agent execution failures
+- **Cascade-fail dependent tasks** — when a task permanently fails (max_attempts exhausted), all direct and transitive dependents are automatically failed with `task:cascade_failed` event. Prevents dependent tasks from hanging as TODO forever
+- **Update notifications — cold start** — `checkForUpdateSWR()` now awaits the npm fetch on first run (up to 5s) instead of returning null. Users see the update notification on their very first command, not the second
+- **Update notifications — TUI re-check** — if initial update check returned null, TUI retries after 5 seconds via `onCheckUpdate` callback and updates the header chip dynamically
+- **Update notifications — orch serve** — added background update check at startup with structured logger output (`update:available` warning), so server operators see updates in JSON/text logs
+- **Postinstall test** — fixed test referencing `postinstall.js` instead of `postinstall.cjs`
+
+### Improvements
+
+- **Cascade-fail algorithm** — uses reverse-dependency index (`Map<parentId, Task[]>`) for O(1) lookup per BFS node instead of O(n) linear scan; parallel `Promise.all` saves instead of sequential; no in-memory mutation of shared task objects
+- **CLAUDE.md** — added Skill Library and Serve Mode architecture sections
+
 ## 1.0.8 (2026-03-22)
 
 ### Features
