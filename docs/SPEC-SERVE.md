@@ -2,7 +2,7 @@
 
 > **Status**: ✅ Implemented in v1.0.5. This spec is now reference documentation.
 
-> **Статус**: Planned
+> **Статус**: ✅ Implemented (v1.0.5)
 > **Приоритет**: P2
 > **Effort**: Фаза 1 — 3-5 дней, Фаза 2 — 5-7 дней, Фаза 3 — 3-5 дней/интеграция
 > **Автор**: AJTBD-исследование (2026-03-16)
