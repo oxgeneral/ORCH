@@ -24,6 +24,7 @@ interface ServeOpts {
 }
 
 export function registerServeCommand(program: Command, container: Container): void {
+  const currentVersion = program.version() ?? '0.0.0';
   program
     .command('serve')
     .description('Headless daemon mode — structured logs to stdout')
@@ -33,13 +34,13 @@ export function registerServeCommand(program: Command, container: Container): vo
     .option('--log-format <format>', 'Log format: json or text (default: json)', 'json')
     .option('--verbose', 'Include high-frequency agent:output events')
     .action(async (opts: ServeOpts) => {
-      await runServe(container, opts);
+      await runServe(container, currentVersion, opts);
     });
 }
 
 const VALID_LOG_FORMATS: ReadonlySet<string> = new Set(['json', 'text']);
 
-async function runServe(container: Container, opts: ServeOpts): Promise<void> {
+async function runServe(container: Container, currentVersion: string, opts: ServeOpts): Promise<void> {
   if (opts.logFormat && !VALID_LOG_FORMATS.has(opts.logFormat)) {
     printError(`Unknown --log-format "${opts.logFormat}". Valid: json, text`);
     process.exitCode = 2;
@@ -85,6 +86,20 @@ async function runServe(container: Container, opts: ServeOpts): Promise<void> {
     pid: process.pid,
     poll_interval_ms: container.config.scheduling.poll_interval_ms,
   });
+
+  // Background update check — log result so operators can see it in logs
+  import('../update-check.js')
+    .then((m) => m.checkForUpdateSWR(currentVersion))
+    .catch(() => null)
+    .then((info) => {
+      if (info?.updateAvailable) {
+        logger.log('warn', 'update:available', {
+          current: info.current,
+          latest: info.latest,
+          hint: 'Run: npm install -g @oxgeneral/orch',
+        });
+      }
+    });
 
   try {
     if (opts.once) {

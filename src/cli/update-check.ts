@@ -93,15 +93,15 @@ export async function checkForUpdateNow(currentVersion: string): Promise<UpdateI
 
 /**
  * Stale-while-revalidate: returns cached result instantly (single cache read),
- * fires a background refresh only when cache is absent or near expiry (>75% TTL).
+ * fires a background refresh only when cache is near expiry (>75% TTL).
+ * On cold start (no cache), awaits the fetch so the first run also gets a result.
  */
 export async function checkForUpdateSWR(currentVersion: string): Promise<UpdateInfo | null> {
   try {
     const cached = await readCache();
     if (!cached) {
-      // No cache — kick off refresh for next run, return null now
-      checkForUpdateNow(currentVersion).catch(() => {});
-      return null;
+      // Cold start — await fetch (up to 5s) so first run also shows notification
+      return checkForUpdateNow(currentVersion).catch(() => null);
     }
     // Revalidate only when cache is past 75% of its 4-hour TTL
     const age = Date.now() - cached.checked_at;

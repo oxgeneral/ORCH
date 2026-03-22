@@ -227,8 +227,11 @@ export function registerTuiCommand(program: Command, container: Container): void
         await container.orchestrator.stop();
       };
 
-      // Update check: read cache instantly, trigger background refresh for next run
       const currentVersion = program.version() ?? '0.0.0';
+
+      // Fire update check in background — never block TUI render.
+      // If cache is warm, result arrives before render. If cold start,
+      // App.tsx's onCheckUpdate useEffect will pick it up after 5s.
       const updateCheckPromise = import('../update-check.js')
         .then((m) => m.checkForUpdateSWR(currentVersion))
         .catch(() => null);
@@ -243,9 +246,6 @@ export function registerTuiCommand(program: Command, container: Container): void
         // Watch mode may fail if lock is held by another process — continue without it
         watchError = err instanceof Error ? err.message : String(err);
       }
-
-      // Await update info (fetch has 5s timeout, won't hang)
-      const updateInfo = await updateCheckPromise;
 
       const { waitUntilExit } = render(
         createElement(App, {
@@ -292,7 +292,15 @@ export function registerTuiCommand(program: Command, container: Container): void
           initialWatchActive: watchStarted,
           watchError,
           version: currentVersion,
-          latestVersion: updateInfo?.updateAvailable ? updateInfo.latest : undefined,
+          latestVersion: undefined,
+          onCheckUpdate: async () => {
+            const info = await updateCheckPromise;
+            if (info?.updateAvailable) return info.latest;
+            // Fallback: force-check if background promise returned null
+            const m = await import('../update-check.js');
+            const fresh = await m.checkForUpdateNow(currentVersion);
+            return fresh?.updateAvailable ? fresh.latest : undefined;
+          },
           initialActivityFilter: container.globalConfig.tui.activity_filter,
           onSaveActivityFilter: async (preset) => {
             await container.globalConfigStore.set('activity_filter', preset);

@@ -170,6 +170,8 @@ export interface AppProps {
   version?: string;
   /** Latest available version from npm (shown as UPDATE chip if newer) */
   latestVersion?: string;
+  /** Callback to re-check for updates (used for delayed re-check when initial check returned null) */
+  onCheckUpdate?: () => Promise<string | undefined>;
   /** Toggle autonomous mode on an agent */
   onToggleAutonomous?: (agentId: string, enabled: boolean) => Promise<Agent>;
   // Goal callbacks
@@ -314,10 +316,21 @@ export function App({
   initialNotifications,
   onSaveNotifications,
   version,
-  latestVersion,
+  latestVersion: initialLatestVersion,
+  onCheckUpdate,
 }: AppProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
+
+  // Delayed update re-check: if initial check returned no result, retry after 5s
+  const [latestVersion, setLatestVersion] = useState(initialLatestVersion);
+  useEffect(() => {
+    if (latestVersion || !onCheckUpdate) return;
+    const timer = setTimeout(() => {
+      onCheckUpdate().then((v) => { if (v) setLatestVersion(v); }).catch(() => {});
+    }, 5_000);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Track terminal size with resize listener
   const [termSize, setTermSize] = useState({ w: stdout?.columns ?? 80, h: stdout?.rows ?? 24 });
