@@ -1,5 +1,5 @@
 /**
- * Tests for scripts/postinstall.js banner behavior.
+ * Tests for scripts/postinstall.cjs banner behavior.
  *
  * Verifies:
  * 1) Star CTA line appears after 'orch' command in source (TTY mode content)
@@ -13,7 +13,7 @@ import { spawnSync, execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const SCRIPT = resolve(process.cwd(), 'scripts/postinstall.js');
+const SCRIPT = resolve(process.cwd(), 'scripts/postinstall.cjs');
 const SOURCE = readFileSync(SCRIPT, 'utf8');
 
 // ---------------------------------------------------------------------------
