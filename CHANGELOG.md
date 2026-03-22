@@ -3,6 +3,38 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.8 (2026-03-22)
+
+### Features
+
+- **Skill Library** — 26 expert methodology skills adapted from gstack, stored as Markdown files in `skills/library/`. Skills are automatically loaded and injected into agent system prompts at dispatch time. Works with all adapters (claude, opencode, codex, cursor, shell)
+- **Two skill types** — library skills (plain names like `review`, `investigate`) inject content into prompts; MCP skills (colon-separated like `feature-dev:code-explorer`) are handled natively by Claude CLI
+- **SkillLoader** — new infrastructure component with process-lifetime cache, parallel reads via `Promise.all`, path traversal prevention, and lazy async directory resolution
+
+### Skills Catalog
+
+| Category | Skills |
+|----------|--------|
+| Code Review & QA | `review`, `qa`, `qa-only`, `investigate`, `careful`, `guard` |
+| Planning | `plan-ceo-review`, `plan-eng-review`, `plan-design-review`, `autoplan`, `office-hours` |
+| Design | `design-consultation`, `design-review` |
+| Shipping | `ship`, `land-and-deploy`, `canary`, `document-release` |
+| Infrastructure | `browse`, `benchmark`, `setup-deploy`, `setup-browser-cookies` |
+| Safety | `careful`, `freeze`, `unfreeze`, `guard` |
+| Cross-AI | `codex` |
+| Meta | `upgrade`, `retro` |
+
+### Improvements
+
+- **Agent Shop upgraded** — all 15 agent templates now include library skills with updated role prompts referencing skill methodologies (review, investigate, benchmark, ship, etc.)
+- **Agent Creator updated** — knows full skill catalog with library vs MCP distinction, guides auto-created agents to use appropriate skills
+- **`/orch` skill documentation** — expanded with complete Skill Library section listing all 26 library skills and 13 MCP skills
+- **Programmatic API** — `ISkillLoader` and `SkillLoader` exported from `@oxgeneral/orch` for library consumers
+
+### Tests
+
+- 21 new tests: SkillLoader unit tests (14), orchestrator skill injection (13), agent shop skill validation (8)
+
 ## 1.0.7 (2026-03-21)
 
 ### Features
