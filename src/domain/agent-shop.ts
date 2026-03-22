@@ -503,7 +503,7 @@ export const AGENT_SHOP_TEMPLATES: AgentShopTemplate[] = [
     adapter: 'claude',
     model: 'claude-sonnet-4-6',
     approval_policy: 'auto',
-    skills: ['product-manager-toolkit', 'feature-dev:feature-dev'],
+    skills: ['office-hours', 'feature-dev:feature-dev'],
     role: GROWTH_HACKER_ROLE,
   },
   {
