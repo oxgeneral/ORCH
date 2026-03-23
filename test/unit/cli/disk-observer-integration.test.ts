@@ -71,7 +71,7 @@ describe('DiskObserver integration', () => {
       pid: 99999,
       started_at: new Date().toISOString(),
       running: {
-        run_abc: {
+        tsk_feat: {
           run_id: 'run_abc',
           agent_id: 'agt_worker',
           task_id: 'tsk_feat',
@@ -189,7 +189,7 @@ describe('DiskObserver integration', () => {
     await writeJson(paths.statePath, {
       version: 1, pid: 99999,
       running: {
-        run_fail: { run_id: 'run_fail', agent_id: 'agt_1', task_id: 'tsk_1', pid: 77777, started_at: '', last_event_at: '' },
+        tsk_1: { run_id: 'run_fail', agent_id: 'agt_1', task_id: 'tsk_1', pid: 77777, started_at: '', last_event_at: '' },
       },
       claimed: [], retry_queue: [],
       stats: { total_runs: 0, total_tasks_completed: 0, total_tasks_failed: 0, total_tokens: {}, total_runtime_ms: 0 },
@@ -240,8 +240,8 @@ describe('DiskObserver integration', () => {
     await writeJson(paths.statePath, {
       version: 1, pid: 99999,
       running: {
-        run_a: { run_id: 'run_a', agent_id: 'agt_a', task_id: 'tsk_a', pid: 111, started_at: '', last_event_at: '' },
-        run_b: { run_id: 'run_b', agent_id: 'agt_b', task_id: 'tsk_b', pid: 222, started_at: '', last_event_at: '' },
+        tsk_a: { run_id: 'run_a', agent_id: 'agt_a', task_id: 'tsk_a', pid: 111, started_at: '', last_event_at: '' },
+        tsk_b: { run_id: 'run_b', agent_id: 'agt_b', task_id: 'tsk_b', pid: 222, started_at: '', last_event_at: '' },
       },
       claimed: [], retry_queue: [],
       stats: { total_runs: 0, total_tasks_completed: 0, total_tasks_failed: 0, total_tokens: {}, total_runtime_ms: 0 },
@@ -276,7 +276,7 @@ describe('DiskObserver integration', () => {
     await writeJson(paths.statePath, {
       version: 1, pid: 111,
       running: {
-        run_old: { run_id: 'run_old', agent_id: 'agt_1', task_id: 'tsk_1', pid: 333, started_at: '', last_event_at: '' },
+        tsk_1: { run_id: 'run_old', agent_id: 'agt_1', task_id: 'tsk_1', pid: 333, started_at: '', last_event_at: '' },
       },
       claimed: [], retry_queue: [],
       stats: { total_runs: 0, total_tasks_completed: 0, total_tasks_failed: 0, total_tokens: {}, total_runtime_ms: 0 },
@@ -289,7 +289,7 @@ describe('DiskObserver integration', () => {
     await writeJson(paths.statePath, {
       version: 1, pid: 222,
       running: {
-        run_new: { run_id: 'run_new', agent_id: 'agt_2', task_id: 'tsk_2', pid: 444, started_at: '', last_event_at: '' },
+        tsk_2: { run_id: 'run_new', agent_id: 'agt_2', task_id: 'tsk_2', pid: 444, started_at: '', last_event_at: '' },
       },
       claimed: [], retry_queue: [],
       stats: { total_runs: 0, total_tasks_completed: 0, total_tasks_failed: 0, total_tokens: {}, total_runtime_ms: 0 },

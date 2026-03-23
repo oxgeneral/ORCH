@@ -101,9 +101,12 @@ export class DiskObserver {
     }
 
     const now = Date.now();
-    const currentRunIds = new Set(Object.keys(state.running));
+    const entries = Object.values(state.running);
+    const currentRunIds = new Set<string>();
 
-    for (const [runId, entry] of Object.entries(state.running)) {
+    for (const entry of entries) {
+      const runId = entry.run_id;
+      currentRunIds.add(runId);
       const existing = this.tracked.get(runId);
       if (existing) {
         existing.lastSeenAt = now;
@@ -142,7 +145,11 @@ export class DiskObserver {
       this.emit({ type: 'orchestrator:tick', running: currentRunIds.size, queued: 0 });
     }
 
-    this.prevRunning = new Map(Object.entries(state.running));
+    const newPrevRunning = new Map<string, RunningEntry>();
+    for (const entry of entries) {
+      newPrevRunning.set(entry.run_id, entry);
+    }
+    this.prevRunning = newPrevRunning;
 
     for (const [runId] of this.tracked) {
       if (!currentRunIds.has(runId) && now - this.tracked.get(runId)!.lastSeenAt > EVICTION_TTL_MS) {

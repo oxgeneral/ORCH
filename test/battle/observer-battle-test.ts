@@ -115,7 +115,7 @@ async function main() {
     version: 1, pid: process.pid,
     started_at: new Date().toISOString(),
     running: {
-      run_battle_1: {
+      tsk_fix_bug: {
         run_id: 'run_battle_1', agent_id: 'agt_claude_senior', task_id: 'tsk_fix_bug',
         pid: process.pid, started_at: new Date().toISOString(), last_event_at: new Date().toISOString(),
       },
@@ -186,7 +186,7 @@ async function main() {
   await writeJson(paths.statePath, {
     version: 1, pid: process.pid,
     running: {
-      run_battle_2: {
+      tsk_refactor: {
         run_id: 'run_battle_2', agent_id: 'agt_codex_worker', task_id: 'tsk_refactor',
         pid: process.pid, started_at: new Date().toISOString(), last_event_at: new Date().toISOString(),
       },
@@ -235,9 +235,9 @@ async function main() {
   await writeJson(paths.statePath, {
     version: 1, pid: process.pid,
     running: {
-      run_c1: { run_id: 'run_c1', agent_id: 'agt_a', task_id: 'tsk_a', pid: process.pid, started_at: '', last_event_at: '' },
-      run_c2: { run_id: 'run_c2', agent_id: 'agt_b', task_id: 'tsk_b', pid: process.pid, started_at: '', last_event_at: '' },
-      run_c3: { run_id: 'run_c3', agent_id: 'agt_c', task_id: 'tsk_c', pid: process.pid, started_at: '', last_event_at: '' },
+      tsk_a: { run_id: 'run_c1', agent_id: 'agt_a', task_id: 'tsk_a', pid: process.pid, started_at: '', last_event_at: '' },
+      tsk_b: { run_id: 'run_c2', agent_id: 'agt_b', task_id: 'tsk_b', pid: process.pid, started_at: '', last_event_at: '' },
+      tsk_c: { run_id: 'run_c3', agent_id: 'agt_c', task_id: 'tsk_c', pid: process.pid, started_at: '', last_event_at: '' },
     },
     claimed: [], retry_queue: [],
     stats: { total_runs: 5, total_tasks_completed: 1, total_tasks_failed: 1, total_tokens: {}, total_runtime_ms: 7000 },

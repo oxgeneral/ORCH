@@ -71,7 +71,7 @@ describe('DiskObserver', () => {
 
   it('emits agent:started when a new run appears in state', async () => {
     currentState = makeState({
-      run_1: { run_id: 'run_1', agent_id: 'agt_1', task_id: 'tsk_1', pid: 999, started_at: '', last_event_at: '' },
+      tsk_1: { run_id: 'run_1', agent_id: 'agt_1', task_id: 'tsk_1', pid: 999, started_at: '', last_event_at: '' },
     });
 
     observer = new DiskObserver({ paths, stateStore, pollIntervalMs: POLL_MS });
@@ -86,7 +86,7 @@ describe('DiskObserver', () => {
 
   it('emits agent:completed when a run disappears from state', async () => {
     currentState = makeState({
-      run_1: { run_id: 'run_1', agent_id: 'agt_1', task_id: 'tsk_1', pid: 999, started_at: '', last_event_at: '' },
+      tsk_1: { run_id: 'run_1', agent_id: 'agt_1', task_id: 'tsk_1', pid: 999, started_at: '', last_event_at: '' },
     });
 
     observer = new DiskObserver({ paths, stateStore, pollIntervalMs: POLL_MS });
@@ -115,7 +115,7 @@ describe('DiskObserver', () => {
 
   it('tails JSONL events from active runs', async () => {
     currentState = makeState({
-      run_2: { run_id: 'run_2', agent_id: 'agt_2', task_id: 'tsk_2', pid: 999, started_at: '', last_event_at: '' },
+      tsk_2: { run_id: 'run_2', agent_id: 'agt_2', task_id: 'tsk_2', pid: 999, started_at: '', last_event_at: '' },
     });
 
     // Write events before observer starts
@@ -141,7 +141,7 @@ describe('DiskObserver', () => {
 
   it('reads only new bytes on subsequent polls', async () => {
     currentState = makeState({
-      run_3: { run_id: 'run_3', agent_id: 'agt_3', task_id: 'tsk_3', pid: 999, started_at: '', last_event_at: '' },
+      tsk_3: { run_id: 'run_3', agent_id: 'agt_3', task_id: 'tsk_3', pid: 999, started_at: '', last_event_at: '' },
     });
 
     const eventsFile = paths.runEventsPath('run_3');
@@ -168,7 +168,7 @@ describe('DiskObserver', () => {
 
   it('handles partial lines across poll boundaries', async () => {
     currentState = makeState({
-      run_4: { run_id: 'run_4', agent_id: 'agt_4', task_id: 'tsk_4', pid: 999, started_at: '', last_event_at: '' },
+      tsk_4: { run_id: 'run_4', agent_id: 'agt_4', task_id: 'tsk_4', pid: 999, started_at: '', last_event_at: '' },
     });
 
     const eventsFile = paths.runEventsPath('run_4');
@@ -199,7 +199,7 @@ describe('DiskObserver', () => {
 
   it('translates error events', async () => {
     currentState = makeState({
-      run_5: { run_id: 'run_5', agent_id: 'agt_5', task_id: 'tsk_5', pid: 999, started_at: '', last_event_at: '' },
+      tsk_5: { run_id: 'run_5', agent_id: 'agt_5', task_id: 'tsk_5', pid: 999, started_at: '', last_event_at: '' },
     });
 
     const eventsFile = paths.runEventsPath('run_5');
@@ -217,7 +217,7 @@ describe('DiskObserver', () => {
 
   it('skips done events (lifecycle handled by state diff)', async () => {
     currentState = makeState({
-      run_6: { run_id: 'run_6', agent_id: 'agt_6', task_id: 'tsk_6', pid: 999, started_at: '', last_event_at: '' },
+      tsk_6: { run_id: 'run_6', agent_id: 'agt_6', task_id: 'tsk_6', pid: 999, started_at: '', last_event_at: '' },
     });
 
     const eventsFile = paths.runEventsPath('run_6');
@@ -248,7 +248,7 @@ describe('DiskObserver', () => {
 
   it('handles missing JSONL file gracefully', async () => {
     currentState = makeState({
-      run_m: { run_id: 'run_m', agent_id: 'agt_m', task_id: 'tsk_m', pid: 999, started_at: '', last_event_at: '' },
+      tsk_m: { run_id: 'run_m', agent_id: 'agt_m', task_id: 'tsk_m', pid: 999, started_at: '', last_event_at: '' },
     });
 
     observer = new DiskObserver({ paths, stateStore, pollIntervalMs: POLL_MS });
@@ -263,8 +263,8 @@ describe('DiskObserver', () => {
 
   it('emits orchestrator:tick for active runs', async () => {
     currentState = makeState({
-      run_t1: { run_id: 'run_t1', agent_id: 'agt_t1', task_id: 'tsk_t1', pid: 999, started_at: '', last_event_at: '' },
-      run_t2: { run_id: 'run_t2', agent_id: 'agt_t2', task_id: 'tsk_t2', pid: 999, started_at: '', last_event_at: '' },
+      tsk_t1: { run_id: 'run_t1', agent_id: 'agt_t1', task_id: 'tsk_t1', pid: 999, started_at: '', last_event_at: '' },
+      tsk_t2: { run_id: 'run_t2', agent_id: 'agt_t2', task_id: 'tsk_t2', pid: 999, started_at: '', last_event_at: '' },
     });
 
     observer = new DiskObserver({ paths, stateStore, pollIntervalMs: POLL_MS });
@@ -279,7 +279,7 @@ describe('DiskObserver', () => {
 
   it('translates tool_call and command_run as agent:output', async () => {
     currentState = makeState({
-      run_tc: { run_id: 'run_tc', agent_id: 'agt_tc', task_id: 'tsk_tc', pid: 999, started_at: '', last_event_at: '' },
+      tsk_tc: { run_id: 'run_tc', agent_id: 'agt_tc', task_id: 'tsk_tc', pid: 999, started_at: '', last_event_at: '' },
     });
 
     const eventsFile = paths.runEventsPath('run_tc');
