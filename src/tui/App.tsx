@@ -322,15 +322,18 @@ export function App({
   const { exit } = useApp();
   const { stdout } = useStdout();
 
-  // Delayed update re-check: if initial check returned no result, retry after 5s
+  // Delayed update re-check: if initial check returned no result, retry after 5s.
+  // Mount-only: onCheckUpdate reference is unstable (inline closure in tui.ts),
+  // so we pin it via ref to avoid re-triggering on every render.
   const [latestVersion, setLatestVersion] = useState(initialLatestVersion);
+  const onCheckUpdateRef = useRef(onCheckUpdate);
   useEffect(() => {
-    if (latestVersion || !onCheckUpdate) return;
+    if (initialLatestVersion || !onCheckUpdateRef.current) return;
     const timer = setTimeout(() => {
-      onCheckUpdate().then((v) => { if (v) setLatestVersion(v); }).catch(() => {});
+      onCheckUpdateRef.current?.().then((v) => { if (v) setLatestVersion(v); }).catch(() => {});
     }, 5_000);
     return () => clearTimeout(timer);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialLatestVersion]);
 
   // Track terminal size with resize listener
   const [termSize, setTermSize] = useState({ w: stdout?.columns ?? 80, h: stdout?.rows ?? 24 });
@@ -4117,6 +4120,10 @@ function formatEvent(
     case 'orchestrator:stall_detected':
       addMsg(`Stall detected`, tuiColors.yellow,
         { agentId: runIdToAgentId?.get(event.runId), taskId: resolveTask(event.runId), msgType: 'error' });
+      break;
+    case 'task:cascade_failed':
+      addMsg(`Cascade failed (dep: ${event.failedDependencyId})`, tuiColors.red,
+        { taskId: event.taskId, detail: event.reason, msgType: 'error' });
       break;
   }
 }

@@ -17,4 +17,6 @@ export interface IWorkspaceManager {
   mergeBack(branch: string): Promise<MergeResult>;
   cleanup(taskId: string, branch?: string): Promise<void>;
   validate(workspacePath: string, projectRoot: string): void;
+  /** Get files changed on a worktree branch relative to its merge-base. */
+  getChangedFiles(branch: string): Promise<string[]>;
 }

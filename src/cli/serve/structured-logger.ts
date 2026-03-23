@@ -128,6 +128,9 @@ export class StructuredLogger {
       case 'task:scope_overlap':
         return { ts, level: 'warn', event: event.type, taskId: event.taskId, overlappingTaskId: event.overlappingTaskId, patterns: event.patterns };
 
+      case 'task:cascade_failed':
+        return { ts, level: 'warn', event: event.type, taskId: event.taskId, failedDependencyId: event.failedDependencyId, reason: event.reason };
+
       default:
         return null;
     }

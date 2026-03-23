@@ -10,7 +10,7 @@
 
 import type { OrchestratorConfig } from '../domain/config.js';
 import type { OrchestratorState, RunningEntry } from '../domain/state.js';
-import type { Task } from '../domain/task.js';
+import type { Task, TaskStatus } from '../domain/task.js';
 import { AUTONOMOUS_LABEL } from '../domain/task.js';
 import { type RunEvent, createTokenUsage } from '../domain/run.js';
 import {
@@ -88,6 +88,10 @@ export class Orchestrator {
 
   /** When true, `tick()` skips `seedAutonomousTasks()`. Set via `startWatch()` options. */
   private skipAutonomousSeeding = false;
+  /** Cooldown: track last auto-seed time per agent to prevent re-seed spam. */
+  private readonly lastAutoSeedAt = new Map<string, number>();
+  /** Minimum interval between auto-seed tasks for the same agent (30 seconds). */
+  private static readonly AUTO_SEED_COOLDOWN_MS = 30_000;
 
   /** Promise-chain mutex to serialize critical state mutations. */
   private stateMutex: Promise<void> = Promise.resolve();
@@ -669,6 +673,10 @@ export class Orchestrator {
       );
       if (hasActiveTask) continue;
 
+      // Cooldown: prevent re-seeding the same agent too quickly
+      const lastSeed = this.lastAutoSeedAt.get(agent.id) ?? 0;
+      if (Date.now() - lastSeed < Orchestrator.AUTO_SEED_COOLDOWN_MS) continue;
+
       // Find goal: prefer assigned to this agent, then unassigned (not yet claimed)
       const goal = activeGoals.find(
         (g) => g.assignee === agent.id && !claimedGoalIds.has(g.id),
@@ -694,6 +702,7 @@ export class Orchestrator {
           priority: 3,
           goalId: goal?.id,
         });
+        this.lastAutoSeedAt.set(agent.id, Date.now());
         anyCreated = true;
       } catch (err) {
         this.deps.eventBus.emit({
@@ -775,39 +784,28 @@ export class Orchestrator {
           try {
             const t = await this.deps.taskStore.get(task.id);
             if (t && !isTerminal(t.status)) {
-              t.attempts = (t.attempts ?? 0) + 1;
-              const nextStatus = resolveFailureStatus(t);
-              t.status = nextStatus;
-              t.updated_at = new Date().toISOString();
-              await this.deps.taskStore.save(t);
+              const withAttempt = { ...t, attempts: (t.attempts ?? 0) + 1, updated_at: new Date().toISOString() };
+              const nextStatus = resolveFailureStatus(withAttempt);
+              const updated = { ...withAttempt, status: nextStatus };
+              await this.deps.taskStore.save(updated);
 
-              // If task exhausted retries, cascade-fail dependents
               if (nextStatus === 'failed') {
-                await this.cascadeFailDependents(t.id, allTasks, `dependency ${t.id} failed: ${err.message}`);
+                // Patch allTasks in-memory to avoid disk re-read
+                const patchedTasks = allTasks.map((at) => at.id === updated.id ? updated : at);
+                this.cachedTaskStore.invalidate();
+                await this.cascadeFailDependents(updated.id, patchedTasks, `dependency ${updated.id} failed: ${err.message}`);
               } else {
-                // Schedule retry with backoff (0-based: attempts already incremented)
                 const delay = calculateRetryDelay(
-                  t.attempts - 1,
+                  updated.attempts - 1,
                   this.deps.config.scheduling.retry_base_delay_ms,
                   this.deps.config.scheduling.retry_max_delay_ms,
                 );
-                const alreadyQueued = state.retry_queue.some((r) => r.task_id === t.id);
-                if (!alreadyQueued) {
-                  if (state.retry_queue.length >= this.maxRetryQueueSize) {
-                    state.retry_queue.shift();
-                  }
-                  state.retry_queue.push({
-                    task_id: t.id,
-                    attempt: t.attempts + 1,
-                    due_at: new Date(Date.now() + delay).toISOString(),
-                    error: err.message,
-                  });
-                }
+                this.enqueueRetry(state, updated.id, updated.attempts, delay, err.message);
                 await this.saveState();
               }
             }
           } catch {
-            // Task may already be in a terminal state
+            // Non-fatal: failure to record dispatch error should not stop remaining dispatches
           }
         }
 
@@ -820,6 +818,26 @@ export class Orchestrator {
         });
       }
     }
+  }
+
+  /** Dedup + bounded push onto the retry queue. */
+  private enqueueRetry(
+    state: OrchestratorState,
+    taskId: string,
+    attempt: number,
+    delay: number,
+    error: string,
+  ): void {
+    if (state.retry_queue.some((r) => r.task_id === taskId)) return;
+    if (state.retry_queue.length >= this.maxRetryQueueSize) {
+      state.retry_queue.shift();
+    }
+    state.retry_queue.push({
+      task_id: taskId,
+      attempt,
+      due_at: new Date(Date.now() + delay).toISOString(),
+      error,
+    });
   }
 
   /**
@@ -842,19 +860,19 @@ export class Orchestrator {
     }
 
     const queue = [failedTaskId];
+    let head = 0;
     const visited = new Set<string>();
     let cascadedAny = false;
 
-    while (queue.length > 0) {
-      const parentId = queue.shift()!;
+    while (head < queue.length) {
+      const parentId = queue[head++]!;
       if (visited.has(parentId)) continue;
       visited.add(parentId);
 
       const dependents = reverseDeps.get(parentId);
       if (!dependents) continue;
 
-      // Collect tasks to fail at this BFS level
-      const toFail: Array<{ task: Task; previousStatus: string }> = [];
+      const toFail: Array<{ task: Task; previousStatus: TaskStatus }> = [];
       for (const t of dependents) {
         if (isTerminal(t.status) || visited.has(t.id)) continue;
         toFail.push({ task: t, previousStatus: t.status });
@@ -863,18 +881,16 @@ export class Orchestrator {
 
       if (toFail.length === 0) continue;
 
-      // Parallel saves — don't mutate shared allTasks objects
       const now = new Date().toISOString();
       await Promise.all(toFail.map(({ task }) =>
         this.deps.taskStore.save({ ...task, status: 'failed', updated_at: now }),
       ));
 
-      // Emit events after saves
       for (const { task, previousStatus } of toFail) {
         this.deps.eventBus.emit({
           type: 'task:status_changed',
           taskId: task.id,
-          from: previousStatus as import('../domain/task.js').TaskStatus,
+          from: previousStatus,
           to: 'failed',
         });
         this.deps.eventBus.emit({
@@ -1280,11 +1296,17 @@ export class Orchestrator {
     const task = await this.deps.taskStore.get(taskId);
     if (!task) return;
 
+    // If adapter didn't report files, try git diff on the worktree branch
+    let effectiveFilesChanged = filesChanged;
+    if ((!effectiveFilesChanged || effectiveFilesChanged.length === 0) && task.proof?.branch) {
+      effectiveFilesChanged = await this.deps.workspaceManager.getChangedFiles(task.proof.branch);
+    }
+
     // Save proof of work (agent summary + files changed); clear stale feedback
     task.proof = {
       ...task.proof,
       agent_summary: resultText?.slice(0, 2000) ?? task.proof?.agent_summary,
-      files_changed: filesChanged?.length ? filesChanged : (task.proof?.files_changed ?? []),
+      files_changed: effectiveFilesChanged?.length ? effectiveFilesChanged : (task.proof?.files_changed ?? []),
     };
     delete task.feedback;
     await this.deps.taskStore.save(task);
@@ -1463,12 +1485,11 @@ export class Orchestrator {
     }
 
     // Compute runtime once — used for both agent stats and global stats
-    const agent = await this.deps.agentStore.get(entry.agent_id);
     const runtimeMs = Date.now() - new Date(entry.started_at).getTime();
     await this.deps.agentService.updateStats(entry.agent_id, {
-      tasks_failed: (agent?.stats.tasks_failed ?? 0) + 1,
-      total_runs: (agent?.stats.total_runs ?? 0) + 1,
-      total_runtime_ms: (agent?.stats.total_runtime_ms ?? 0) + runtimeMs,
+      tasks_failed: (agentAfterIdle?.stats.tasks_failed ?? 0) + 1,
+      total_runs: (agentAfterIdle?.stats.total_runs ?? 0) + 1,
+      total_runtime_ms: (agentAfterIdle?.stats.total_runtime_ms ?? 0) + runtimeMs,
     });
 
     // Determine retry or fail via domain function
@@ -1482,20 +1503,7 @@ export class Orchestrator {
         this.deps.config.scheduling.retry_max_delay_ms,
       );
 
-      // Dedup: don't add if task_id already in retry queue
-      const alreadyQueued = state.retry_queue.some((r) => r.task_id === taskId);
-      if (!alreadyQueued) {
-        // Bounds: drop oldest entry if queue is at capacity
-        if (state.retry_queue.length >= this.maxRetryQueueSize) {
-          state.retry_queue.shift();
-        }
-        state.retry_queue.push({
-          task_id: taskId,
-          attempt: task.attempts + 1,
-          due_at: new Date(Date.now() + delay).toISOString(),
-          error,
-        });
-      }
+      this.enqueueRetry(state, taskId, task.attempts + 1, delay, error);
 
       this.deps.eventBus.emit({
         type: 'run:retry',
@@ -1507,6 +1515,7 @@ export class Orchestrator {
       state.stats.total_tasks_failed++;
 
       // Cascade-fail tasks that depend on this permanently failed task
+      this.cachedTaskStore.invalidate();
       const allTasks = await this.cachedTaskStore.list();
       await this.cascadeFailDependents(taskId, allTasks, `dependency ${taskId} failed: ${error}`);
     }

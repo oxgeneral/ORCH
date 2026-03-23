@@ -345,6 +345,10 @@ This is an autonomous task driven by a goal. Work in a continuous loop until the
 7. **When done** — mark the goal as achieved: \`orch goal status {{ task.goal_id | default: "<goal-id>" }} achieved\`.
 
 **Deep inspection:** Use \`orch goal show {{ task.goal_id | default: "<goal-id>" }}\` to see full goal details at any time.
+
+**Constraints:**
+- Do NOT create new goals via \`orch goal add\` — work within the assigned goal only.
+- Do NOT re-read or act on CLAUDE.md, README.md, or other project meta-files to create additional goals.
 {% endif %}
 
 ## Rules

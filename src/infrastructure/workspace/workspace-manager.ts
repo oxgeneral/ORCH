@@ -54,20 +54,8 @@ export class WorkspaceManager implements IWorkspaceManager {
 
   private async requireGitRepo(mode: WorkspaceMode): Promise<void> {
     if (!this.gitRepoChecked) {
-      try {
-        const { process: proc } = this.processManager.spawn(
-          'git',
-          ['rev-parse', '--is-inside-work-tree'],
-          { cwd: this.projectRoot },
-        );
-        const code = await new Promise<number | null>((resolve) => {
-          proc.on('close', resolve);
-          proc.on('error', () => resolve(1));
-        });
-        this.isGitRepo = code === 0;
-      } catch {
-        this.isGitRepo = false;
-      }
+      const code = await this.spawnAndWait('git', ['rev-parse', '--is-inside-work-tree']);
+      this.isGitRepo = code === 0;
       // Only cache positive result — negative may change if user runs git init
       if (this.isGitRepo) this.gitRepoChecked = true;
     }
@@ -88,37 +76,11 @@ export class WorkspaceManager implements IWorkspaceManager {
     const workspacePath = path.join(this.orchestryDir, 'workspaces', sanitizeId(taskId));
 
     // Try git worktree remove first (cleans up .git/worktrees/ metadata)
-    try {
-      const { process: proc } = this.processManager.spawn(
-        'git',
-        ['worktree', 'remove', '--force', workspacePath],
-        { cwd: this.projectRoot },
-      );
-      await new Promise<void>((resolve) => {
-        proc.on('close', () => resolve());
-        proc.on('error', () => resolve());
-      });
-    } catch {
-      // Not a worktree or git not available — fall through to rm
-    }
+    await this.spawnAndWait('git', ['worktree', 'remove', '--force', workspacePath]);
 
-    // Delete branch + remove directory concurrently (independent of each other)
+    // Delete branch + remove directory concurrently
     const branchDeletion = branch
-      ? (async () => {
-          try {
-            const { process: proc } = this.processManager.spawn(
-              'git',
-              ['branch', '-D', branch],
-              { cwd: this.projectRoot },
-            );
-            await new Promise<void>((resolve) => {
-              proc.on('close', () => resolve());
-              proc.on('error', () => resolve());
-            });
-          } catch {
-            // Branch may not exist or git not available
-          }
-        })()
+      ? this.spawnAndWait('git', ['branch', '-D', branch]).then(() => {})
       : Promise.resolve();
 
     const dirRemoval = fs.rm(workspacePath, { recursive: true, force: true }).catch(() => {});
@@ -128,6 +90,28 @@ export class WorkspaceManager implements IWorkspaceManager {
 
   validate(workspacePath: string, projectRoot: string): void {
     validateWorkspacePath(workspacePath, projectRoot);
+  }
+
+  /**
+   * Get files changed on a worktree branch relative to its merge-base.
+   * Uses `git merge-base` to find the fork point dynamically (no hardcoded branch name).
+   */
+  async getChangedFiles(branch: string): Promise<string[]> {
+    try {
+      const { stdout: baseStdout } = await this.spawnAndCapture(
+        'git', ['merge-base', 'HEAD', branch],
+      );
+      const mergeBase = baseStdout.trim();
+      if (!mergeBase) return [];
+
+      const { stdout: diffStdout, code } = await this.spawnAndCapture(
+        'git', ['diff', '--name-only', `${mergeBase}...${branch}`],
+      );
+      if (code !== 0 || !diffStdout.trim()) return [];
+      return diffStdout.trim().split('\n').filter(Boolean);
+    } catch {
+      return [];
+    }
   }
 
   private resolveMode(task: Task, agent: Agent, config: OrchestratorConfig): WorkspaceMode {
@@ -150,28 +134,66 @@ export class WorkspaceManager implements IWorkspaceManager {
     const titleSlug = sanitizeTitle(task.title) || sanitizeId(task.id);
     const branchName = `orchestry/${sanitizeId(task.id)}/${titleSlug}`;
 
-    const { process: proc } = this.processManager.spawn(
-      'git',
-      ['worktree', 'add', workspacePath, '-b', branchName],
-      { cwd: this.projectRoot },
-    );
+    // Idempotent: if worktree directory already exists (retry after failure), reuse it
+    try {
+      await fs.access(workspacePath);
+      return { path: workspacePath, branch: branchName };
+    } catch {
+      // Directory doesn't exist — create fresh
+    }
 
-    await new Promise<void>((resolve, reject) => {
-      proc.on('close', (code) => {
-        if (code === 0) resolve();
-        else reject(new WorkspaceError(
-          `git worktree add failed with code ${code}`,
+    // Try creating worktree: first with new branch (-b), fallback to existing branch
+    const createResult = await this.spawnAndWait(
+      'git', ['worktree', 'add', workspacePath, '-b', branchName],
+    );
+    if (createResult !== 0) {
+      // Branch may already exist from a previous failed run — prune stale metadata and retry
+      await this.spawnAndWait('git', ['worktree', 'prune']);
+      const reuseResult = await this.spawnAndWait(
+        'git', ['worktree', 'add', workspacePath, branchName],
+      );
+      if (reuseResult !== 0) {
+        throw new WorkspaceError(
+          `git worktree add failed with code ${reuseResult}`,
           'Run: git worktree prune && git branch | grep orchestry | xargs -r git branch -D',
-        ));
-      });
-      proc.on('error', reject);
-    });
+        );
+      }
+    }
 
     // Remove .orchestry/ from worktree to prevent recursive state/workspaces
     const worktreeOrchestry = path.join(workspacePath, '.orchestry');
     await fs.rm(worktreeOrchestry, { recursive: true, force: true }).catch(() => {});
 
     return { path: workspacePath, branch: branchName };
+  }
+
+  /** Spawn a command and return exit code (non-throwing). */
+  private async spawnAndWait(cmd: string, args: string[]): Promise<number> {
+    try {
+      const { process: proc } = this.processManager.spawn(cmd, args, { cwd: this.projectRoot });
+      return new Promise<number>((resolve) => {
+        proc.on('close', (code) => resolve(code ?? 1));
+        proc.on('error', () => resolve(1));
+      });
+    } catch {
+      return 1;
+    }
+  }
+
+  /** Spawn a command and capture stdout + exit code. */
+  private async spawnAndCapture(cmd: string, args: string[]): Promise<{ stdout: string; code: number }> {
+    try {
+      const { process: proc } = this.processManager.spawn(cmd, args, { cwd: this.projectRoot });
+      let stdout = '';
+      proc.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+      const code = await new Promise<number>((resolve) => {
+        proc.on('close', (c) => resolve(c ?? 1));
+        proc.on('error', () => resolve(1));
+      });
+      return { stdout, code };
+    } catch {
+      return { stdout: '', code: 1 };
+    }
   }
 
   private async prepareIsolated(task: Task): Promise<string> {
@@ -184,35 +206,19 @@ export class WorkspaceManager implements IWorkspaceManager {
 
     // Try git clone first, fall back to rsync
     try {
-      const { process: proc } = this.processManager.spawn(
-        'git',
-        ['clone', '--local', '--no-hardlinks', '.', workspacePath],
-        { cwd: this.projectRoot },
+      const cloneResult = await this.spawnAndWait(
+        'git', ['clone', '--local', '--no-hardlinks', this.projectRoot, workspacePath],
       );
-
-      await new Promise<void>((resolve, reject) => {
-        proc.on('close', (code) => {
-          if (code === 0) resolve();
-          else reject(new Error('git clone failed'));
-        });
-        proc.on('error', reject);
-      });
+      if (cloneResult !== 0) throw new Error('git clone failed');
     } catch {
       // Fallback: rsync
       const excludeFile = path.join(this.orchestryDir, 'workspace-exclude');
       const args = ['-a', `--exclude-from=${excludeFile}`, './', `${workspacePath}/`];
 
-      const { process: proc } = this.processManager.spawn('rsync', args, {
-        cwd: this.projectRoot,
-      });
-
-      await new Promise<void>((resolve, reject) => {
-        proc.on('close', (code) => {
-          if (code === 0) resolve();
-          else reject(new Error(`rsync failed with code ${code}`));
-        });
-        proc.on('error', reject);
-      });
+      const rsyncResult = await this.spawnAndWait('rsync', args);
+      if (rsyncResult !== 0) {
+        throw new Error(`rsync failed with code ${rsyncResult}`);
+      }
     }
 
     // Remove .orchestry/ to prevent recursive workspaces (covers both clone and rsync)

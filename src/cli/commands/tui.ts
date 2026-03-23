@@ -14,8 +14,6 @@ export function registerTuiCommand(program: Command, container: Container): void
     .command('tui')
     .description('Launch interactive TUI dashboard')
     .action(async () => {
-
-
       const tasks = await container.taskService.list();
       const agents = await container.agentService.list();
       const state = await container.stateStore.read();
@@ -66,7 +64,7 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.eventBus.onAny(handler);
       };
 
-      // ── New callbacks for live TUI ──
+      // ── Data-refresh callbacks (polled by TUI on state-changing events) ──
 
       const onRefreshTasks = async () => {
         return container.taskService.list();
@@ -295,11 +293,7 @@ export function registerTuiCommand(program: Command, container: Container): void
           latestVersion: undefined,
           onCheckUpdate: async () => {
             const info = await updateCheckPromise;
-            if (info?.updateAvailable) return info.latest;
-            // Fallback: force-check if background promise returned null
-            const m = await import('../update-check.js');
-            const fresh = await m.checkForUpdateNow(currentVersion);
-            return fresh?.updateAvailable ? fresh.latest : undefined;
+            return info?.updateAvailable ? info.latest : undefined;
           },
           initialActivityFilter: container.globalConfig.tui.activity_filter,
           onSaveActivityFilter: async (preset) => {

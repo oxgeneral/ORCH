@@ -14,11 +14,11 @@ export function registerRunCommand(program: Command, container: Container): void
     .description('Run tasks')
     .option('--all', 'Run all todo tasks')
     .option('--watch', 'Watch mode: continuous orchestration')
-    .action(async (taskId: string | undefined, opts: { all?: boolean; watch?: boolean }) => {
-
+    .option('--verbose', 'Include agent output in watch mode')
+    .action(async (taskId: string | undefined, opts: { all?: boolean; watch?: boolean; verbose?: boolean }) => {
 
       if (opts.watch) {
-        await runWatch(container);
+        await runWatch(container, opts.verbose ?? false);
       } else if (opts.all) {
         await runAll(container);
       } else if (taskId) {
@@ -76,7 +76,7 @@ async function runAll(container: Container): Promise<void> {
   await container.orchestrator.runAll();
 }
 
-async function runWatch(container: Container): Promise<void> {
+async function runWatch(container: Container, verbose: boolean): Promise<void> {
   console.log(`${amber('orch')} · watching · poll interval ${container.config.scheduling.poll_interval_ms / 1000}s`);
   console.log('━'.repeat(43));
   console.log();
@@ -87,6 +87,7 @@ async function runWatch(container: Container): Promise<void> {
 
     switch (event.type) {
       case 'agent:output': {
+        if (!verbose) break;
         const data = typeof event.data === 'string' ? event.data.slice(0, 60) : '';
         console.log(`${dim(time)}  ${getIcon('agentAction')} ${data}`);
         break;
@@ -114,8 +115,8 @@ async function runWatch(container: Container): Promise<void> {
     }
   });
 
-  // Orchestrator registers its own SIGINT/SIGTERM handlers in startWatch(),
-  // which call stop() for graceful shutdown (flush state, release lock, kill agents).
-  // After stop() clears the interval and removes listeners, Node exits naturally.
+  // startWatch() starts the tick loop and returns after the first tick.
+  // waitForStop() keeps the process alive until SIGINT/SIGTERM triggers graceful shutdown.
   await container.orchestrator.startWatch();
+  await container.orchestrator.waitForStop();
 }
