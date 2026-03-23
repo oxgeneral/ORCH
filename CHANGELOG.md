@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.10 (2026-03-23)
+
+### Fixes
+
+- **Worktree collision on retry** — `prepareWorktree()` is now idempotent: reuses existing worktree directory on retry, falls back to `git worktree add` without `-b` when branch already exists, runs `git worktree prune` only on the fallback path. Eliminates `git worktree add failed with code 255` errors
+- **proof.files_changed always empty for Claude adapter** — added `getChangedFiles()` to WorkspaceManager that uses `git merge-base` + `git diff --name-only` as fallback when the adapter doesn't emit `file_change` events. Works with any trunk branch name (no hardcoded `main`)
+- **`orch run --watch` exits after first tick** — added missing `await orchestrator.waitForStop()` so the process stays alive for continuous orchestration
+- **`--verbose` flag missing on `orch run`** — added `--verbose` option; agent output is suppressed by default in watch mode (consistent with `orch serve`)
+- **Auto-goal creation spam** — autonomous agents are now forbidden from creating new goals via system prompt constraints; 30-second cooldown between auto-seed tasks per agent prevents rapid re-seeding
+- **`task:cascade_failed` event not handled** — added to TUI activity feed (red error message) and structured logger (warn-level entry)
+
+### Improvements
+
+- **WorkspaceManager refactored** — `spawnAndWait()` and `spawnAndCapture()` helpers replace all inline promise-wrapping; `requireGitRepo()` and `cleanup()` simplified; `prepareIsolated()` uses absolute path instead of cwd-relative `'.'`
+- **Cascade-fail cache consistency** — both call sites (dispatch + collect) now invalidate task cache before cascade to ensure fresh data
+
 ## 1.0.9 (2026-03-22)
 
 ### Fixes
