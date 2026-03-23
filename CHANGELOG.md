@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.12 (2026-03-24)
+
+### Features
+
+- **TUI Observer Mode** — when another process holds the orchestrator lock (`orch run --watch`, `orch serve`, or the `orch` skill in Claude Code), the TUI now enters **OBSERVING** mode instead of showing a dead IDLE screen. The new `DiskObserver` polls `state.json` and tails run JSONL files to deliver the same real-time activity stream as the in-process orchestrator
+- **Full cross-process event visibility** — observer mode shows agent output, file changes, errors, tool calls, lifecycle events (started/completed), task status transitions, and orchestrator ticks — identical to the native TUI experience
+- **OBSERVING header badge** — amber `● OBSERVING` chip replaces the red error message, clearly indicating the TUI is connected to an external orchestrator
+
+### Improvements
+
+- **Byte-offset JSONL tailing** — DiskObserver tracks per-run byte offsets with partial-line buffering, reading only new bytes each tick. Handles mid-line splits across poll boundaries correctly
+- **Concurrent poll guard** — prevents race conditions when a poll tick takes longer than the poll interval
+- **Stale-refresh dedup** — periodic state refresh in observer mode skips if an event-driven refresh already ran recently, avoiding redundant disk reads
+- **Remainder cap** — partial JSONL line buffer is capped at 64KB to prevent unbounded memory growth on stalled writes
+
+### Tests
+
+- 15 new tests: 11 unit tests for DiskObserver (event translation, byte offsets, partial lines, error handling, unsubscribe), 4 integration tests (full lifecycle, failed runs, concurrent runs, orchestrator restart detection)
+- Battle test script simulating real cross-process orchestration with 5 runs and 44 events
+
 ## 1.0.11 (2026-03-23)
 
 ### Features
