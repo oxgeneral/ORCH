@@ -3,13 +3,17 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## 1.0.12 (2026-03-24)
+## 1.0.13 (2026-03-24)
 
 ### Features
 
 - **TUI Observer Mode** — when another process holds the orchestrator lock (`orch run --watch`, `orch serve`, or the `orch` skill in Claude Code), the TUI now enters **OBSERVING** mode instead of showing a dead IDLE screen. The new `DiskObserver` polls `state.json` and tails run JSONL files to deliver the same real-time activity stream as the in-process orchestrator
 - **Full cross-process event visibility** — observer mode shows agent output, file changes, errors, tool calls, lifecycle events (started/completed), task status transitions, and orchestrator ticks — identical to the native TUI experience
 - **OBSERVING header badge** — amber `● OBSERVING` chip replaces the red error message, clearly indicating the TUI is connected to an external orchestrator
+
+### Fixes
+
+- **DiskObserver JSONL tailing silent failure** — `state.running` keys are taskIds, not runIds. DiskObserver was using keys as JSONL file paths, causing ENOENT on every read (silently caught). Observer mode showed only tick events. Fixed to use `entry.run_id`
 
 ### Improvements
 
