@@ -6,6 +6,7 @@
  */
 
 import fs from 'node:fs/promises';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
@@ -119,4 +120,52 @@ export function printUpdateNotification(info: UpdateInfo): void {
   if (!info.updateAvailable) return;
   const msg = `\n  Update available: ${info.current} → ${info.latest}\n  Run: npm install -g ${PACKAGE_NAME}\n`;
   process.stderr.write(msg);
+}
+
+const INSTALL_MARKER = path.join(CACHE_DIR, 'update-installed.json');
+
+/**
+ * Install the specified version via npm in the background.
+ * Writes a marker file on success to prevent re-install within the same check cycle.
+ * Returns true if install completed successfully, false if skipped or failed.
+ */
+export function backgroundInstall(version: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    // Skip if already installed this version
+    try {
+      const marker = JSON.parse(readFileSync(INSTALL_MARKER, 'utf-8'));
+      if (marker.version === version && Date.now() - marker.installed_at < CHECK_INTERVAL_MS) {
+        resolve(false);
+        return;
+      }
+    } catch {
+      // No marker — proceed
+    }
+
+    const child = execFile(
+      'npm',
+      ['install', '-g', `${PACKAGE_NAME}@${version}`],
+      { timeout: 60_000 },
+      (err) => {
+        if (!err) {
+          // Write marker so we don't re-install until next check cycle
+          mkdirSync(CACHE_DIR, { recursive: true });
+          writeFileSync(INSTALL_MARKER, JSON.stringify({ version, installed_at: Date.now() }));
+        }
+        resolve(!err);
+      },
+    );
+  });
+}
+
+/**
+ * Check if a background install completed and restart is needed.
+ */
+export function isRestartNeeded(currentVersion: string): boolean {
+  try {
+    const marker = JSON.parse(readFileSync(INSTALL_MARKER, 'utf-8'));
+    return marker.version !== currentVersion && Date.now() - marker.installed_at < CHECK_INTERVAL_MS;
+  } catch {
+    return false;
+  }
 }

@@ -98,6 +98,13 @@ async function runServe(container: Container, currentVersion: string, opts: Serv
           latest: info.latest,
           hint: 'Run: npm install -g @oxgeneral/orch',
         });
+        // Auto-install in background
+        import('../update-check.js')
+          .then((mod) => mod.backgroundInstall(info.latest))
+          .then((ok) => {
+            if (ok) logger.log('info', 'update:installed', { version: info.latest, hint: 'Restart to apply' });
+          })
+          .catch(() => {});
       }
     });
 

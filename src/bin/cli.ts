@@ -220,10 +220,15 @@ async function main(): Promise<void> {
 
   await program.parseAsync(process.argv);
 
-  // Show update notification after command completes
+  // Show update notification after command completes + auto-install in background
   if (!skipUpdateCheck) {
     const info = await updateCheck;
-    if (info && updateMod) updateMod.printUpdateNotification(info);
+    if (info && updateMod) {
+      updateMod.printUpdateNotification(info);
+      if (info.updateAvailable) {
+        updateMod.backgroundInstall(info.latest).catch(() => {});
+      }
+    }
   }
 }
 

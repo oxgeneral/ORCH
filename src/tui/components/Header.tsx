@@ -198,6 +198,7 @@ export interface HeaderProps {
   sparklineData?: number[];
   version?: string;
   latestVersion?: string;
+  updateInstalled?: boolean;
   /** Total task count shown as badge on TASKS tab when some tasks are hidden */
   taskBadge?: number;
   /** Tab id to flash (e.g. 'tasks' when a task event fires on another tab) */
@@ -215,8 +216,8 @@ export interface HeaderProps {
    ══════════════════════════════════════════════════════════ */
 
 function BrandBar({
-  projectName, activeView, mode, stats, uptime, width, version, latestVersion, taskBadge, flashTab, flashColor, onFlashComplete,
-}: Pick<HeaderProps, 'projectName' | 'activeView' | 'mode' | 'stats' | 'uptime' | 'width' | 'version' | 'latestVersion' | 'taskBadge' | 'flashTab' | 'flashColor' | 'onFlashComplete'>) {
+  projectName, activeView, mode, stats, uptime, width, version, latestVersion, updateInstalled, taskBadge, flashTab, flashColor, onFlashComplete,
+}: Pick<HeaderProps, 'projectName' | 'activeView' | 'mode' | 'stats' | 'uptime' | 'width' | 'version' | 'latestVersion' | 'updateInstalled' | 'taskBadge' | 'flashTab' | 'flashColor' | 'onFlashComplete'>) {
   const isWatching = mode === 'watching';
 
   return (
@@ -227,7 +228,9 @@ function BrandBar({
         <Text color={tuiColors.amber} bold> ORCH</Text>
         {version && <Text color={tuiColors.ghost}> {version}</Text>}
         {latestVersion && latestVersion !== version && (
-          <Text backgroundColor={chipBg.green} color={tuiColors.green} bold>  UPDATE {latestVersion} </Text>
+          updateInstalled
+            ? <Text backgroundColor={chipBg.green} color={tuiColors.green} bold>  v{latestVersion} INSTALLED — RESTART TO APPLY </Text>
+            : <Text backgroundColor={chipBg.green} color={tuiColors.green} bold>  UPDATE {latestVersion} </Text>
         )}
         <Text color={tuiColors.ghost}> {DOT} </Text>
         <Text color={tuiColors.silver}>{projectName}</Text>
@@ -380,6 +383,7 @@ export const Header = React.memo(function Header(props: HeaderProps) {
         width={props.width}
         version={props.version}
         latestVersion={props.latestVersion}
+        updateInstalled={props.updateInstalled}
         taskBadge={props.taskBadge}
         flashTab={props.flashTab}
         flashColor={props.flashColor}
