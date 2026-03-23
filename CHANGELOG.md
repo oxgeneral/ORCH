@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.11 (2026-03-23)
+
+### Features
+
+- **Background auto-install** — when a new version is detected, ORCH automatically downloads and installs it via `npm install -g` in the background. No restart is forced — the user continues working undisturbed
+- **TUI restart prompt** — header chip changes from `UPDATE 1.0.11` to `v1.0.11 INSTALLED — RESTART TO APPLY` after background install completes
+- **CLI auto-install** — after printing update notification, CLI commands trigger background install so the next launch uses the new version
+- **Serve auto-install** — headless daemon auto-installs and logs `update:installed` event for operators
+
+### Improvements
+
+- **Install dedup** — marker file (`~/.orchestry/update-installed.json`) prevents re-installing the same version within the 4-hour check cycle
+- **Reliable install completion** — removed `child.unref()` from install process so short-lived CLI commands don't exit before npm finishes
+
 ## 1.0.10 (2026-03-23)
 
 ### Fixes
