@@ -150,6 +150,8 @@ export interface AppProps {
   onStopWatch?: () => Promise<void>;
   /** Whether watch mode was successfully started by the host. Overrides stale state.pid. */
   initialWatchActive?: boolean;
+  /** True when TUI is observing an external orchestrator via disk polling. */
+  observerMode?: boolean;
   /** Error message if watch mode failed to start. */
   watchError?: string;
   /** Message batch flush interval in ms. 0 = immediate. Default: 80 (0 in test env). */
@@ -309,6 +311,7 @@ export function App({
   onRefreshGoals, onCreateGoal, onUpdateGoal, onUpdateGoalStatus, onDeleteGoal, onGetGoalProgress,
   onCompleteOnboarding,
   initialWatchActive,
+  observerMode,
   watchError,
   messageBatchMs = process.env.VITEST ? 0 : 80,
   initialActivityFilter = 'all',
@@ -744,13 +747,25 @@ export function App({
     }
   }, [flushMessages]);
 
-  // Show watch mode error on mount
+  // Show watch mode error or observer mode info on mount
   useEffect(() => {
-    if (watchError) {
+    if (observerMode) {
+      addMessage('Observer mode: watching external orchestrator via disk polling.', tuiColors.amber);
+    } else if (watchError) {
       addMessage(`Watch mode failed: ${watchError}. Tasks will not auto-dispatch.`, tuiColors.red);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Observer mode: periodic state refresh to catch external changes
+  // (task creates, config changes) not visible through JSONL tailing
+  useEffect(() => {
+    if (!observerMode) return;
+    const timer = setInterval(() => {
+      refreshAll().catch(() => {});
+    }, 3_000);
+    return () => clearInterval(timer);
+  }, [observerMode, refreshAll]);
 
   // ── Soft-delete with undo ──────────────────────────────
 
@@ -1228,7 +1243,7 @@ export function App({
   }, [onSubscribeEvents, addMessage, refreshAll, addToast]);
 
   // Layout (computed before useInput — mainH needed for scroll)
-  const mode = watchActive ? 'watching' : 'idle';
+  const mode = observerMode ? 'observing' : watchActive ? 'watching' : 'idle';
   const uptime = liveState.started_at ? formatDurationSince(liveState.started_at) : undefined;
   const totalTokens = liveState.stats.total_tokens.total;
 

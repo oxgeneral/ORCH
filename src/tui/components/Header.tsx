@@ -190,7 +190,7 @@ export interface HeaderTokens {
 export interface HeaderProps {
   projectName: string;
   activeView: ViewId;
-  mode: 'watching' | 'idle';
+  mode: 'watching' | 'idle' | 'observing';
   stats: HeaderStats;
   tokens: HeaderTokens;
   uptime?: string;
@@ -219,6 +219,7 @@ function BrandBar({
   projectName, activeView, mode, stats, uptime, width, version, latestVersion, updateInstalled, taskBadge, flashTab, flashColor, onFlashComplete,
 }: Pick<HeaderProps, 'projectName' | 'activeView' | 'mode' | 'stats' | 'uptime' | 'width' | 'version' | 'latestVersion' | 'updateInstalled' | 'taskBadge' | 'flashTab' | 'flashColor' | 'onFlashComplete'>) {
   const isWatching = mode === 'watching';
+  const isObserving = mode === 'observing';
 
   return (
     <Box paddingX={1} justifyContent="space-between" width={width}>
@@ -269,6 +270,10 @@ function BrandBar({
         {isWatching ? (
           <Text backgroundColor={chipBg.green} color={tuiColors.green} bold>
             {' '}{FILLED_CIRCLE} WATCHING{' '}
+          </Text>
+        ) : isObserving ? (
+          <Text backgroundColor={chipBg.amber} color={tuiColors.amber} bold>
+            {' '}{FILLED_CIRCLE} OBSERVING{' '}
           </Text>
         ) : (
           <Text backgroundColor={chipBg.neutral} color={tuiColors.dim}>

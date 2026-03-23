@@ -60,7 +60,7 @@ export function registerTuiCommand(program: Command, container: Container): void
         await container.agentService.enable(agentId);
       };
 
-      const onSubscribeEvents = (handler: (event: import('../../domain/events.js').OrchestratorEvent) => void) => {
+      let onSubscribeEvents = (handler: (event: import('../../domain/events.js').OrchestratorEvent) => void) => {
         return container.eventBus.onAny(handler);
       };
 
@@ -237,12 +237,23 @@ export function registerTuiCommand(program: Command, container: Container): void
       // Auto-start watch mode so the orchestrator is live
       let watchStarted = false;
       let watchError: string | undefined;
+      let observerMode = false;
+      let diskObserver: import('../serve/disk-observer.js').DiskObserver | undefined;
       try {
         await container.orchestrator.startWatch();
         watchStarted = true;
       } catch (err) {
-        // Watch mode may fail if lock is held by another process — continue without it
+        // Watch mode may fail if lock is held by another process — enter observer mode
         watchError = err instanceof Error ? err.message : String(err);
+
+        // Observer mode: poll disk for events from the external orchestrator
+        const { DiskObserver } = await import('../serve/disk-observer.js');
+        diskObserver = new DiskObserver({
+          paths: container.paths,
+          stateStore: container.stateStore,
+        });
+        observerMode = true;
+        onSubscribeEvents = (handler) => diskObserver!.subscribe(handler);
       }
 
       const { waitUntilExit } = render(
@@ -288,7 +299,8 @@ export function registerTuiCommand(program: Command, container: Container): void
           onStartWatch,
           onStopWatch,
           initialWatchActive: watchStarted,
-          watchError,
+          observerMode,
+          watchError: observerMode ? undefined : watchError,
           version: currentVersion,
           latestVersion: undefined,
           onCheckUpdate: async () => {
@@ -326,9 +338,12 @@ export function registerTuiCommand(program: Command, container: Container): void
 
       await waitUntilExit();
 
-      // Cleanup: stop watch mode on exit
+      // Cleanup: stop watch mode or observer on exit
       if (watchStarted) {
         await container.orchestrator.stop().catch(() => {});
+      }
+      if (diskObserver) {
+        diskObserver.stop();
       }
 
       // Release all remaining EventBus subscriptions.
