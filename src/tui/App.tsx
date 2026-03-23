@@ -507,9 +507,13 @@ export function App({
   const liveTeamsRef = useRef(liveTeams);
   liveTeamsRef.current = liveTeams;
 
+  // Tracks when refreshAll last ran — used by observer mode to avoid redundant refreshes
+  const lastRefreshAt = useRef(0);
+
   // Refresh helpers — re-read from disk for consistent state
   // Teams are rarely mutated, so they are only refreshed when includeTeams is true.
   const refreshAll = useCallback(async (opts?: { includeTeams?: boolean }) => {
+    lastRefreshAt.current = Date.now();
     const [t, a, s, teams, goals] = await Promise.all([
       onRefreshTasks?.() ?? Promise.resolve(liveTasks),
       onRefreshAgents?.() ?? Promise.resolve(liveAgents),
@@ -757,13 +761,16 @@ export function App({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Observer mode: periodic state refresh to catch external changes
-  // (task creates, config changes) not visible through JSONL tailing
+  // Observer mode: periodic refresh for external changes (task creates, config)
+  // not visible through JSONL tailing. Skips if an event-driven refresh ran recently.
   useEffect(() => {
     if (!observerMode) return;
+    const INTERVAL = 3_000;
     const timer = setInterval(() => {
-      refreshAll().catch(() => {});
-    }, 3_000);
+      if (Date.now() - lastRefreshAt.current >= INTERVAL) {
+        refreshAll().catch(() => {});
+      }
+    }, INTERVAL);
     return () => clearInterval(timer);
   }, [observerMode, refreshAll]);
 

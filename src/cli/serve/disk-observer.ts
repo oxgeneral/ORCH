@@ -12,12 +12,11 @@
 
 import { open } from 'node:fs/promises';
 import type { OrchestratorEvent } from '../../domain/events.js';
-import type { RunEvent } from '../../domain/run.js';
-import type { RunningEntry, OrchestratorState } from '../../domain/state.js';
+import type { Run, RunEvent } from '../../domain/run.js';
+import type { RunningEntry } from '../../domain/state.js';
 import type { IStateStore } from '../../infrastructure/storage/interfaces.js';
 import type { Paths } from '../../infrastructure/storage/paths.js';
 import { readJson } from '../../infrastructure/storage/fs-utils.js';
-import type { Run } from '../../domain/run.js';
 
 /** How long to keep offset entries after a run disappears from state */
 const EVICTION_TTL_MS = 5 * 60_000;
@@ -48,13 +47,8 @@ export class DiskObserver {
   private handler: ((event: OrchestratorEvent) => void) | null = null;
   private intervalHandle: ReturnType<typeof setInterval> | null = null;
 
-  /** Byte offsets and metadata for each tracked run */
   private tracked = new Map<string, TrackedRun>();
-  /** Previous tick's running map for diff detection */
   private prevRunning = new Map<string, RunningEntry>();
-  /** Previous state.pid — detect orchestrator restart */
-  private prevPid: number | undefined;
-  /** Guard against concurrent poll() executions */
   private isPolling = false;
 
   constructor(private readonly opts: DiskObserverOptions) {
@@ -68,7 +62,6 @@ export class DiskObserver {
   subscribe(handler: (event: OrchestratorEvent) => void): () => void {
     this.handler = handler;
     if (!this.intervalHandle) {
-      // Fire immediately, then at interval
       this.poll().catch(() => {});
       this.intervalHandle = setInterval(() => { this.poll().catch(() => {}); }, this.pollIntervalMs);
     }
@@ -100,30 +93,22 @@ export class DiskObserver {
   }
 
   private async doPoll(): Promise<void> {
-    let state: OrchestratorState;
+    let state;
     try {
       state = await this.opts.stateStore.read();
     } catch {
-      return; // state.json unreadable — skip tick
+      return;
     }
 
     const now = Date.now();
     const currentRunIds = new Set(Object.keys(state.running));
 
-    // ── Detect orchestrator restart — reset all tracked runs ──
-    if (this.prevPid !== undefined && state.pid !== undefined && state.pid !== this.prevPid) {
-      this.tracked.clear();
-      this.prevRunning.clear();
-    }
-
-    // ── Detect new runs ──
     for (const [runId, entry] of Object.entries(state.running)) {
       const existing = this.tracked.get(runId);
       if (existing) {
         existing.lastSeenAt = now;
         continue;
       }
-      // New run appeared — start tracking
       this.tracked.set(runId, {
         runId,
         agentId: entry.agent_id,
@@ -135,43 +120,32 @@ export class DiskObserver {
       this.emit({ type: 'agent:started', agentId: entry.agent_id, taskId: entry.task_id, runId });
     }
 
-    // ── Detect completed runs ──
     for (const [runId, prevEntry] of this.prevRunning) {
       if (currentRunIds.has(runId)) continue;
-      // Run disappeared — drain remaining events, then emit completed
       const tr = this.tracked.get(runId);
-      if (tr) {
-        await this.tailRunEvents(tr);
-      }
+      if (tr) await this.tailRunEvents(tr);
 
       const run = await readJson<Run>(this.opts.paths.runPath(runId)).catch(() => null);
       const success = run?.status === 'succeeded';
       this.emit({ type: 'agent:completed', runId, agentId: prevEntry.agent_id, success });
       if (run?.task_id) {
-        const to = success ? 'review' : 'failed';
-        this.emit({ type: 'task:status_changed', taskId: run.task_id, from: 'in_progress', to });
+        this.emit({ type: 'task:status_changed', taskId: run.task_id, from: 'in_progress', to: success ? 'review' : 'failed' });
       }
     }
 
-    // ── Tail active runs ──
     for (const tr of this.tracked.values()) {
       if (!currentRunIds.has(tr.runId)) continue;
       await this.tailRunEvents(tr);
     }
 
-    // ── Emit synthetic tick ──
-    const running = Object.keys(state.running).length;
-    if (running > 0) {
-      this.emit({ type: 'orchestrator:tick', running, queued: 0 });
+    if (currentRunIds.size > 0) {
+      this.emit({ type: 'orchestrator:tick', running: currentRunIds.size, queued: 0 });
     }
 
-    // ── Update prev snapshot ──
     this.prevRunning = new Map(Object.entries(state.running));
-    this.prevPid = state.pid;
 
-    // ── Evict stale tracked entries ──
-    for (const [runId, tr] of this.tracked) {
-      if (!currentRunIds.has(runId) && now - tr.lastSeenAt > EVICTION_TTL_MS) {
+    for (const [runId] of this.tracked) {
+      if (!currentRunIds.has(runId) && now - this.tracked.get(runId)!.lastSeenAt > EVICTION_TTL_MS) {
         this.tracked.delete(runId);
       }
     }
@@ -183,27 +157,22 @@ export class DiskObserver {
     try {
       fd = await open(filePath, 'r');
       const stat = await fd.stat();
-      if (stat.size <= tr.offset) return; // no new bytes
+      if (stat.size <= tr.offset) return;
 
       const bytesToRead = Math.min(stat.size - tr.offset, MAX_READ_PER_TICK);
-      const buf = Buffer.allocUnsafe(bytesToRead);
+      const buf = Buffer.alloc(bytesToRead);
       const { bytesRead } = await fd.read(buf, 0, bytesToRead, tr.offset);
       if (bytesRead === 0) return;
 
       const chunk = tr.remainder + buf.subarray(0, bytesRead).toString('utf8');
-
-      // Split into lines; last element may be partial (no trailing newline)
       const lines = chunk.split('\n');
       const lastLine = lines.pop() ?? '';
 
-      // If the chunk ended mid-line, keep remainder for next tick
       if (chunk.endsWith('\n')) {
         tr.remainder = '';
         tr.offset += bytesRead;
       } else {
-        // Cap remainder to prevent unbounded growth on stalled writes
         tr.remainder = lastLine.length > MAX_REMAINDER_LEN ? '' : lastLine;
-        // Advance offset past all complete lines only
         const remainderBytes = tr.remainder ? Buffer.byteLength(lastLine, 'utf8') : 0;
         tr.offset += bytesRead - remainderBytes;
       }
@@ -215,13 +184,9 @@ export class DiskObserver {
           const runEvent = JSON.parse(trimmed) as RunEvent;
           const orchEvent = this.translateEvent(runEvent, tr);
           if (orchEvent) this.emit(orchEvent);
-        } catch {
-          // Corrupt JSONL line — skip
-        }
+        } catch { /* corrupt line */ }
       }
-    } catch {
-      // File not yet created or read error — skip
-    } finally {
+    } catch { /* file not yet created */ } finally {
       await fd?.close().catch(() => {});
     }
   }
@@ -248,7 +213,6 @@ export class DiskObserver {
         return { type: 'agent:output', runId: tr.runId, agentId: tr.agentId, data };
       }
       case 'done':
-        // Lifecycle handled by state diff — avoid duplicate
         return null;
       default:
         return null;

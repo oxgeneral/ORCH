@@ -218,9 +218,6 @@ export interface HeaderProps {
 function BrandBar({
   projectName, activeView, mode, stats, uptime, width, version, latestVersion, updateInstalled, taskBadge, flashTab, flashColor, onFlashComplete,
 }: Pick<HeaderProps, 'projectName' | 'activeView' | 'mode' | 'stats' | 'uptime' | 'width' | 'version' | 'latestVersion' | 'updateInstalled' | 'taskBadge' | 'flashTab' | 'flashColor' | 'onFlashComplete'>) {
-  const isWatching = mode === 'watching';
-  const isObserving = mode === 'observing';
-
   return (
     <Box paddingX={1} justifyContent="space-between" width={width}>
       {/* ── Left: Logo + Project ── */}
@@ -247,14 +244,12 @@ function BrandBar({
             <React.Fragment key={tab.id}>
               {i > 0 && <Text>{'  '}</Text>}
               {isActive ? (
-                // Active tab: inverted chip — amber background, dark text
                 <Text backgroundColor={tuiColors.amber} color="#0a0a0c" bold>
                   {' '}{tab.key} {tab.label}{badge}{' '}
                 </Text>
               ) : isFlashing ? (
                 <FlashingTabLabel tab={tab} flashColor={flashColor} onComplete={onFlashComplete} badge={badge} />
               ) : (
-                // Inactive tab: ghost key + dim label
                 <Box gap={0}>
                   <Text color={tuiColors.ghost}>{tab.key}</Text>
                   <Text color={tuiColors.dim}> {tab.label.toLowerCase()}{badge}</Text>
@@ -267,11 +262,11 @@ function BrandBar({
 
       {/* ── Right: Mode + Uptime ── */}
       <Box gap={0}>
-        {isWatching ? (
+        {mode === 'watching' ? (
           <Text backgroundColor={chipBg.green} color={tuiColors.green} bold>
             {' '}{FILLED_CIRCLE} WATCHING{' '}
           </Text>
-        ) : isObserving ? (
+        ) : mode === 'observing' ? (
           <Text backgroundColor={chipBg.amber} color={tuiColors.amber} bold>
             {' '}{FILLED_CIRCLE} OBSERVING{' '}
           </Text>
