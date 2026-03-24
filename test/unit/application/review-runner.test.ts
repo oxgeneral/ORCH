@@ -27,28 +27,69 @@ describe('ReviewRunner', () => {
     it('should run all criteria and return results', async () => {
       const runner = new ReviewRunner({ cwd: '/tmp/test' });
 
-      simulateExecFile(0, 'All tests passed', '');
+      // Sorted order: typecheck first, then test_pass
       simulateExecFile(0, 'No errors found', '');
+      simulateExecFile(0, 'All tests passed', '');
 
       const results = await runner.runAll(['test_pass', 'typecheck']);
 
       expect(results).toHaveLength(2);
       expect(results[0]).toEqual({
-        criterion: 'test_pass',
-        passed: true,
-        output: expect.stringContaining('All tests passed'),
-      });
-      expect(results[1]).toEqual({
         criterion: 'typecheck',
         passed: true,
         output: expect.stringContaining('No errors found'),
       });
+      expect(results[1]).toEqual({
+        criterion: 'test_pass',
+        passed: true,
+        output: expect.stringContaining('All tests passed'),
+      });
+    });
+
+    it('should sort criteria: typecheck → lint → test_pass', async () => {
+      const runner = new ReviewRunner({ cwd: '/tmp/test' });
+
+      simulateExecFile(0, 'tc ok', '');
+      simulateExecFile(0, 'lint ok', '');
+      simulateExecFile(0, 'test ok', '');
+
+      const results = await runner.runAll(['test_pass', 'lint', 'typecheck']);
+
+      expect(results.map((r) => r.criterion)).toEqual(['typecheck', 'lint', 'test_pass']);
+    });
+
+    it('should stop on first failure in fail-fast mode (default)', async () => {
+      const runner = new ReviewRunner({ cwd: '/tmp/test' });
+
+      // typecheck fails → lint and test_pass should NOT run
+      simulateExecFile(1, '', 'error TS2345: Argument of type');
+
+      const results = await runner.runAll(['test_pass', 'typecheck', 'lint']);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]!.criterion).toBe('typecheck');
+      expect(results[0]!.passed).toBe(false);
+      expect(mockExecFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('should run all criteria when fail_fast is false', async () => {
+      const runner = new ReviewRunner({ cwd: '/tmp/test', fail_fast: false });
+
+      simulateExecFile(1, '', 'type error');
+      simulateExecFile(1, '', 'lint error');
+      simulateExecFile(1, '', 'FAIL src/test.ts');
+
+      const results = await runner.runAll(['test_pass', 'typecheck', 'lint']);
+
+      expect(results).toHaveLength(3);
+      expect(results.every((r) => !r.passed)).toBe(true);
     });
 
     it('should mark failed criteria correctly', async () => {
-      const runner = new ReviewRunner({ cwd: '/tmp/test' });
+      const runner = new ReviewRunner({ cwd: '/tmp/test', fail_fast: false });
 
-      simulateExecFile(0, 'Tests OK', '');
+      // Sorted order: typecheck, test_pass
+      simulateExecFile(0, 'No errors found', '');
       simulateExecFile(1, '', 'error TS2345: Argument of type');
 
       const results = await runner.runAll(['test_pass', 'typecheck']);
@@ -56,19 +97,6 @@ describe('ReviewRunner', () => {
       expect(results[0]!.passed).toBe(true);
       expect(results[1]!.passed).toBe(false);
       expect(results[1]!.output).toContain('TS2345');
-    });
-
-    it('should handle all criteria failing', async () => {
-      const runner = new ReviewRunner({ cwd: '/tmp/test' });
-
-      simulateExecFile(1, '', 'FAIL src/test.ts');
-      simulateExecFile(1, '', 'type error');
-      simulateExecFile(1, '', 'lint error');
-
-      const results = await runner.runAll(['test_pass', 'typecheck', 'lint']);
-
-      expect(results).toHaveLength(3);
-      expect(results.every((r) => !r.passed)).toBe(true);
     });
 
     it('should pass cwd and timeout to execFile', async () => {

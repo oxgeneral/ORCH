@@ -22,6 +22,15 @@ const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 const POLL_MS = 80;
 
+/** Poll until `condition()` returns true, or throw after `timeoutMs`. */
+async function waitFor(condition: () => boolean, timeoutMs = 2000): Promise<void> {
+  const start = Date.now();
+  while (!condition()) {
+    if (Date.now() - start > timeoutMs) throw new Error('waitFor timed out');
+    await wait(POLL_MS);
+  }
+}
+
 function makeRunEvent(type: string, data: unknown): string {
   return JSON.stringify({ timestamp: new Date().toISOString(), type, data });
 }
@@ -86,7 +95,7 @@ describe('DiskObserver integration', () => {
     });
 
     // Wait for observer to pick up the new state
-    await wait(POLL_MS * 2);
+    await waitFor(() => events.some((e) => e.type === 'agent:started'));
 
     // Verify agent:started was emitted
     const started = events.filter((e) => e.type === 'agent:started');
@@ -108,7 +117,7 @@ describe('DiskObserver integration', () => {
     ].join('\n') + '\n');
 
     events = [];
-    await wait(POLL_MS * 2);
+    await waitFor(() => events.filter((e) => e.type === 'agent:output').length >= 3);
 
     // Verify all output events were captured
     const outputs = events.filter((e) => e.type === 'agent:output');
@@ -127,7 +136,7 @@ describe('DiskObserver integration', () => {
     ].join('\n') + '\n');
 
     events = [];
-    await wait(POLL_MS * 2);
+    await waitFor(() => events.filter((e) => e.type === 'agent:output').length >= 2);
 
     const newOutputs = events.filter((e) => e.type === 'agent:output');
     expect(newOutputs.length).toBeGreaterThanOrEqual(2);
@@ -160,7 +169,7 @@ describe('DiskObserver integration', () => {
     });
 
     events = [];
-    await wait(POLL_MS * 2);
+    await waitFor(() => events.some((e) => e.type === 'agent:completed'));
 
     // Verify completion events
     const completed = events.filter((e) => e.type === 'agent:completed');
@@ -195,7 +204,7 @@ describe('DiskObserver integration', () => {
       stats: { total_runs: 0, total_tasks_completed: 0, total_tasks_failed: 0, total_tokens: {}, total_runtime_ms: 0 },
     });
 
-    await wait(POLL_MS * 2);
+    await waitFor(() => events.some((e) => e.type === 'agent:started'));
 
     // Write error event to JSONL while run is still active
     await writeFile(paths.runEventsPath('run_fail'),
@@ -204,7 +213,7 @@ describe('DiskObserver integration', () => {
 
     // Let observer tail the error event while run is still active
     events = [];
-    await wait(POLL_MS * 2);
+    await waitFor(() => events.some((e) => e.type === 'agent:error'));
 
     const errors = events.filter((e) => e.type === 'agent:error');
     expect(errors.length).toBeGreaterThanOrEqual(1);
@@ -221,7 +230,7 @@ describe('DiskObserver integration', () => {
     });
 
     events = [];
-    await wait(POLL_MS * 2);
+    await waitFor(() => events.some((e) => e.type === 'agent:completed'));
 
     const completed = events.filter((e) => e.type === 'agent:completed');
     expect(completed.length).toBeGreaterThanOrEqual(1);
@@ -251,7 +260,10 @@ describe('DiskObserver integration', () => {
     await writeFile(paths.runEventsPath('run_a'), makeRunEvent('agent_output', 'from agent A') + '\n');
     await writeFile(paths.runEventsPath('run_b'), makeRunEvent('agent_output', 'from agent B') + '\n');
 
-    await wait(POLL_MS * 2);
+    await waitFor(() => {
+      const outs = events.filter((e) => e.type === 'agent:output');
+      return outs.length >= 2;
+    });
 
     const startedA = events.filter((e) => e.type === 'agent:started' && 'runId' in e && e.runId === 'run_a');
     const startedB = events.filter((e) => e.type === 'agent:started' && 'runId' in e && e.runId === 'run_b');
@@ -283,7 +295,7 @@ describe('DiskObserver integration', () => {
     });
     await writeFile(paths.runEventsPath('run_old'), makeRunEvent('agent_output', 'old output') + '\n');
 
-    await wait(POLL_MS * 2);
+    await waitFor(() => events.some((e) => e.type === 'agent:started'));
 
     // Orchestrator restarts with new PID and new run
     await writeJson(paths.statePath, {
@@ -297,7 +309,7 @@ describe('DiskObserver integration', () => {
     await writeFile(paths.runEventsPath('run_new'), makeRunEvent('agent_output', 'new output') + '\n');
 
     events = [];
-    await wait(POLL_MS * 2);
+    await waitFor(() => events.some((e) => e.type === 'agent:started'));
 
     // Should see agent:started for run_new (tracked was reset)
     const started = events.filter((e) => e.type === 'agent:started');
