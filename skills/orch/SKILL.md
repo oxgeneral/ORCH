@@ -83,6 +83,7 @@ orch agent add "<name>" --adapter <type> [options]
   --adapter <type>                 # REQUIRED: claude|opencode|codex|cursor|shell
   --role <description>             # Agent role/expertise
   --model <model>                  # Model name
+  --effort <level>                 # Reasoning effort: low, medium, high (Claude only)
   --command <cmd>                  # Shell command (for shell adapter)
   --max-turns <n>                  # Max turns per run
   --timeout <ms>                   # Timeout in milliseconds
@@ -245,6 +246,44 @@ orch logs [run-id]                 # View run logs
 - **All state** stored in `.orchestry/` (YAML/JSON, no database)
 - **IDs** are prefixed: `tsk_`, `agt_`, `run_`, `goal_`, `team_`, `msg_`
 
+## When to Use Goals vs Tasks
+
+### Use a Task when:
+- You know **exactly what needs to be done** — one concrete action
+- The scope is clear: fix a bug, write a test, update a file, review a PR
+- You can describe the result in one sentence
+- Examples: "Fix login crash on empty email", "Add unit tests for auth service", "Update README badges"
+
+```bash
+orch task add "Fix login crash" -d "Empty email causes TypeError in validate()" --scope "src/auth/**" -p 1
+```
+
+### Use a Goal when:
+- The objective is **high-level and needs decomposition** — you don't know all the steps upfront
+- Multiple tasks will be needed, potentially across different agents/skills
+- You want an agent to **autonomously plan and execute** the work
+- Examples: "Implement OAuth2", "Migrate from REST to GraphQL", "Improve test coverage to 80%"
+
+```bash
+orch goal add "Implement OAuth2 with Google and GitHub" --description "Support social login, add tests, update docs" --assignee <lead-agent>
+```
+
+The assigned agent enters **autonomous mode**: it analyzes the codebase, creates tasks, assigns them to appropriate agents, and monitors progress until the goal is achieved.
+
+### Use a Goal for iterative improvement:
+- You have a **measurable metric** and want the agent to keep working until it's met
+- The agent runs cycles: measure → fix → measure again → repeat
+- Examples: "Get test coverage to 80%", "Zero TypeScript errors", "All /simplify reviews clean"
+
+```bash
+orch goal add "Reach 80% test coverage" --description "Run coverage, find gaps, write tests, repeat until ≥80%" --assignee <qa-agent>
+```
+
+### Rule of thumb
+- **1 agent, 1 action** → Task
+- **Multiple agents, unclear steps** → Goal
+- **Iterative loop until metric is met** → Goal
+
 ## Configuration Reference
 
 ```yaml
@@ -404,6 +443,7 @@ Handled natively by Claude CLI. Use `package:skill-name` format (with colon):
 - Use `claude-sonnet-4-6` for execution roles (developer, QA, writer) — faster, cheaper
 - Set `--approval-policy suggest` for strategic agents so humans review decisions
 - Set `--approval-policy auto` for execution agents for fully autonomous operation
+- Use `--effort low|medium|high` to control reasoning depth (Claude only) — `low` for simple tasks, `medium` for balanced, `high` for complex reasoning
 - Use `--workspace-mode shared` for analysis/strategy agents (they read, don't write code)
 - Use `--workspace-mode worktree` for coding agents (isolated branches, no conflicts)
 
