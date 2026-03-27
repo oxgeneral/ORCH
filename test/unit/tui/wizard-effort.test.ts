@@ -2,8 +2,8 @@
  * Tests for the effort (reasoning effort) wizard step in agent creation/edit wizards.
  *
  * Covers:
- * 1. Effort step present after model step for claude/codex adapters
- * 2. Effort step skipped for shell/opencode/cursor adapters
+ * 1. Effort step present after model step for claude adapter
+ * 2. Effort step skipped for codex/shell/opencode/cursor adapters
  * 3. agentWizardToInput maps effort correctly
  * 4. editAgentWizardToFields maps effort correctly
  * 5. Edit wizard pre-fills current effort value
