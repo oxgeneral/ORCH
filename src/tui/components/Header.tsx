@@ -23,6 +23,7 @@ import { formatTokens } from '../../cli/output.js';
 import { TABS } from './TabBar.js';
 import type { ViewId } from './TabBar.js';
 import { useAnimTick } from './useAnimTick.js';
+import { Spinner as MiniSpinner } from './Spinner.js';
 
 /* ══════════════════════════════════════════════════════════
    CONSTANTS & GLYPHS
@@ -37,7 +38,6 @@ const SIGMA = '\u03A3';              // Σ
 const TRIANGLE_RIGHT = '\u25B6';     // ▶
 const RETRY_ICON = '\u21BB';         // ↻
 const BRAIN = '\u{1F9E0}';              // 🧠
-const BRAILLE_FRAMES = ['\u280B', '\u2819', '\u2839', '\u2838', '\u283C', '\u2834', '\u2826', '\u2827', '\u2807', '\u280F'];
 const SPARK_CHARS = [' ', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
 
 /* ══════════════════════════════════════════════════════════
@@ -57,16 +57,10 @@ const chipBg = {
    ANIMATED PRIMITIVES
    ══════════════════════════════════════════════════════════ */
 
-/** Braille spinner — driven by global animation tick */
-function MiniSpinner({ color }: { color: string }) {
-  const tick = useAnimTick();
-  return <Text color={color}>{BRAILLE_FRAMES[tick % BRAILLE_FRAMES.length]}</Text>;
-}
-
-/** Pulsing logo diamond — alternates every ~1.2s via global tick */
-function PulsingDiamond() {
-  const tick = useAnimTick();
-  const bright = Math.floor(tick / 10) % 2 === 0; // toggle every 10 ticks ≈ 1.2s
+/** Pulsing logo diamond — pulses only when agents are running to avoid idle redraws */
+function PulsingDiamond({ active }: { active?: boolean }) {
+  const tick = useAnimTick(active);
+  const bright = !active || Math.floor(tick / 10) % 2 === 0;
   return <Text color={bright ? tuiColors.amber : tuiColors.amberDim} bold>{DIAMOND}</Text>;
 }
 
@@ -78,7 +72,7 @@ function PulsingDiamond() {
 function ScannerBar({ width, active }: { width: number; active: boolean }) {
   const segLen = Math.max(4, Math.floor(width * 0.08));
   const step = 2; // move 2 chars per tick for smooth-looking speed at lower FPS
-  const tick = useAnimTick();
+  const tick = useAnimTick(active);
   const totalFrames = Math.ceil((width + segLen) / step);
   const pos = active ? tick % (totalFrames * 2) : 0;
 
@@ -222,7 +216,7 @@ function BrandBar({
     <Box paddingX={1} justifyContent="space-between" width={width}>
       {/* ── Left: Logo + Project ── */}
       <Box gap={0}>
-        <PulsingDiamond />
+        <PulsingDiamond active={stats.running > 0} />
         <Text color={tuiColors.amber} bold> ORCH</Text>
         {version && <Text color={tuiColors.ghost}> {version}</Text>}
         {latestVersion && latestVersion !== version && (

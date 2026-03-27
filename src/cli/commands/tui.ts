@@ -335,7 +335,7 @@ export function registerTuiCommand(program: Command, container: Container): void
             await container.stateStore.write(s);
           },
         }),
-        { kittyKeyboard: { mode: 'auto', flags: ['disambiguateEscapeCodes'] } },
+        { incrementalRendering: true, kittyKeyboard: { mode: 'auto', flags: ['disambiguateEscapeCodes'] } },
       );
 
       await waitUntilExit();

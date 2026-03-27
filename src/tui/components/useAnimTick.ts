@@ -47,11 +47,16 @@ export function _resetAnimTick(): void {
  * Returns the current tick number (increments every 120ms).
  * The global timer starts when the first subscriber mounts
  * and stops when the last one unmounts.
+ *
+ * Pass `enabled = false` to unsubscribe without unmounting —
+ * the component stops driving redraws while idle.
  */
-export function useAnimTick(): number {
+export function useAnimTick(enabled: boolean = true): number {
   const [tick, setTick] = useState(globalTick);
 
   useEffect(() => {
+    if (!enabled) return;
+    setTick(globalTick);
     const listener: TickListener = (t) => setTick(t);
     listeners.add(listener);
     startGlobal();
@@ -59,7 +64,7 @@ export function useAnimTick(): number {
       listeners.delete(listener);
       stopGlobal();
     };
-  }, []);
+  }, [enabled]);
 
   return tick;
 }
