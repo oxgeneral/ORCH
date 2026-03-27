@@ -132,7 +132,16 @@
 
     nav a:hover { color: var(--white); }
 
-    .nav-links { display: flex; gap: 2rem; align-items: center; }
+    .nav-links { display: flex; gap: 1.4rem; align-items: center; }
+
+    .nav-sep {
+      width: 1px;
+      height: 16px;
+      background: rgba(255,255,255,0.1);
+      flex-shrink: 0;
+    }
+
+    .nav-active { color: var(--white) !important; }
 
     .nav-npm { color: var(--accent) !important; }
 
@@ -149,6 +158,38 @@
       background: rgba(255,255,255,0.12) !important;
       border-color: rgba(255,255,255,0.2);
       transform: translateY(-1px);
+    }
+
+    /* Mobile hamburger */
+    .nav-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--white);
+      font-size: 1.4rem;
+      cursor: pointer;
+      padding: 0.3rem;
+      line-height: 1;
+    }
+
+    @media (max-width: 900px) {
+      .nav-toggle { display: block; }
+      .nav-links {
+        display: none;
+        position: absolute;
+        top: 64px;
+        left: 0; right: 0;
+        flex-direction: column;
+        background: rgba(10,10,10,0.97);
+        border-bottom: 1px solid var(--gray-light);
+        padding: 1.2rem 2rem;
+        gap: 0.8rem;
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+      }
+      .nav-links.open { display: flex; }
+      .nav-links a { font-size: 0.8rem; }
+      .nav-sep { display: none; }
     }
 
     /* --- HERO --- */
@@ -1617,7 +1658,6 @@
 
     @media (max-width: 768px) {
       nav { padding: 0 1.5rem; }
-      .nav-links a:not(.nav-cta) { display: none; }
 
       .hero { grid-template-columns: 1fr; padding: 7rem 1.5rem 3rem; min-height: auto; }
       .hero h1 { font-size: clamp(2rem, 7vw, 3rem); }
@@ -2173,13 +2213,18 @@
 
   <!-- NAV -->
   <nav>
-    <div class="logo">ORC<span>H</span></div>
+    <div class="logo"><a href="/" style="color:inherit;text-decoration:none">ORC<span>H</span></a></div>
+    <button class="nav-toggle" aria-label="Menu" onclick="document.querySelector('.nav-links').classList.toggle('open')">&#9776;</button>
     <div class="nav-links">
-      <a href="#features">Departments</a>
-      <a href="#teams">Teams</a>
-      <a href="#workflow">How it works</a>
-      <a href="#faq">FAQ</a>
+      <a href="/why">Why ORCH</a>
       <a href="/compare">Compare</a>
+      <a href="/cheatsheet">Cheat Sheet</a>
+      <a href="/demo">Demo</a>
+      <span class="nav-sep"></span>
+      <a href="#features">Features</a>
+      <a href="#teams">Teams</a>
+      <a href="#faq">FAQ</a>
+      <span class="nav-sep"></span>
       <a href="https://www.npmjs.com/package/@oxgeneral/orch" class="nav-npm">npm</a>
       <a href="https://github.com/oxgeneral/ORCH" class="nav-cta">GitHub</a>
     </div>
@@ -2198,7 +2243,7 @@
     <div class="hero-content">
       <div class="hero-badge">
         <span class="pulse"></span>
-        Open-source orchestration for zero-human companies &middot; <span class="orch-version">v1.0.13</span>
+        Open-source orchestration for zero-human companies &middot; <span class="orch-version">v1.0.14</span>
       </div>
       <h1>Run multiple AI agents. <em>Without babysitting any of them.</em></h1>
       <p class="hero-sub">
@@ -2255,7 +2300,7 @@
       </div>
     </div>
     <div class="scroll-hint">Scroll</div>
-    <div class="hero-version"><span class="orch-version">v1.0.13</span> &mdash; MIT</div>
+    <div class="hero-version"><span class="orch-version">v1.0.14</span> &mdash; MIT</div>
   </section>
 
   <!-- STATS BAR -->
@@ -2898,7 +2943,7 @@
     </div>
     <div class="footer-bottom">
       <span>&copy; 2026 ORCH &mdash; Open Source, MIT License</span>
-      <span><span class="orch-version">v1.0.13</span> &mdash; Built with TypeScript &mdash; Last updated March 2026</span>
+      <span><span class="orch-version">v1.0.14</span> &mdash; Built with TypeScript &mdash; Last updated March 2026</span>
     </div>
   </footer>
 
@@ -3006,13 +3051,14 @@
       });
     });
 
-    // Fetch latest version from GitHub
-    fetch('https://api.github.com/repos/oxgeneral/ORCH/releases/latest')
+    // Fetch latest version from npm registry (no auth, no rate-limit)
+    fetch('https://registry.npmjs.org/@oxgeneral/orch/latest')
       .then(r => r.json())
       .then(data => {
-        if (data.tag_name) {
+        if (data.version) {
+          const ver = 'v' + data.version;
           document.querySelectorAll('.orch-version').forEach(el => {
-            el.textContent = data.tag_name;
+            el.textContent = ver;
           });
         }
       })
