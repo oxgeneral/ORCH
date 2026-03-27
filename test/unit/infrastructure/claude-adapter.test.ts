@@ -94,7 +94,7 @@ describe('ClaudeAdapter', () => {
       expect(args).toContain('sonnet');
     });
 
-    it('includes --reasoning-effort when config.effort is set', () => {
+    it('includes --effort when config.effort is set', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new ClaudeAdapter(pm);
@@ -102,11 +102,11 @@ describe('ClaudeAdapter', () => {
       adapter.execute(makeParams({ config: { adapter: 'claude', effort: 'high' } }));
 
       const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
-      expect(args).toContain('--reasoning-effort');
-      expect(args[args.indexOf('--reasoning-effort') + 1]).toBe('high');
+      expect(args).toContain('--effort');
+      expect(args[args.indexOf('--effort') + 1]).toBe('high');
     });
 
-    it('does not include --reasoning-effort when config.effort is absent', () => {
+    it('does not include --effort when config.effort is absent', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new ClaudeAdapter(pm);
@@ -114,7 +114,7 @@ describe('ClaudeAdapter', () => {
       adapter.execute(makeParams({ config: { adapter: 'claude' } }));
 
       const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
-      expect(args).not.toContain('--reasoning-effort');
+      expect(args).not.toContain('--effort');
     });
 
     it('includes --system-prompt when config.system_prompt is set', () => {

@@ -47,7 +47,7 @@ export class ClaudeAdapter implements IAgentAdapter {
     }
 
     if (params.config.effort) {
-      args.push('--reasoning-effort', params.config.effort);
+      args.push('--effort', params.config.effort);
     }
 
     // System prompt: orchestrator-generated (cacheable) takes priority, then per-agent config

@@ -53,10 +53,10 @@ describe('Agent wizard — effort step', () => {
       expect(effortStep.skip!({ adapter: 'claude' })).toBe(false);
     });
 
-    it('effort step is shown for codex adapter', () => {
+    it('effort step is skipped for codex adapter', () => {
       const steps = getAgentWizardSteps();
       const effortStep = steps.find((s) => s.id === 'effort')!;
-      expect(effortStep.skip!({ adapter: 'codex' })).toBe(false);
+      expect(effortStep.skip!({ adapter: 'codex' })).toBe(true);
     });
 
     it('effort step is skipped for shell adapter', () => {

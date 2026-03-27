@@ -45,10 +45,6 @@ export class CodexAdapter implements IAgentAdapter {
       args.push('--model', params.config.model);
     }
 
-    if (params.config.effort) {
-      args.push('--reasoning-effort', params.config.effort);
-    }
-
     // Read prompt from stdin (avoids ARG_MAX limits on long prompts)
     args.push('-');
 

@@ -68,8 +68,8 @@ const EFFORT_OPTIONS = [
   { value: 'low', label: 'Low', hint: 'fastest responses, minimal reasoning' },
 ];
 
-/** Adapters that support the --reasoning-effort flag */
-const EFFORT_ADAPTERS = new Set(['claude', 'codex']);
+/** Adapters that support the --effort flag */
+const EFFORT_ADAPTERS = new Set(['claude']);
 
 // ── Adapter catalog ──
 
