@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.14 (2026-03-27)
+
+### Features
+
+- **Reasoning effort setting** — new `effort` field for agents (`low`, `medium`, `high`) controls how deeply the model reasons. Available via CLI (`--effort`), TUI wizard (step after model selection with descriptions), and programmatic API. Currently supported by the Claude adapter only
+- **TUI effort step** — interactive wizard shows the effort selector right after model choice, with hints for each level. Automatically skipped for adapters that don't support it
+
+### Fixes
+
+- **Claude CLI flag name** — fixed `--reasoning-effort` → `--effort` to match the actual Claude CLI flag. Previously caused agents with effort set to crash with exit code 1
+- **Codex effort removed** — Codex CLI does not support `--reasoning-effort`; removed the flag to prevent spawn failures
+
+### Docs
+
+- **ORCH skill updated** — added `--effort` to CLI reference, usage tips for effort levels, and new "When to Use Goals vs Tasks" section with concrete criteria and examples (single action → Task, multi-step decomposition → Goal, iterative metric-driven improvement → Goal)
+
+### Tests
+
+- 23 new tests covering effort across all layers: domain model, agent service (create/update), Claude adapter (`--effort` flag), TUI wizard (step visibility, skip logic, input mapping, edit pre-fill)
+
 ## 1.0.13 (2026-03-24)
 
 ### Features
