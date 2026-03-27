@@ -6,7 +6,7 @@
  */
 
 import type { WizardStep } from './components/FormWizard.js';
-import type { Agent } from '../domain/agent.js';
+import type { Agent, ReasoningEffort } from '../domain/agent.js';
 import type { Goal } from '../domain/goal.js';
 import type { ActivityFilterPreset, NotificationPreferences } from '../domain/global-config.js';
 import type { Team } from '../domain/team.js';
@@ -58,6 +58,18 @@ const OPENCODE_MODELS = [
 const SHELL_MODELS = [
   { value: '', label: 'Default', hint: 'use shell adapter default' },
 ];
+
+// ── Reasoning effort options ──
+
+const EFFORT_OPTIONS = [
+  { value: '', label: 'Default', hint: 'no override — use model default' },
+  { value: 'high', label: 'High', hint: 'deepest reasoning, best quality, slowest' },
+  { value: 'medium', label: 'Medium', hint: 'balanced speed and quality' },
+  { value: 'low', label: 'Low', hint: 'fastest responses, minimal reasoning' },
+];
+
+/** Adapters that support the --reasoning-effort flag */
+const EFFORT_ADAPTERS = new Set(['claude', 'codex']);
 
 // ── Adapter catalog ──
 
@@ -213,6 +225,13 @@ export function getAgentWizardSteps(agents?: Agent[], teams?: Team[]): WizardSte
       },
     },
     {
+      id: 'effort',
+      label: 'Reasoning effort',
+      type: 'select',
+      options: EFFORT_OPTIONS,
+      skip: (vals) => !EFFORT_ADAPTERS.has(vals.adapter ?? ''),
+    },
+    {
       id: 'role',
       label: 'Role / specialization',
       type: 'select',
@@ -252,11 +271,13 @@ export function agentWizardToInput(vals: Record<string, string>) {
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
   const skills = vals.skills ? vals.skills.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
   const approval_policy = (vals.approval_policy as 'auto' | 'suggest' | 'manual' | undefined) || 'auto';
+  const effort = (vals.effort as ReasoningEffort | undefined) || undefined;
   return {
     name: vals.name!,
     adapter: vals.adapter || 'claude',
     role,
     model: vals.model || undefined,
+    effort,
     approval_policy,
     skills,
     team_id: vals.team || undefined,
@@ -456,6 +477,14 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
       defaultValue: agent.config.model ?? '',
     },
     {
+      id: 'effort',
+      label: 'Reasoning effort',
+      type: 'select',
+      options: EFFORT_OPTIONS,
+      defaultValue: agent.config.effort ?? '',
+      skip: () => !EFFORT_ADAPTERS.has(agent.adapter),
+    },
+    {
       id: 'role',
       label: 'Role / specialization',
       type: 'select',
@@ -551,10 +580,12 @@ export function getConfigWizardSteps(
 
 export function editAgentWizardToFields(vals: Record<string, string>) {
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
+  const effort = (vals.effort as ReasoningEffort | undefined) || undefined;
   return {
     name: vals.name,
     role,
     model: vals.model || undefined,
+    effort,
     team_id: vals.team || undefined,
   };
 }

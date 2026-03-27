@@ -9,9 +9,12 @@ export type AgentStatus = 'idle' | 'running' | 'error' | 'disabled';
 
 export type ApprovalPolicy = 'suggest' | 'auto' | 'manual';
 
+export type ReasoningEffort = 'low' | 'medium' | 'high';
+
 export interface AgentConfig {
   command?: string;
   model?: string;
+  effort?: ReasoningEffort;
   approval_policy?: ApprovalPolicy;
   max_turns?: number;
   timeout_ms?: number;
@@ -55,6 +58,7 @@ export interface CreateAgentInput {
   role?: string;
   command?: string;
   model?: string;
+  effort?: ReasoningEffort;
   approval_policy?: ApprovalPolicy;
   max_turns?: number;
   timeout_ms?: number;

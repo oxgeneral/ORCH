@@ -39,6 +39,7 @@ export class AgentService {
       config: {
         command: input.command,
         model: input.model,
+        effort: input.effort,
         approval_policy: input.approval_policy ?? this.config.defaults.agent.approval_policy,
         max_turns: input.max_turns ?? this.config.defaults.agent.max_turns,
         timeout_ms: input.timeout_ms ?? this.config.defaults.agent.timeout_ms,
@@ -87,7 +88,7 @@ export class AgentService {
     await this.agentStore.delete(id);
   }
 
-  async update(id: string, fields: { name?: string; role?: string; model?: string; approval_policy?: Agent['config']['approval_policy'] }): Promise<Agent> {
+  async update(id: string, fields: { name?: string; role?: string; model?: string; effort?: Agent['config']['effort']; approval_policy?: Agent['config']['approval_policy'] }): Promise<Agent> {
     const agent = await this.get(id);
 
     if (fields.name !== undefined) {
@@ -101,6 +102,7 @@ export class AgentService {
     }
     if (fields.role !== undefined) agent.role = fields.role || undefined;
     if (fields.model !== undefined) agent.config.model = fields.model || undefined;
+    if (fields.effort !== undefined) agent.config.effort = fields.effort || undefined;
     if (fields.approval_policy !== undefined) agent.config.approval_policy = fields.approval_policy;
 
     await this.agentStore.save(agent);

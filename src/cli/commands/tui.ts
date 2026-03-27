@@ -78,11 +78,12 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.stateStore.read();
       };
 
-      const onAddAgent = async (name: string, adapter?: string, opts?: { model?: string; role?: string; approval_policy?: string; skills?: string[] }) => {
+      const onAddAgent = async (name: string, adapter?: string, opts?: { model?: string; effort?: string; role?: string; approval_policy?: string; skills?: string[] }) => {
         return container.agentService.create({
           name,
           adapter: adapter ?? 'claude',
           model: opts?.model || undefined,
+          effort: (opts?.effort as import('../../domain/agent.js').ReasoningEffort) || undefined,
           role: opts?.role || undefined,
           approval_policy: (opts?.approval_policy as import('../../domain/agent.js').ApprovalPolicy) || undefined,
           skills: opts?.skills || undefined,
@@ -109,9 +110,10 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.taskService.update(taskId, fields);
       };
 
-      const onUpdateAgent = async (agentId: string, fields: { name?: string; role?: string; model?: string; approval_policy?: string }) => {
+      const onUpdateAgent = async (agentId: string, fields: { name?: string; role?: string; model?: string; effort?: string; approval_policy?: string }) => {
         return container.agentService.update(agentId, {
           ...fields,
+          effort: fields.effort as import('../../domain/agent.js').ReasoningEffort | undefined,
           approval_policy: fields.approval_policy as import('../../domain/agent.js').ApprovalPolicy | undefined,
         });
       };

@@ -116,6 +116,29 @@ describe('CodexAdapter', () => {
       expect(writeSpy).toHaveBeenCalledWith('just the task');
     });
 
+    it('includes --reasoning-effort when config.effort is set', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CodexAdapter(pm);
+
+      adapter.execute(makeParams({ config: { adapter: 'codex', effort: 'low' } }));
+
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args).toContain('--reasoning-effort');
+      expect(args[args.indexOf('--reasoning-effort') + 1]).toBe('low');
+    });
+
+    it('does not include --reasoning-effort when config.effort is absent', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CodexAdapter(pm);
+
+      adapter.execute(makeParams({ config: { adapter: 'codex' } }));
+
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args).not.toContain('--reasoning-effort');
+    });
+
     it('includes --model when config.model is set', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);

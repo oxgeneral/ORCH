@@ -132,13 +132,13 @@ export interface AppProps {
   // History (loaded progressively from disk on startup)
   onLoadHistory?: (onBatch: (entries: HistoryEntry[]) => void) => Promise<void>;
   // New actions
-  onAddAgent?: (name: string, adapter?: string, opts?: { model?: string; role?: string; approval_policy?: string; skills?: string[] }) => Promise<Agent>;
+  onAddAgent?: (name: string, adapter?: string, opts?: { model?: string; effort?: string; role?: string; approval_policy?: string; skills?: string[] }) => Promise<Agent>;
   onDeleteAgent?: (agentId: string) => Promise<void>;
   onApproveTask?: (taskId: string) => Promise<void>;
   onRejectTask?: (taskId: string, feedback?: string) => Promise<void>;
   onDeleteTask?: (taskId: string) => Promise<void>;
   onUpdateTask?: (taskId: string, fields: { title?: string; description?: string; priority?: number; attachments?: string[] }) => Promise<Task>;
-  onUpdateAgent?: (agentId: string, fields: { name?: string; role?: string; model?: string; approval_policy?: string }) => Promise<Agent>;
+  onUpdateAgent?: (agentId: string, fields: { name?: string; role?: string; model?: string; effort?: string; approval_policy?: string }) => Promise<Agent>;
   onForceStopAgent?: (agentId: string) => Promise<void>;
   onCreateTeam?: (input: CreateTeamInput) => Promise<Team>;
   onListTeams?: () => Promise<Team[]>;
@@ -1031,6 +1031,7 @@ export function App({
       addMessage(`Creating agent "${input.name}"...`, tuiColors.amber);
       onAddAgent(input.name, input.adapter, {
         model: input.model,
+        effort: input.effort,
         role: input.role,
         approval_policy: input.approval_policy,
         skills: input.skills,
@@ -1099,7 +1100,7 @@ export function App({
       const newTeamId = fields.team_id ?? '';
       const oldTeamId = liveTeams.find(t => t.members.some(m => m.agent_id === targetId))?.id ?? '';
       addMessage(`Updating agent...`, tuiColors.amber);
-      onUpdateAgent(targetId, { name: fields.name, role: fields.role, model: fields.model }).then(
+      onUpdateAgent(targetId, { name: fields.name, role: fields.role, model: fields.model, effort: fields.effort }).then(
         (agent) => {
           addMessage(`\u2713 Updated agent "${agent.name}"`, tuiColors.green);
           // Handle team change

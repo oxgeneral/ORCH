@@ -6,7 +6,7 @@
 
 // Domain
 export type { Task, TaskStatus, CreateTaskInput, WorkspaceMode, TaskProof } from './domain/task.js';
-export type { Agent, AgentStatus, AgentConfig, CreateAgentInput, ApprovalPolicy, AgentStats, AgentLastError } from './domain/agent.js';
+export type { Agent, AgentStatus, AgentConfig, CreateAgentInput, ApprovalPolicy, ReasoningEffort, AgentStats, AgentLastError } from './domain/agent.js';
 export type { Run, RunStatus, RunEvent, RunEventType, TokenUsage } from './domain/run.js';
 export { createTokenUsage } from './domain/run.js';
 export type { OrchestratorConfig, ProjectConfig, SchedulingConfig } from './domain/config.js';

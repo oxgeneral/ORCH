@@ -113,6 +113,16 @@ describe('AgentService', () => {
         InvalidArgumentsError,
       );
     });
+
+    it('stores effort in config when provided', async () => {
+      const agent = await service.create({ name: 'effort-agent', adapter: 'claude', effort: 'high' });
+      expect(agent.config.effort).toBe('high');
+    });
+
+    it('leaves effort undefined when not provided', async () => {
+      const agent = await service.create({ name: 'no-effort', adapter: 'claude' });
+      expect(agent.config.effort).toBeUndefined();
+    });
   });
 
   describe('get', () => {
@@ -183,6 +193,24 @@ describe('AgentService', () => {
 
       const agent = await service.enable('agt_test1');
       expect(agent.status).toBe('idle');
+    });
+  });
+
+  describe('update effort', () => {
+    it('sets effort via update', async () => {
+      agentStore = createMockAgentStore([makeAgent({ status: 'idle' })]);
+      service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+      const agent = await service.update('agt_test1', { effort: 'low' });
+      expect(agent.config.effort).toBe('low');
+    });
+
+    it('clears effort when set to empty string', async () => {
+      agentStore = createMockAgentStore([makeAgent({ status: 'idle', config: { ...makeAgent().config, effort: 'high' } })]);
+      service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+      const agent = await service.update('agt_test1', { effort: '' as any });
+      expect(agent.config.effort).toBeUndefined();
     });
   });
 

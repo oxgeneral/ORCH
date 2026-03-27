@@ -30,6 +30,7 @@ export function registerAgentCommand(program: Command, container: LightContainer
     .option('--role <role>', 'Agent role description')
     .option('--command <cmd>', 'Shell command (for shell adapter)')
     .option('--model <model>', 'Model name (for AI adapters)')
+    .option('--effort <level>', 'Reasoning effort: low, medium, high')
     .option('--max-turns <n>', 'Max turns per run')
     .option('--timeout <ms>', 'Timeout in ms')
     .option('--approval-policy <policy>', 'suggest|auto|manual')
@@ -55,6 +56,7 @@ export function registerAgentCommand(program: Command, container: LightContainer
         role,
         command: opts.command,
         model: opts.model,
+        effort: opts.effort,
         max_turns: opts.maxTurns ? parseInt(opts.maxTurns, 10) : undefined,
         timeout_ms: opts.timeout ? parseInt(opts.timeout, 10) : undefined,
         approval_policy: opts.approvalPolicy,
@@ -165,6 +167,7 @@ export function registerAgentCommand(program: Command, container: LightContainer
       const pairs: Array<[string, string]> = [
         ['Adapter', `${a.adapter}${a.config.model ? ` (${a.config.model})` : ''}`],
         ['Status', `${statusIcon(a.status)} ${a.status}`],
+        ['Effort', a.config.effort ?? 'default'],
         ['Policy', a.config.approval_policy ?? 'auto'],
       ];
       if (a.current_task) pairs.push(['Task', a.current_task]);

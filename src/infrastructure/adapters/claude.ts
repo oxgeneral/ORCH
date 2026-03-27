@@ -46,6 +46,10 @@ export class ClaudeAdapter implements IAgentAdapter {
       args.push('--model', params.config.model);
     }
 
+    if (params.config.effort) {
+      args.push('--reasoning-effort', params.config.effort);
+    }
+
     // System prompt: orchestrator-generated (cacheable) takes priority, then per-agent config
     const effectiveSystemPrompt = params.systemPrompt ?? params.config.system_prompt;
     if (effectiveSystemPrompt) {
