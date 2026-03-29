@@ -39,8 +39,10 @@ export function registerLogsCommand(program: Command, container: LightContainer)
         await showTaskLogs(container, opts.task, sinceMs);
       } else if (opts.agent) {
         await showAgentLogs(container, opts.agent, sinceMs);
+      } else if (sinceMs !== undefined) {
+        await showAllRecentLogs(container, sinceMs);
       } else {
-        printError('Specify a run ID, --task, or --agent');
+        printError('Specify a run ID, --task, --agent, or --since <duration>');
         process.exit(2);
       }
     });
@@ -148,6 +150,51 @@ async function showAgentLogs(container: LightContainer, agentId: string, sinceMs
     for (const event of events.slice(-5)) {
       console.log(formatEvent(event));
     }
+  }
+  console.log();
+}
+
+/**
+ * Show all recent logs across all runs within the time window.
+ */
+async function showAllRecentLogs(container: LightContainer, sinceMs: number): Promise<void> {
+  const allRuns = await container.runService.listAll();
+  const cutoff = Date.now() - sinceMs;
+
+  // Filter runs that started or finished within the time window
+  const recentRuns = allRuns.filter((run) => {
+    const startedAt = new Date(run.started_at).getTime();
+    const finishedAt = run.finished_at ? new Date(run.finished_at).getTime() : Date.now();
+    return finishedAt >= cutoff || startedAt >= cutoff;
+  });
+
+  if (container.context.json) {
+    console.log(JSON.stringify(recentRuns, null, 2));
+    return;
+  }
+
+  if (recentRuns.length === 0) {
+    console.log('\n  No runs in the specified time window\n');
+    return;
+  }
+
+  const eventsPerRun = await Promise.all(
+    recentRuns.slice(0, 20).map((run) =>
+      container.runService.readEventsTail(run.id, 500).then((e) => filterBySince(e, sinceMs)),
+    ),
+  );
+
+  for (let i = 0; i < Math.min(recentRuns.length, 20); i++) {
+    const run = recentRuns[i]!;
+    const events = eventsPerRun[i]!;
+    if (events.length === 0) continue;
+    console.log(`\n  Run ${run.id} · task ${run.task_id} · agent ${run.agent_id} · ${run.status}`);
+    for (const event of events.slice(-10)) {
+      console.log(formatEvent(event));
+    }
+  }
+  if (recentRuns.length > 20) {
+    console.log(`\n  ${dim(`(showing 20 of ${recentRuns.length} matching runs)`)}`);
   }
   console.log();
 }

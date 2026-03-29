@@ -525,11 +525,12 @@ export class Orchestrator {
     const state = this.state!;
     const now = Date.now();
 
-    // Pre-fetch all running task data in parallel
+    // Pre-fetch all running task and agent data in parallel
     const runningEntries = Object.entries(state.running);
-    const runningTaskData = await Promise.all(
-      runningEntries.map(([taskId]) => this.deps.taskStore.get(taskId)),
-    );
+    const [runningTaskData, runningAgentData] = await Promise.all([
+      Promise.all(runningEntries.map(([taskId]) => this.deps.taskStore.get(taskId))),
+      Promise.all(runningEntries.map(([, entry]) => this.deps.agentStore.get(entry.agent_id))),
+    ]);
 
     // Check running processes
     for (let i = 0; i < runningEntries.length; i++) {
@@ -560,9 +561,10 @@ export class Orchestrator {
         continue;
       }
 
-      // Stall detection
+      // Stall detection — use per-agent timeout if configured, fallback to global
       const lastEventAt = new Date(entry.last_event_at).getTime();
-      const stallTimeout = this.deps.config.defaults.agent.stall_timeout_ms;
+      const agentForStall = runningAgentData[i];
+      const stallTimeout = agentForStall?.config.stall_timeout_ms ?? this.deps.config.defaults.agent.stall_timeout_ms;
 
       if (now - lastEventAt > stallTimeout) {
         this.deps.eventBus.emit({
@@ -1183,6 +1185,25 @@ export class Orchestrator {
           }
         }
 
+        // Extract file paths from tool_call events (Claude emits tool_use with file paths
+        // but no separate file_change events — unlike Codex).
+        // Must run before event.data GC release below.
+        let toolCallFilePath: string | null = null;
+        if (event.type === 'tool_call') {
+          const data = event.data as Record<string, unknown> | undefined;
+          if (data) {
+            const toolInput = data.input as Record<string, unknown> | undefined;
+            const toolName = typeof data.name === 'string' ? data.name : '';
+            // Claude tool_use: { name: 'Write'|'Edit', input: { file_path: '...' } }
+            if (toolInput && typeof toolInput.file_path === 'string') {
+              if (/^(Write|Edit|MultiEdit|NotebookEdit)$/i.test(toolName)) {
+                toolCallFilePath = toolInput.file_path;
+                filesChangedSet.add(toolCallFilePath);
+              }
+            }
+          }
+        }
+
         // Validate and normalize event timestamp
         const eventTimestamp = isValidISOTimestamp(event.timestamp)
           ? event.timestamp
@@ -1228,6 +1249,15 @@ export class Orchestrator {
             agentId,
             data: busData,
           });
+          // Also emit file_changed for tool_calls that write files (real-time TUI visibility)
+          if (toolCallFilePath) {
+            this.deps.eventBus.emit({
+              type: 'agent:file_changed',
+              runId,
+              agentId,
+              path: toolCallFilePath,
+            });
+          }
         } else if (event.type === 'file_change') {
           this.deps.eventBus.emit({
             type: 'agent:file_changed',
@@ -1715,6 +1745,52 @@ export class Orchestrator {
       const cancelledIds = new Set([...cleanedTaskIds, ...orphaned.map((t) => t.id)]);
       state.retry_queue = state.retry_queue.filter((r) => !cancelledIds.has(r.task_id));
       await this.saveState();
+    }
+
+    // Phase 3: Finalize orphaned 'preparing' runs — runs created but never started
+    // (crash between runService.create() and runService.start()). These are invisible
+    // to reconcile because they have no state.running entry.
+    await this.cleanupOrphanedPreparingRuns();
+  }
+
+  /**
+   * Find runs stuck in 'preparing' status (orphaned by a crash before adapter.execute)
+   * and mark them as cancelled. Called once at startup.
+   */
+  private async cleanupOrphanedPreparingRuns(): Promise<void> {
+    try {
+      const allRuns = await this.deps.runStore.listAll();
+      const preparingRuns = allRuns.filter((r) => r.status === 'preparing');
+      if (preparingRuns.length === 0) return;
+
+      // Currently active runs (in state.running) may legitimately be in 'preparing'
+      // for a brief moment during the current process — exclude them
+      const activeRunIds = new Set(
+        Object.values(this.state!.running).map((e) => e.run_id),
+      );
+
+      const orphaned = preparingRuns.filter((r) => !activeRunIds.has(r.id));
+      if (orphaned.length === 0) return;
+
+      await Promise.all(
+        orphaned.map((run) =>
+          this.deps.runService.finish(run.id, 'cancelled', undefined, 'Orphaned preparing run (orchestrator restarted)').catch((err) => {
+            this.deps.eventBus.emit({
+              type: 'orchestrator:error',
+              error: err instanceof Error ? err.message : String(err),
+              context: `startup cleanup: finish orphaned preparing run ${run.id}`,
+              fatal: false,
+            });
+          }),
+        ),
+      );
+    } catch (err) {
+      this.deps.eventBus.emit({
+        type: 'orchestrator:error',
+        error: err instanceof Error ? err.message : String(err),
+        context: 'startup cleanup: cleanupOrphanedPreparingRuns',
+        fatal: false,
+      });
     }
   }
 
