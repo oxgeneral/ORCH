@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.15 (2026-03-29)
+
+### Bug Fixes
+
+- **Proof detection for Claude agents** — Claude adapter emits `tool_use` events (Write, Edit, MultiEdit, NotebookEdit) but no `file_change` events. The orchestrator now extracts file paths from tool_call data and populates `proof.files_changed`, fixing empty proof for all Claude-backed agents. Also emits real-time `agent:file_changed` events for TUI visibility
+- **Orphaned preparing runs** — runs stuck in `preparing` status (caused by a crash between `runService.create()` and `runService.start()`) are now detected and cancelled at startup. Previously these ghost runs stayed in `preparing` forever and appeared in `orch logs` as unfinished
+- **`orch logs --since` without filter** — `orch logs --since 3h` now works without requiring `--task`, `--agent`, or a run ID. Shows all recent runs within the time window with a truncation notice when >20 runs match
+- **Per-agent stall timeout** — reconcile now uses the agent's `config.stall_timeout_ms` when set, falling back to the global default. Previously all agents were killed at the global 10-minute mark regardless of per-agent configuration
+
+### Improvements
+
+- **Parallel agent pre-fetch in reconcile** — agent data is now fetched in parallel alongside task data during the reconcile phase, avoiding sequential reads
+
+### Tests
+
+- 14 new tests covering all four bug fixes: proof detection from tool_call events (3), orphaned preparing runs cleanup (3), `orch logs --since` all-runs mode (6), per-agent stall timeout (2)
+- Shared `cleanupOrch` helper extracted to `test/unit/application/helpers.ts` (was duplicated 6×)
+- Added missing `listAll` to `createMockRunStore` mock
+
 ## 1.0.14 (2026-03-27)
 
 ### Features
