@@ -21,10 +21,8 @@ import {
   createMockRunStore,
   createMockStateStore,
   createMockProcessManager,
-  createMockWorkspaceManager,
-  createMockContextStore,
   createMockAdapter,
-  makeEventGenerator,
+  cleanupOrch,
   buildDeps,
 } from './helpers.js';
 
@@ -34,17 +32,6 @@ vi.mock('../../../src/infrastructure/storage/lock.js', () => ({
   releaseLock: vi.fn(async () => {}),
   touchLock: vi.fn(async () => {}),
 }));
-
-/** Clean up an orchestrator instance to prevent timer leaks */
-function cleanupOrch(orch: Orchestrator) {
-  const o = orch as any;
-  if (o.intervalId) { clearInterval(o.intervalId); o.intervalId = null; }
-  o.shuttingDown = true;
-  o.removeSignalHandlers?.();
-  if (o.lockAcquired) { o.lockAcquired = false; }
-  if (o.saveStateTimer) { clearTimeout(o.saveStateTimer); o.saveStateTimer = null; }
-  if (o.immediateDispatchTimer) { clearTimeout(o.immediateDispatchTimer); o.immediateDispatchTimer = null; }
-}
 
 // ============================================================
 // P2: Proof detection — tool_call file path extraction
@@ -63,8 +50,6 @@ describe('P2: Proof detection — tool_call file path extraction', () => {
     const taskStore = createMockTaskStore([task]);
     const agentStore = createMockAgentStore([agent]);
     const runStore = createMockRunStore();
-    // Add listAll to mock (not in default mock)
-    (runStore as any).listAll = vi.fn(async () => []);
 
     const events: AgentEvent[] = [
       {
@@ -119,7 +104,6 @@ describe('P2: Proof detection — tool_call file path extraction', () => {
     const taskStore = createMockTaskStore([task]);
     const agentStore = createMockAgentStore([agent]);
     const runStore = createMockRunStore();
-    (runStore as any).listAll = vi.fn(async () => []);
     const eventBus = new EventBus();
 
     const events: AgentEvent[] = [
@@ -162,7 +146,6 @@ describe('P2: Proof detection — tool_call file path extraction', () => {
     const taskStore = createMockTaskStore([task]);
     const agentStore = createMockAgentStore([agent]);
     const runStore = createMockRunStore();
-    (runStore as any).listAll = vi.fn(async () => []);
 
     const events: AgentEvent[] = [
       {
@@ -227,10 +210,7 @@ describe('P3: Orphaned preparing runs — cleanup at startup', () => {
     });
 
     const runStore = createMockRunStore();
-    // Seed the run into the store so runService.finish() can find it via get()
     await runStore.save(orphanedRun);
-    // Override listAll to return the orphaned run
-    (runStore as any).listAll = vi.fn(async () => [orphanedRun]);
 
     const deps = buildDeps({
       taskStore: createMockTaskStore([]),
@@ -260,7 +240,7 @@ describe('P3: Orphaned preparing runs — cleanup at startup', () => {
     });
 
     const runStore = createMockRunStore();
-    (runStore as any).listAll = vi.fn(async () => [activeRun]);
+    await runStore.save(activeRun);
 
     // Simulate an active running entry for this run
     const stateStore = createMockStateStore({
@@ -309,9 +289,7 @@ describe('P3: Orphaned preparing runs — cleanup at startup', () => {
     ];
 
     const runStore = createMockRunStore();
-    // Seed runs into store so runService.finish() can find them
     for (const run of orphans) await runStore.save(run);
-    (runStore as any).listAll = vi.fn(async () => orphans);
 
     const deps = buildDeps({
       taskStore: createMockTaskStore([]),
@@ -377,7 +355,6 @@ describe('Bonus: Per-agent stall_timeout_ms in reconcile', () => {
     (processManager.isAlive as ReturnType<typeof vi.fn>).mockReturnValue(true);
 
     const runStore = createMockRunStore();
-    (runStore as any).listAll = vi.fn(async () => []);
 
     const eventBus = new EventBus();
     const stallEvents: any[] = [];
@@ -443,7 +420,6 @@ describe('Bonus: Per-agent stall_timeout_ms in reconcile', () => {
     (processManager.isAlive as ReturnType<typeof vi.fn>).mockReturnValue(true);
 
     const runStore = createMockRunStore();
-    (runStore as any).listAll = vi.fn(async () => []);
 
     const eventBus = new EventBus();
     const stallEvents: any[] = [];

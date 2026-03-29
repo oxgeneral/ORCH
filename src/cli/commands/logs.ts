@@ -178,14 +178,15 @@ async function showAllRecentLogs(container: LightContainer, sinceMs: number): Pr
     return;
   }
 
+  const capped = recentRuns.slice(0, 20);
   const eventsPerRun = await Promise.all(
-    recentRuns.slice(0, 20).map((run) =>
+    capped.map((run) =>
       container.runService.readEventsTail(run.id, 500).then((e) => filterBySince(e, sinceMs)),
     ),
   );
 
-  for (let i = 0; i < Math.min(recentRuns.length, 20); i++) {
-    const run = recentRuns[i]!;
+  for (let i = 0; i < capped.length; i++) {
+    const run = capped[i]!;
     const events = eventsPerRun[i]!;
     if (events.length === 0) continue;
     console.log(`\n  Run ${run.id} · task ${run.task_id} · agent ${run.agent_id} · ${run.status}`);

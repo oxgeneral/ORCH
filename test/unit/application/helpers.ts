@@ -140,6 +140,7 @@ export function createMockRunStore(): IRunStore {
       const r = runs.get(id);
       return r ? structuredClone(r) : null;
     }),
+    listAll: vi.fn(async () => [...runs.values()].map((r) => structuredClone(r))),
     listForTask: vi.fn(async () => []),
     listForAgent: vi.fn(async () => []),
     appendEvent: vi.fn(async (runId: string, event: RunEvent) => {
@@ -215,6 +216,19 @@ export function createMockTeamStore(): ITeamStore {
     list: vi.fn(async () => []),
     delete: vi.fn(async () => {}),
   };
+}
+
+// --- Orchestrator cleanup ---
+
+/** Clean up an orchestrator instance to prevent timer leaks between tests. */
+export function cleanupOrch(orch: import('../../../src/application/orchestrator.js').Orchestrator): void {
+  const o = orch as any;
+  if (o.intervalId) { clearInterval(o.intervalId); o.intervalId = null; }
+  if (o.immediateDispatchTimer) { clearTimeout(o.immediateDispatchTimer); o.immediateDispatchTimer = null; }
+  if (o.saveStateTimer) { clearTimeout(o.saveStateTimer); o.saveStateTimer = null; }
+  o.shuttingDown = true;
+  o.removeSignalHandlers?.();
+  if (o.lockAcquired) { o.lockAcquired = false; }
 }
 
 // --- Adapter helpers ---
