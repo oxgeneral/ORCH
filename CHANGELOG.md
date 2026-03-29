@@ -3,10 +3,11 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## 1.0.15 (2026-03-29)
+## 1.0.16 (2026-03-29)
 
 ### Bug Fixes
 
+- **TUI: external tasks and goals now appear immediately** — when tasks or goals are created by external processes (`orch task add`, `orch goal add`, Claude Code `/orch` skill), the TUI now picks them up within 5 seconds. Previously, in watch mode the TUI only refreshed on in-process EventBus events, so externally created entities were invisible until the orchestrator dispatched them
 - **Proof detection for Claude agents** — Claude adapter emits `tool_use` events (Write, Edit, MultiEdit, NotebookEdit) but no `file_change` events. The orchestrator now extracts file paths from tool_call data and populates `proof.files_changed`, fixing empty proof for all Claude-backed agents. Also emits real-time `agent:file_changed` events for TUI visibility
 - **Orphaned preparing runs** — runs stuck in `preparing` status (caused by a crash between `runService.create()` and `runService.start()`) are now detected and cancelled at startup. Previously these ghost runs stayed in `preparing` forever and appeared in `orch logs` as unfinished
 - **`orch logs --since` without filter** — `orch logs --since 3h` now works without requiring `--task`, `--agent`, or a run ID. Shows all recent runs within the time window with a truncation notice when >20 runs match
@@ -15,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Improvements
 
 - **Parallel agent pre-fetch in reconcile** — agent data is now fetched in parallel alongside task data during the reconcile phase, avoiding sequential reads
+- **No-op render guard** — periodic disk poll now skips React state updates when entity data hasn't changed, preventing unnecessary re-renders every 5 seconds in idle state
 
 ### Tests
 
