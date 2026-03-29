@@ -279,6 +279,29 @@ The assigned agent enters **autonomous mode**: it analyzes the codebase, creates
 orch goal add "Reach 80% test coverage" --description "Run coverage, find gaps, write tests, repeat until ≥80%" --assignee <qa-agent>
 ```
 
+### Choosing an assignee for a goal
+
+A goal without `--assignee` stays unassigned and no agent picks it up automatically. **Always assign a goal to an agent.**
+
+Before creating a goal, check available agents:
+```bash
+orch agent list
+```
+
+Pick the agent whose **role** best matches the goal:
+- Code quality / testing → QA agent
+- Architecture / refactoring → CTO / architect agent
+- Documentation → CTO or dedicated docs agent
+- Feature work → relevant domain agent (backend, frontend, etc.)
+- Strategic / cross-cutting → CEO or lead agent
+
+```bash
+# Example: assign docs update to CTO
+orch goal add "Update docs for v2" --description "..." --assignee agt_T0uF5KP
+```
+
+If no suitable agent exists, create one first via `orch agent add` or `orch agent shop`.
+
 ### Rule of thumb
 - **1 agent, 1 action** → Task
 - **Multiple agents, unclear steps** → Goal
