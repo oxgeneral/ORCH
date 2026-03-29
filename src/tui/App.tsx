@@ -298,6 +298,15 @@ function cyclePreset(current: Set<MsgType>): { label: ActivityFilterPreset; type
   return ACTIVITY_PRESETS[nextIdx]!;
 }
 
+/** Cheap change detection for entity lists — avoids no-op React re-renders from periodic disk polls. */
+function entityListChanged(prev: { id: string; updated_at?: string }[], next: { id: string; updated_at?: string }[]): boolean {
+  if (prev.length !== next.length) return true;
+  for (let i = 0; i < prev.length; i++) {
+    if (prev[i]!.id !== next[i]!.id || prev[i]!.updated_at !== next[i]!.updated_at) return true;
+  }
+  return false;
+}
+
 export function App({
   projectName, tasks: initialTasks, agents: initialAgents = [], state: initialState,
   onRunTask, onCreateTask, onCancelTask, onRetryTask, onAssignTask,
@@ -523,11 +532,13 @@ export function App({
         : Promise.resolve(null),
       onRefreshGoals?.() ?? Promise.resolve(liveGoals),
     ]);
-    setLiveTasks(t);
-    setLiveAgents(a);
+    // Only update React state when data actually changed (avoids no-op re-renders
+    // from the periodic disk poll which returns fresh object references every time).
+    setLiveTasks((prev) => entityListChanged(prev, t) ? t : prev);
+    setLiveAgents((prev) => entityListChanged(prev, a) ? a : prev);
     setLiveState(s);
     if (teams !== null) setLiveTeams(teams);
-    setLiveGoals(goals);
+    setLiveGoals((prev) => entityListChanged(prev, goals) ? goals : prev);
     // Sync watchActive from state.pid only if we own the watch —
     // otherwise state.pid may belong to another process (stale lock).
     if (initialWatchActive) {
@@ -761,11 +772,12 @@ export function App({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Observer mode: periodic refresh for external changes (task creates, config)
-  // not visible through JSONL tailing. Skips if an event-driven refresh ran recently.
+  // Periodic refresh for external changes (task/goal creates from other processes)
+  // not visible through in-process EventBus or JSONL tailing.
+  // Runs in both modes: observer (3s) and watch (5s).
+  // Skips if an event-driven refresh ran recently.
   useEffect(() => {
-    if (!observerMode) return;
-    const INTERVAL = 3_000;
+    const INTERVAL = observerMode ? 3_000 : 5_000;
     const timer = setInterval(() => {
       if (Date.now() - lastRefreshAt.current >= INTERVAL) {
         refreshAll().catch(() => {});
