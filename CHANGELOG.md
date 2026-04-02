@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.18 (2026-04-02)
+
+### Features
+
+- **Adapter-agnostic onboarding** ([#6](https://github.com/oxgeneral/ORCH/issues/6)) — `orch init` now auto-detects installed AI adapters (claude, opencode, codex, cursor) and lets you choose a default. Agent shop templates use semantic tiers (`balanced`, `capable`, `fast`) instead of hardcoded Claude model names, so agents are created with the correct model for your chosen adapter. Pass `--adapter <name>` to skip detection
+- **Goal completion guard** — goals can no longer be marked `achieved` while linked tasks are still pending (`todo`, `in_progress`, `retrying`, `review`). Agents calling `orch goal status <id> achieved` will see a clear error listing the blocking tasks. Use `--force` to cancel pending tasks and force the transition (skips `in_progress` tasks with live processes)
+
+### Fixes
+
+- **MCP skills filtered for non-Claude adapters** — agent shop templates and TUI wizard now strip MCP skills (colon-format like `testing-suite:generate-tests`) when the default adapter is not Claude, since MCP skills only work with the Claude CLI
+- **Cursor agent probe false-positive** — `orch init` adapter detection no longer probes the generic `agent` binary (too common on systems), only `cursor-agent`
+- **TUI refresh after status change** — fixed a race condition where `entityListChanged()` compared tasks by `updated_at` timestamp, causing refresh no-ops when initial and updated tasks had identical timestamps
+
+### Tests
+
+- 32 new tests: goal pending-tasks validation (10), model tier resolution (8), agent factory (5), adapter-agnostic init (4), MCP skill filtering (3), TUI refresh fix (2)
+
 ## 1.0.16 (2026-03-29)
 
 ### Bug Fixes
