@@ -1527,7 +1527,7 @@ describe('Command bar — /task add', () => {
   it('refreshes data from events via onRefreshTasks', async () => {
     const state: OrchestratorState = { ...DEFAULT_STATE };
     const initialTasks = [makeTask({ id: 'tsk_1', title: 'Task A', status: 'todo' })];
-    const updatedTasks = [makeTask({ id: 'tsk_1', title: 'Task A', status: 'in_progress' })];
+    const updatedTasks = [makeTask({ id: 'tsk_1', title: 'Task A', status: 'in_progress', updated_at: '2099-01-01T00:00:00Z' })];
 
     let eventHandler: ((event: any) => void) | null = null;
     const onSubscribeEvents = (handler: (event: any) => void) => {
