@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.19 (2026-04-02)
+
+### Bug Fixes
+
+- **Retry dispatch race condition** — fixed a race where a task could be re-dispatched from the retry queue after it had already succeeded. `dispatchTask()` now checks `isDispatchable(task.status)` before spawning, retry queue processing validates task status before dispatch, and `_handleRunFailure` skips if the running entry was already cleaned up by the success handler. This prevents zombie processes, false `tasks_failed` stats, and orphaned `preparing` runs
+- **GitHub star count on landing page** — navbar and CTA now show live star count fetched from GitHub API
+
+### Tests
+
+- 5 new tests covering retry race condition guards (dispatch of done/cancelled/failed tasks, retry queue skip, failure handler race)
+
 ## 1.0.18 (2026-04-02)
 
 ### Features
