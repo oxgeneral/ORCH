@@ -152,6 +152,32 @@
       padding: 0.45rem 1.2rem;
       font-weight: 500;
       transition: all 0.2s !important;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .gh-stars {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.65rem;
+      font-weight: 400;
+      color: var(--accent);
+      opacity: 0;
+      transform: translateX(-4px);
+      transition: opacity 0.4s, transform 0.4s;
+    }
+
+    .gh-stars.loaded {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .gh-stars svg {
+      width: 11px;
+      height: 11px;
+      fill: var(--accent);
     }
 
     .nav-cta:hover {
@@ -1542,6 +1568,17 @@
       border-color: var(--accent);
     }
 
+    .gh-stars-cta {
+      font-size: 0.75rem;
+      font-weight: 700;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .gh-stars-cta.loaded {
+      opacity: 0.7;
+    }
+
     .cta-trust {
       margin-top: 3rem;
       display: flex;
@@ -2226,7 +2263,7 @@
       <a href="#faq">FAQ</a>
       <span class="nav-sep"></span>
       <a href="https://www.npmjs.com/package/@oxgeneral/orch" class="nav-npm">npm</a>
-      <a href="https://github.com/oxgeneral/ORCH" class="nav-cta">GitHub</a>
+      <a href="https://github.com/oxgeneral/ORCH" class="nav-cta">GitHub <span class="gh-stars" id="navStars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z"/></svg><span class="gh-stars-count"></span></span></a>
     </div>
   </nav>
 
@@ -2892,7 +2929,7 @@
     </div>
 
     <div class="cta-links">
-      <a href="https://github.com/oxgeneral/ORCH" class="cta-link star">Star on GitHub</a>
+      <a href="https://github.com/oxgeneral/ORCH" class="cta-link star">★ Star on GitHub <span class="gh-stars-cta" id="ctaStars"></span></a>
       <a href="https://www.npmjs.com/package/@oxgeneral/orch" class="cta-link">View on npm</a>
       <a href="https://github.com/oxgeneral/ORCH#full-cli-reference" class="cta-link">Read the docs</a>
     </div>
@@ -3050,6 +3087,21 @@
         ticking = false;
       });
     });
+
+    // Fetch GitHub star count
+    fetch('https://api.github.com/repos/oxgeneral/ORCH')
+      .then(r => r.json())
+      .then(data => {
+        if (data.stargazers_count != null) {
+          const count = data.stargazers_count;
+          const formatted = count >= 1000 ? (count / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(count);
+          document.querySelectorAll('.gh-stars-count').forEach(el => { el.textContent = formatted; });
+          document.querySelectorAll('.gh-stars').forEach(el => el.classList.add('loaded'));
+          const cta = document.getElementById('ctaStars');
+          if (cta) { cta.textContent = '(' + formatted + ')'; cta.classList.add('loaded'); }
+        }
+      })
+      .catch(() => {});
 
     // Fetch latest version from npm registry (no auth, no rate-limit)
     fetch('https://registry.npmjs.org/@oxgeneral/orch/latest')
