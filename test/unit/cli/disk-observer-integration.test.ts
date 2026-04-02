@@ -309,7 +309,7 @@ describe('DiskObserver integration', () => {
     await writeFile(paths.runEventsPath('run_new'), makeRunEvent('agent_output', 'new output') + '\n');
 
     events = [];
-    await waitFor(() => events.some((e) => e.type === 'agent:started'));
+    await waitFor(() => events.some((e) => e.type === 'agent:output'));
 
     // Should see agent:started for run_new (tracked was reset)
     const started = events.filter((e) => e.type === 'agent:started');

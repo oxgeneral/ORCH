@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## Unreleased
+
+### Bug Fixes
+
+- **Goal completion deadlock** — agents could not mark their own goal as `achieved` because the agent's running `[auto]` task blocked the pending-tasks guard. Autonomous tasks are now excluded from the check since they are the mechanism for achieving the goal, not a blocker
+- **`paused → achieved` transition** — goals in `paused` state can now be directly marked as `achieved` without requiring a resume first. State machine updated: `paused → active | achieved | abandoned`
+- **TUI force-complete** — pressing `C` on a goal in TUI now uses `force: true` to cancel cancellable pending tasks, with an informative status message. Previously it would silently fail if any non-terminal tasks existed
+
+### Tests
+
+- 4 new tests: autonomous task exclusion from pending check, non-auto task still blocks, `paused → achieved` with side effects, `paused → achieved` with force + pending tasks
+
 ## 1.0.19 (2026-04-02)
 
 ### Bug Fixes
