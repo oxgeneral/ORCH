@@ -642,7 +642,10 @@ export class Orchestrator {
       return true;
     });
     for (const taskId of dueRetries) {
-      await this.dispatchTask(taskId);
+      // Guard: task may have succeeded while waiting in retry queue
+      const retryTask = await this.deps.taskStore.get(taskId);
+      if (!retryTask || !isDispatchable(retryTask.status)) continue;
+      await this.dispatchTask(taskId, retryTask);
     }
 
     await this.saveState();
@@ -913,7 +916,7 @@ export class Orchestrator {
   /**
    * Dispatch a single task: claim → assign → execute.
    */
-  private async dispatchTask(taskId: string): Promise<void> {
+  private async dispatchTask(taskId: string, prefetched?: Task): Promise<void> {
     const state = this.state!;
 
     // Validate
@@ -922,7 +925,12 @@ export class Orchestrator {
       throw new TaskAlreadyRunningError(taskId, entry.run_id, entry.agent_id);
     }
 
-    const task = await this.deps.taskService.get(taskId);
+    const task = prefetched ?? await this.deps.taskService.get(taskId);
+
+    // Guard: skip tasks that are no longer dispatchable (e.g. already done via race)
+    if (!isDispatchable(task.status)) {
+      return;
+    }
 
     // Claim (persist before spawning)
     state.claimed.add(taskId);
@@ -1496,6 +1504,10 @@ export class Orchestrator {
     await this.flushStateLazy();
     this.abortControllers.delete(taskId);
     const state = this.state!;
+
+    // Guard: if running entry was already cleaned up (e.g. by handleRunSuccess), skip
+    if (!state.running[taskId]) return;
+
     const task = await this.deps.taskStore.get(taskId);
     if (!task) return;
 
