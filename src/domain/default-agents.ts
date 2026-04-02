@@ -6,6 +6,7 @@
  */
 
 import type { Agent } from './agent.js';
+import { resolveModel } from './model-tiers.js';
 
 const AGENT_CREATOR_ROLE = `Agent architect — designs and creates AI agents for the orchestrator via \`orch agent add\`.
 
@@ -22,12 +23,12 @@ const AGENT_CREATOR_ROLE = `Agent architect — designs and creates AI agents fo
 
 3) CHOOSE CONFIGURATION:
    - adapter: \`claude\` (AI tasks), \`shell\` (bash scripts), \`codex\` (OpenAI Codex), \`cursor\` (Cursor IDE), \`opencode\` (OpenCode — multi-provider)
-   - model: \`claude-opus-4-6\` (complex/architectural), \`claude-sonnet-4-6\` (fast/routine), \`claude-haiku-4-5-20251001\` (simple/templated)
+   - model: choose based on task complexity — use the \`capable\` tier for architecture/review, \`balanced\` for routine work, \`fast\` for simple/templated tasks. Model names vary by adapter.
    - approval_policy: \`auto\` (no confirmation) / \`suggest\` (proposes actions) / \`manual\` (human approval)
    - max_turns: 50 (default), up to 100 for complex tasks
 
 4) CREATE:
-   \`orch agent add "<name>" --adapter claude --model <model> --skills "<skills>" --role "<role>" --approval-policy auto\`
+   \`orch agent add "<name>" --adapter <adapter> --model <model> --skills "<skills>" --role "<role>" --approval-policy auto\`
 
 ## SKILL TYPES
 
@@ -70,21 +71,28 @@ After creation — \`orch context set agent-<name> "<capabilities>"\`.`;
 
 /**
  * Returns the list of agents that should be created during `orch init`.
+ * Adapter and model are resolved from the user's chosen default adapter.
  */
-export function getDefaultAgents(): Agent[] {
+export function getDefaultAgents(adapter: string = 'claude'): Agent[] {
+  const model = resolveModel(adapter, 'balanced');
+  // MCP skills (colon-format) only work with Claude CLI
+  const skills: string[] = adapter === 'claude'
+    ? ['document-skills:skill-creator']
+    : [];
+
   return [
     {
       id: 'agt_creator',
       name: 'Agent Creator',
-      adapter: 'claude',
+      adapter,
       role: AGENT_CREATOR_ROLE,
       config: {
-        model: 'claude-sonnet-4-6',
+        model: model || undefined,
         approval_policy: 'suggest',
         max_turns: 50,
         timeout_ms: 3_600_000,
         stall_timeout_ms: 300_000,
-        skills: ['document-skills:skill-creator'],
+        skills,
       },
       status: 'idle',
       stats: {

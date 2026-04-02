@@ -13,6 +13,7 @@ import type { Team } from '../domain/team.js';
 import type { CreateTeamInput } from '../domain/team.js';
 import { AGENT_SHOP_TEMPLATES, getShopTemplateByKey } from '../domain/agent-shop.js';
 import type { AgentShopTemplate } from '../domain/agent-shop.js';
+import { resolveModel } from '../domain/model-tiers.js';
 
 // ── Model catalogs per adapter ──
 
@@ -160,15 +161,18 @@ export function getShopWizardSteps(): WizardStep[] {
 export function applyShopTemplate(
   baseSteps: WizardStep[],
   template: AgentShopTemplate,
+  defaultAdapter: string,
 ): WizardStep[] {
+  const resolvedModel = resolveModel(defaultAdapter, template.tier);
+
   return baseSteps.map((step): WizardStep => {
     switch (step.id) {
       case 'name':
         return { ...step, defaultValue: template.name };
       case 'adapter':
-        return { ...step, defaultValue: template.adapter };
+        return { ...step, defaultValue: defaultAdapter };
       case 'model':
-        return { ...step, defaultValue: template.model };
+        return { ...step, defaultValue: resolvedModel };
       case 'role':
         return { ...step, defaultValue: '__custom__' };
       case 'role_custom':
@@ -267,14 +271,14 @@ export function getAgentWizardSteps(agents?: Agent[], teams?: Team[]): WizardSte
 }
 
 /** Convert wizard values → CreateAgentInput-compatible object */
-export function agentWizardToInput(vals: Record<string, string>) {
+export function agentWizardToInput(vals: Record<string, string>, defaultAdapter: string = 'claude') {
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
   const skills = vals.skills ? vals.skills.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
   const approval_policy = (vals.approval_policy as 'auto' | 'suggest' | 'manual' | undefined) || 'auto';
   const effort = (vals.effort as ReasoningEffort | undefined) || undefined;
   return {
     name: vals.name!,
-    adapter: vals.adapter || 'claude',
+    adapter: vals.adapter || defaultAdapter,
     role,
     model: vals.model || undefined,
     effort,

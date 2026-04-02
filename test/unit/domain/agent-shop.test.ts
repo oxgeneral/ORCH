@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { AGENT_SHOP_TEMPLATES, getShopTemplateByKey } from '../../../src/domain/agent-shop.js';
 import type { AgentShopTemplate } from '../../../src/domain/agent-shop.js';
 import { getShopWizardSteps, applyShopTemplate, agentWizardToInput, getAgentWizardSteps } from '../../../src/tui/wizardConfigs.js';
+import { resolveModel } from '../../../src/domain/model-tiers.js';
 
 describe('Agent Shop catalog', () => {
   it('has 15 templates', () => {
@@ -13,8 +14,7 @@ describe('Agent Shop catalog', () => {
       expect(t.key).toBeTruthy();
       expect(t.name).toBeTruthy();
       expect(t.description).toBeTruthy();
-      expect(t.adapter).toBeTruthy();
-      expect(t.model).toBeTruthy();
+      expect(['capable', 'balanced', 'fast']).toContain(t.tier);
       expect(t.role).toBeTruthy();
       expect(t.skills.length).toBeGreaterThan(0);
       expect(['auto', 'suggest', 'manual']).toContain(t.approval_policy);
@@ -47,6 +47,14 @@ describe('Agent Shop catalog', () => {
       expect(t.role).toContain('## RULES');
     }
   });
+
+  it('capable tier used for complex roles', () => {
+    const capable = AGENT_SHOP_TEMPLATES.filter((t) => t.tier === 'capable');
+    const keys = capable.map((t) => t.key);
+    expect(keys).toContain('code-reviewer');
+    expect(keys).toContain('architect');
+    expect(keys).toContain('security-auditor');
+  });
 });
 
 describe('Shop wizard steps', () => {
@@ -75,8 +83,7 @@ describe('applyShopTemplate', () => {
     key: 'test-agent',
     name: 'Test Agent',
     description: 'test',
-    adapter: 'claude',
-    model: 'claude-sonnet-4-6',
+    tier: 'balanced',
     approval_policy: 'suggest',
     skills: ['feature-dev:feature-dev', 'testing-suite:generate-tests'],
     role: 'Test role prompt\n## WORKFLOW\n1) Do stuff\n## RULES\n- Be good',
@@ -84,35 +91,35 @@ describe('applyShopTemplate', () => {
 
   it('injects name defaultValue', () => {
     const base = getAgentWizardSteps();
-    const result = applyShopTemplate(base, template);
+    const result = applyShopTemplate(base, template, 'claude');
     const nameStep = result.find((s) => s.id === 'name');
     expect(nameStep!.defaultValue).toBe('Test Agent');
   });
 
-  it('injects adapter defaultValue', () => {
+  it('injects adapter defaultValue from provided adapter', () => {
     const base = getAgentWizardSteps();
-    const result = applyShopTemplate(base, template);
+    const result = applyShopTemplate(base, template, 'opencode');
     const adapterStep = result.find((s) => s.id === 'adapter');
-    expect(adapterStep!.defaultValue).toBe('claude');
+    expect(adapterStep!.defaultValue).toBe('opencode');
   });
 
-  it('injects model defaultValue', () => {
+  it('injects model defaultValue resolved from tier + adapter', () => {
     const base = getAgentWizardSteps();
-    const result = applyShopTemplate(base, template);
+    const result = applyShopTemplate(base, template, 'claude');
     const modelStep = result.find((s) => s.id === 'model');
-    expect(modelStep!.defaultValue).toBe('claude-sonnet-4-6');
+    expect(modelStep!.defaultValue).toBe(resolveModel('claude', 'balanced'));
   });
 
   it('forces role to __custom__', () => {
     const base = getAgentWizardSteps();
-    const result = applyShopTemplate(base, template);
+    const result = applyShopTemplate(base, template, 'claude');
     const roleStep = result.find((s) => s.id === 'role');
     expect(roleStep!.defaultValue).toBe('__custom__');
   });
 
   it('injects role prompt into role_custom and removes skip', () => {
     const base = getAgentWizardSteps();
-    const result = applyShopTemplate(base, template);
+    const result = applyShopTemplate(base, template, 'claude');
     const customStep = result.find((s) => s.id === 'role_custom');
     expect(customStep!.defaultValue).toBe(template.role);
     expect(customStep!.skip).toBeUndefined();
@@ -120,7 +127,7 @@ describe('applyShopTemplate', () => {
 
   it('injects skills as comma-separated string', () => {
     const base = getAgentWizardSteps();
-    const result = applyShopTemplate(base, template);
+    const result = applyShopTemplate(base, template, 'claude');
     const skillsStep = result.find((s) => s.id === 'skills');
     expect(skillsStep!.defaultValue).toBe('feature-dev:feature-dev, testing-suite:generate-tests');
   });
@@ -128,7 +135,7 @@ describe('applyShopTemplate', () => {
   it('does not mutate original steps', () => {
     const base = getAgentWizardSteps();
     const nameDefault = base.find((s) => s.id === 'name')!.defaultValue;
-    applyShopTemplate(base, template);
+    applyShopTemplate(base, template, 'claude');
     expect(base.find((s) => s.id === 'name')!.defaultValue).toBe(nameDefault);
   });
 });
@@ -153,5 +160,10 @@ describe('agentWizardToInput with skills', () => {
       role: '',
     });
     expect(input.skills).toBeUndefined();
+  });
+
+  it('uses defaultAdapter when adapter not in vals', () => {
+    const input = agentWizardToInput({ name: 'Test', role: '' }, 'opencode');
+    expect(input.adapter).toBe('opencode');
   });
 });

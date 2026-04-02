@@ -34,7 +34,7 @@ export async function pickFromShop(templates: AgentShopTemplate[]): Promise<Agen
       const cursor = isSelected ? chalk.yellow('  \u25B8 ') : '    ';
       const name = isSelected ? chalk.bold.white(t.name) : chalk.gray(t.name);
       const desc = chalk.gray(` \u2014 ${t.description}`);
-      const model = chalk.gray.dim(` [${t.model.replace('claude-', '')}]`);
+      const model = chalk.gray.dim(` [${t.tier}]`);
       console.log(`${cursor}${name}${desc}${model}`);
     }
 

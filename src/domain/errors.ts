@@ -54,7 +54,7 @@ export class AgentAdapterError extends OrchestryError {
 
 export class NoAgentsError extends OrchestryError {
   constructor() {
-    super('No agents configured', 1, 'Run: orch agent add <name> --adapter claude');
+    super('No agents configured', 1, 'Run: orch agent add <name> --adapter <adapter>');
     this.name = 'NoAgentsError';
   }
 }

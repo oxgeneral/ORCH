@@ -15,9 +15,14 @@ export type { OrchestratorEvent, OrchestratorEventType, EventPayload } from './d
 export { OrchestryError, NotInitializedError, TaskNotFoundError, AgentNotFoundError, GoalHasPendingTasksError, WorkspaceError, AdapterErrorKind, ERROR_HINTS, classifyAdapterError } from './domain/errors.js';
 export type { AdapterErrorHint } from './domain/errors.js';
 export { canTransition, isTerminal, isDispatchable, isBlocked, resolveFailureStatus } from './domain/transitions.js';
+export type { AdapterKind, ModelTier } from './domain/model-tiers.js';
+export { resolveModel, defaultModelForAdapter, isAdapterKind, isModelTier, MODEL_TIER_MAP, SUPPORTED_ADAPTERS } from './domain/model-tiers.js';
+export type { AgentShopTemplate } from './domain/agent-shop.js';
+export { AGENT_SHOP_TEMPLATES, getShopTemplateByKey } from './domain/agent-shop.js';
 
 // Application
 export { EventBus } from './application/event-bus.js';
+export { templateToAgentInput, isMcpSkill } from './application/agent-factory.js';
 export { TaskService } from './application/task-service.js';
 export { AgentService } from './application/agent-service.js';
 export { RunService } from './application/run-service.js';

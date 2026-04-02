@@ -7,6 +7,7 @@
 import type { Command } from 'commander';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import readline from 'node:readline';
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
 import { Paths } from '../../infrastructure/storage/paths.js';
@@ -15,12 +16,13 @@ import { writeYaml, atomicWrite } from '../../infrastructure/storage/fs-utils.js
 import { DEFAULT_CONFIG } from '../../domain/config.js';
 import { DEFAULT_PROMPT_TEMPLATE } from '../../infrastructure/template/template-engine.js';
 import { getDefaultAgents } from '../../domain/default-agents.js';
-import { printSuccess, printWarning, dim } from '../output.js';
+import { SUPPORTED_ADAPTERS, isAdapterKind } from '../../domain/model-tiers.js';
+import { printSuccess, printWarning, printError, dim } from '../output.js';
 
 const execFileAsync = promisify(execFileCb);
 
 /** Run init logic directly (used by auto-init on bare `orch`). */
-export async function runInit(opts: { name?: string } = {}): Promise<void> {
+export async function runInit(opts: { name?: string; adapter?: string } = {}): Promise<void> {
   const projectRoot = process.cwd();
   const paths = new Paths(projectRoot);
 
@@ -28,6 +30,9 @@ export async function runInit(opts: { name?: string } = {}): Promise<void> {
     printWarning('Already initialized');
     return;
   }
+
+  // Detect / select default adapter
+  const chosenAdapter = opts.adapter ?? await detectAndSelectAdapter();
 
   // Create directory structure (all siblings, no deps — parallel)
   await Promise.all([
@@ -45,6 +50,7 @@ export async function runInit(opts: { name?: string } = {}): Promise<void> {
   // Write config + static files (independent — parallel)
   const config = structuredClone(DEFAULT_CONFIG);
   config.project.name = opts.name ?? path.basename(projectRoot);
+  config.defaults.agent.adapter = chosenAdapter;
 
   // Fall back to shared mode when git is not available
   if (!gitAvailable) {
@@ -77,7 +83,7 @@ export async function runInit(opts: { name?: string } = {}): Promise<void> {
     '.venv',
   ].join('\n') + '\n';
 
-  const defaultAgents = getDefaultAgents();
+  const defaultAgents = getDefaultAgents(chosenAdapter);
 
   await Promise.all([
     writeYaml(paths.configPath, config),
@@ -109,6 +115,76 @@ export async function runInit(opts: { name?: string } = {}): Promise<void> {
   console.log(`  ${dim('├──')} templates/default.md`);
   console.log(`  ${dim('└──')} .gitignore`);
   console.log();
+}
+
+// ── Adapter detection ──
+
+interface AdapterCheckResult {
+  name: string;
+  ok: boolean;
+  version?: string;
+}
+
+/**
+ * Detect available adapters and let the user choose one.
+ * - If only one adapter is available → auto-select.
+ * - If multiple → prompt interactively (TTY) or default to first found.
+ * - If none found → default to 'claude'.
+ */
+async function detectAndSelectAdapter(): Promise<string> {
+  // Check all adapters in parallel via --version
+  const checks = await Promise.all(
+    SUPPORTED_ADAPTERS.filter((a) => a !== 'shell').map(async (name): Promise<AdapterCheckResult> => {
+      // Cursor has two possible binary names
+      const cmdsToTry = name === 'cursor' ? ['cursor-agent', 'agent'] : [name];
+      for (const cmd of cmdsToTry) {
+        try {
+          const { stdout } = await execFileAsync(cmd, ['--version'], { timeout: 5_000 });
+          return { name, ok: true, version: stdout.trim().split('\n')[0] };
+        } catch { /* try next */ }
+      }
+      return { name, ok: false };
+    }),
+  );
+
+  const available = checks.filter((c) => c.ok);
+
+  if (available.length === 0) {
+    console.log(`  ${dim('No AI adapters detected — defaulting to claude')}`);
+    return 'claude';
+  }
+
+  if (available.length === 1) {
+    console.log(`  ${dim(`Detected: ${available[0]!.name}`)} ${dim(available[0]!.version ? `(${available[0]!.version})` : '')}`);
+    return available[0]!.name;
+  }
+
+  // Multiple adapters available — prompt if TTY
+  if (!process.stdout.isTTY || !process.stdin.isTTY) {
+    return available[0]!.name;
+  }
+
+  console.log();
+  console.log('  Available adapters:');
+  for (let i = 0; i < available.length; i++) {
+    const c = available[i]!;
+    console.log(`    ${i + 1}) ${c.name} ${dim(c.version ?? '')}`);
+  }
+  console.log();
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = await new Promise<string>((resolve) => {
+      rl.question(`  Choose default adapter [1-${available.length}]: `, resolve);
+    });
+    const idx = parseInt(answer, 10) - 1;
+    if (idx >= 0 && idx < available.length) {
+      return available[idx]!.name;
+    }
+    return available[0]!.name;
+  } finally {
+    rl.close();
+  }
 }
 
 /**
@@ -174,7 +250,13 @@ export function registerInitCommand(program: Command): void {
     .command('init')
     .description('Initialize .orchestry/ in the current directory')
     .option('--name <name>', 'Project name')
-    .action(async (opts: { name?: string }) => {
+    .option('--adapter <adapter>', 'Default agent adapter (claude, opencode, codex, cursor, shell)')
+    .action(async (opts: { name?: string; adapter?: string }) => {
+      if (opts.adapter && !isAdapterKind(opts.adapter)) {
+        printError(`Unknown adapter "${opts.adapter}"`, `Supported: ${SUPPORTED_ADAPTERS.join(', ')}`);
+        process.exitCode = 2;
+        return;
+      }
       await runInit(opts);
       console.log(`  Next: ${dim('orch task add "Create backend agent" --assignee agt_creator')}`);
       console.log();

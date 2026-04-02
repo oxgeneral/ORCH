@@ -8,6 +8,7 @@ import type { Command } from 'commander';
 import type { LightContainer } from '../../container.js';
 import { ORG_TEMPLATES, getOrgTemplateByKey } from '../../domain/org-shop.js';
 import { getShopTemplateByKey } from '../../domain/agent-shop.js';
+import { templateToAgentInput } from '../../application/agent-factory.js';
 import { printSuccess, printError, printTable, dim } from '../output.js';
 
 export function registerOrgCommand(program: Command, container: LightContainer): void {
@@ -69,13 +70,11 @@ export function registerOrgCommand(program: Command, container: LightContainer):
         }
 
         try {
+          const defaultAdapter = container.config.defaults.agent.adapter;
+          const input = templateToAgentInput(shopTemplate, defaultAdapter);
           const agent = await container.agentService.create({
+            ...input,
             name: entry.name,
-            adapter: shopTemplate.adapter,
-            role: shopTemplate.role,
-            model: shopTemplate.model,
-            approval_policy: shopTemplate.approval_policy,
-            skills: shopTemplate.skills,
           });
           agentIds.push(agent.id);
         } catch (err) {

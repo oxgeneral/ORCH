@@ -83,8 +83,8 @@ export function registerAgentCommand(program: Command, container: LightContainer
 
       if (opts.list || !process.stdout.isTTY) {
         printTable(
-          ['Key', 'Name', 'Adapter', 'Model', 'Skills'],
-          AGENT_SHOP_TEMPLATES.map((t) => [t.key, t.name, t.adapter, t.model.replace('claude-', ''), t.skills.slice(0, 2).join(', ')]),
+          ['Key', 'Name', 'Tier', 'Skills'],
+          AGENT_SHOP_TEMPLATES.map((t) => [t.key, t.name, t.tier, t.skills.slice(0, 2).join(', ')]),
         );
         return;
       }
@@ -97,14 +97,10 @@ export function registerAgentCommand(program: Command, container: LightContainer
         return;
       }
 
-      const a = await container.agentService.create({
-        name: template.name,
-        adapter: template.adapter,
-        model: template.model,
-        role: template.role,
-        skills: template.skills,
-        approval_policy: template.approval_policy,
-      });
+      const { templateToAgentInput } = await import('../../application/agent-factory.js');
+      const defaultAdapter = container.config.defaults.agent.adapter;
+      const input = templateToAgentInput(template, defaultAdapter);
+      const a = await container.agentService.create(input);
 
       printSuccess(`Added agent ${agentName(a.name)} (${a.adapter}) → ${a.id}`);
     });
@@ -127,7 +123,7 @@ export function registerAgentCommand(program: Command, container: LightContainer
       }
 
       if (agents.length === 0) {
-        console.log(`\n  No agents. Add one: ${dim('orch agent add <name> --adapter claude')}\n`);
+        console.log(`\n  No agents. Add one: ${dim('orch agent add <name> --adapter <adapter>')}\n`);
         return;
       }
 

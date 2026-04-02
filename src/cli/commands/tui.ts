@@ -81,7 +81,7 @@ export function registerTuiCommand(program: Command, container: Container): void
       const onAddAgent = async (name: string, adapter?: string, opts?: { model?: string; effort?: string; role?: string; approval_policy?: string; skills?: string[] }) => {
         return container.agentService.create({
           name,
-          adapter: adapter ?? 'claude',
+          adapter: adapter ?? container.config.defaults.agent.adapter,
           model: opts?.model || undefined,
           effort: (opts?.effort as import('../../domain/agent.js').ReasoningEffort) || undefined,
           role: opts?.role || undefined,
@@ -334,6 +334,7 @@ export function registerTuiCommand(program: Command, container: Container): void
             s.onboardingCompleted = true;
             await container.stateStore.write(s);
           },
+          defaultAdapter: container.config.defaults.agent.adapter,
         }),
         { incrementalRendering: true, kittyKeyboard: { mode: 'auto', flags: ['disambiguateEscapeCodes'] } },
       );

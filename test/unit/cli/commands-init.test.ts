@@ -83,16 +83,27 @@ describe('getDefaultAgents()', () => {
     expect(getDefaultAgents()[0].name).toBe('Agent Creator');
   });
 
-  it('agent has adapter=claude', () => {
+  it('defaults to adapter=claude when no argument', () => {
     expect(getDefaultAgents()[0].adapter).toBe('claude');
   });
 
-  it('agent has model=claude-sonnet-4-6', () => {
-    expect(getDefaultAgents()[0].config.model).toBe('claude-sonnet-4-6');
+  it('uses provided adapter', () => {
+    expect(getDefaultAgents('opencode')[0].adapter).toBe('opencode');
+    expect(getDefaultAgents('codex')[0].adapter).toBe('codex');
   });
 
-  it('agent has skills=[document-skills:skill-creator]', () => {
-    expect(getDefaultAgents()[0].config.skills).toEqual(['document-skills:skill-creator']);
+  it('resolves model from adapter tier', () => {
+    expect(getDefaultAgents('claude')[0].config.model).toBe('claude-sonnet-4-6');
+    expect(getDefaultAgents('codex')[0].config.model).toBe('gpt-5.3-codex');
+  });
+
+  it('includes MCP skills for claude adapter', () => {
+    expect(getDefaultAgents('claude')[0].config.skills).toEqual(['document-skills:skill-creator']);
+  });
+
+  it('excludes MCP skills for non-claude adapters', () => {
+    expect(getDefaultAgents('opencode')[0].config.skills).toEqual([]);
+    expect(getDefaultAgents('codex')[0].config.skills).toEqual([]);
   });
 
   it('agent has approval_policy=suggest', () => {

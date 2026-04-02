@@ -187,6 +187,8 @@ export interface AppProps {
   onGetGoalProgress?: (goalId: string) => Promise<string | undefined>;
   /** Callback to persist onboardingCompleted=true when onboarding finishes */
   onCompleteOnboarding?: () => Promise<void>;
+  /** Default adapter from project config (used for agent shop template resolution) */
+  defaultAdapter?: string;
 }
 
 type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
@@ -333,6 +335,7 @@ export function App({
   latestVersion: initialLatestVersion,
   onCheckUpdate,
   onBackgroundInstall,
+  defaultAdapter = 'claude',
 }: AppProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -1025,7 +1028,7 @@ export function App({
       const template = templateKey ? getShopTemplateByKey(templateKey) : undefined;
       if (template) {
         const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current);
-        const prefilledSteps = applyShopTemplate(baseSteps, template);
+        const prefilledSteps = applyShopTemplate(baseSteps, template, defaultAdapter);
         setWizardConfig({
           title: `NEW AGENT \u2014 ${template.name}`,
           steps: prefilledSteps,
@@ -1039,7 +1042,7 @@ export function App({
     }
 
     if ((kind === 'agent' || kind === 'agent_from_shop') && onAddAgent) {
-      const input = agentWizardToInput(values);
+      const input = agentWizardToInput(values, defaultAdapter);
       addMessage(`Creating agent "${input.name}"...`, tuiColors.amber);
       onAddAgent(input.name, input.adapter, {
         model: input.model,
@@ -1187,7 +1190,7 @@ export function App({
     const template = getShopTemplateByKey(templateKey);
     if (!template) return;
     const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current);
-    const prefilledSteps = applyShopTemplate(baseSteps, template);
+    const prefilledSteps = applyShopTemplate(baseSteps, template, defaultAdapter);
     setWizardConfig({
       title: `NEW AGENT \u2014 ${template.name}`,
       steps: prefilledSteps,
