@@ -2,8 +2,8 @@
  * Goal service — business logic for goal lifecycle.
  *
  * Goals are persistent objectives that drive autonomous agent work.
- * State machine: active → achieved | abandoned
- *                active ↔ paused
+ * State machine: active → achieved | abandoned | paused
+ *                paused → active | achieved | abandoned
  *
  * Side effect: assigning an agent to a goal auto-enables autonomous mode;
  * removing the last active goal from an agent auto-disables it.
@@ -22,7 +22,7 @@ import type { TaskService } from './task-service.js';
 
 const VALID_TRANSITIONS: Record<GoalStatus, GoalStatus[]> = {
   active: ['paused', 'achieved', 'abandoned'],
-  paused: ['active', 'abandoned'],
+  paused: ['active', 'achieved', 'abandoned'],
   achieved: [],
   abandoned: [],
 };
@@ -82,10 +82,14 @@ export class GoalService {
       );
     }
 
-    // Guard: block achieved if child tasks are still pending
+    // Guard: block achieved if child tasks are still pending.
+    // Autonomous [auto] tasks are excluded — they are the mechanism for achieving
+    // the goal and will be cleaned up by side effects after status change.
     if (newStatus === 'achieved' && this.taskService) {
       const childTasks = await this.taskService.list({ goalId: id });
-      const pending = childTasks.filter((t) => !isTaskTerminal(t.status));
+      const pending = childTasks.filter(
+        (t) => !isTaskTerminal(t.status) && !t.labels?.includes(AUTONOMOUS_LABEL),
+      );
       if (pending.length > 0) {
         if (opts?.force) {
           // Force mode: cancel tasks that are safe to cancel at storage level.

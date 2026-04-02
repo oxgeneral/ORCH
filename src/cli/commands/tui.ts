@@ -207,8 +207,8 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.goalService.update(id, fields);
       };
 
-      const onUpdateGoalStatus = async (id: string, status: import('../../domain/goal.js').GoalStatus) => {
-        return container.goalService.updateStatus(id, status);
+      const onUpdateGoalStatus = async (id: string, status: import('../../domain/goal.js').GoalStatus, opts?: { force?: boolean }) => {
+        return container.goalService.updateStatus(id, status, opts);
       };
 
       const onDeleteGoal = async (id: string) => {

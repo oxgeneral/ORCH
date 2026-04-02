@@ -447,6 +447,64 @@ describe('GoalService autonomous mode side effects', () => {
       }
     });
 
+    it('excludes autonomous [auto] tasks from pending check', async () => {
+      const goal = makeGoal({ id: 'goal_auto1', status: 'active', assignee: 'agt_a' });
+      const tasks = [
+        makeTask({ id: 'tsk_auto', status: 'in_progress', goalId: 'goal_auto1', labels: ['autonomous'] }),
+        makeTask({ id: 'tsk_done', status: 'done', goalId: 'goal_auto1' }),
+      ];
+      const goalStore = createMockGoalStore([goal]);
+      const agentService = createMockAgentService();
+      const taskService = createMockTaskService(tasks);
+      const svc = new GoalService(goalStore, eventBus, agentService as any, taskService as any);
+
+      // The [auto] task is in_progress but should be excluded — no deadlock
+      const result = await svc.updateStatus('goal_auto1', 'achieved');
+      expect(result.status).toBe('achieved');
+    });
+
+    it('still blocks on non-autonomous in_progress tasks', async () => {
+      const goal = makeGoal({ id: 'goal_block', status: 'active' });
+      const tasks = [
+        makeTask({ id: 'tsk_auto', status: 'in_progress', goalId: 'goal_block', labels: ['autonomous'] }),
+        makeTask({ id: 'tsk_user', status: 'in_progress', goalId: 'goal_block', labels: [] }),
+      ];
+      const goalStore = createMockGoalStore([goal]);
+      const taskService = createMockTaskService(tasks);
+      const svc = new GoalService(goalStore, eventBus, undefined, taskService as any);
+
+      await expect(svc.updateStatus('goal_block', 'achieved'))
+        .rejects.toThrow(GoalHasPendingTasksError);
+    });
+
+    it('paused → achieved is allowed and calls maybeDisableAutonomous', async () => {
+      const goal = makeGoal({ id: 'goal_pa1', status: 'paused', assignee: 'agt_pa' });
+      const goalStore = createMockGoalStore([goal]);
+      const agentService = createMockAgentService();
+      const taskService = createMockTaskService([]);
+      const svc = new GoalService(goalStore, eventBus, agentService as any, taskService as any);
+
+      const result = await svc.updateStatus('goal_pa1', 'achieved');
+      expect(result.status).toBe('achieved');
+      expect(agentService.setAutonomous).toHaveBeenCalledWith('agt_pa', false);
+    });
+
+    it('paused → achieved with force cancels pending non-auto tasks', async () => {
+      const goal = makeGoal({ id: 'goal_pf1', status: 'paused' });
+      const tasks = [
+        makeTask({ id: 'tsk_pf1', status: 'todo', goalId: 'goal_pf1' }),
+        makeTask({ id: 'tsk_pf2', status: 'review', goalId: 'goal_pf1' }),
+      ];
+      const goalStore = createMockGoalStore([goal]);
+      const taskService = createMockTaskService(tasks);
+      const svc = new GoalService(goalStore, eventBus, undefined, taskService as any);
+
+      const result = await svc.updateStatus('goal_pf1', 'achieved', { force: true });
+      expect(result.status).toBe('achieved');
+      expect(taskService.cancel).toHaveBeenCalledWith('tsk_pf1');
+      expect(taskService.cancel).toHaveBeenCalledWith('tsk_pf2');
+    });
+
     it('skips validation when taskService is not provided', async () => {
       const goal = makeGoal({ id: 'goal_notsk', status: 'active' });
       const goalStore = createMockGoalStore([goal]);

@@ -5,8 +5,8 @@
  * Goals have lower priority than tasks — agents work on goals only
  * when no regular tasks are available.
  *
- * State machine: active → achieved | abandoned
- *                active ↔ paused
+ * State machine: active → achieved | abandoned | paused
+ *                paused → active | achieved | abandoned
  */
 
 export const GOAL_STATUSES = ['active', 'paused', 'achieved', 'abandoned'] as const;

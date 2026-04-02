@@ -182,7 +182,7 @@ export interface AppProps {
   onRefreshGoals?: () => Promise<Goal[]>;
   onCreateGoal?: (input: { title: string; description?: string; assignee?: string }) => Promise<Goal>;
   onUpdateGoal?: (id: string, fields: { title?: string; description?: string; assignee?: string }) => Promise<Goal>;
-  onUpdateGoalStatus?: (id: string, status: GoalStatus) => Promise<Goal>;
+  onUpdateGoalStatus?: (id: string, status: GoalStatus, opts?: { force?: boolean }) => Promise<Goal>;
   onDeleteGoal?: (id: string) => Promise<void>;
   onGetGoalProgress?: (goalId: string) => Promise<string | undefined>;
   /** Callback to persist onboardingCompleted=true when onboarding finishes */
@@ -2038,11 +2038,11 @@ export function App({
       return;
     }
 
-    // C: mark goal as achieved / abandon
+    // C: mark goal as achieved (force: cancel cancellable pending tasks)
     if ((input === 'c' || input === 'C') && activeView === 'goals' && selectedGoal && onUpdateGoalStatus) {
       if (selectedGoal.status === 'active' || selectedGoal.status === 'paused') {
-        addMessage(`Marking goal "${selectedGoal.title}" as achieved...`, tuiColors.amber);
-        onUpdateGoalStatus(selectedGoal.id, 'achieved').then(
+        addMessage(`Marking goal "${selectedGoal.title}" as achieved (pending tasks will be cancelled)...`, tuiColors.amber);
+        onUpdateGoalStatus(selectedGoal.id, 'achieved', { force: true }).then(
           () => { addMessage(`\u2713 Goal "${selectedGoal.title}" achieved`, tuiColors.green); refreshAll(); },
           (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
         );
