@@ -75,10 +75,10 @@ describe('Logs filter status bar', () => {
     const agents = [makeAgent({ id: 'a1', name: 'Backend A' })];
     const { lastFrame, stdin } = renderApp(agents);
     stdin.write('l'); // switch to logs tab
-    await delay(50);
+    await delay(100);
     // Press F to cycle type filter (from 'all' to a subset)
     stdin.write('F');
-    await delay(50);
+    await delay(100);
     const output = lastFrame()!;
     // Status bar should show type filter inline (e.g. "f:text")
     expect(output).toContain('f:');
