@@ -135,14 +135,15 @@ export function registerGoalCommand(program: Command, container: LightContainer)
   goal
     .command('status <id> <status>')
     .description('Change goal status (active, paused, achieved, abandoned)')
-    .action(async (id: string, status: string) => {
+    .option('--force', 'Force transition: cancel pending tasks when marking achieved')
+    .action(async (id: string, status: string, opts: { force?: boolean }) => {
 
       if (!(GOAL_STATUSES as readonly string[]).includes(status)) {
         printError(`Invalid status "${status}". Valid: ${GOAL_STATUSES.join(', ')}`);
         process.exitCode = 1;
         return;
       }
-      const g = await container.goalService.updateStatus(id, status as GoalStatus);
+      const g = await container.goalService.updateStatus(id, status as GoalStatus, { force: opts.force });
 
       if (container.context.json) {
         console.log(JSON.stringify(g, null, 2));

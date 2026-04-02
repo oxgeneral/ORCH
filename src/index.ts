@@ -12,7 +12,7 @@ export { createTokenUsage } from './domain/run.js';
 export type { OrchestratorConfig, ProjectConfig, SchedulingConfig } from './domain/config.js';
 export type { OrchestratorState, RunningEntry, RetryEntry } from './domain/state.js';
 export type { OrchestratorEvent, OrchestratorEventType, EventPayload } from './domain/events.js';
-export { OrchestryError, NotInitializedError, TaskNotFoundError, AgentNotFoundError, WorkspaceError, AdapterErrorKind, ERROR_HINTS, classifyAdapterError } from './domain/errors.js';
+export { OrchestryError, NotInitializedError, TaskNotFoundError, AgentNotFoundError, GoalHasPendingTasksError, WorkspaceError, AdapterErrorKind, ERROR_HINTS, classifyAdapterError } from './domain/errors.js';
 export type { AdapterErrorHint } from './domain/errors.js';
 export { canTransition, isTerminal, isDispatchable, isBlocked, resolveFailureStatus } from './domain/transitions.js';
 

@@ -13,7 +13,8 @@ import { nanoid } from 'nanoid';
 import type { Goal, GoalStatus, CreateGoalInput } from '../domain/goal.js';
 import { isGoalTerminal } from '../domain/goal.js';
 import { AUTONOMOUS_LABEL, type Task } from '../domain/task.js';
-import { GoalNotFoundError, InvalidArgumentsError } from '../domain/errors.js';
+import { isTerminal as isTaskTerminal } from '../domain/transitions.js';
+import { GoalNotFoundError, GoalHasPendingTasksError, InvalidArgumentsError } from '../domain/errors.js';
 import type { IGoalStore, IContextStore } from '../infrastructure/storage/interfaces.js';
 import type { EventBus } from './event-bus.js';
 import type { AgentService } from './agent-service.js';
@@ -71,7 +72,7 @@ export class GoalService {
     return goal;
   }
 
-  async updateStatus(id: string, newStatus: GoalStatus): Promise<Goal> {
+  async updateStatus(id: string, newStatus: GoalStatus, opts?: { force?: boolean }): Promise<Goal> {
     const goal = await this.get(id);
     const oldStatus = goal.status;
 
@@ -79,6 +80,23 @@ export class GoalService {
       throw new InvalidArgumentsError(
         `Cannot transition goal from '${oldStatus}' to '${newStatus}'`,
       );
+    }
+
+    // Guard: block achieved if child tasks are still pending
+    if (newStatus === 'achieved' && this.taskService) {
+      const childTasks = await this.taskService.list({ goalId: id });
+      const pending = childTasks.filter((t) => !isTaskTerminal(t.status));
+      if (pending.length > 0) {
+        if (opts?.force) {
+          // Force mode: cancel all pending child tasks
+          await Promise.all(
+            pending.map((t) => this.taskService!.cancel(t.id).catch(() => {})),
+          );
+        } else {
+          const summary = pending.map((t) => `${t.id} (${t.status})`).join(', ');
+          throw new GoalHasPendingTasksError(id, pending.length, summary);
+        }
+      }
     }
 
     goal.status = newStatus;

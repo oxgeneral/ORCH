@@ -6,8 +6,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GoalService } from '../../../src/application/goal-service.js';
 import { EventBus } from '../../../src/application/event-bus.js';
+import { GoalHasPendingTasksError } from '../../../src/domain/errors.js';
 import type { IGoalStore } from '../../../src/infrastructure/storage/interfaces.js';
 import type { Goal } from '../../../src/domain/goal.js';
+import type { Task } from '../../../src/domain/task.js';
 
 // --- Helpers ---
 
@@ -47,6 +49,43 @@ function createMockGoalStore(goals: Goal[] = []): IGoalStore {
 function createMockAgentService() {
   return {
     setAutonomous: vi.fn(async (_id: string, _enabled: boolean) => {}),
+  };
+}
+
+function makeTask(overrides: Partial<Task> = {}): Task {
+  return {
+    id: 'tsk_test1',
+    title: 'Test task',
+    description: '',
+    status: 'todo',
+    priority: 3,
+    labels: [],
+    depends_on: [],
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+    attempts: 0,
+    max_attempts: 3,
+    ...overrides,
+  };
+}
+
+function createMockTaskService(tasks: Task[] = []) {
+  const store = new Map(tasks.map((t) => [t.id, structuredClone(t)]));
+  return {
+    list: vi.fn(async (filter?: { status?: string; goalId?: string }) => {
+      let result = [...store.values()];
+      if (filter?.goalId) result = result.filter((t) => t.goalId === filter.goalId);
+      if (filter?.status) result = result.filter((t) => t.status === filter.status);
+      return result;
+    }),
+    cancel: vi.fn(async (id: string) => {
+      const t = store.get(id);
+      if (t) {
+        t.status = 'cancelled';
+        store.set(id, t);
+      }
+      return t;
+    }),
   };
 }
 
@@ -259,6 +298,143 @@ describe('GoalService autonomous mode side effects', () => {
       const svc = new GoalService(goalStore, eventBus, agentService as any);
 
       await expect(svc.updateStatus('goal_err2', 'achieved')).resolves.not.toThrow();
+    });
+  });
+
+  describe('achieved blocks when child tasks are pending', () => {
+    it('throws GoalHasPendingTasksError when todo tasks exist for the goal', async () => {
+      const goal = makeGoal({ id: 'goal_pend1', status: 'active' });
+      const task = makeTask({ id: 'tsk_child1', status: 'todo', goalId: 'goal_pend1' });
+      const goalStore = createMockGoalStore([goal]);
+      const taskService = createMockTaskService([task]);
+      const svc = new GoalService(goalStore, eventBus, undefined, taskService as any);
+
+      await expect(svc.updateStatus('goal_pend1', 'achieved'))
+        .rejects.toThrow(GoalHasPendingTasksError);
+    });
+
+    it('throws when in_progress tasks exist for the goal', async () => {
+      const goal = makeGoal({ id: 'goal_pend2', status: 'active' });
+      const task = makeTask({ id: 'tsk_child2', status: 'in_progress', goalId: 'goal_pend2' });
+      const goalStore = createMockGoalStore([goal]);
+      const taskService = createMockTaskService([task]);
+      const svc = new GoalService(goalStore, eventBus, undefined, taskService as any);
+
+      await expect(svc.updateStatus('goal_pend2', 'achieved'))
+        .rejects.toThrow(GoalHasPendingTasksError);
+    });
+
+    it('throws when review tasks exist for the goal', async () => {
+      const goal = makeGoal({ id: 'goal_pend3', status: 'active' });
+      const task = makeTask({ id: 'tsk_child3', status: 'review', goalId: 'goal_pend3' });
+      const goalStore = createMockGoalStore([goal]);
+      const taskService = createMockTaskService([task]);
+      const svc = new GoalService(goalStore, eventBus, undefined, taskService as any);
+
+      await expect(svc.updateStatus('goal_pend3', 'achieved'))
+        .rejects.toThrow(GoalHasPendingTasksError);
+    });
+
+    it('allows achieved when all child tasks are in terminal states', async () => {
+      const goal = makeGoal({ id: 'goal_ok1', status: 'active' });
+      const tasks = [
+        makeTask({ id: 'tsk_done', status: 'done', goalId: 'goal_ok1' }),
+        makeTask({ id: 'tsk_fail', status: 'failed', goalId: 'goal_ok1' }),
+        makeTask({ id: 'tsk_canc', status: 'cancelled', goalId: 'goal_ok1' }),
+      ];
+      const goalStore = createMockGoalStore([goal]);
+      const taskService = createMockTaskService(tasks);
+      const svc = new GoalService(goalStore, eventBus, undefined, taskService as any);
+
+      const result = await svc.updateStatus('goal_ok1', 'achieved');
+      expect(result.status).toBe('achieved');
+    });
+
+    it('allows achieved when no child tasks exist', async () => {
+      const goal = makeGoal({ id: 'goal_empty', status: 'active' });
+      const goalStore = createMockGoalStore([goal]);
+      const taskService = createMockTaskService([]);
+      const svc = new GoalService(goalStore, eventBus, undefined, taskService as any);
+
+      const result = await svc.updateStatus('goal_empty', 'achieved');
+      expect(result.status).toBe('achieved');
+    });
+
+    it('force: cancels pending tasks and allows achieved', async () => {
+      const goal = makeGoal({ id: 'goal_force1', status: 'active' });
+      const tasks = [
+        makeTask({ id: 'tsk_f1', status: 'todo', goalId: 'goal_force1' }),
+        makeTask({ id: 'tsk_f2', status: 'in_progress', goalId: 'goal_force1' }),
+        makeTask({ id: 'tsk_f3', status: 'done', goalId: 'goal_force1' }),
+      ];
+      const goalStore = createMockGoalStore([goal]);
+      const taskService = createMockTaskService(tasks);
+      const svc = new GoalService(goalStore, eventBus, undefined, taskService as any);
+
+      const result = await svc.updateStatus('goal_force1', 'achieved', { force: true });
+      expect(result.status).toBe('achieved');
+      // Should cancel the 2 non-terminal tasks, not the done one
+      expect(taskService.cancel).toHaveBeenCalledTimes(2);
+      expect(taskService.cancel).toHaveBeenCalledWith('tsk_f1');
+      expect(taskService.cancel).toHaveBeenCalledWith('tsk_f2');
+    });
+
+    it('does not check tasks for non-achieved transitions', async () => {
+      const goal = makeGoal({ id: 'goal_pause', status: 'active', assignee: 'agt_x' });
+      const task = makeTask({ id: 'tsk_p1', status: 'todo', goalId: 'goal_pause' });
+      const goalStore = createMockGoalStore([goal]);
+      const agentService = createMockAgentService();
+      const taskService = createMockTaskService([task]);
+      const svc = new GoalService(goalStore, eventBus, agentService as any, taskService as any);
+
+      // paused should NOT check child tasks by goalId (cancelPendingAutonomousTasks may call list with status filter)
+      const result = await svc.updateStatus('goal_pause', 'paused');
+      expect(result.status).toBe('paused');
+      expect(taskService.list).not.toHaveBeenCalledWith({ goalId: 'goal_pause' });
+    });
+
+    it('does not check tasks for abandoned transition', async () => {
+      const goal = makeGoal({ id: 'goal_aband', status: 'active' });
+      const task = makeTask({ id: 'tsk_ab1', status: 'todo', goalId: 'goal_aband' });
+      const goalStore = createMockGoalStore([goal]);
+      const taskService = createMockTaskService([task]);
+      const svc = new GoalService(goalStore, eventBus, undefined, taskService as any);
+
+      // abandoned should NOT check child tasks — it's a deliberate "give up"
+      const result = await svc.updateStatus('goal_aband', 'abandoned');
+      expect(result.status).toBe('abandoned');
+    });
+
+    it('error message includes task IDs and statuses', async () => {
+      const goal = makeGoal({ id: 'goal_msg', status: 'active' });
+      const tasks = [
+        makeTask({ id: 'tsk_m1', status: 'todo', goalId: 'goal_msg' }),
+        makeTask({ id: 'tsk_m2', status: 'retrying', goalId: 'goal_msg' }),
+      ];
+      const goalStore = createMockGoalStore([goal]);
+      const taskService = createMockTaskService(tasks);
+      const svc = new GoalService(goalStore, eventBus, undefined, taskService as any);
+
+      try {
+        await svc.updateStatus('goal_msg', 'achieved');
+        expect.fail('Should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(GoalHasPendingTasksError);
+        const msg = (err as Error).message;
+        expect(msg).toContain('tsk_m1');
+        expect(msg).toContain('tsk_m2');
+        expect(msg).toContain('2 task(s) still pending');
+      }
+    });
+
+    it('skips validation when taskService is not provided', async () => {
+      const goal = makeGoal({ id: 'goal_notsk', status: 'active' });
+      const goalStore = createMockGoalStore([goal]);
+      // No taskService — should not throw even if child tasks would exist
+      const svc = new GoalService(goalStore, eventBus);
+
+      const result = await svc.updateStatus('goal_notsk', 'achieved');
+      expect(result.status).toBe('achieved');
     });
   });
 

@@ -98,6 +98,17 @@ export class GoalNotFoundError extends OrchestryError {
   }
 }
 
+export class GoalHasPendingTasksError extends OrchestryError {
+  constructor(goalId: string, count: number, summary: string) {
+    super(
+      `Cannot mark goal ${goalId} as achieved: ${count} task(s) still pending — ${summary}`,
+      1,
+      'Use --force to cancel pending tasks and mark achieved',
+    );
+    this.name = 'GoalHasPendingTasksError';
+  }
+}
+
 export class TeamNotFoundError extends OrchestryError {
   constructor(teamId: string) {
     super(`Team not found: ${teamId}`, 1);
