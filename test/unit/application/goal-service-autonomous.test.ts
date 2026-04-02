@@ -360,12 +360,13 @@ describe('GoalService autonomous mode side effects', () => {
       expect(result.status).toBe('achieved');
     });
 
-    it('force: cancels pending tasks and allows achieved', async () => {
+    it('force: cancels todo/retrying/review tasks and allows achieved', async () => {
       const goal = makeGoal({ id: 'goal_force1', status: 'active' });
       const tasks = [
         makeTask({ id: 'tsk_f1', status: 'todo', goalId: 'goal_force1' }),
-        makeTask({ id: 'tsk_f2', status: 'in_progress', goalId: 'goal_force1' }),
+        makeTask({ id: 'tsk_f2', status: 'retrying', goalId: 'goal_force1' }),
         makeTask({ id: 'tsk_f3', status: 'done', goalId: 'goal_force1' }),
+        makeTask({ id: 'tsk_f4', status: 'review', goalId: 'goal_force1' }),
       ];
       const goalStore = createMockGoalStore([goal]);
       const taskService = createMockTaskService(tasks);
@@ -373,10 +374,29 @@ describe('GoalService autonomous mode side effects', () => {
 
       const result = await svc.updateStatus('goal_force1', 'achieved', { force: true });
       expect(result.status).toBe('achieved');
-      // Should cancel the 2 non-terminal tasks, not the done one
-      expect(taskService.cancel).toHaveBeenCalledTimes(2);
+      // Should cancel todo, retrying, review — not the done one
+      expect(taskService.cancel).toHaveBeenCalledTimes(3);
       expect(taskService.cancel).toHaveBeenCalledWith('tsk_f1');
       expect(taskService.cancel).toHaveBeenCalledWith('tsk_f2');
+      expect(taskService.cancel).toHaveBeenCalledWith('tsk_f4');
+    });
+
+    it('force: still blocks if in_progress tasks exist (live processes)', async () => {
+      const goal = makeGoal({ id: 'goal_force2', status: 'active' });
+      const tasks = [
+        makeTask({ id: 'tsk_ip1', status: 'in_progress', goalId: 'goal_force2' }),
+        makeTask({ id: 'tsk_td1', status: 'todo', goalId: 'goal_force2' }),
+      ];
+      const goalStore = createMockGoalStore([goal]);
+      const taskService = createMockTaskService(tasks);
+      const svc = new GoalService(goalStore, eventBus, undefined, taskService as any);
+
+      // --force should cancel todo but block on in_progress
+      await expect(svc.updateStatus('goal_force2', 'achieved', { force: true }))
+        .rejects.toThrow(GoalHasPendingTasksError);
+      // todo task should still have been cancelled
+      expect(taskService.cancel).toHaveBeenCalledWith('tsk_td1');
+      expect(taskService.cancel).not.toHaveBeenCalledWith('tsk_ip1');
     });
 
     it('does not check tasks for non-achieved transitions', async () => {

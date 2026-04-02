@@ -88,10 +88,17 @@ export class GoalService {
       const pending = childTasks.filter((t) => !isTaskTerminal(t.status));
       if (pending.length > 0) {
         if (opts?.force) {
-          // Force mode: cancel all pending child tasks
+          // Force mode: cancel tasks that are safe to cancel at storage level.
+          // in_progress tasks have live OS processes — GoalService cannot kill them.
+          const cancellable = pending.filter((t) => t.status !== 'in_progress');
+          const running = pending.filter((t) => t.status === 'in_progress');
           await Promise.all(
-            pending.map((t) => this.taskService!.cancel(t.id).catch(() => {})),
+            cancellable.map((t) => this.taskService!.cancel(t.id).catch(() => {})),
           );
+          if (running.length > 0) {
+            const summary = running.map((t) => `${t.id} (in_progress)`).join(', ');
+            throw new GoalHasPendingTasksError(id, running.length, summary);
+          }
         } else {
           const summary = pending.map((t) => `${t.id} (${t.status})`).join(', ');
           throw new GoalHasPendingTasksError(id, pending.length, summary);
