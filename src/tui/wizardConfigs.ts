@@ -14,6 +14,7 @@ import type { CreateTeamInput } from '../domain/team.js';
 import { AGENT_SHOP_TEMPLATES, getShopTemplateByKey } from '../domain/agent-shop.js';
 import type { AgentShopTemplate } from '../domain/agent-shop.js';
 import { resolveModel } from '../domain/model-tiers.js';
+import { isMcpSkill } from '../application/agent-factory.js';
 
 // ── Model catalogs per adapter ──
 
@@ -181,7 +182,7 @@ export function applyShopTemplate(
         // MCP skills (colon-format) only work with Claude CLI — filter for other adapters
         const skills = defaultAdapter === 'claude'
           ? template.skills
-          : template.skills.filter((s) => !s.includes(':'));
+          : template.skills.filter((s) => !isMcpSkill(s));
         return { ...step, defaultValue: skills.join(', ') };
       }
       case 'approval_policy':
