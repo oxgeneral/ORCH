@@ -177,8 +177,13 @@ export function applyShopTemplate(
         return { ...step, defaultValue: '__custom__' };
       case 'role_custom':
         return { ...step, defaultValue: template.role, skip: undefined };
-      case 'skills':
-        return { ...step, defaultValue: template.skills.join(', ') };
+      case 'skills': {
+        // MCP skills (colon-format) only work with Claude CLI — filter for other adapters
+        const skills = defaultAdapter === 'claude'
+          ? template.skills
+          : template.skills.filter((s) => !s.includes(':'));
+        return { ...step, defaultValue: skills.join(', ') };
+      }
       case 'approval_policy':
         return { ...step, defaultValue: template.approval_policy };
       default:

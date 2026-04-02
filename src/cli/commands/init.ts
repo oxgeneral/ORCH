@@ -135,8 +135,8 @@ async function detectAndSelectAdapter(): Promise<string> {
   // Check all adapters in parallel via --version
   const checks = await Promise.all(
     SUPPORTED_ADAPTERS.filter((a) => a !== 'shell').map(async (name): Promise<AdapterCheckResult> => {
-      // Cursor has two possible binary names
-      const cmdsToTry = name === 'cursor' ? ['cursor-agent', 'agent'] : [name];
+      // Only probe cursor-agent (not 'agent' — too generic, causes false positives)
+      const cmdsToTry = name === 'cursor' ? ['cursor-agent'] : [name];
       for (const cmd of cmdsToTry) {
         try {
           const { stdout } = await execFileAsync(cmd, ['--version'], { timeout: 5_000 });
