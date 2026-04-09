@@ -253,19 +253,8 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .command('assign <task-id> <agent-id>')
     .description('Assign task to agent')
     .action(async (taskId: string, agentId: string) => {
-      // Resolve agent name to ID if needed
-      let resolvedId = agentId;
-      if (!agentId.startsWith('agt_')) {
-        const agent = await container.agentStore.getByName(agentId);
-        if (!agent) {
-          printError(`Unknown agent: "${agentId}". Use an agent ID (agt_xxx) or an exact agent name.`);
-          process.exitCode = 1;
-          return;
-        }
-        resolvedId = agent.id;
-      }
-      const t = await container.taskService.assign(taskId, resolvedId);
-      printSuccess(`Assigned ${t.id} → ${resolvedId}`);
+      const t = await container.taskService.assign(taskId, agentId);
+      printSuccess(`Assigned ${t.id} → ${t.assignee ?? agentId}`);
     });
 
   // task cancel

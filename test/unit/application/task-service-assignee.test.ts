@@ -92,17 +92,31 @@ describe('Issue #7: assignee name→ID resolution', () => {
     });
   });
 
-  describe('TaskService.assign — raw setter (no resolution)', () => {
-    it('sets assignee as-is without resolving names', async () => {
+  describe('TaskService.assign — resolveAssignee', () => {
+    it('resolves agent name to ID on reassignment', async () => {
       const task = makeTask({ id: 'tsk_re1', assignee: undefined });
+      const agent = makeAgent({ id: 'agt_new1', name: 'New Agent' });
       const taskStore = createMockTaskStore([task]);
+      const agentStore = createMockAgentStore([agent]);
       const eventBus = new EventBus();
-      const service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
+      const service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG, undefined, agentStore);
 
-      // assign() is a raw setter — caller is responsible for resolving names
-      const result = await service.assign('tsk_re1', 'agt_new1');
+      const result = await service.assign('tsk_re1', 'New Agent');
 
       expect(result.assignee).toBe('agt_new1');
+    });
+
+    it('passes through valid agent ID', async () => {
+      const task = makeTask({ id: 'tsk_re2', assignee: undefined });
+      const agent = makeAgent({ id: 'agt_keep', name: 'Keep Agent' });
+      const taskStore = createMockTaskStore([task]);
+      const agentStore = createMockAgentStore([agent]);
+      const eventBus = new EventBus();
+      const service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG, undefined, agentStore);
+
+      const result = await service.assign('tsk_re2', 'agt_keep');
+
+      expect(result.assignee).toBe('agt_keep');
     });
   });
 

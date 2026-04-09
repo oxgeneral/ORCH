@@ -52,7 +52,6 @@ export class TaskService {
       }
     }
 
-    // Resolve assignee: accept both agent ID (agt_xxx) and agent name
     const assignee = await this.resolveAssignee(input.assignee);
 
     const now = new Date().toISOString();
@@ -120,7 +119,7 @@ export class TaskService {
 
   async assign(taskId: string, agentId: string): Promise<Task> {
     const task = await this.get(taskId);
-    task.assignee = agentId;
+    task.assignee = await this.resolveAssignee(agentId);
     task.updated_at = new Date().toISOString();
     await this.taskStore.save(task);
 
