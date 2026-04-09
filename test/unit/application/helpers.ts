@@ -271,7 +271,7 @@ export function buildDeps(overrides: Partial<OrchestratorDeps> = {}): Orchestrat
     templateEngine: overrides.templateEngine ?? createMockTemplateEngine(),
     processManager: overrides.processManager ?? createMockProcessManager(),
     eventBus,
-    taskService: overrides.taskService ?? new TaskService(taskStore, eventBus, config),
+    taskService: overrides.taskService ?? new TaskService(taskStore, eventBus, config, undefined, agentStore),
     agentService: overrides.agentService ?? new AgentService(agentStore, stateStore, eventBus, config),
     runService: overrides.runService ?? new RunService(runStore, eventBus),
     contextStore: overrides.contextStore ?? createMockContextStore(),

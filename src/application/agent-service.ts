@@ -160,9 +160,9 @@ export class AgentService {
 
     if (available.length === 0) return null;
 
-    // Explicit assignee — hard constraint
+    // Explicit assignee — hard constraint (match by ID or name)
     if (task.assignee) {
-      const assigned = agents.find((a) => a.id === task.assignee);
+      const assigned = agents.find((a) => a.id === task.assignee || a.name === task.assignee);
       if (assigned && assigned.status === 'idle') return assigned;
       return null;
     }

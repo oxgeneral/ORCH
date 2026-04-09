@@ -15,7 +15,7 @@ import {
   InvalidTransitionError,
   InvalidArgumentsError,
 } from '../domain/errors.js';
-import type { ITaskStore } from '../infrastructure/storage/interfaces.js';
+import type { ITaskStore, IAgentStore } from '../infrastructure/storage/interfaces.js';
 import type { Paths } from '../infrastructure/storage/paths.js';
 import type { OrchestratorConfig } from '../domain/config.js';
 import type { EventBus } from './event-bus.js';
@@ -27,6 +27,7 @@ export class TaskService {
     private readonly eventBus: EventBus,
     private readonly config: OrchestratorConfig,
     private readonly paths?: Paths,
+    private readonly agentStore?: IAgentStore,
   ) {}
 
   async create(input: CreateTaskInput): Promise<Task> {
@@ -51,6 +52,9 @@ export class TaskService {
       }
     }
 
+    // Resolve assignee: accept both agent ID (agt_xxx) and agent name
+    const assignee = await this.resolveAssignee(input.assignee);
+
     const now = new Date().toISOString();
     const task: Task = {
       id: `tsk_${nanoid(7)}`,
@@ -58,7 +62,7 @@ export class TaskService {
       description: input.description?.trim() ?? '',
       status: 'todo',
       priority,
-      assignee: input.assignee,
+      assignee,
       labels: input.labels ?? [],
       depends_on: input.depends_on ?? [],
       created_at: now,
@@ -266,5 +270,33 @@ export class TaskService {
     task.updated_at = new Date().toISOString();
     await this.taskStore.save(task);
     return task;
+  }
+
+  /**
+   * Resolve an assignee value to an agent ID.
+   * Accepts: agent ID (agt_xxx), agent name, or undefined.
+   * Returns the agent ID if found, or undefined if input is undefined.
+   * Throws InvalidArgumentsError if non-empty value matches no agent.
+   */
+  private async resolveAssignee(assignee: string | undefined): Promise<string | undefined> {
+    if (!assignee) return undefined;
+    if (!this.agentStore) return assignee;
+
+    // If it looks like an agent ID, verify it exists
+    if (assignee.startsWith('agt_')) {
+      const agent = await this.agentStore.get(assignee);
+      if (agent) return agent.id;
+      throw new InvalidArgumentsError(
+        `Unknown agent ID: "${assignee}". No agent with this ID exists.`,
+      );
+    }
+
+    // Try name lookup
+    const byName = await this.agentStore.getByName(assignee);
+    if (byName) return byName.id;
+
+    throw new InvalidArgumentsError(
+      `Unknown agent: "${assignee}". Use an agent ID (agt_xxx) or an exact agent name.`,
+    );
   }
 }

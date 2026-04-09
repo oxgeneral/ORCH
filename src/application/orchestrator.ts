@@ -86,6 +86,14 @@ export class Orchestrator {
   private tickInProgress = false;
   private stoppedResolvers: Array<() => void> = [];
 
+  /**
+   * Track taskIds with an active collectEvents() background promise.
+   * Reconcile skips PID-liveness and stall checks for these tasks because
+   * the process may have exited cleanly but handleRunSuccess hasn't acquired
+   * the mutex yet — false-positive "crash" / "stall" detection.
+   */
+  private readonly activeCollectors = new Set<string>();
+
   /** When true, `tick()` skips `seedAutonomousTasks()`. Set via `startWatch()` options. */
   private skipAutonomousSeeding = false;
   /** Cooldown: track last auto-seed time per agent to prevent re-seed spam. */
@@ -543,6 +551,14 @@ export class Orchestrator {
         await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch((err) => {
           this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `reconcile setStatus idle for stale agent ${entry.agent_id} (task ${taskId})`, fatal: false });
         });
+        continue;
+      }
+
+      // Skip PID and stall checks for tasks with an active collector —
+      // the process may have exited cleanly but handleRunSuccess/Failure
+      // hasn't acquired the mutex yet. Without this guard, reconcile
+      // would false-positive mark successfully completed runs as "crashed".
+      if (this.activeCollectors.has(taskId)) {
         continue;
       }
 
@@ -1111,7 +1127,10 @@ export class Orchestrator {
       };
       await this.saveState();
 
-      // Collect events in background
+      // Collect events in background — track active collector to prevent
+      // reconcile from false-positive "crash" detection during the window
+      // between process exit and handleRunSuccess acquiring the mutex.
+      this.activeCollectors.add(taskId);
       this.collectEvents(
         handle.events,
         run.id,
@@ -1124,6 +1143,8 @@ export class Orchestrator {
           context: `adapter execution for ${taskId}`,
           fatal: false,
         });
+      }).finally(() => {
+        this.activeCollectors.delete(taskId);
       });
     } catch (err) {
       // Rollback claim and clean up abort controller (process never launched)
@@ -1298,6 +1319,10 @@ export class Orchestrator {
       if (entry) {
         // runService.finish emits agent:completed
         await this.handleRunFailure(taskId, entry, error, errorKind);
+      } else {
+        // Running entry was already cleaned up (e.g. by reconcile) — finalize the run
+        // directly so it doesn't stay stuck in status: running forever.
+        await this.deps.runService.finish(runId, 'failed', undefined, error).catch(() => {});
       }
     } finally {
       // Release the cached JSONL append handle FD for this run
