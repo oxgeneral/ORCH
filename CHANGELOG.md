@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.21 (2026-04-09)
+
+### Bug Fixes
+
+- **Parallel runs race condition** ([#8](https://github.com/oxgeneral/ORCH/issues/8)) — when multiple agents completed in parallel via `orch serve`, successful runs were falsely marked as `failed`. Root cause: reconcile detected dead PIDs before `handleRunSuccess` acquired the mutex, treating clean exits as crashes. Fix: `activeCollectors` guard prevents reconcile from interfering with tasks that have an active event collector. Also fixes orphaned runs stuck in `status: running` when the running entry was already cleaned up
+- **Assignee name resolution** ([#7](https://github.com/oxgeneral/ORCH/issues/7)) — tasks assigned by agent name (e.g. `--assignee "Sam Altman"`) instead of agent ID were silently accepted but never dispatched. `TaskService.resolveAssignee()` now normalizes agent names to IDs at creation and assignment time, with clear error messages for unknown agents. `findBestAgent()` also matches by name as a fallback for legacy data
+
+### Tests
+
+- 15 new tests: activeCollectors guard (reconcile skip, crash detection, cleanup, orphaned run finalization), assignee name→ID resolution (create, assign, unknown name/ID, backward compatibility, findBestAgent name fallback)
+
 ## 1.0.20 (2026-04-03)
 
 ### Bug Fixes
