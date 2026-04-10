@@ -138,8 +138,11 @@ export function useTextInput(opts: UseTextInputOptions = {}): UseTextInputResult
             setCursor(c.insert(killRing.current));
           }
           return true;
-        case 'z': { // Undo
+        case 'z': { // Undo — skip snapshots matching current state
           const stack = undoStack.current;
+          while (stack.length > 0 && stack[stack.length - 1]!.text === c.text) {
+            stack.pop();
+          }
           if (stack.length > 0) {
             setCursor(stack.pop()!);
           }
@@ -171,9 +174,12 @@ export function useTextInput(opts: UseTextInputOptions = {}): UseTextInputResult
     // ── Meta/Cmd shortcuts ──────────────────────────
 
     if (key.meta) {
-      // Cmd+Z — undo
+      // Cmd+Z — undo (skip snapshots matching current state)
       if (input === 'z') {
         const stack = undoStack.current;
+        while (stack.length > 0 && stack[stack.length - 1]!.text === c.text) {
+          stack.pop();
+        }
         if (stack.length > 0) {
           setCursor(stack.pop()!);
         }
