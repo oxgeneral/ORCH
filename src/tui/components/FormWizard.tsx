@@ -10,6 +10,8 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { tuiColors, LIGHT_RULE } from '../colors.js';
+import { useTextInput } from '../hooks/useTextInput.js';
+import { TextInput } from './TextInput.js';
 
 /** Option in a select step */
 export interface SelectOption {
@@ -55,7 +57,7 @@ export interface FormWizardProps {
   onSuggestionSelected?: (suggestionValue: string) => void;
 }
 
-const CURSOR = '\u2588'; // █
+const CURSOR = '\u2588'; // █ (used by textarea render)
 const CMD_KEY = process.platform === 'darwin' ? '\u2318' : 'Ctrl';
 
 // ── Text editing helpers ─────────────────────────────────────────────
@@ -78,7 +80,7 @@ interface VisualLine {
   isFirst: boolean;
 }
 
-/** Find word boundary backward from pos (for Ctrl+W / Option+Left). */
+/** Find word boundary backward from pos (for Ctrl+W / Option+Left in textarea). */
 function wordBoundaryBack(text: string, pos: number): number {
   if (pos <= 0) return 0;
   let i = pos - 1;
@@ -87,7 +89,7 @@ function wordBoundaryBack(text: string, pos: number): number {
   return i;
 }
 
-/** Find word boundary forward from pos (for Option+Right). */
+/** Find word boundary forward from pos (for Option+Right in textarea). */
 function wordBoundaryForward(text: string, pos: number): number {
   if (pos >= text.length) return text.length;
   let i = pos;
@@ -99,16 +101,16 @@ function wordBoundaryForward(text: string, pos: number): number {
 export function FormWizard({ title, steps, onComplete, onCancel, width, height, onPasteImage, footerExtra, onSuggestionSelected }: FormWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [values, setValues] = useState<Record<string, string>>({});
-  const [textInput, setTextInput] = useState(() => {
-    // Pre-fill first text step with default
-    const firstActive = steps.find((s) => !s.skip?.({}));
-    return firstActive?.type === 'text' && firstActive.defaultValue ? firstActive.defaultValue : '';
+
+  // Unified text input for single-line text steps (replaces textInput + cursorPos)
+  const textHook = useTextInput({
+    initialValue: (() => {
+      const firstActive = steps.find((s) => !s.skip?.({}));
+      return firstActive?.type === 'text' && firstActive.defaultValue ? firstActive.defaultValue : '';
+    })(),
   });
-  // Cursor position for single-line text input
-  const [cursorPos, setCursorPos] = useState(() => {
-    const firstActive = steps.find((s) => !s.skip?.({}));
-    return firstActive?.type === 'text' && firstActive.defaultValue ? firstActive.defaultValue.length : 0;
-  });
+  // Alias for compatibility with existing code paths (suggestions, validation)
+  const textInput = textHook.value;
   // Textarea state: array of lines + cursor row/col
   const [taLines, setTaLines] = useState<string[]>(() => {
     const firstActive = steps.find((s) => !s.skip?.({}));
@@ -234,8 +236,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   const goToNextStep = (value: string) => {
     const newValues = { ...values, [step!.id]: value };
     setValues(newValues);
-    setTextInput('');
-    setCursorPos(0);
+    textHook.reset('');
     setTaLines(['']);
     setTaCursorRow(0);
     setTaCursorCol(0);
@@ -271,9 +272,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       const nextStep = steps[nextOrigIdx]!;
       // Pre-fill defaults
       if (nextStep.type === 'text') {
-        const def = nextStep.defaultValue ?? '';
-        setTextInput(def);
-        setCursorPos(def.length);
+        textHook.reset(nextStep.defaultValue ?? '');
       } else if (nextStep.type === 'textarea') {
         const lines = nextStep.defaultValue ? nextStep.defaultValue.split('\n') : [''];
         setTaLines(lines);
@@ -333,9 +332,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     const hasPrevValue = !!values[prevStep.id];
     if (hasPrevValue) setDirty(true);
     if (prevStep.type === 'text') {
-      const val = values[prevStep.id] ?? prevStep.defaultValue ?? '';
-      setTextInput(val);
-      setCursorPos(val.length);
+      textHook.reset(values[prevStep.id] ?? prevStep.defaultValue ?? '');
     } else if (prevStep.type === 'textarea') {
       const val = values[prevStep.id] ?? prevStep.defaultValue ?? '';
       const lines = val ? val.split('\n') : [''];
@@ -378,7 +375,6 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       if (browsingSuggestions && filteredSuggestions.length > 0) {
         if (key.upArrow) {
           if (clampedSuggestionIdx <= 0) {
-            // Exit suggestion list, return focus to text input
             setBrowsingSuggestions(false);
           } else {
             setSuggestionIndex((i) => i - 1);
@@ -401,6 +397,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         // fall through to normal text handling below
       }
 
+      // Enter: submit text step
       if (key.return) {
         const val = textInput.trim();
         if (step.required && !val) { setDirty(true); return; }
@@ -414,65 +411,23 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         goToNextStep(val);
         return;
       }
+      // ↓ arrow: enter suggestion browsing
       if (key.downArrow && step.suggestions && filteredSuggestions.length > 0) {
         setBrowsingSuggestions(true);
         setSuggestionIndex(0);
         return;
       }
-      // Terminal shortcuts for text input
-      if (key.ctrl && input === 'a') { setCursorPos(0); return; }
-      if (key.ctrl && input === 'e') { setCursorPos(textInput.length); return; }
-      if (key.ctrl && input === 'k') {
-        setDirty(true);
-        setTextInput((v) => v.slice(0, cursorPos));
+      // Backspace on empty field: go back
+      if ((key.backspace || key.delete) && textHook.cursor.isEmpty && currentStep > 0) {
+        goToPrevStep();
         return;
       }
-      if (key.ctrl && input === 'u') {
-        setDirty(true);
-        setTextInput((v) => v.slice(cursorPos));
-        setCursorPos(0);
-        return;
-      }
-      if (key.ctrl && input === 'w') {
-        setDirty(true);
-        const newPos = wordBoundaryBack(textInput, cursorPos);
-        setTextInput((v) => v.slice(0, newPos) + v.slice(cursorPos));
-        setCursorPos(newPos);
-        return;
-      }
-      if (key.meta && (key.leftArrow || input === 'b')) {
-        setCursorPos(wordBoundaryBack(textInput, cursorPos));
-        return;
-      }
-      if (key.meta && (key.rightArrow || input === 'f')) {
-        setCursorPos(wordBoundaryForward(textInput, cursorPos));
-        return;
-      }
-      if (key.leftArrow) {
-        setCursorPos((p) => Math.max(0, p - 1));
-        return;
-      }
-      if (key.rightArrow) {
-        setCursorPos((p) => Math.min(textInput.length, p + 1));
-        return;
-      }
-      if (key.backspace || key.delete) {
-        if (cursorPos === 0 && textInput.length === 0 && currentStep > 0) {
-          goToPrevStep();
-          return;
-        }
-        if (cursorPos > 0) {
-          setTextInput((v) => v.slice(0, cursorPos - 1) + v.slice(cursorPos));
-          setCursorPos((p) => p - 1);
-        }
-        return;
-      }
-      if (input && !key.ctrl && !key.meta && !key.escape) {
+      // Delegate all text editing to unified handler
+      const consumed = textHook.handleInput(input, key);
+      if (consumed) {
         setDirty(true);
         setBrowsingSuggestions(false);
         setSuggestionIndex(0);
-        setTextInput((v) => v.slice(0, cursorPos) + input + v.slice(cursorPos));
-        setCursorPos((p) => p + input.length);
       }
       return;
     }
@@ -782,26 +737,16 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         </Box>
       )}
 
-      {/* Text input with cursor */}
+      {/* Text input with cursor — unified component */}
       {step.type === 'text' && (
-        <Box flexDirection="column">
-          <Box borderStyle={visibleError ? 'round' : undefined} borderColor={visibleError ? tuiColors.red : undefined}>
-            <Text color={tuiColors.amber}>  {'>'} </Text>
-            {textInput.length > 0 ? (
-              <>
-                <Text color={tuiColors.white}>{textInput.slice(0, cursorPos)}</Text>
-                <Text color={tuiColors.amber}>{CURSOR}</Text>
-                <Text color={tuiColors.white}>{textInput.slice(cursorPos)}</Text>
-              </>
-            ) : step.placeholder ? (
-              <>
-                <Text color={tuiColors.ghost}>{step.placeholder}</Text>
-                <Text color={tuiColors.amber}>{CURSOR}</Text>
-              </>
-            ) : (
-              <Text color={tuiColors.amber}>{CURSOR}</Text>
-            )}
-          </Box>
+        <Box flexDirection="column" paddingLeft={2}>
+          <TextInput
+            cursor={textHook.cursor}
+            width={maxW - 4}
+            prefix={'> '}
+            placeholder={step.placeholder}
+            hasError={!!visibleError}
+          />
           {visibleError && <Text color={tuiColors.red} dimColor>  {visibleError}</Text>}
           {enterBlockHint && <Text color={tuiColors.red}>  Fix the error above</Text>}
         </Box>

@@ -51,6 +51,8 @@ import type { ActivityFilterPreset, NotificationPreferences } from '../domain/gl
 import { DEFAULT_CONFIG } from '../domain/config.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
 import { ERROR_HINTS, type AdapterErrorKind } from '../domain/errors.js';
+import { useTextInput } from './hooks/useTextInput.js';
+import { TextInput as UnifiedTextInput } from './components/TextInput.js';
 
 /** Max tasks visible in collapsed mode; press S to show all */
 const TASK_LIST_LIMIT = 10;
@@ -413,7 +415,9 @@ export function App({
 
   // Input mode state
   const [inputMode, setInputMode] = useState<InputMode>('none');
-  const [inputValue, setInputValue] = useState('');
+  // Unified text input for command-bar and new_task modes
+  const inputHook = useTextInput();
+  const inputValue = inputHook.value;
   const [wizardConfig, setWizardConfig] = useState<WizardConfig | null>(null);
   /** Temp file paths for images pasted via Ctrl+I during task wizard */
   const [pendingAttachments, setPendingAttachments] = useState<string[]>([]);
@@ -1806,7 +1810,7 @@ export function App({
     if (inputMode !== 'none') {
       if (key.escape) {
         setInputMode('none');
-        setInputValue('');
+        inputHook.reset('');
         cmdHistory.reset();
         return;
       }
@@ -1817,7 +1821,7 @@ export function App({
         if (inputMode === 'new_task') {
           if (!onCreateTask) return;
           setInputMode('none');
-          setInputValue('');
+          inputHook.reset('');
           addMessage(`Creating "${value}"...`, tuiColors.amber);
           onCreateTask(value).then(
             (task) => {
@@ -1839,13 +1843,13 @@ export function App({
             // If the suggestion has subcommands and no subcommand is chosen yet,
             // fill input and show sub-suggestions instead of executing
             if (sel.subs && !cmdPart.includes(' ')) {
-              setInputValue(cmdPart + ' ');
+              inputHook.setValue(cmdPart + ' ');
               setSuggestionIndex(0);
               return;
             }
           }
           setInputMode('none');
-          setInputValue('');
+          inputHook.reset('');
           setSuggestionIndex(0);
           cmdHistory.push(cmdToRun);
           executeCommand(cmdToRun);
@@ -1857,14 +1861,13 @@ export function App({
         if (suggestions.length > 0) {
           const sel = suggestions[suggestionIndex];
           if (sel) {
-            // Extract just the command part (without args placeholder)
             const cmdPart = sel.cmd.replace(/\s+\[.*\]$/, '');
-            setInputValue(cmdPart + (sel.subs ? ' ' : ''));
+            inputHook.setValue(cmdPart + (sel.subs ? ' ' : ''));
             setSuggestionIndex(0);
           }
         } else {
           const suffix = resolveCompletion(inputValue);
-          if (suffix) setInputValue((v) => v + suffix);
+          if (suffix) inputHook.setValue(inputValue + suffix);
         }
         return;
       }
@@ -1874,7 +1877,7 @@ export function App({
           setSuggestionIndex((i) => Math.max(0, i - 1));
         } else {
           const prev = cmdHistory.prev();
-          if (prev !== null) setInputValue(prev);
+          if (prev !== null) inputHook.setValue(prev);
         }
         return;
       }
@@ -1883,18 +1886,13 @@ export function App({
           setSuggestionIndex((i) => Math.min(suggestions.length - 1, i + 1));
         } else {
           const next = cmdHistory.next();
-          setInputValue(next ?? '');
+          inputHook.setValue(next ?? '');
         }
         return;
       }
-      if (key.backspace || key.delete) {
-        setInputValue((v) => v.slice(0, -1));
-        setSuggestionIndex(0);
-        return;
-      }
-      // Accumulate printable characters (ignore control keys)
-      if (input && !key.ctrl && !key.meta) {
-        setInputValue((v) => v + input);
+      // Delegate text editing to unified handler (grapheme-aware cursor + undo)
+      const consumed = inputHook.handleInput(input, key);
+      if (consumed) {
         setSuggestionIndex(0);
       }
       return;
@@ -1965,7 +1963,7 @@ export function App({
     // /: command bar (from any view, when not in detail)
     if (input === '/' && !detailOpen) {
       setInputMode('command');
-      setInputValue('/');
+      inputHook.setValue('/');
       setSuggestionIndex(0);
       return;
     }
@@ -2541,7 +2539,7 @@ export function App({
       ) : inputMode === 'new_task' ? (
         <>
           <InputSectionLabel mode={inputMode} width={ruleW} />
-          <InputPanel mode={inputMode} value={inputValue} width={ruleW} />
+          <InputPanel mode={inputMode} cursor={inputHook.cursor} width={ruleW} />
         </>
       ) : showTaskDetail ? (
         <>
@@ -3802,8 +3800,6 @@ const STATUS_DETAIL_COLOR: Record<string, string> = {
 
 /* ── Input Panel ─────────────────────────────────────── */
 
-const CURSOR_CHAR = '\u2588'; // █
-
 function InputSectionLabel({ mode, width }: { mode: InputMode; width: number }) {
   const label = mode === 'command' ? 'COMMAND' : 'NEW TASK';
   const chipText = ` ${label} `;
@@ -3817,16 +3813,16 @@ function InputSectionLabel({ mode, width }: { mode: InputMode; width: number }) 
   );
 }
 
-function InputPanel({ mode, value, width }: { mode: InputMode; value: string; width: number }) {
-  const prefix = mode === 'command' ? '/' : '\u25B8';
-  const maxLen = Math.max(10, width - 8); // padding + cursor prefix
-  const displayValue = value.length > maxLen ? value.slice(-maxLen) : value;
+function InputPanel({ mode, cursor, width }: { mode: InputMode; cursor: import('./text-cursor.js').Cursor; width: number }) {
+  const prefix = mode === 'command' ? '/ ' : '\u25B8 ';
 
   return (
     <Box paddingX={2}>
-      <Text color={tuiColors.amber}>{prefix} </Text>
-      <Text color={tuiColors.white}>{displayValue}</Text>
-      <Text color={tuiColors.amber}>{CURSOR_CHAR}</Text>
+      <UnifiedTextInput
+        cursor={cursor}
+        width={Math.max(10, width - 4)}
+        prefix={prefix}
+      />
     </Box>
   );
 }
