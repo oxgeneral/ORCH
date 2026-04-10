@@ -419,10 +419,10 @@ describe('Unified text input — FormWizard text-step', () => {
     stdin.write('Title');
     await delay(50);
     stdin.write('\r');
-    await delay(100);
+    await delay(50);
     // Step 2: textarea — go back with Esc
     stdin.write('\x1B');
-    await delay(100);
+    await delay(50);
     // Now on step 1 again. Clear the field first.
     // Select all + delete: Ctrl+A → Ctrl+K
     stdin.write('\x01'); // Ctrl+A
@@ -447,7 +447,6 @@ describe('Unified text input — undo (Ctrl+Z)', () => {
     await delay(600); // wait for undo snapshot debounce (500ms)
     stdin.write(' world');
     await delay(600);
-    // Undo should restore to 'hello'
     stdin.write('\x1A'); // Ctrl+Z
     await delay(50);
     stdin.write('\r');
@@ -488,16 +487,18 @@ describe('Unified text input — visual rendering', () => {
   });
 
   it('shows error border when validation fails', async () => {
+    vi.useFakeTimers();
     const { stdin, lastFrame } = renderWizard(
       makeTextStep({
         required: true,
         validate: (v) => (v.length < 3 ? 'Too short' : null),
       }),
     );
-    await delay(50);
+    await vi.advanceTimersByTimeAsync(50);
     stdin.write('ab');
-    await delay(400); // wait for validation debounce
+    await vi.advanceTimersByTimeAsync(300); // fire validation debounce
     const output = lastFrame()!;
     expect(output).toContain('Too short');
+    vi.useRealTimers();
   });
 });

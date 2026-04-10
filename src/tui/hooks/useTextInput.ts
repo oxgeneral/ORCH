@@ -140,7 +140,8 @@ export function useTextInput(opts: UseTextInputOptions = {}): UseTextInputResult
           return true;
         case 'z': { // Undo — skip snapshots matching current state
           const stack = undoStack.current;
-          while (stack.length > 0 && stack[stack.length - 1]!.text === c.text) {
+          // Skip at most one snapshot matching current state (debounced checkpoint)
+          if (stack.length > 0 && stack[stack.length - 1]!.text === c.text) {
             stack.pop();
           }
           if (stack.length > 0) {
