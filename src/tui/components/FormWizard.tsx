@@ -103,12 +103,11 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   const [values, setValues] = useState<Record<string, string>>({});
 
   // Unified text input for single-line text steps (replaces textInput + cursorPos)
-  const textHook = useTextInput({
-    initialValue: (() => {
-      const firstActive = steps.find((s) => !s.skip?.({}));
-      return firstActive?.type === 'text' && firstActive.defaultValue ? firstActive.defaultValue : '';
-    })(),
-  });
+  const firstTextDefault = useMemo(() => {
+    const firstActive = steps.find((s) => !s.skip?.({}));
+    return firstActive?.type === 'text' && firstActive.defaultValue ? firstActive.defaultValue : '';
+  }, []);
+  const textHook = useTextInput({ initialValue: firstTextDefault });
   // Alias for compatibility with existing code paths (suggestions, validation)
   const textInput = textHook.value;
   // Textarea state: array of lines + cursor row/col

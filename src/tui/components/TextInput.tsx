@@ -12,7 +12,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { Cursor } from '../text-cursor.js';
-import { graphemeSegments, displayWidth, textDisplayWidth } from '../text-cursor.js';
+import { displayWidth, textDisplayWidth } from '../text-cursor.js';
 import { tuiColors } from '../colors.js';
 
 const CURSOR_CHAR = '\u2588'; // █
@@ -104,44 +104,31 @@ export function TextInput({
   const availWidth = Math.max(4, width - prefixW);
 
   const isEmpty = cursor.isEmpty;
-  const beforeSegs = graphemeSegments(cursor.before);
-  const afterSegs = graphemeSegments(cursor.after);
-
-  const { visibleBefore, visibleAfter } = computeViewport(beforeSegs, afterSegs, availWidth);
-
-  const cursorBlock = showCursor ? CURSOR_CHAR : '';
-
-  const content = isEmpty ? (
-    // Empty: show placeholder + cursor
-    <Box>
-      {prefixStr && <Text color={prefixColor}>{prefixStr}</Text>}
-      {placeholder ? (
-        <>
-          <Text color={placeholderColor}>{placeholder}</Text>
-          {showCursor && <Text color={cursorColor}>{cursorBlock}</Text>}
-        </>
-      ) : (
-        showCursor && <Text color={cursorColor}>{cursorBlock}</Text>
-      )}
-    </Box>
-  ) : (
-    // Non-empty: before + cursor + after + ghost
-    <Box>
-      {prefixStr && <Text color={prefixColor}>{prefixStr}</Text>}
-      <Text color={textColor}>{visibleBefore}</Text>
-      {showCursor && <Text color={cursorColor}>{cursorBlock}</Text>}
-      <Text color={textColor}>{visibleAfter}</Text>
-      {ghost && <Text color={ghostColor}>{ghost}</Text>}
-    </Box>
+  // Use pre-split segments from Cursor to avoid re-segmentation
+  const { visibleBefore, visibleAfter } = computeViewport(
+    cursor.beforeSegs, cursor.afterSegs, availWidth,
   );
 
-  if (hasError) {
+  const borderStyle = hasError ? 'round' as const : undefined;
+  const borderColor = hasError ? tuiColors.red : undefined;
+
+  if (isEmpty) {
     return (
-      <Box borderStyle="round" borderColor={tuiColors.red}>
-        {content}
+      <Box borderStyle={borderStyle} borderColor={borderColor}>
+        {prefixStr && <Text color={prefixColor}>{prefixStr}</Text>}
+        {placeholder && <Text color={placeholderColor}>{placeholder}</Text>}
+        {showCursor && <Text color={cursorColor}>{CURSOR_CHAR}</Text>}
       </Box>
     );
   }
 
-  return content;
+  return (
+    <Box borderStyle={borderStyle} borderColor={borderColor}>
+      {prefixStr && <Text color={prefixColor}>{prefixStr}</Text>}
+      <Text color={textColor}>{visibleBefore}</Text>
+      {showCursor && <Text color={cursorColor}>{CURSOR_CHAR}</Text>}
+      <Text color={textColor}>{visibleAfter}</Text>
+      {ghost && <Text color={ghostColor}>{ghost}</Text>}
+    </Box>
+  );
 }

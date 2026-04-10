@@ -87,13 +87,9 @@ export function useTextInput(opts: UseTextInputOptions = {}): UseTextInputResult
     if (snapshotTimer.current) clearTimeout(snapshotTimer.current);
     snapshotTimer.current = setTimeout(() => {
       snapshotTimer.current = null;
-      const stack = undoStack.current;
-      const cur = cursorRef.current;
-      if (stack.length > 0 && stack[stack.length - 1]!.text === cur.text) return;
-      stack.push(cur);
-      if (stack.length > maxUndo) stack.shift();
+      snapshotUndo();
     }, UNDO_SNAPSHOT_DEBOUNCE_MS);
-  }, [maxUndo]);
+  }, [snapshotUndo]);
 
   const handleInput = useCallback((input: string, key: Key): boolean => {
     // Guard: empty input events from modifier keys / IME switching

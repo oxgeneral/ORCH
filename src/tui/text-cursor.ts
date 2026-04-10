@@ -96,37 +96,43 @@ function wordBoundaryForward(segs: string[], pos: number): number {
 export class Cursor {
   readonly text: string;
   readonly pos: number;
-  private _segs: string[] | null = null;
+  private readonly _segs: string[];
 
   constructor(text: string, pos?: number) {
     this.text = text.normalize('NFC');
-    const len = graphemeLength(this.text);
+    this._segs = graphemeSegments(this.text);
     this.pos = pos !== undefined
-      ? Math.max(0, Math.min(pos, len))
-      : len;
+      ? Math.max(0, Math.min(pos, this._segs.length))
+      : this._segs.length;
   }
 
-  /** Lazily computed grapheme segments. */
   private segs(): string[] {
-    if (!this._segs) {
-      this._segs = graphemeSegments(this.text);
-    }
     return this._segs;
   }
 
   /** Number of grapheme clusters. */
   get length(): number {
-    return this.segs().length;
+    return this._segs.length;
+  }
+
+  /** Grapheme segments before cursor (avoids re-segmentation in render). */
+  get beforeSegs(): string[] {
+    return this._segs.slice(0, this.pos);
+  }
+
+  /** Grapheme segments after cursor (avoids re-segmentation in render). */
+  get afterSegs(): string[] {
+    return this._segs.slice(this.pos);
   }
 
   /** Text before the cursor. */
   get before(): string {
-    return this.segs().slice(0, this.pos).join('');
+    return this.beforeSegs.join('');
   }
 
   /** Text after the cursor. */
   get after(): string {
-    return this.segs().slice(this.pos).join('');
+    return this.afterSegs.join('');
   }
 
   /** Whether the text is empty. */
