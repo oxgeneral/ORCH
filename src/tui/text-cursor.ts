@@ -49,8 +49,6 @@ export function displayWidth(grapheme: string): number {
   if (cp >= 0x20000 && cp <= 0x2FA1F) return 2;
   // Emoji (Miscellaneous Symbols and Pictographs through Supplemental Symbols)
   if (cp >= 0x1F300 && cp <= 0x1FAFF) return 2;
-  // Emoji Modifier Fitzpatrick
-  if (cp >= 0x1F3FB && cp <= 0x1F3FF) return 2;
 
   return 1;
 }
@@ -106,8 +104,13 @@ export class Cursor {
       : this._segs.length;
   }
 
-  private segs(): string[] {
-    return this._segs;
+  /** Reuse existing segments for position-only changes (avoids re-segmentation). */
+  private static _withPos(text: string, segs: string[], pos: number): Cursor {
+    const c = Object.create(Cursor.prototype) as Cursor;
+    Object.defineProperty(c, 'text', { value: text, writable: false });
+    Object.defineProperty(c, '_segs', { value: segs, writable: false });
+    Object.defineProperty(c, 'pos', { value: Math.max(0, Math.min(pos, segs.length)), writable: false });
+    return c;
   }
 
   /** Number of grapheme clusters. */
@@ -143,27 +146,27 @@ export class Cursor {
   // ── Navigation ────────────────────────────────────────
 
   moveLeft(count = 1): Cursor {
-    return new Cursor(this.text, this.pos - count);
+    return Cursor._withPos(this.text, this._segs, this.pos - count);
   }
 
   moveRight(count = 1): Cursor {
-    return new Cursor(this.text, this.pos + count);
+    return Cursor._withPos(this.text, this._segs, this.pos + count);
   }
 
   moveToStart(): Cursor {
-    return new Cursor(this.text, 0);
+    return Cursor._withPos(this.text, this._segs, 0);
   }
 
   moveToEnd(): Cursor {
-    return new Cursor(this.text, this.segs().length);
+    return Cursor._withPos(this.text, this._segs, this._segs.length);
   }
 
   moveToWordBack(): Cursor {
-    return new Cursor(this.text, wordBoundaryBack(this.segs(), this.pos));
+    return Cursor._withPos(this.text, this._segs, wordBoundaryBack(this._segs, this.pos));
   }
 
   moveToWordForward(): Cursor {
-    return new Cursor(this.text, wordBoundaryForward(this.segs(), this.pos));
+    return Cursor._withPos(this.text, this._segs, wordBoundaryForward(this._segs, this.pos));
   }
 
   // ── Editing ───────────────────────────────────────────
@@ -171,23 +174,22 @@ export class Cursor {
   /** Insert text at cursor position. */
   insert(chars: string): Cursor {
     const normalized = chars.normalize('NFC');
-    const insertedLen = graphemeLength(normalized);
-    const s = this.segs();
-    const newText = s.slice(0, this.pos).join('') + normalized + s.slice(this.pos).join('');
-    return new Cursor(newText, this.pos + insertedLen);
+    const insertedSegs = graphemeSegments(normalized);
+    const newText = this._segs.slice(0, this.pos).join('') + normalized + this._segs.slice(this.pos).join('');
+    return new Cursor(newText, this.pos + insertedSegs.length);
   }
 
   /** Delete one grapheme before cursor (Backspace). */
   deleteBack(): Cursor {
     if (this.pos <= 0) return this;
-    const s = this.segs();
+    const s = this._segs;
     const newText = s.slice(0, this.pos - 1).join('') + s.slice(this.pos).join('');
     return new Cursor(newText, this.pos - 1);
   }
 
   /** Delete one grapheme after cursor (Delete key). */
   deleteForward(): Cursor {
-    const s = this.segs();
+    const s = this._segs;
     if (this.pos >= s.length) return this;
     const newText = s.slice(0, this.pos).join('') + s.slice(this.pos + 1).join('');
     return new Cursor(newText, this.pos);
@@ -195,7 +197,7 @@ export class Cursor {
 
   /** Delete from cursor to end of line (Ctrl+K). Returns [newCursor, killedText]. */
   killToEnd(): [Cursor, string] {
-    const s = this.segs();
+    const s = this._segs;
     const killed = s.slice(this.pos).join('');
     const newText = s.slice(0, this.pos).join('');
     return [new Cursor(newText, this.pos), killed];
@@ -203,7 +205,7 @@ export class Cursor {
 
   /** Delete from cursor to start of line (Ctrl+U). Returns [newCursor, killedText]. */
   killToStart(): [Cursor, string] {
-    const s = this.segs();
+    const s = this._segs;
     const killed = s.slice(0, this.pos).join('');
     const newText = s.slice(this.pos).join('');
     return [new Cursor(newText, 0), killed];
@@ -211,7 +213,7 @@ export class Cursor {
 
   /** Delete word before cursor (Ctrl+W). Returns [newCursor, killedText]. */
   killWordBack(): [Cursor, string] {
-    const s = this.segs();
+    const s = this._segs;
     const newPos = wordBoundaryBack(s, this.pos);
     const killed = s.slice(newPos, this.pos).join('');
     const newText = s.slice(0, newPos).join('') + s.slice(this.pos).join('');
@@ -228,20 +230,4 @@ export class Cursor {
     return new Cursor('');
   }
 
-  // ── Display helpers ───────────────────────────────────
-
-  /** Display width of text before cursor (in terminal columns). */
-  get displayWidthBefore(): number {
-    return textDisplayWidth(this.before);
-  }
-
-  /** Display width of text after cursor (in terminal columns). */
-  get displayWidthAfter(): number {
-    return textDisplayWidth(this.after);
-  }
-
-  /** Total display width (in terminal columns). */
-  get totalDisplayWidth(): number {
-    return textDisplayWidth(this.text);
-  }
 }

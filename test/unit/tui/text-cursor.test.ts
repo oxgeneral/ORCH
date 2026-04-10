@@ -380,19 +380,11 @@ describe('Cursor segment accessors', () => {
   });
 });
 
-/* ── Cursor: display width ─────────────────────────── */
+/* ── Display width (free functions) ────────────────── */
 
-describe('Cursor display width', () => {
-  it('displayWidthBefore for ASCII', () => {
-    expect(new Cursor('hello', 3).displayWidthBefore).toBe(3);
-  });
-
-  it('displayWidthBefore for CJK', () => {
-    expect(new Cursor('你好世界', 2).displayWidthBefore).toBe(4);
-  });
-
-  it('totalDisplayWidth for mixed', () => {
+describe('textDisplayWidth (via free function)', () => {
+  it('computes correctly for mixed ASCII + CJK', () => {
     // 'hi' (2) + '你' (2) = 4
-    expect(new Cursor('hi你').totalDisplayWidth).toBe(4);
+    expect(textDisplayWidth('hi你')).toBe(4);
   });
 });

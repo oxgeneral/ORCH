@@ -12,7 +12,7 @@
  * - Terminal editing shortcuts (Ctrl+A/E, Option+Left/Right, Cmd+Backspace)
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Key } from 'ink';
 import { Cursor } from '../text-cursor.js';
 
@@ -90,6 +90,11 @@ export function useTextInput(opts: UseTextInputOptions = {}): UseTextInputResult
       snapshotUndo();
     }, UNDO_SNAPSHOT_DEBOUNCE_MS);
   }, [snapshotUndo]);
+
+  // Clear debounce timer on unmount to prevent post-unmount state writes
+  useEffect(() => {
+    return () => { if (snapshotTimer.current) clearTimeout(snapshotTimer.current); };
+  }, []);
 
   const handleInput = useCallback((input: string, key: Key): boolean => {
     // Guard: empty input events from modifier keys / IME switching

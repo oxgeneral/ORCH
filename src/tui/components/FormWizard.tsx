@@ -102,12 +102,14 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   const [currentStep, setCurrentStep] = useState(0);
   const [values, setValues] = useState<Record<string, string>>({});
 
-  // Unified text input for single-line text steps (replaces textInput + cursorPos)
-  const firstTextDefault = useMemo(() => {
-    const firstActive = steps.find((s) => !s.skip?.({}));
-    return firstActive?.type === 'text' && firstActive.defaultValue ? firstActive.defaultValue : '';
-  }, []);
-  const textHook = useTextInput({ initialValue: firstTextDefault });
+  // Unified text input for single-line text steps (replaces textInput + cursorPos).
+  // IIFE: initialValue is only consumed by useState initializer — re-evaluation is harmless.
+  const textHook = useTextInput({
+    initialValue: (() => {
+      const firstActive = steps.find((s) => !s.skip?.({}));
+      return firstActive?.type === 'text' && firstActive.defaultValue ? firstActive.defaultValue : '';
+    })(),
+  });
   // Alias for compatibility with existing code paths (suggestions, validation)
   const textInput = textHook.value;
   // Textarea state: array of lines + cursor row/col
@@ -487,14 +489,14 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         setDirty(true);
         const row = taCursorRow;
         const col = taCursorCol;
+        const currentLine = taLines[row] ?? '';
+        const newPos = wordBoundaryBack(currentLine, col);
         setTaLines((lines) => {
-          const currentLine = lines[row] ?? '';
-          const newPos = wordBoundaryBack(currentLine, col);
           const newLines = [...lines];
           newLines[row] = currentLine.slice(0, newPos) + currentLine.slice(col);
-          setTaCursorCol(newPos);
           return newLines;
         });
+        setTaCursorCol(newPos);
         return;
       }
       // Option+Left / Meta+B: word backward
