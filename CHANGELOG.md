@@ -3,6 +3,39 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.22 (2026-04-10)
+
+### Refactoring
+
+- **Unified text input system** — replaced three separate text input implementations (FormWizard text-step, InputPanel, command-bar) with a shared architecture inspired by Claude Code:
+  - `text-cursor.ts` — immutable `Cursor` class with NFC normalization and `Intl.Segmenter`-based grapheme navigation (CJK, emoji, Cyrillic, combining marks)
+  - `hooks/useTextInput.ts` — keyboard logic hook with undo stack (Ctrl+Z / Cmd+Z), kill ring (Ctrl+K/U/W/Y), word navigation (Option+Left/Right), and all terminal editing shortcuts
+  - `components/TextInput.tsx` — display component with sliding viewport that keeps cursor visible on text overflow
+
+### Bug Fixes
+
+- **Cursor jumping on keyboard language switch** — NFC normalization in Cursor constructor prevents position drift when IME sends NFD-encoded characters during layout switching
+- **Text overflow at screen edge** — single-line text inputs now use a sliding viewport instead of truncating from the end, keeping the cursor always visible
+- **Undo stack over-drain** — debounced undo snapshots captured current state, causing Ctrl+Z to pop identical text with no visible effect; fixed by skipping one matching snapshot before applying undo
+- **React anti-pattern in textarea** — `setTaCursorCol` was called inside a `setTaLines` updater function; moved out to prevent potential double-fire in concurrent mode
+- **Timer leak on unmount** — undo debounce timer is now cleared via `useEffect` cleanup when the component unmounts mid-debounce
+
+### Performance
+
+- **Zero-cost cursor navigation** — arrow keys, Home/End, word navigation reuse existing grapheme segments via `Cursor._withPos()` factory instead of re-running `Intl.Segmenter` on unchanged text
+- **Single-pass insert** — `Cursor.insert()` uses `graphemeSegments()` once instead of `graphemeLength()` + constructor re-segmentation
+- **Render-path optimization** — `TextInput` reads `cursor.beforeSegs` / `cursor.afterSegs` directly, avoiding join + re-segmentation on every render
+
+### New Features
+
+- **Editing shortcuts** — Ctrl+A/E (start/end), Ctrl+K/U/W (kill operations), Ctrl+Y (yank), Ctrl+Z / Cmd+Z (undo), Cmd+Backspace (kill to start), Ctrl+B/F (left/right), Ctrl+D (delete forward), Ctrl+H (backspace), Home/End keys
+
+### Tests
+
+- 96 new tests (1829 → 1923):
+  - `text-cursor.test.ts` (61 tests) — grapheme segmentation, NFC normalization, CJK/emoji/Cyrillic handling, cursor navigation, editing, kill operations, display width
+  - `text-input.test.tsx` (33 tests) — E2E via ink-testing-library: FormWizard text-step input/submit, cursor navigation, backspace, all Ctrl shortcuts, Cyrillic/emoji/CJK input, undo, step transitions, validation
+
 ## 1.0.21 (2026-04-09)
 
 ### Bug Fixes
