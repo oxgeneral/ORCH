@@ -1010,7 +1010,7 @@ export function App({
       targetId: agent.id,
     });
     setInputMode('wizard');
-  }, [liveTeams]);
+  }, [liveTeams, liveAgents]);
 
   const launchConfigWizard = useCallback(() => {
     setWizardConfig({
@@ -1123,6 +1123,9 @@ export function App({
       onUpdateAgent(targetId, { name: fields.name, role: fields.role, model: fields.model, effort: fields.effort }).then(
         (agent) => {
           addMessage(`\u2713 Updated agent "${agent.name}"`, tuiColors.green);
+          // Optimistically merge returned agent into local state so reopening the
+          // editor immediately after save shows fresh values without waiting for refreshAll.
+          setLiveAgents((prev) => prev.map((a) => a.id === agent.id ? agent : a));
           // Handle team change
           const teamOps: Promise<unknown>[] = [];
           if (oldTeamId && oldTeamId !== newTeamId && onLeaveTeam) {
