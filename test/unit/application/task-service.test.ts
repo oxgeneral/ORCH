@@ -281,6 +281,42 @@ describe('TaskService', () => {
     });
   });
 
+  describe('clone', () => {
+    it('creates a new todo task copying fields from source', async () => {
+      const src = makeTask({
+        status: 'done',
+        title: 'Original',
+        description: 'desc',
+        priority: 2,
+        labels: ['a', 'b'],
+        goalId: 'gol_x',
+        attempts: 3,
+      });
+      taskStore = createMockTaskStore([src]);
+      service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
+
+      const cloned = await service.clone('tsk_test1');
+      expect(cloned.id).not.toBe(src.id);
+      expect(cloned.status).toBe('todo');
+      expect(cloned.title).toBe('Original');
+      expect(cloned.description).toBe('desc');
+      expect(cloned.priority).toBe(2);
+      expect(cloned.labels).toEqual(['a', 'b']);
+      expect(cloned.goalId).toBe('gol_x');
+      expect(cloned.attempts).toBe(0);
+    });
+
+    it('works on terminal statuses (done, failed, cancelled)', async () => {
+      for (const status of ['done', 'failed', 'cancelled'] as const) {
+        const src = makeTask({ id: `tsk_${status}`, status });
+        taskStore = createMockTaskStore([src]);
+        service = new TaskService(taskStore, eventBus, DEFAULT_CONFIG);
+        const cloned = await service.clone(src.id);
+        expect(cloned.status).toBe('todo');
+      }
+    });
+  });
+
   describe('delete', () => {
     it('deletes a non-running task', async () => {
       const existing = makeTask({ status: 'done' });

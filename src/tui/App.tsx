@@ -119,6 +119,7 @@ export interface AppProps {
   agents?: Agent[];
   state: OrchestratorState;
   onRunTask?: (taskId: string) => Promise<void>;
+  onCloneTask?: (taskId: string) => Promise<Task>;
   onCreateTask?: (title: string, opts?: { priority?: number; description?: string; attachments?: string[] }) => Promise<Task>;
   onCancelTask?: (taskId: string) => Promise<void>;
   onRetryTask?: (taskId: string) => Promise<void>;
@@ -313,7 +314,7 @@ function entityListChanged(prev: { id: string; updated_at?: string }[], next: { 
 
 export function App({
   projectName, tasks: initialTasks, agents: initialAgents = [], state: initialState,
-  onRunTask, onCreateTask, onCancelTask, onRetryTask, onAssignTask,
+  onRunTask, onCloneTask, onCreateTask, onCancelTask, onRetryTask, onAssignTask,
   onRunAll, onDisableAgent, onEnableAgent, onSubscribeEvents,
   onRefreshTasks, onRefreshAgents, onRefreshState, onLoadHistory,
   onAddAgent, onDeleteAgent, onApproveTask, onRejectTask, onDeleteTask,
@@ -456,6 +457,16 @@ export function App({
   // Toast notification queue
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastSeq = useRef(0);
+
+  // Flash banner — transient, high-visibility feedback for key actions (e.g. blocked R)
+  const [flash, setFlash] = useState<{ text: string; color: string } | null>(null);
+  const flashTimer = useRef<NodeJS.Timeout | null>(null);
+  const showFlash = useCallback((text: string, color: string) => {
+    setFlash({ text, color });
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlash(null), 4000);
+  }, []);
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
   // Tab flash state — flash the TASKS tab pill when a task event fires on another tab
   const [flashTab, setFlashTab] = useState<{ tab: ViewId; color: string } | undefined>();
@@ -2243,10 +2254,33 @@ export function App({
       }
     }
 
-    // R: run selected task (only in tasks view)
-    if ((input === 'r' || input === 'R') && activeView === 'tasks' && selectedTask && onRunTask) {
+    // Shift+R: clone task and run the clone (works on terminal tasks too)
+    if (input === 'R' && activeView === 'tasks' && selectedTask && onCloneTask) {
+      const src = selectedTask;
+      addMessage(`Cloning "${src.title}"...`, tuiColors.amber);
+      showFlash(`Cloning "${src.title}" \u2026`, tuiColors.amber);
+      onCloneTask(src.id).then(
+        (cloned) => {
+          addMessage(`\u2713 Cloned & dispatched "${cloned.title}" (${cloned.id})`, tuiColors.green);
+          showFlash(`Cloned & dispatched "${cloned.title}"`, tuiColors.green);
+          refreshAll();
+        },
+        (err) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          addMessage(`Failed to clone: ${msg}`, tuiColors.red);
+          showFlash(`Failed to clone: ${msg}`, tuiColors.red);
+        },
+      );
+      return;
+    }
+
+    // r: run selected task (only in tasks view)
+    if (input === 'r' && activeView === 'tasks' && selectedTask && onRunTask) {
       if (!RUNNABLE.has(selectedTask.status)) {
-        addMessage(`Cannot run "${selectedTask.title}" \u2014 status is ${selectedTask.status}`, tuiColors.yellow);
+        const hint = onCloneTask ? ' \u2014 press Shift+R to clone & rerun' : '';
+        const text = `Cannot run "${selectedTask.title}" \u2014 status is ${selectedTask.status}${hint}`;
+        addMessage(text, tuiColors.yellow);
+        showFlash(text, tuiColors.yellow);
         return;
       }
       addMessage(`Running "${selectedTask.title}"...`, tuiColors.green);
@@ -2594,6 +2628,13 @@ export function App({
 
       {/* Toast notifications — task completion events */}
       <ToastBanner toasts={toasts} onDismiss={handleDismissToast} />
+
+      {/* Flash banner — transient feedback for key actions (blocked R, clone result, etc.) */}
+      {flash && (
+        <Box paddingX={2}>
+          <Text color={flash.color} bold>{'\u25CF '}{flash.text}</Text>
+        </Box>
+      )}
 
       {/* Undo banner — shows pending deletions with countdown */}
       {pendingDeletions.length > 0 && (
