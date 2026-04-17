@@ -1,0 +1,13 @@
+# CODEOWNERS — auto-assign reviewers for pull requests.
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+*                               @oxgeneral
+
+# Critical paths — same owner, explicit for clarity
+/src/domain/                    @oxgeneral
+/src/application/orchestrator.ts @oxgeneral
+/src/infrastructure/adapters/   @oxgeneral
+/.github/                       @oxgeneral
+/scripts/release.sh             @oxgeneral
+/package.json                   @oxgeneral
