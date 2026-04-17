@@ -9,8 +9,8 @@ import {
 } from '../../../src/domain/model-tiers.js';
 
 describe('resolveModel', () => {
-  it('claude capable → opus', () => {
-    expect(resolveModel('claude', 'capable')).toBe('claude-opus-4-6');
+  it('claude capable → opus 4.7 (current flagship)', () => {
+    expect(resolveModel('claude', 'capable')).toBe('claude-opus-4-7');
   });
 
   it('claude balanced → sonnet', () => {

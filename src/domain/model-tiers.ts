@@ -32,7 +32,7 @@ export const MODEL_TIER_MAP: Record<AdapterKind, Record<ModelTier, string>> = {
     fast: 'claude-haiku-4-6',
   },
   opencode: {
-    capable: 'openrouter/anthropic/claude-opus-4.6',
+    capable: 'openrouter/anthropic/claude-opus-4.7',
     balanced: '',
     fast: 'openrouter/google/gemini-2.5-flash',
   },
