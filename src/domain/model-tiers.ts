@@ -27,7 +27,7 @@ export type ModelTier = 'capable' | 'balanced' | 'fast';
  */
 export const MODEL_TIER_MAP: Record<AdapterKind, Record<ModelTier, string>> = {
   claude: {
-    capable: 'claude-opus-4-6',
+    capable: 'claude-opus-4-7',
     balanced: 'claude-sonnet-4-6',
     fast: 'claude-haiku-4-6',
   },

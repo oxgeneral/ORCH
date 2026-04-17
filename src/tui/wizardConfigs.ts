@@ -19,6 +19,7 @@ import { isMcpSkill } from '../application/agent-factory.js';
 // ── Model catalogs per adapter ──
 
 const CLAUDE_MODELS = [
+  { value: 'claude-opus-4-7', label: 'Claude Opus 4.7', hint: 'most capable, latest' },
   { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', hint: 'most capable' },
   { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', hint: 'fast, balanced' },
   { value: 'claude-haiku-4-6', label: 'Claude Haiku 4.6', hint: 'fastest, cheapest' },
@@ -48,6 +49,7 @@ const CURSOR_MODELS = [
 
 const OPENCODE_MODELS = [
   { value: '', label: 'Default', hint: 'use model configured in opencode' },
+  { value: 'openrouter/anthropic/claude-opus-4.7', label: 'Claude Opus 4.7', hint: 'most capable, latest' },
   { value: 'openrouter/anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6', hint: 'fast, balanced' },
   { value: 'openrouter/anthropic/claude-opus-4.6', label: 'Claude Opus 4.6', hint: 'most capable' },
   { value: 'openrouter/google/gemini-2.5-pro', label: 'Gemini 2.5 Pro', hint: 'Google' },
