@@ -109,7 +109,7 @@ describe('FormWizard textarea', () => {
     await delay(50);
     const output = lastFrame()!;
     expect(output).toContain('Enter newline');
-    expect(output).toContain('Enter confirm');
+    expect(output).toContain('Ctrl+S');
     expect(output).toContain('navigate');
   });
 
@@ -241,6 +241,52 @@ describe('FormWizard textarea', () => {
     await delay(50);
 
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  /* ── Ctrl+S confirms textarea ── */
+
+  it('Ctrl+S confirms textarea and calls onComplete', async () => {
+    const onComplete = vi.fn();
+    const onCancel = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextareaSteps(),
+        onComplete,
+        onCancel,
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    stdin.write('Hello world');
+    await delay(50);
+    stdin.write('\x13'); // Ctrl+S to confirm
+    await delay(50);
+
+    expect(onComplete).toHaveBeenCalledWith({ body: 'Hello world' });
+  });
+
+  it('Ctrl+S confirms empty optional textarea', async () => {
+    const onComplete = vi.fn();
+    const onCancel = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextareaSteps(),
+        onComplete,
+        onCancel,
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    stdin.write('\x13'); // Ctrl+S on empty optional field should confirm
+    await delay(50);
+
+    expect(onComplete).toHaveBeenCalledWith({ body: '' });
   });
 
   /* ── Cursor navigation ── */
