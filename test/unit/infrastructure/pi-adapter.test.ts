@@ -208,6 +208,24 @@ describe('PiAdapter', () => {
       expect((events[0]!.data as any).paths).toEqual(['src/new.ts']);
     });
 
+    it('maps large agent_end lines to done without truncating JSON', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new PiAdapter(pm);
+      const handle = adapter.execute(makeParams());
+      const largeText = 'x'.repeat(20_000);
+
+      proc.stdout.write(JSON.stringify({
+        type: 'agent_end',
+        messages: [{ role: 'assistant', content: [{ type: 'text', text: largeText }], usage: { input: 10, output: 4, totalTokens: 14 } }],
+      }) + '\n');
+
+      const events = await collectEvents(handle, proc);
+
+      expect(events.at(-1)!.type).toBe('done');
+      expect((events.at(-1)!.data as any).result).toBe(largeText);
+    });
+
     it('maps agent_end to done with final text and tokens', async () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);

@@ -9,7 +9,7 @@
 
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
-import { readLines } from '../process/process-manager.js';
+import type { Readable } from 'node:stream';
 import { createTokenUsage, type TokenUsage } from '../../domain/run.js';
 import { classifyAdapterError } from '../../domain/errors.js';
 import { execFile } from 'node:child_process';
@@ -105,7 +105,7 @@ function createPiRpcEvents(
 
     try {
       if (proc.stdout) {
-        for await (const line of readLines(proc.stdout)) {
+        for await (const line of readPiRpcLines(proc.stdout)) {
           if (signal?.aborted) break;
           const event = parsePiRpcEvent(line, { finalText, lastTokens });
           if (!event) continue;
@@ -376,4 +376,31 @@ function extractPiTokensFromMessage(parsed: Record<string, unknown>): TokenUsage
 
 function numberField(value: unknown): number | undefined {
   return typeof value === 'number' ? value : undefined;
+}
+
+/**
+ * Pi RPC can emit very large JSONL records (notably agent_end with the full
+ * message transcript). Do not use the generic process readLines helper here:
+ * it caps lines at 16 KB, which corrupts large JSON records before the adapter
+ * can parse the terminal event.
+ */
+async function* readPiRpcLines(stream: Readable): AsyncGenerator<string> {
+  let pending: Buffer<ArrayBufferLike> = Buffer.alloc(0);
+
+  for await (const chunk of stream) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string, 'utf-8');
+    pending = pending.length ? Buffer.concat([pending, buf]) : buf;
+
+    let newlineIdx: number;
+    while ((newlineIdx = pending.indexOf(0x0a)) !== -1) {
+      const line = pending.subarray(0, newlineIdx).toString('utf-8');
+      pending = pending.subarray(newlineIdx + 1);
+      if (line) yield line.endsWith('\r') ? line.slice(0, -1) : line;
+    }
+  }
+
+  if (pending.length) {
+    const line = pending.toString('utf-8');
+    if (line) yield line.endsWith('\r') ? line.slice(0, -1) : line;
+  }
 }
