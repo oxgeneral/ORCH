@@ -7,7 +7,7 @@
 
 <p align="center">
   <strong>Open-source orchestration for zero-human companies, processes and departments.</strong><br/>
-  <sub>Run multiple AI agents on one project — without babysitting any of them.<br/>Coordinate Claude, Codex, Cursor and any CLI tool in parallel. One npm install. Zero infrastructure.</sub>
+  <sub>Run multiple AI agents on one project — without babysitting any of them.<br/>Coordinate Claude, Codex, Pi, Cursor and any CLI tool in parallel. One npm install. Zero infrastructure.</sub>
 </p>
 
 <p align="center">
@@ -209,6 +209,7 @@ ORCH itself is lightweight (~120 MB). The RAM goes to the **agent CLI processes*
 | Claude Code CLI | 200-400 MB | Full Node.js runtime + context window |
 | OpenCode | 200-400 MB | Node.js + provider SDK |
 | Codex CLI | 150-300 MB | Python runtime + OpenAI SDK |
+| Pi coding agent | 200-400 MB | Node.js runtime + Pi tools/extensions |
 | Cursor CLI | 200-400 MB | Electron-based agent |
 | Shell scripts | 10-50 MB | Depends on the tool |
 
@@ -287,7 +288,7 @@ ORCH orchestrates **any process** — not just code. The shell adapter runs any 
 
 | Department | Agents | What they do |
 |-----------|--------|-------------|
-| **Engineering** | Claude, Codex, Cursor | Write code, fix bugs, refactor |
+| **Engineering** | Claude, Codex, Pi, Cursor | Write code, fix bugs, refactor |
 | **Editorial** | Claude (writer), Claude (editor), Shell (grammarly) | Write articles, edit, check grammar, publish |
 | **Sales Ops** | Shell (CRM scripts), Claude (copywriter), Shell (email sender) | Generate leads, write sequences, send outreach |
 | **Analytics** | Shell (pandas, duckdb), Claude (analyst), Shell (matplotlib) | Clean data, compute KPIs, generate reports |
@@ -325,7 +326,7 @@ Every department gets the same superpowers: state machine governance, retry, mes
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/adapters-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="./assets/adapters-light.svg">
-  <img alt="Adapters: Claude, OpenCode, Codex, Cursor, Shell" src="./assets/adapters-dark.svg" width="100%">
+  <img alt="Adapters: Claude, OpenCode, Codex, Pi, Cursor, Shell" src="./assets/adapters-dark.svg" width="100%">
 </picture>
 
 <br/>
@@ -603,7 +604,7 @@ src/
 ├── domain/           # Models, state machine, errors
 ├── application/      # Orchestrator engine, services, event bus
 ├── infrastructure/
-│   ├── adapters/     # Claude, OpenCode, Codex, Cursor, Shell
+│   ├── adapters/     # Claude, OpenCode, Codex, Pi, Cursor, Shell
 │   ├── storage/      # File-based (YAML/JSON/JSONL)
 │   ├── process/      # PID management, graceful kill
 │   ├── template/     # LiquidJS prompt templates
@@ -705,7 +706,7 @@ ORCH is open-source (MIT license). You pay only for the AI APIs you already use 
 
 <br/>
 
-Five adapters: **Claude Code**, **OpenCode** (Gemini, DeepSeek, any OpenRouter model), **Codex**, **Cursor**, and **Shell** (any CLI tool). Your API keys, your tools — ORCH coordinates them.
+Six adapters: **Claude Code**, **OpenCode** (Gemini, DeepSeek, any OpenRouter model), **Codex**, **Pi**, **Cursor**, and **Shell** (any CLI tool). Your API keys, your tools — ORCH coordinates them.
 
 </details>
 

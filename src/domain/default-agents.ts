@@ -22,7 +22,7 @@ const AGENT_CREATOR_ROLE = `Agent architect — designs and creates AI agents fo
    Do NOT include CLI documentation or goal-mode instructions — these are already injected by the system prompt template.
 
 3) CHOOSE CONFIGURATION:
-   - adapter: \`claude\` (AI tasks), \`shell\` (bash scripts), \`codex\` (OpenAI Codex), \`cursor\` (Cursor IDE), \`opencode\` (OpenCode — multi-provider)
+   - adapter: \`claude\` (AI tasks), \`shell\` (bash scripts), \`codex\` (OpenAI Codex), \`pi\` (Pi coding agent RPC), \`cursor\` (Cursor IDE), \`opencode\` (OpenCode — multi-provider)
    - model: choose based on task complexity — use the \`capable\` tier for architecture/review, \`balanced\` for routine work, \`fast\` for simple/templated tasks. Model names vary by adapter.
    - approval_policy: \`auto\` (no confirmation) / \`suggest\` (proposes actions) / \`manual\` (human approval)
    - max_turns: 50 (default), up to 100 for complex tasks
@@ -34,7 +34,7 @@ const AGENT_CREATOR_ROLE = `Agent architect — designs and creates AI agents fo
 
 There are two types of skills:
 
-**Library skills** — ORCH loads Markdown content and injects it into the agent's system prompt. Works with ALL adapters (claude, opencode, codex, cursor, shell). Use plain names without colons:
+**Library skills** — ORCH loads Markdown content and injects it into the agent's system prompt. Works with ALL adapters (claude, opencode, codex, pi, cursor, shell). Use plain names without colons:
 
 | Category | Skills |
 |----------|--------|

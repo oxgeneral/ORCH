@@ -57,6 +57,13 @@ const OPENCODE_MODELS = [
   { value: 'opencode/big-pickle', label: 'Big Pickle', hint: 'opencode native' },
 ];
 
+const PI_MODELS = [
+  { value: 'openai-codex/gpt-5.5', label: 'GPT-5.5', hint: 'Pi OpenAI Codex provider' },
+  { value: 'openai-codex/gpt-5.4', label: 'GPT-5.4', hint: 'Pi OpenAI Codex provider' },
+  { value: 'openai-codex/gpt-5.3-codex', label: 'GPT-5.3 Codex', hint: 'Pi OpenAI Codex provider' },
+  { value: '', label: 'Default', hint: 'use Pi configured default' },
+];
+
 const SHELL_MODELS = [
   { value: '', label: 'Default', hint: 'use shell adapter default' },
 ];
@@ -71,7 +78,7 @@ const EFFORT_OPTIONS = [
 ];
 
 /** Adapters that support the --effort flag */
-const EFFORT_ADAPTERS = new Set(['claude']);
+const EFFORT_ADAPTERS = new Set(['claude', 'pi']);
 
 // ── Adapter catalog ──
 
@@ -80,6 +87,7 @@ const ADAPTERS = [
   { value: 'opencode', label: 'OpenCode', hint: 'OpenCode — multi-provider' },
   { value: 'codex', label: 'Codex', hint: 'OpenAI Codex CLI' },
   { value: 'cursor', label: 'Cursor', hint: 'Cursor Agent CLI' },
+  { value: 'pi', label: 'Pi', hint: 'Pi coding agent RPC' },
   { value: 'shell', label: 'Shell', hint: 'custom shell command' },
 ];
 
@@ -230,6 +238,7 @@ export function getAgentWizardSteps(agents?: Agent[], teams?: Team[]): WizardSte
         if (vals.adapter === 'opencode') return OPENCODE_MODELS;
         if (vals.adapter === 'codex') return CODEX_MODELS;
         if (vals.adapter === 'cursor') return CURSOR_MODELS;
+        if (vals.adapter === 'pi') return PI_MODELS;
         if (vals.adapter === 'shell') return SHELL_MODELS;
         return CLAUDE_MODELS;
       },
@@ -460,6 +469,7 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
     agent.adapter === 'opencode' ? OPENCODE_MODELS :
     agent.adapter === 'codex' ? CODEX_MODELS :
     agent.adapter === 'cursor' ? CURSOR_MODELS :
+    agent.adapter === 'pi' ? PI_MODELS :
     agent.adapter === 'shell' ? SHELL_MODELS :
     CLAUDE_MODELS;
 

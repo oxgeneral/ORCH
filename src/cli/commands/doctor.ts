@@ -11,6 +11,7 @@ import { ProcessManager } from '../../infrastructure/process/process-manager.js'
 import { AdapterRegistry } from '../../infrastructure/adapters/registry.js';
 import { ClaudeAdapter } from '../../infrastructure/adapters/claude.js';
 import { ShellAdapter } from '../../infrastructure/adapters/shell.js';
+import { PiAdapter } from '../../infrastructure/adapters/pi.js';
 import { DoctorService } from '../../application/doctor-service.js';
 import { Paths } from '../../infrastructure/storage/paths.js';
 import { getIcon, amber, dim } from '../output.js';
@@ -35,6 +36,7 @@ export function registerDoctorCommand(program: Command, container?: Container): 
         const registry = new AdapterRegistry();
         registry.register(new ClaudeAdapter(pm));
         registry.register(new ShellAdapter(pm));
+        registry.register(new PiAdapter(pm));
         doctorService = new DoctorService(registry, pm, process.cwd());
         paths = new Paths(process.cwd());
       }

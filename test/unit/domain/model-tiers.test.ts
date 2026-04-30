@@ -37,6 +37,10 @@ describe('resolveModel', () => {
     expect(resolveModel('codex', 'balanced')).toBe('gpt-5.3-codex');
   });
 
+  it('pi balanced → openai-codex/gpt-5.5', () => {
+    expect(resolveModel('pi', 'balanced')).toBe('openai-codex/gpt-5.5');
+  });
+
   it('shell returns empty string for all tiers', () => {
     expect(resolveModel('shell', 'capable')).toBe('');
     expect(resolveModel('shell', 'balanced')).toBe('');
@@ -59,6 +63,7 @@ describe('defaultModelForAdapter', () => {
   it('returns balanced tier model', () => {
     expect(defaultModelForAdapter('claude')).toBe('claude-sonnet-4-6');
     expect(defaultModelForAdapter('codex')).toBe('gpt-5.3-codex');
+    expect(defaultModelForAdapter('pi')).toBe('openai-codex/gpt-5.5');
     expect(defaultModelForAdapter('shell')).toBe('');
   });
 });
@@ -81,6 +86,7 @@ describe('isAdapterKind', () => {
     expect(isAdapterKind('opencode')).toBe(true);
     expect(isAdapterKind('codex')).toBe(true);
     expect(isAdapterKind('cursor')).toBe(true);
+    expect(isAdapterKind('pi')).toBe(true);
     expect(isAdapterKind('shell')).toBe(true);
   });
 
@@ -104,8 +110,8 @@ describe('isModelTier', () => {
 });
 
 describe('SUPPORTED_ADAPTERS', () => {
-  it('has 5 entries', () => {
-    expect(SUPPORTED_ADAPTERS).toHaveLength(5);
+  it('has 6 entries', () => {
+    expect(SUPPORTED_ADAPTERS).toHaveLength(6);
   });
 
   it('matches MODEL_TIER_MAP keys', () => {
