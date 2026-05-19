@@ -3911,9 +3911,9 @@ function extractTextFromContent(content: unknown, maxLen = 200): string | null {
 /** Extract a short description of tool_result content (for user messages) */
 function summarizeToolResult(content: unknown): string {
   if (typeof content === 'string') {
-    const lines = content.split('\n').length;
-    const firstLine = content.split('\n').find((l) => l.trim().length > 0) ?? '';
-    if (lines > 3) return `${firstLine.slice(0, 80)}... (${lines} lines)`;
+    const lines = content.split('\n');
+    const firstLine = lines.find((l) => /\S/.test(l)) ?? '';
+    if (lines.length > 3) return `${firstLine.slice(0, 80)}... (${lines.length} lines)`;
     return firstLine.slice(0, 120);
   }
   if (!Array.isArray(content)) return '(result)';
@@ -3941,7 +3941,9 @@ function summarizeToolResult(content: unknown): string {
 
 /** First non-blank line of `s`, sliced to `n` chars. Skips leading blank lines (`"\nhi"` → `"hi"`). */
 function firstLineTrunc(s: string, n: number): string {
-  return (s.split('\n').find((l) => l.trim().length > 0) ?? s).slice(0, n);
+  // Fast path for single-line input — most agent events are one line.
+  if (s.indexOf('\n') === -1) return s.slice(0, n);
+  return (s.split('\n').find((l) => /\S/.test(l)) ?? s).slice(0, n);
 }
 
 /** Extract human-readable text from agent output data (which may be raw JSON from Claude CLI) */
