@@ -6,8 +6,8 @@
  * is resolved based on the user's chosen adapter.
  */
 
-/** The five supported adapter kinds. */
-export type AdapterKind = 'claude' | 'opencode' | 'codex' | 'cursor' | 'shell';
+/** The supported adapter kinds. */
+export type AdapterKind = 'claude' | 'opencode' | 'codex' | 'cursor' | 'pi' | 'shell';
 
 /**
  * Semantic capability tiers — adapter-agnostic.
@@ -46,6 +46,11 @@ export const MODEL_TIER_MAP: Record<AdapterKind, Record<ModelTier, string>> = {
     balanced: 'auto',
     fast: 'auto',
   },
+  pi: {
+    capable: 'openai-codex/gpt-5.5',
+    balanced: 'openai-codex/gpt-5.5',
+    fast: 'openai-codex/gpt-5.5',
+  },
   shell: {
     capable: '',
     balanced: '',
@@ -79,4 +84,4 @@ export function isModelTier(value: string): value is ModelTier {
 }
 
 /** All supported adapter names in display order. */
-export const SUPPORTED_ADAPTERS: readonly AdapterKind[] = ['claude', 'opencode', 'codex', 'cursor', 'shell'];
+export const SUPPORTED_ADAPTERS: readonly AdapterKind[] = ['claude', 'opencode', 'codex', 'cursor', 'pi', 'shell'];

@@ -250,7 +250,7 @@ export function registerInitCommand(program: Command): void {
     .command('init')
     .description('Initialize .orchestry/ in the current directory')
     .option('--name <name>', 'Project name')
-    .option('--adapter <adapter>', 'Default agent adapter (claude, opencode, codex, cursor, shell)')
+    .option('--adapter <adapter>', 'Default agent adapter (claude, opencode, codex, cursor, pi, shell)')
     .action(async (opts: { name?: string; adapter?: string }) => {
       if (opts.adapter && !isAdapterKind(opts.adapter)) {
         printError(`Unknown adapter "${opts.adapter}"`, `Supported: ${SUPPORTED_ADAPTERS.join(', ')}`);

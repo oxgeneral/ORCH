@@ -90,11 +90,13 @@ describe('getDefaultAgents()', () => {
   it('uses provided adapter', () => {
     expect(getDefaultAgents('opencode')[0].adapter).toBe('opencode');
     expect(getDefaultAgents('codex')[0].adapter).toBe('codex');
+    expect(getDefaultAgents('pi')[0].adapter).toBe('pi');
   });
 
   it('resolves model from adapter tier', () => {
     expect(getDefaultAgents('claude')[0].config.model).toBe('claude-sonnet-4-6');
     expect(getDefaultAgents('codex')[0].config.model).toBe('gpt-5.3-codex');
+    expect(getDefaultAgents('pi')[0].config.model).toBe('openai-codex/gpt-5.5');
   });
 
   it('includes MCP skills for claude adapter', () => {
@@ -104,6 +106,7 @@ describe('getDefaultAgents()', () => {
   it('excludes MCP skills for non-claude adapters', () => {
     expect(getDefaultAgents('opencode')[0].config.skills).toEqual([]);
     expect(getDefaultAgents('codex')[0].config.skills).toEqual([]);
+    expect(getDefaultAgents('pi')[0].config.skills).toEqual([]);
   });
 
   it('agent has approval_policy=suggest', () => {

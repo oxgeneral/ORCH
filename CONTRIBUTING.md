@@ -21,7 +21,7 @@ npm install
 # 3. Run in dev mode (no build needed)
 npm run dev
 
-# 4. Run tests — all 1694 should pass
+# 4. Run tests — all 1954 should pass
 npm test
 
 # 5. Type-check
