@@ -93,12 +93,13 @@ const ONBOARDING_TASKS: OnboardingConfig = {
   nudge: 'Add more tasks to keep agents busy.',
 };
 
-const ONBOARDING_AGENTS: OnboardingConfig = {
+// Exported so tests can assert the adapter list stays in sync with SUPPORTED_ADAPTERS.
+export const ONBOARDING_AGENTS: OnboardingConfig = {
   title: 'Agents',
   description: [
     'AI workers that execute your tasks.',
-    'Each agent uses an adapter (claude, codex,',
-    'cursor, shell) and has its own role.',
+    'Each agent uses an adapter (claude,',
+    'codex, opencode, cursor, pi, shell).',
   ],
   hints: [{ key: 'N', label: 'new agent' }, { key: 'W', label: 'start orchestrator' }],
   nudge: 'Add more agents to increase parallelism.',
