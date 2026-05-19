@@ -3,6 +3,40 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.23 (2026-05-19)
+
+### New Features
+
+- **Pi RPC adapter** ([#12](https://github.com/oxgeneral/ORCH/pull/12)) — sixth first-class adapter. Wraps `pi --mode rpc` (`@mariozechner/pi-coding-agent`) and exposes its JSONL event stream through the orchestrator's `AgentEvent` contract. Supports Pi's full provider matrix (OpenRouter, Anthropic, OpenAI Codex, Gemini, …) via the `--model "<provider>/<model>"` convention. Registered in `init` adapter detection, `doctor`, agent shop, TUI wizard models (`PI_MODELS`), and `EFFORT_ADAPTERS`. Agents-tab onboarding tip now lists all six adapters; a regression test asserts it stays in sync with `SUPPORTED_ADAPTERS`.
+
+### Bug Fixes
+
+- **Pi stream: abort/kill cleanup** — when the generator exits without a terminal `done` event (abort signal or stream error) the adapter now schedules `processManager.killWithGrace(pid, 1000)` from the `finally` block. The long-lived pi process is no longer pinned alive by dangling `'close'` / `'error'` listeners.
+- **Pi stream: unhandled error before first line** — the stdout `for await` is wrapped in `try/catch`. Stream errors arriving before the first JSONL line (ECONNRESET, EPIPE, immediate crashes) are now classified via `classifyAdapterError` and yielded as an `error` `AgentEvent` instead of escaping as an unhandled rejection.
+- **Pi stream: silent stderr** — `proc.stderr.resume()` (which drained but dropped data) is replaced by `createStderrTailCapture()`, retaining the last 4 KB of stderr. Auth and extension-load failures now surface in the error message on non-zero exit.
+- **Dead branch in `extractPassiveUpdate`** — both arms of `state.finalText ? null : null` returned `null`; simplified to a single `return tokens ? { tokens } : null`. The unused `ParseState` argument is dropped.
+- **`Buffer<ArrayBufferLike>` generic** — replaced with plain `Buffer | null` so the line reader compiles cleanly on the `^20.17.0` floor of `@types/node` (the generic only landed in `@types/node` 22+).
+- **`as any` in test mock** — `pi-adapter.test.ts` casts the mock child process through `unknown as ChildProcess`. CLAUDE.md forbids `as any`.
+
+### Performance
+
+- **`readPiRpcLines`: O(n²) → O(n)** — replaced per-chunk `Buffer.concat([pending, buf])` (which copied the full accumulator each time) with the `chunks[] + totalLen + offset` pattern already used by `readLines()` in `process-manager.ts`. Concat once per chunk arrival, scan with an offset, subarray the remainder.
+- **`createStderrTailCapture`: drop array-shift on overflow** — keeps a single backing `Buffer` and slices via `Buffer.from(buf.subarray(buf.length - LIMIT))` when oversized. `Buffer.from` materializes an exactly-sized copy so a single 64 KB stderr burst no longer pins the larger `ArrayBuffer` alive until GC.
+- **Token alias lookup collapsed** — the eight `??` chains for `cacheRead`/`cache_read_input_tokens`/etc. became a single `PI_TOKEN_ALIASES` map with one `pick(keys)` helper. Same wire-compatibility, far fewer lines.
+
+### Refactoring
+
+- **`src/tui/onboarding-config.ts`** — extracted `ONBOARDING_GOALS`, `ONBOARDING_TASKS`, `ONBOARDING_AGENTS` out of `App.tsx`. The app and the regression test both import from the new module; `App.tsx` no longer needs to export internal constants for test access.
+
+### Tests
+
+- 260 new tests (1694 → 1954):
+  - `test/unit/infrastructure/pi-adapter.test.ts` (20 tests) — adapter contract: arg list, prompt JSONL write, parsing of every Pi RPC event type (`extension_ui_request`, `message_update.text_delta`, `tool_execution_start`, `tool_execution_end` for `bash`/`write`/`edit`, large `agent_end`, `response` failure), stderr tail surfacing, abort-signal kill.
+  - `test/integration/pi-adapter.e2e.test.ts` — full lifecycle through the real Orchestrator with a mocked spawn: dispatch → JSONL stream → state machine transitions `todo → in_progress → review → done` → tokens persisted on the Run → process termination via `killWithGrace`.
+  - `test/integration/pi-tui.e2e.test.tsx` — same lifecycle through the Ink/React TUI via `ink-testing-library`: pi agent + adapter chip on the Agents tab, activity feed shows `text_delta` / `tool_call` / `file_changed` / done.
+  - `test/unit/tui/onboarding-agents.test.ts` — invariant that every `SUPPORTED_ADAPTERS` entry appears in the Agents-tab onboarding description.
+  - Parametrized rows for `pi` in `agent-factory.test.ts` (model resolution + MCP-skill filtering), `commands-init.test.ts` (`getDefaultAgents('pi')`), and `wizard-effort.test.ts` (`EFFORT_ADAPTERS` membership).
+
 ## 1.0.22 (2026-04-10)
 
 ### Refactoring
