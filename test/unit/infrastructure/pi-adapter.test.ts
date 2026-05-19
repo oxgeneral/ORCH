@@ -153,7 +153,9 @@ describe('PiAdapter', () => {
       expect(events).toEqual([]);
     });
 
-    it('maps text_delta message updates to output events', async () => {
+    it('aggregates text_delta updates and emits one canonical output on text_end', async () => {
+      // Canonical contract: one `output` event per assistant text block, not per delta.
+      // text_delta only mutates internal state; text_end flushes the assembled text.
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new PiAdapter(pm);
@@ -163,11 +165,38 @@ describe('PiAdapter', () => {
         type: 'message_update',
         assistantMessageEvent: { type: 'text_delta', delta: 'hello' },
       }) + '\n');
+      proc.stdout.write(JSON.stringify({
+        type: 'message_update',
+        assistantMessageEvent: { type: 'text_delta', delta: ' world' },
+      }) + '\n');
+      proc.stdout.write(JSON.stringify({
+        type: 'message_update',
+        assistantMessageEvent: { type: 'text_end', content: 'hello world' },
+      }) + '\n');
 
       const events = await collectEvents(handle, proc);
 
+      expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe('output');
-      expect((events[0]!.data as any).text).toBe('hello');
+      expect(events[0]!.data).toEqual({ text: 'hello world' });
+    });
+
+    it('drops tool_execution_update progress events (noise)', async () => {
+      // tool_execution_update is per-chunk progress from pi; no other adapter
+      // surfaces this in its event stream. Skip entirely.
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new PiAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({
+        type: 'tool_execution_update',
+        toolName: 'bash',
+        result: { content: [{ type: 'text', text: 'partial output…' }] },
+      }) + '\n');
+
+      const events = await collectEvents(handle, proc);
+      expect(events).toEqual([]);
     });
 
     it('maps tool execution events to tool_call and output events', async () => {

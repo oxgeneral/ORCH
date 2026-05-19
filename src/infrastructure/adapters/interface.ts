@@ -25,6 +25,35 @@ export interface ExecuteParams {
   signal?: AbortSignal;
 }
 
+/**
+ * Canonical `data` shape per AgentEvent type. Each adapter should emit `data`
+ * that matches its event's row below so that downstream consumers (TUI logs,
+ * `orch logs` CLI, serve daemon) can render events without knowing adapter
+ * internals.
+ *
+ *   | type        | data shape                                        |
+ *   |-------------|---------------------------------------------------|
+ *   | output      | { text: string, raw?: unknown }                   |
+ *   | tool_call   | { name: string, input?: unknown, raw?: unknown }  |
+ *   | command     | { command: string, result?: unknown, raw?: unknown } |
+ *   | file_change | { paths: string[], raw?: unknown }                |
+ *   | error       | { message: string, raw?: unknown }                |
+ *   | done        | { result?: string, raw?: unknown }                |
+ *
+ * - `raw` is an optional escape hatch for the full provider payload; logs
+ *   renderers must not include it in the default summary.
+ * - Adapters should emit ONE `output` per logical assistant message (per
+ *   text-block or per turn), not per-character delta. Use adapter-local state
+ *   to aggregate streaming deltas before emitting.
+ * - Intermediate progress events (tool-in-flight, "thinking" pings) should be
+ *   dropped at the adapter boundary — they belong in adapter-specific UIs,
+ *   not in the orchestrator event stream.
+ *
+ * Existing adapters predate this contract and emit a variety of shapes
+ * (claude/cursor: full `parsed.message`; codex: `item`). The TUI renderer
+ * (`formatAgentOutput` in src/tui/App.tsx) is defensive and accepts both
+ * canonical and legacy shapes during the migration window.
+ */
 export interface AgentEvent {
   type: 'output' | 'file_change' | 'command' | 'tool_call' | 'error' | 'done';
   timestamp: string;
