@@ -453,7 +453,10 @@ function createStderrTailCapture(stderr: Readable | null | undefined): () => str
     const next = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf-8');
     buf = buf.length === 0 ? next : Buffer.concat([buf, next], buf.length + next.length);
     if (buf.length > STDERR_TAIL_BYTES) {
-      buf = buf.subarray(buf.length - STDERR_TAIL_BYTES);
+      // Buffer.from materializes a fresh, exactly-sized copy. Plain subarray
+      // would keep a view into the larger backing ArrayBuffer (sized to the
+      // last chunk), wasting memory on every oversized burst until GC.
+      buf = Buffer.from(buf.subarray(buf.length - STDERR_TAIL_BYTES));
     }
   });
   stderr.on('error', () => {});
