@@ -3952,6 +3952,32 @@ function formatAgentOutput(raw: string): { summary: string | null; detail: strin
   try {
     const parsed = JSON.parse(raw);
 
+    // ── Canonical adapter event contract ────────────────────────────────
+    // See JSDoc on `AgentEvent` in src/infrastructure/adapters/interface.ts.
+    // Adapters that conform emit one of these shapes:
+    //   output:      { text: string }
+    //   tool_call:   { name, input }   (also matched below as legacy "tool_use")
+    //   command:     { command: string, result? }
+    //   file_change: { paths: string[] }
+    //   error:       { message: string }
+    //   done:        { result: string }
+    if (typeof parsed.text === 'string' && parsed.text.length > 0 && !parsed.type && !parsed.role) {
+      return { summary: parsed.text.split('\n')[0]?.slice(0, 200) ?? parsed.text.slice(0, 200), detail: detail() };
+    }
+    if (typeof parsed.command === 'string' && !parsed.type) {
+      const tail = typeof parsed.result === 'string' && parsed.result ? ` → ${parsed.result.split('\n')[0]?.slice(0, 80) ?? ''}` : '';
+      return { summary: `$ ${parsed.command.slice(0, 120)}${tail}`, detail: detail() };
+    }
+    if (Array.isArray(parsed.paths) && parsed.paths.length > 0 && !parsed.type) {
+      return { summary: `✎ ${parsed.paths.join(', ').slice(0, 180)}`, detail: detail() };
+    }
+    if (typeof parsed.message === 'string' && !parsed.role && !parsed.content && !parsed.subtype) {
+      return { summary: `✗ ${parsed.message.split('\n')[0]?.slice(0, 200) ?? parsed.message.slice(0, 200)}`, detail: detail() };
+    }
+    if (typeof parsed.result === 'string' && !parsed.type) {
+      return { summary: `✓ ${parsed.result.split('\n')[0]?.slice(0, 200) ?? parsed.result.slice(0, 200)}`, detail: detail() };
+    }
+
     // Claude API message: {"type":"message","role":"assistant","content":[...]}
     if (parsed.type === 'message' && parsed.role === 'assistant') {
       const text = extractTextFromContent(parsed.content);

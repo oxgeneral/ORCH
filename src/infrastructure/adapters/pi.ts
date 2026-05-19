@@ -207,7 +207,7 @@ function parsePiRpcEvent(line: string, state: ParseState): ParsedPiEvent | null 
   try {
     parsed = JSON.parse(line) as Record<string, unknown>;
   } catch {
-    return { agentEvent: { type: 'output', timestamp: new Date().toISOString(), data: line } };
+    return { agentEvent: { type: 'output', timestamp: new Date().toISOString(), data: { text: line } } };
   }
 
   const timestamp = new Date().toISOString();
@@ -229,9 +229,9 @@ function parsePiRpcEvent(line: string, state: ParseState): ParsedPiEvent | null 
 
     case 'response': {
       if (parsed.success === false) {
-        const errMsg = typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed);
+        const message = typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed);
         return {
-          agentEvent: { type: 'error', timestamp, data: parsed, errorKind: classifyAdapterError(errMsg) },
+          agentEvent: { type: 'error', timestamp, data: { message, raw: parsed }, errorKind: classifyAdapterError(message) },
         };
       }
       return null;
@@ -250,13 +250,10 @@ function parsePiRpcEvent(line: string, state: ParseState): ParsedPiEvent | null 
       };
 
     case 'tool_execution_update':
-      return {
-        agentEvent: {
-          type: 'output',
-          timestamp,
-          data: parsed,
-        },
-      };
+      // Intermediate progress: pi emits one of these per chunk of tool output
+      // (e.g. streaming bash stdout). Other adapters don't surface this in
+      // their event streams — drop it so the canonical contract holds.
+      return null;
 
     case 'tool_execution_end':
       return parseToolExecutionEnd(parsed, timestamp);
@@ -277,14 +274,17 @@ function parsePiRpcEvent(line: string, state: ParseState): ParsedPiEvent | null 
     }
 
     case 'extension_error': {
-      const errMsg = typeof parsed.message === 'string' ? parsed.message : JSON.stringify(parsed);
+      const message = typeof parsed.message === 'string' ? parsed.message : JSON.stringify(parsed);
       return {
-        agentEvent: { type: 'error', timestamp, data: parsed, errorKind: classifyAdapterError(errMsg) },
+        agentEvent: { type: 'error', timestamp, data: { message, raw: parsed }, errorKind: classifyAdapterError(message) },
       };
     }
 
     default:
-      return { agentEvent: { type: 'output', timestamp, data: parsed } };
+      // Unknown pi event types are silently dropped: they would otherwise
+      // pollute logs with raw RPC envelopes the renderer can't summarize.
+      // Adding a known type above is the right way to surface a new event.
+      return null;
   }
 }
 
@@ -293,22 +293,27 @@ function parseMessageUpdate(parsed: Record<string, unknown>, timestamp: string, 
   const updateType = typeof assistantMessageEvent?.type === 'string' ? assistantMessageEvent.type : '';
 
   if (updateType === 'text_delta') {
+    // Aggregate deltas into state.finalText; emit nothing here. A long LLM
+    // response is hundreds of deltas — flushing one event per delta floods
+    // the activity feed with character-level fragments. text_end emits the
+    // full message in one canonical `output` event below.
     const delta = typeof assistantMessageEvent?.delta === 'string' ? assistantMessageEvent.delta : '';
-    return {
-      finalText: state.finalText + delta,
-      agentEvent: { type: 'output', timestamp, data: { text: delta, raw: parsed } },
-    };
+    return { finalText: state.finalText + delta };
   }
 
   if (updateType === 'text_end') {
     const content = typeof assistantMessageEvent?.content === 'string' ? assistantMessageEvent.content : state.finalText;
-    return { finalText: content };
+    if (!content) return { finalText: content };
+    return {
+      finalText: content,
+      agentEvent: { type: 'output', timestamp, data: { text: content } },
+    };
   }
 
   if (updateType === 'error') {
     const reason = typeof assistantMessageEvent?.reason === 'string' ? assistantMessageEvent.reason : JSON.stringify(parsed);
     return {
-      agentEvent: { type: 'error', timestamp, data: parsed, errorKind: classifyAdapterError(reason) },
+      agentEvent: { type: 'error', timestamp, data: { message: reason, raw: parsed }, errorKind: classifyAdapterError(reason) },
     };
   }
 
@@ -318,20 +323,22 @@ function parseMessageUpdate(parsed: Record<string, unknown>, timestamp: string, 
 function parseToolExecutionEnd(parsed: Record<string, unknown>, timestamp: string): ParsedPiEvent {
   const toolName = typeof parsed.toolName === 'string' ? parsed.toolName : '';
   const args = parsed.args as Record<string, unknown> | undefined;
+  const resultText = extractToolResultText(parsed.result);
 
   if (parsed.isError === true) {
-    const errMsg = JSON.stringify(parsed.result ?? parsed);
+    const message = resultText || JSON.stringify(parsed.result ?? parsed);
     return {
-      agentEvent: { type: 'error', timestamp, data: parsed, errorKind: classifyAdapterError(errMsg) },
+      agentEvent: { type: 'error', timestamp, data: { message, raw: parsed }, errorKind: classifyAdapterError(message) },
     };
   }
 
   if (toolName === 'bash') {
+    const command = typeof args?.command === 'string' ? args.command : JSON.stringify(args ?? {});
     return {
       agentEvent: {
         type: 'command',
         timestamp,
-        data: { command: args?.command, result: parsed.result, raw: parsed },
+        data: { command, result: resultText, raw: parsed },
       },
     };
   }
@@ -349,7 +356,28 @@ function parseToolExecutionEnd(parsed: Record<string, unknown>, timestamp: strin
     }
   }
 
-  return { agentEvent: { type: 'output', timestamp, data: parsed } };
+  // Generic tool result (read, grep, ls, …) — surface the result text so logs
+  // show what came back, not the raw RPC envelope.
+  const summary = resultText || `${toolName || 'tool'} completed`;
+  return { agentEvent: { type: 'output', timestamp, data: { text: summary, raw: parsed } } };
+}
+
+/**
+ * Pi tool results are `{ content: [{ type: 'text', text: '...' }, ...] }`.
+ * Concatenate every text part; ignore non-text parts (images, etc).
+ */
+function extractToolResultText(result: unknown): string {
+  if (typeof result === 'string') return result;
+  if (!result || typeof result !== 'object') return '';
+  const content = (result as { content?: unknown }).content;
+  if (!Array.isArray(content)) return '';
+  return content
+    .map((part) => {
+      const p = part as Record<string, unknown>;
+      return typeof p.text === 'string' ? p.text : '';
+    })
+    .filter(Boolean)
+    .join('');
 }
 
 function extractPassiveUpdate(parsed: Record<string, unknown>): ParsedPiEvent | null {

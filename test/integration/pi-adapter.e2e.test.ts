@@ -155,9 +155,20 @@ describe('Pi adapter — end-to-end through Orchestrator', () => {
 
     // ── 5. Feed the Pi RPC event stream ────────────────────────────────────
     // Each chunk mirrors what `pi --mode rpc` emits as JSONL on stdout.
+    // text_delta deltas are silently aggregated; text_end flushes one
+    // canonical `output` event with the assembled text (see contract on
+    // AgentEvent in src/infrastructure/adapters/interface.ts).
     proc.stdout.write(JSON.stringify({
       type: 'message_update',
-      assistantMessageEvent: { type: 'text_delta', delta: 'Reading sources…' },
+      assistantMessageEvent: { type: 'text_delta', delta: 'Reading' },
+    }) + '\n');
+    proc.stdout.write(JSON.stringify({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'text_delta', delta: ' sources…' },
+    }) + '\n');
+    proc.stdout.write(JSON.stringify({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'text_end', content: 'Reading sources…' },
     }) + '\n');
 
     proc.stdout.write(JSON.stringify({
