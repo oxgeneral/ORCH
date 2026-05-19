@@ -140,8 +140,11 @@ describe('Pi adapter — end-to-end through Orchestrator', () => {
     expect(spawnCall[0]).toBe('pi');
     expect(spawnCall[1]).toEqual(expect.arrayContaining(['--mode', 'rpc']));
 
-    // B1 invariant: PiAdapter must close stdin after writing the prompt JSONL.
-    expect(stdinEndSpy).toHaveBeenCalled();
+    // Pi --mode rpc is a long-lived persistent session — stdin must stay open
+    // so the LLM call can run. Closing stdin stalls pi after user-message_end
+    // (verified on pi-coding-agent 0.73.1). The adapter terminates pi via
+    // killWithGrace once the terminal `done` event arrives.
+    expect(stdinEndSpy).not.toHaveBeenCalled();
 
     // After dispatch, the task is in_progress and the agent is busy.
     const dispatchedTask = await taskStore.get('tsk_pi');

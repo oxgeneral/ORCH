@@ -125,7 +125,11 @@ describe('PiAdapter', () => {
       expect(JSON.parse(line)).toMatchObject({ type: 'prompt', message: 'do work' });
     });
 
-    it('closes stdin after writing prompt so Pi RPC sees EOF', () => {
+    it('keeps stdin open so Pi RPC long-lived session can drive the LLM call', () => {
+      // Pi --mode rpc is persistent: the prompt write is a request, the LLM
+      // call runs asynchronously inside pi, and closing stdin stalls it after
+      // user-message_end (verified on pi-coding-agent 0.73.1). We terminate
+      // pi via killWithGrace after the terminal `done` event instead.
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new PiAdapter(pm);
@@ -133,7 +137,7 @@ describe('PiAdapter', () => {
 
       adapter.execute(makeParams({ prompt: 'do work' }));
 
-      expect(endSpy).toHaveBeenCalled();
+      expect(endSpy).not.toHaveBeenCalled();
     });
 
     it('ignores extension_ui_request events', async () => {

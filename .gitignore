@@ -45,3 +45,4 @@ npm-debug.log*
 archive
 
 docs
+.env.local

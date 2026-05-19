@@ -75,9 +75,14 @@ export class PiAdapter implements IAgentAdapter {
         type: 'prompt',
         message: params.prompt,
       }) + '\n');
-      // Pi --mode rpc reads stdin until EOF. ORCH runs one prompt per process,
-      // so close stdin immediately or Pi will keep waiting and never emit agent_end.
-      proc.stdin.end();
+      // DO NOT call proc.stdin.end() here. Pi --mode rpc is a long-lived
+      // persistent session: it sends a prompt preflight response, then drives
+      // the LLM call asynchronously, streaming message_update / turn_end /
+      // agent_end as the model responds. Closing stdin after the write breaks
+      // that pipeline — verified on pi-coding-agent 0.73.1: pi stalls right
+      // after the user-message_end event and never produces an assistant turn.
+      // We terminate the long-lived process via processManager.killWithGrace
+      // immediately after the terminal `done` event (see createPiRpcEvents).
     }
 
     const events = createPiRpcEvents(proc, pid, this.processManager, stderrTail, params.signal);
