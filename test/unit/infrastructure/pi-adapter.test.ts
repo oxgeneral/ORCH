@@ -5,6 +5,7 @@ import type { AgentEvent, ExecuteParams } from '../../../src/infrastructure/adap
 import { AdapterErrorKind } from '../../../src/domain/errors.js';
 import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
+import type { ChildProcess } from 'node:child_process';
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
@@ -18,14 +19,16 @@ vi.mock('node:child_process', async (importOriginal) => {
   };
 });
 
-function createMockProcess() {
-  const proc = new EventEmitter() as EventEmitter & {
-    stdout: PassThrough;
-    stderr: PassThrough;
-    stdin: PassThrough;
-    pid: number;
-    kill: () => void;
-  };
+type MockProcess = EventEmitter & {
+  stdout: PassThrough;
+  stderr: PassThrough;
+  stdin: PassThrough;
+  pid: number;
+  kill: () => void;
+};
+
+function createMockProcess(): MockProcess {
+  const proc = new EventEmitter() as MockProcess;
   proc.stdout = new PassThrough();
   proc.stderr = new PassThrough();
   proc.stdin = new PassThrough();
@@ -34,12 +37,12 @@ function createMockProcess() {
   return proc;
 }
 
-function createMockProcessManager(proc: ReturnType<typeof createMockProcess>): IProcessManager {
+function createMockProcessManager(proc: MockProcess): IProcessManager {
   return {
     isAlive: vi.fn(() => true),
     kill: vi.fn(),
     killWithGrace: vi.fn(async () => {}),
-    spawn: vi.fn(() => ({ process: proc as any, pid: proc.pid })),
+    spawn: vi.fn(() => ({ process: proc as unknown as ChildProcess, pid: proc.pid })),
   };
 }
 
@@ -120,6 +123,17 @@ describe('PiAdapter', () => {
       const line = String(writeSpy.mock.calls[0][0]);
       expect(line.endsWith('\n')).toBe(true);
       expect(JSON.parse(line)).toMatchObject({ type: 'prompt', message: 'do work' });
+    });
+
+    it('closes stdin after writing prompt so Pi RPC sees EOF', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new PiAdapter(pm);
+      const endSpy = vi.spyOn(proc.stdin, 'end');
+
+      adapter.execute(makeParams({ prompt: 'do work' }));
+
+      expect(endSpy).toHaveBeenCalled();
     });
 
     it('ignores extension_ui_request events', async () => {
@@ -260,6 +274,64 @@ describe('PiAdapter', () => {
 
       expect(events[0]!.type).toBe('error');
       expect(events[0]!.errorKind).toBe(AdapterErrorKind.UNKNOWN);
+    });
+
+    it('yields an error event when stdout emits an error before any line', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new PiAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      // Trigger 'error' on stdout before any data — the for await must catch it
+      // and surface an error event instead of throwing an unhandled rejection.
+      setTimeout(() => proc.stdout.emit('error', new Error('ECONNRESET')), 5);
+      setTimeout(() => proc.emit('close', 1), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe('error');
+      expect((events[0]!.data as { message: string }).message).toContain('ECONNRESET');
+      // Pi adapter must clean up the process when the stream dies before 'done'.
+      expect(pm.killWithGrace).toHaveBeenCalledWith(proc.pid, 1_000);
+    });
+
+    it('kills the process when the abort signal fires before a done event', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new PiAdapter(pm);
+      const controller = new AbortController();
+      const handle = adapter.execute(makeParams({ signal: controller.signal }));
+
+      // Emit a non-terminal event, then abort. The generator must break and
+      // schedule killWithGrace via the finally block.
+      proc.stdout.write(JSON.stringify({ type: 'message_update', assistantMessageEvent: { type: 'text_delta', delta: 'partial' } }) + '\n');
+      setTimeout(() => {
+        controller.abort();
+        proc.stdout.end();
+        proc.emit('close', null);
+      }, 10);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(pm.killWithGrace).toHaveBeenCalledWith(proc.pid, 1_000);
+    });
+
+    it('appends stderr tail to error message on non-zero exit', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new PiAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stderr.write('error: failed to load extension foo\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 2), 20);
+
+      await expect(async () => {
+        for await (const _ev of handle.events) { void _ev; }
+      }).rejects.toThrow(/failed to load extension foo/);
     });
   });
 

@@ -65,8 +65,9 @@ export class PiAdapter implements IAgentAdapter {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
-    // Avoid stderr backpressure if extensions emit warnings during startup.
-    proc.stderr?.resume();
+    // Capture stderr tail so auth/extension-load errors surface in non-zero exits
+    // rather than being silently drained. Drains backpressure at the same time.
+    const stderrTail = createStderrTailCapture(proc.stderr);
 
     if (proc.stdin) {
       proc.stdin.write(JSON.stringify({
@@ -74,9 +75,12 @@ export class PiAdapter implements IAgentAdapter {
         type: 'prompt',
         message: params.prompt,
       }) + '\n');
+      // Pi --mode rpc reads stdin until EOF. ORCH runs one prompt per process,
+      // so close stdin immediately or Pi will keep waiting and never emit agent_end.
+      proc.stdin.end();
     }
 
-    const events = createPiRpcEvents(proc, pid, this.processManager, params.signal);
+    const events = createPiRpcEvents(proc, pid, this.processManager, stderrTail, params.signal);
     return { pid, events };
   }
 
@@ -89,10 +93,12 @@ function createPiRpcEvents(
   proc: import('node:child_process').ChildProcess,
   pid: number,
   processManager: IProcessManager,
+  stderrTail: () => string,
   signal?: AbortSignal,
 ): AsyncGenerator<AgentEvent> {
   async function* generate(): AsyncGenerator<AgentEvent> {
     let gotDoneEvent = false;
+    let streamErrorYielded = false;
     let finalText = '';
     let lastTokens: TokenUsage | undefined;
     let exitCode: number | null = null;
@@ -103,47 +109,79 @@ function createPiRpcEvents(
       proc.on('error', (err) => { exitError = err; resolve(); });
     });
 
+    let streamError: Error | null = null;
     try {
       if (proc.stdout) {
-        for await (const line of readPiRpcLines(proc.stdout)) {
-          if (signal?.aborted) break;
-          const event = parsePiRpcEvent(line, { finalText, lastTokens });
-          if (!event) continue;
+        try {
+          for await (const line of readPiRpcLines(proc.stdout)) {
+            if (signal?.aborted) break;
+            const event = parsePiRpcEvent(line, { finalText, lastTokens });
+            if (!event) continue;
 
-          if (event.finalText !== undefined) finalText = event.finalText;
-          if (event.tokens) lastTokens = event.tokens;
+            if (event.finalText !== undefined) finalText = event.finalText;
+            if (event.tokens) lastTokens = event.tokens;
 
-          if (event.agentEvent) {
-            if (event.agentEvent.type === 'done') gotDoneEvent = true;
-            yield event.agentEvent;
-            if (event.agentEvent.type === 'done') {
-              // Pi RPC is a long-lived process. ORCH tasks are one-shot runs, so
-              // stop Pi after the terminal event instead of waiting forever.
-              await processManager.killWithGrace(pid, 1_000).catch(() => {});
-              return;
+            if (event.agentEvent) {
+              if (event.agentEvent.type === 'done') gotDoneEvent = true;
+              yield event.agentEvent;
+              if (event.agentEvent.type === 'done') {
+                // Pi RPC is a long-lived process. ORCH tasks are one-shot runs, so
+                // stop Pi after the terminal event instead of waiting forever.
+                await processManager.killWithGrace(pid, 1_000).catch(() => {});
+                return;
+              }
             }
+          }
+        } catch (err) {
+          // stdout emitted 'error' (ECONNRESET, EPIPE, etc) before a terminal event.
+          // Without this catch the rejection propagates out of the async generator
+          // as an unhandled error and the orchestrator only sees the run hang.
+          streamError = err instanceof Error ? err : new Error(String(err));
+          if (!signal?.aborted && !gotDoneEvent) {
+            streamErrorYielded = true;
+            yield {
+              type: 'error',
+              timestamp: new Date().toISOString(),
+              data: { message: streamError.message },
+              errorKind: classifyAdapterError(streamError.message),
+            };
           }
         }
       }
     } finally {
       proc.stdout?.destroy();
+      // Pi RPC is long-lived. If we leave via abort/break without a 'done' event,
+      // the process is still alive — kill it so exitPromise resolves and the
+      // generator doesn't pin the ChildProcess via dangling 'close' / 'error' listeners.
+      if (!gotDoneEvent && (signal?.aborted || streamError)) {
+        processManager.killWithGrace(pid, 1_000).catch(() => {});
+      }
     }
 
     await exitPromise;
 
+    // streamError was already surfaced as an error event — don't double-report.
+    if (streamErrorYielded) return;
+
     const spawnError = exitError as Error | null;
     if (spawnError && !signal?.aborted && !gotDoneEvent) {
-      const classified = classifyAdapterError(spawnError.message, exitCode ?? undefined);
-      throw Object.assign(new Error(spawnError.message), { errorKind: classified });
+      const message = appendStderrTail(spawnError.message, stderrTail());
+      const classified = classifyAdapterError(message, exitCode ?? undefined);
+      throw Object.assign(new Error(message), { errorKind: classified });
     }
     if (exitCode !== 0 && exitCode !== null && !signal?.aborted && !gotDoneEvent) {
-      const msg = `Pi process exited with code ${exitCode}`;
-      const classified = classifyAdapterError(msg, exitCode);
-      throw Object.assign(new Error(msg), { errorKind: classified });
+      const baseMsg = `Pi process exited with code ${exitCode}`;
+      const message = appendStderrTail(baseMsg, stderrTail());
+      const classified = classifyAdapterError(message, exitCode);
+      throw Object.assign(new Error(message), { errorKind: classified });
     }
   }
 
   return generate();
+}
+
+function appendStderrTail(message: string, tail: string): string {
+  return tail ? `${message}\n--- pi stderr (tail) ---\n${tail}` : message;
 }
 
 interface ParseState {
@@ -182,7 +220,7 @@ function parsePiRpcEvent(line: string, state: ParseState): ParsedPiEvent | null 
     case 'compaction_end':
     case 'auto_retry_start':
     case 'auto_retry_end':
-      return extractPassiveUpdate(parsed, state);
+      return extractPassiveUpdate(parsed);
 
     case 'response': {
       if (parsed.success === false) {
@@ -309,10 +347,9 @@ function parseToolExecutionEnd(parsed: Record<string, unknown>, timestamp: strin
   return { agentEvent: { type: 'output', timestamp, data: parsed } };
 }
 
-function extractPassiveUpdate(parsed: Record<string, unknown>, state: ParseState): ParsedPiEvent | null {
+function extractPassiveUpdate(parsed: Record<string, unknown>): ParsedPiEvent | null {
   const tokens = extractPiTokensFromMessage(parsed);
-  if (tokens) return { tokens };
-  return state.finalText ? null : null;
+  return tokens ? { tokens } : null;
 }
 
 function extractFinalText(parsed: Record<string, unknown>): string | undefined {
@@ -360,22 +397,64 @@ function extractPiTokensFromAgentEnd(parsed: Record<string, unknown>): TokenUsag
   return undefined;
 }
 
+// Pi exposes usage under multiple key shapes across versions and across the
+// `message_*` vs `agent_end` paths — Pi-native names, snake_case shims, and
+// Anthropic-style names when Pi forwards Claude usage records unchanged.
+// First match per field wins, in this order.
+const PI_TOKEN_ALIASES: Record<'input' | 'output' | 'reasoning' | 'cache_read' | 'cache_write', readonly string[]> = {
+  input:       ['input', 'input_tokens'],
+  output:      ['output', 'output_tokens'],
+  reasoning:   ['reasoning', 'reasoning_tokens'],
+  cache_read:  ['cacheRead', 'cache_read', 'cache_read_input_tokens'],
+  cache_write: ['cacheWrite', 'cache_write', 'cache_creation_input_tokens'],
+};
+
 function extractPiTokensFromMessage(parsed: Record<string, unknown>): TokenUsage | undefined {
   const usage = parsed.usage as Record<string, unknown> | undefined;
   if (!usage) return undefined;
 
-  const input = numberField(usage.input) ?? numberField(usage.input_tokens) ?? 0;
-  const output = numberField(usage.output) ?? numberField(usage.output_tokens) ?? 0;
-  const reasoning = numberField(usage.reasoning) ?? numberField(usage.reasoning_tokens) ?? 0;
-  const cache_read = numberField(usage.cacheRead) ?? numberField(usage.cache_read) ?? numberField(usage.cache_read_input_tokens) ?? 0;
-  const cache_write = numberField(usage.cacheWrite) ?? numberField(usage.cache_write) ?? numberField(usage.cache_creation_input_tokens) ?? 0;
+  const pick = (keys: readonly string[]): number => {
+    for (const k of keys) {
+      const v = usage[k];
+      if (typeof v === 'number') return v;
+    }
+    return 0;
+  };
+
+  const input = pick(PI_TOKEN_ALIASES.input);
+  const output = pick(PI_TOKEN_ALIASES.output);
+  const reasoning = pick(PI_TOKEN_ALIASES.reasoning);
+  const cache_read = pick(PI_TOKEN_ALIASES.cache_read);
+  const cache_write = pick(PI_TOKEN_ALIASES.cache_write);
 
   if (input === 0 && output === 0 && reasoning === 0 && cache_read === 0 && cache_write === 0) return undefined;
   return createTokenUsage(input, output, { reasoning, cache_read, cache_write });
 }
 
-function numberField(value: unknown): number | undefined {
-  return typeof value === 'number' ? value : undefined;
+/**
+ * Drain stderr while keeping the last STDERR_TAIL_BYTES bytes for diagnostics.
+ * Returns a closure that yields the captured tail as a UTF-8 string.
+ *
+ * Without draining, a chatty stderr can fill the pipe buffer and stall Pi.
+ * Without the tail, auth or extension-load failures vanish on non-zero exit.
+ */
+const STDERR_TAIL_BYTES = 4096;
+function createStderrTailCapture(stderr: Readable | null | undefined): () => string {
+  if (!stderr) return () => '';
+  const chunks: Buffer[] = [];
+  let total = 0;
+  stderr.on('data', (chunk: Buffer | string) => {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf-8');
+    chunks.push(buf);
+    total += buf.length;
+    while (total > STDERR_TAIL_BYTES && chunks.length > 0) {
+      const head = chunks.shift()!;
+      total -= head.length;
+    }
+  });
+  // Swallow late 'error' on stderr — we already have what we need from 'data'.
+  stderr.on('error', () => {});
+  return () => Buffer.concat(chunks).toString('utf-8').slice(-STDERR_TAIL_BYTES).trimEnd();
 }
 
 /**
@@ -385,11 +464,11 @@ function numberField(value: unknown): number | undefined {
  * can parse the terminal event.
  */
 async function* readPiRpcLines(stream: Readable): AsyncGenerator<string> {
-  let pending: Buffer<ArrayBufferLike> = Buffer.alloc(0);
+  let pending: Buffer | null = null;
 
   for await (const chunk of stream) {
-    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string, 'utf-8');
-    pending = pending.length ? Buffer.concat([pending, buf]) : buf;
+    const buf: Buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string, 'utf-8');
+    pending = pending ? Buffer.concat([pending, buf]) : buf;
 
     let newlineIdx: number;
     while ((newlineIdx = pending.indexOf(0x0a)) !== -1) {
@@ -399,7 +478,7 @@ async function* readPiRpcLines(stream: Readable): AsyncGenerator<string> {
     }
   }
 
-  if (pending.length) {
+  if (pending && pending.length) {
     const line = pending.toString('utf-8');
     if (line) yield line.endsWith('\r') ? line.slice(0, -1) : line;
   }
