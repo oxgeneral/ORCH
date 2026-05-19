@@ -3,6 +3,36 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.24 (2026-05-19)
+
+### New Features
+
+- **Canonical `AgentEvent.data` contract** — documented per-type data shapes in `src/infrastructure/adapters/interface.ts`. Each adapter now has a single target shape for `output` (`{text}`), `tool_call` (`{name,input}`), `command` (`{command,result}`), `file_change` (`{paths}`), `error` (`{message}`) and `done` (`{result}`). Downstream consumers (TUI, `orch logs`, `serve` daemon) can render events without knowing adapter internals. Legacy adapters (claude/cursor/codex) still emit their native shapes during the migration window — the TUI renderer is defensive.
+
+### Bug Fixes
+
+- **Pi adapter: per-character text_delta flood** — pi RPC emits one `text_delta` per LLM stream chunk (often per-character). The adapter was forwarding each as its own `output` event, drowning the activity feed with character-level fragments. Now deltas aggregate into adapter-local state and the assembled text is flushed once on `text_end` as a single canonical `output` event.
+- **Pi adapter: `[agent_start]` / `[turn_start]` placeholders in logs** — unknown pi RPC event types fell through a `default` case that emitted them as raw `output` events. The TUI renderer then displayed them as `[type_name]` placeholders. Unknown types are now dropped at the adapter boundary; adding a new known type is the right way to surface a new event.
+- **Pi adapter: `tool_execution_update` noise** — pi emits one of these per chunk of streaming tool output (e.g. live bash stdout). No other adapter surfaces intermediate tool progress in its event stream. These are now dropped to keep the canonical contract uniform.
+- **Pi adapter: `finalText` buffer never reset after `text_end`** — `state.finalText` was set to the assembled text after `text_end` but never cleared. A follow-up assistant turn in the same pi session would build on top of the previous message, double-emitting text and growing the buffer unboundedly across turns. Buffer now resets to `''` after each `text_end`.
+- **Pi adapter: API error inside `agent_end.messages[]` ignored** (partial) — error event payloads now use canonical `{message, raw}` shape and are classified via `classifyAdapterError`. (Surfacing pi's `errorMessage` field nested inside the assistant message remains a follow-up.)
+
+### Performance
+
+- **`firstLineTrunc` fast path** — single-line input (the common case for agent events) short-circuits to a single `slice(0, n)`, skipping `split('\n')` + `find` + closure allocation. The slow path uses `/\S/.test(l)` instead of `l.trim().length > 0` to avoid allocating a trimmed copy just to test non-empty.
+- **`summarizeToolResult` single split** — was splitting `content` twice (once for `lines.length`, once for `find`); now reuses one array.
+
+### Refactoring
+
+- **`extractToolResultText` delegates to `extractTextFromContent`** — pi tool results (`{content: [{type:'text', text}, …]}`) and pi message content (`{content: [{text}, …]}`) differ only by the outer `content` wrap. Collapsed 16 lines of duplicated walk-and-join logic to a single line that unwraps and delegates.
+- **`firstLineTrunc` helper extracted in `App.tsx`** — replaces five copies of `s.split('\n')[0]?.slice(0, N) ?? s.slice(0, N)` (including a dead `??` fallback and incorrect handling of leading blank lines) across the new canonical-shape branches in `formatAgentOutput`.
+- **Summary icons aligned with `MSG_ICONS`** — error glyph in canonical branch corrected from `✗` (U+2717) to `MSG_ICONS.error` (`✕`, U+2715); path glyph uses `MSG_ICONS.file` for consistency.
+
+### Tests
+
+- **Pi adapter contract tests updated** — `aggregates text_delta updates and emits one canonical output on text_end` replaces the old per-delta assertion. New test `drops tool_execution_update progress events (noise)` locks in the noise-drop behavior.
+- **`pi-adapter.e2e.test.ts`** — feeds `text_delta` + `text_delta` + `text_end` sequence to exercise the aggregation path end-to-end through the Orchestrator.
+
 ## 1.0.23 (2026-05-19)
 
 ### New Features
