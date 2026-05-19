@@ -1,6 +1,6 @@
 {
   "name": "@oxgeneral/orch",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "description": "AI agent runtime — orchestrate Claude, Cursor, Codex & OpenCode as one team. Multi-agent task automation with state machine, auto-retry, inter-agent messaging, goals and teams. Zero-config CLI + programmatic API.",
   "type": "module",
   "engines": {
