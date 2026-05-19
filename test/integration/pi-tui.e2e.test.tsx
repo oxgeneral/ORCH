@@ -22,40 +22,11 @@ import type { Task } from '../../src/domain/task.js';
 import type { Agent } from '../../src/domain/agent.js';
 import type { OrchestratorEvent } from '../../src/domain/events.js';
 import { DEFAULT_STATE, type OrchestratorState } from '../../src/domain/state.js';
+import { makeTask, makeAgent } from '../unit/application/helpers.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 afterEach(() => { _resetAnimTick(); });
-
-function makeTask(overrides: Partial<Task> & { id: string; title: string }): Task {
-  return {
-    description: '',
-    status: 'todo',
-    priority: 3,
-    labels: [],
-    depends_on: [],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    attempts: 0,
-    max_attempts: 3,
-    ...overrides,
-  };
-}
-
-function makeAgent(overrides: Partial<Agent> & { id: string; name: string }): Agent {
-  return {
-    adapter: 'pi',
-    config: {
-      approval_policy: 'auto',
-      max_turns: 50,
-      timeout_ms: 3_600_000,
-      stall_timeout_ms: 300_000,
-    },
-    status: 'idle',
-    stats: { tasks_completed: 0, tasks_failed: 0, total_runs: 0, total_runtime_ms: 0 },
-    ...overrides,
-  };
-}
 
 describe('Pi agent — TUI lifecycle', () => {
   it('shows pi agent on Agents tab and walks todo → running → done with activity feed', async () => {

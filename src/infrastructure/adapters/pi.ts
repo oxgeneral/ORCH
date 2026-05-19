@@ -440,51 +440,70 @@ function extractPiTokensFromMessage(parsed: Record<string, unknown>): TokenUsage
  * Drain stderr while keeping the last STDERR_TAIL_BYTES bytes for diagnostics.
  * Returns a closure that yields the captured tail as a UTF-8 string.
  *
- * Without draining, a chatty stderr can fill the pipe buffer and stall Pi.
- * Without the tail, auth or extension-load failures vanish on non-zero exit.
+ * Single backing Buffer with subarray-based truncation — no array shifts, no
+ * repeated concats on overflow. Without draining a chatty stderr can fill the
+ * pipe buffer and stall Pi; without the tail, auth or extension-load failures
+ * vanish on non-zero exit.
  */
 const STDERR_TAIL_BYTES = 4096;
 function createStderrTailCapture(stderr: Readable | null | undefined): () => string {
   if (!stderr) return () => '';
-  const chunks: Buffer[] = [];
-  let total = 0;
+  let buf: Buffer = Buffer.alloc(0);
   stderr.on('data', (chunk: Buffer | string) => {
-    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf-8');
-    chunks.push(buf);
-    total += buf.length;
-    while (total > STDERR_TAIL_BYTES && chunks.length > 0) {
-      const head = chunks.shift()!;
-      total -= head.length;
+    const next = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf-8');
+    buf = buf.length === 0 ? next : Buffer.concat([buf, next], buf.length + next.length);
+    if (buf.length > STDERR_TAIL_BYTES) {
+      buf = buf.subarray(buf.length - STDERR_TAIL_BYTES);
     }
   });
-  // Swallow late 'error' on stderr — we already have what we need from 'data'.
   stderr.on('error', () => {});
-  return () => Buffer.concat(chunks).toString('utf-8').slice(-STDERR_TAIL_BYTES).trimEnd();
+  return () => buf.toString('utf-8').trimEnd();
 }
 
 /**
  * Pi RPC can emit very large JSONL records (notably agent_end with the full
- * message transcript). Do not use the generic process readLines helper here:
- * it caps lines at 16 KB, which corrupts large JSON records before the adapter
- * can parse the terminal event.
+ * message transcript). Do not use the generic process `readLines` helper: it
+ * caps lines at 16 KB, which corrupts large JSON records before the adapter
+ * can parse the terminal event. Same algorithm otherwise — see readLines() in
+ * src/infrastructure/process/process-manager.ts for the cap-applied variant.
+ *
+ * Concats once per chunk arrival and scans with an offset to avoid the
+ * O(n²) "concat([pending, buf]) per chunk" anti-pattern.
  */
 async function* readPiRpcLines(stream: Readable): AsyncGenerator<string> {
-  let pending: Buffer | null = null;
+  const chunks: Buffer[] = [];
+  let totalLen = 0;
 
   for await (const chunk of stream) {
-    const buf: Buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string, 'utf-8');
-    pending = pending ? Buffer.concat([pending, buf]) : buf;
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string, 'utf-8');
+    if (buf.length === 0) continue;
+    chunks.push(buf);
+    totalLen += buf.length;
 
+    const buffer = chunks.length === 1 ? chunks[0]! : Buffer.concat(chunks, totalLen);
+    chunks.length = 0;
+    totalLen = 0;
+
+    let offset = 0;
     let newlineIdx: number;
-    while ((newlineIdx = pending.indexOf(0x0a)) !== -1) {
-      const line = pending.subarray(0, newlineIdx).toString('utf-8');
-      pending = pending.subarray(newlineIdx + 1);
-      if (line) yield line.endsWith('\r') ? line.slice(0, -1) : line;
+    while ((newlineIdx = buffer.indexOf(0x0a, offset)) !== -1) {
+      if (newlineIdx > offset) {
+        const line = buffer.toString('utf-8', offset, newlineIdx);
+        yield line.endsWith('\r') ? line.slice(0, -1) : line;
+      }
+      offset = newlineIdx + 1;
+    }
+
+    if (offset < buffer.length) {
+      const remainder = buffer.subarray(offset);
+      chunks.push(remainder);
+      totalLen = remainder.length;
     }
   }
 
-  if (pending && pending.length) {
-    const line = pending.toString('utf-8');
+  if (totalLen > 0) {
+    const final = chunks.length === 1 ? chunks[0]! : Buffer.concat(chunks, totalLen);
+    const line = final.toString('utf-8');
     if (line) yield line.endsWith('\r') ? line.slice(0, -1) : line;
   }
 }

@@ -32,7 +32,8 @@ import { LogsFilterPicker } from './components/LogsFilterPicker.js';
 import { LogsTypeFilterPicker } from './components/LogsTypeFilterPicker.js';
 import type { WizardStep } from './components/FormWizard.js';
 import { Spinner } from './components/Spinner.js';
-import { OnboardingBox, type OnboardingConfig, WelcomeScreen, OnboardingNudge, OnboardingToast, type OnboardingStep } from './components/OnboardingBox.js';
+import { OnboardingBox, WelcomeScreen, OnboardingNudge, OnboardingToast, type OnboardingStep } from './components/OnboardingBox.js';
+import { ONBOARDING_GOALS, ONBOARDING_TASKS, ONBOARDING_AGENTS } from './onboarding-config.js';
 import { ToastBanner, type Toast, type ToastType } from './components/ToastBanner.js';
 import { HelpOverlay } from './components/HelpOverlay.js';
 import {
@@ -68,42 +69,6 @@ const MAX_TOASTS = 5;
 
 /** Statuses that allow R (run) action */
 const RUNNABLE: Set<TaskStatus> = new Set(['todo', 'failed', 'cancelled']);
-
-/* ── Onboarding configs for empty-state boxes ──── */
-
-const ONBOARDING_GOALS: OnboardingConfig = {
-  title: 'Goals',
-  description: [
-    'Define what your team should achieve.',
-    'The orchestrator breaks goals into tasks',
-    'and assigns them to agents automatically.',
-  ],
-  hints: [{ key: 'N', label: 'new goal' }, { key: '/', label: 'commands' }],
-  nudge: 'Add more goals to keep your team focused.',
-};
-
-const ONBOARDING_TASKS: OnboardingConfig = {
-  title: 'Tasks',
-  description: [
-    'Units of work dispatched to agents.',
-    'Create them manually or let goals',
-    'generate them automatically.',
-  ],
-  hints: [{ key: 'N', label: 'new task' }, { key: 'W', label: 'start orchestrator' }],
-  nudge: 'Add more tasks to keep agents busy.',
-};
-
-// Exported so tests can assert the adapter list stays in sync with SUPPORTED_ADAPTERS.
-export const ONBOARDING_AGENTS: OnboardingConfig = {
-  title: 'Agents',
-  description: [
-    'AI workers that execute your tasks.',
-    'Each agent uses an adapter (claude,',
-    'codex, opencode, cursor, pi, shell).',
-  ],
-  hints: [{ key: 'N', label: 'new agent' }, { key: 'W', label: 'start orchestrator' }],
-  nudge: 'Add more agents to increase parallelism.',
-};
 
 /** History entry returned by onLoadHistory */
 export interface HistoryEntry {

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ONBOARDING_AGENTS } from '../../../src/tui/App.js';
+import { ONBOARDING_AGENTS } from '../../../src/tui/onboarding-config.js';
 import { SUPPORTED_ADAPTERS } from '../../../src/domain/model-tiers.js';
 
 describe('ONBOARDING_AGENTS', () => {
