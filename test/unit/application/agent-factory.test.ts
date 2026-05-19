@@ -47,6 +47,17 @@ describe('templateToAgentInput', () => {
     expect(input.model).toBeUndefined(); // empty string → undefined
   });
 
+  it('resolves model for pi adapter', () => {
+    const input = templateToAgentInput(baseTemplate, 'pi');
+    expect(input.adapter).toBe('pi');
+    expect(input.model).toBe('openai-codex/gpt-5.5');
+  });
+
+  it('filters MCP skills for pi adapter', () => {
+    const input = templateToAgentInput(baseTemplate, 'pi');
+    expect(input.skills).toEqual(['review', 'careful']);
+  });
+
   it('keeps all skills for claude adapter', () => {
     const input = templateToAgentInput(baseTemplate, 'claude');
     expect(input.skills).toEqual(['review', 'careful', 'feature-dev:feature-dev', 'testing-suite:generate-tests']);
