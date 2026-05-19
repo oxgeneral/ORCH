@@ -303,9 +303,12 @@ function parseMessageUpdate(parsed: Record<string, unknown>, timestamp: string, 
 
   if (updateType === 'text_end') {
     const content = typeof assistantMessageEvent?.content === 'string' ? assistantMessageEvent.content : state.finalText;
-    if (!content) return { finalText: content };
+    // Reset the delta buffer so a follow-up assistant message in the same pi
+    // session doesn't get concatenated onto this one (agent_end uses its own
+    // messages[] extraction, not state.finalText, so this is safe to drop).
+    if (!content) return { finalText: '' };
     return {
-      finalText: content,
+      finalText: '',
       agentEvent: { type: 'output', timestamp, data: { text: content } },
     };
   }
@@ -362,22 +365,11 @@ function parseToolExecutionEnd(parsed: Record<string, unknown>, timestamp: strin
   return { agentEvent: { type: 'output', timestamp, data: { text: summary, raw: parsed } } };
 }
 
-/**
- * Pi tool results are `{ content: [{ type: 'text', text: '...' }, ...] }`.
- * Concatenate every text part; ignore non-text parts (images, etc).
- */
+/** Pi tool results wrap content arrays in `{ content: [...] }`; messages don't. */
 function extractToolResultText(result: unknown): string {
   if (typeof result === 'string') return result;
   if (!result || typeof result !== 'object') return '';
-  const content = (result as { content?: unknown }).content;
-  if (!Array.isArray(content)) return '';
-  return content
-    .map((part) => {
-      const p = part as Record<string, unknown>;
-      return typeof p.text === 'string' ? p.text : '';
-    })
-    .filter(Boolean)
-    .join('');
+  return extractTextFromContent((result as { content?: unknown }).content) ?? '';
 }
 
 function extractPassiveUpdate(parsed: Record<string, unknown>): ParsedPiEvent | null {

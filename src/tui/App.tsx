@@ -3939,6 +3939,11 @@ function summarizeToolResult(content: unknown): string {
   return summaries.join(' ') || '(result)';
 }
 
+/** First non-blank line of `s`, sliced to `n` chars. Skips leading blank lines (`"\nhi"` → `"hi"`). */
+function firstLineTrunc(s: string, n: number): string {
+  return (s.split('\n').find((l) => l.trim().length > 0) ?? s).slice(0, n);
+}
+
 /** Extract human-readable text from agent output data (which may be raw JSON from Claude CLI) */
 function formatAgentOutput(raw: string): { summary: string | null; detail: string } {
   // Lazy detail — avoids slicing 100KB+ strings for messages that will be skipped
@@ -3952,30 +3957,22 @@ function formatAgentOutput(raw: string): { summary: string | null; detail: strin
   try {
     const parsed = JSON.parse(raw);
 
-    // ── Canonical adapter event contract ────────────────────────────────
-    // See JSDoc on `AgentEvent` in src/infrastructure/adapters/interface.ts.
-    // Adapters that conform emit one of these shapes:
-    //   output:      { text: string }
-    //   tool_call:   { name, input }   (also matched below as legacy "tool_use")
-    //   command:     { command: string, result? }
-    //   file_change: { paths: string[] }
-    //   error:       { message: string }
-    //   done:        { result: string }
+    // Canonical AgentEvent data shapes — see JSDoc in adapters/interface.ts.
     if (typeof parsed.text === 'string' && parsed.text.length > 0 && !parsed.type && !parsed.role) {
-      return { summary: parsed.text.split('\n')[0]?.slice(0, 200) ?? parsed.text.slice(0, 200), detail: detail() };
+      return { summary: firstLineTrunc(parsed.text, 200), detail: detail() };
     }
     if (typeof parsed.command === 'string' && !parsed.type) {
-      const tail = typeof parsed.result === 'string' && parsed.result ? ` → ${parsed.result.split('\n')[0]?.slice(0, 80) ?? ''}` : '';
+      const tail = typeof parsed.result === 'string' && parsed.result ? ` → ${firstLineTrunc(parsed.result, 80)}` : '';
       return { summary: `$ ${parsed.command.slice(0, 120)}${tail}`, detail: detail() };
     }
     if (Array.isArray(parsed.paths) && parsed.paths.length > 0 && !parsed.type) {
-      return { summary: `✎ ${parsed.paths.join(', ').slice(0, 180)}`, detail: detail() };
+      return { summary: `${MSG_ICONS.file} ${parsed.paths.join(', ').slice(0, 180)}`, detail: detail() };
     }
     if (typeof parsed.message === 'string' && !parsed.role && !parsed.content && !parsed.subtype) {
-      return { summary: `✗ ${parsed.message.split('\n')[0]?.slice(0, 200) ?? parsed.message.slice(0, 200)}`, detail: detail() };
+      return { summary: `${MSG_ICONS.error} ${firstLineTrunc(parsed.message, 200)}`, detail: detail() };
     }
     if (typeof parsed.result === 'string' && !parsed.type) {
-      return { summary: `✓ ${parsed.result.split('\n')[0]?.slice(0, 200) ?? parsed.result.slice(0, 200)}`, detail: detail() };
+      return { summary: `✓ ${firstLineTrunc(parsed.result, 200)}`, detail: detail() };
     }
 
     // Claude API message: {"type":"message","role":"assistant","content":[...]}
