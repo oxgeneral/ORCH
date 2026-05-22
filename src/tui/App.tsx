@@ -385,6 +385,7 @@ export function App({
   const inputHook = useTextInput();
   const inputValue = inputHook.value;
   const [wizardConfig, setWizardConfig] = useState<WizardConfig | null>(null);
+  const [wizardStepType, setWizardStepType] = useState<'text' | 'select' | 'textarea' | 'multiselect' | null>(null);
   /** Temp file paths for images pasted via Ctrl+I during task wizard */
   const [pendingAttachments, setPendingAttachments] = useState<string[]>([]);
 
@@ -975,7 +976,7 @@ export function App({
       targetId: agent.id,
     });
     setInputMode('wizard');
-  }, [liveTeams]);
+  }, [liveTeams, liveAgents]);
 
   const launchConfigWizard = useCallback(() => {
     setWizardConfig({
@@ -1088,6 +1089,9 @@ export function App({
       onUpdateAgent(targetId, { name: fields.name, role: fields.role, model: fields.model, effort: fields.effort }).then(
         (agent) => {
           addMessage(`\u2713 Updated agent "${agent.name}"`, tuiColors.green);
+          // Optimistically merge returned agent into local state so reopening the
+          // editor immediately after save shows fresh values without waiting for refreshAll.
+          setLiveAgents((prev) => prev.map((a) => a.id === agent.id ? agent : a));
           // Handle team change
           const teamOps: Promise<unknown>[] = [];
           if (oldTeamId && oldTeamId !== newTeamId && onLeaveTeam) {
@@ -2487,6 +2491,7 @@ export function App({
           height={feedH}
           onPasteImage={isPasteCapable ? handlePasteImage : undefined}
           onSuggestionSelected={wizardConfig.kind === 'agent' ? handleSuggestionSelected : undefined}
+          onStepChange={(step) => setWizardStepType(step ? step.type : null)}
           footerExtra={
             pendingAttachments.length > 0 && isPasteCapable ? `\uD83D\uDCCE${pendingAttachments.length}`
             : undefined
@@ -2593,6 +2598,7 @@ export function App({
         width={W}
         hasSuggestions={showSuggestions}
         onboardingCompleted={initialState.onboardingCompleted}
+        wizardStepType={inputMode === 'wizard' ? wizardStepType : null}
       />
     </Box>
   );

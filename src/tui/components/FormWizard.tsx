@@ -55,6 +55,8 @@ export interface FormWizardProps {
   footerExtra?: string;
   /** Called when user selects a suggestion from a text step's suggestion list */
   onSuggestionSelected?: (suggestionValue: string) => void;
+  /** Called whenever the active step changes, so parent can reflect step type in the bottom bar. */
+  onStepChange?: (step: WizardStep | null) => void;
 }
 
 const CURSOR = '\u2588'; // █ (used by textarea render)
@@ -98,8 +100,12 @@ function wordBoundaryForward(text: string, pos: number): number {
   return i;
 }
 
-export function FormWizard({ title, steps, onComplete, onCancel, width, height, onPasteImage, footerExtra, onSuggestionSelected }: FormWizardProps) {
+export function FormWizard({ title, steps, onComplete, onCancel, width, height, onPasteImage, footerExtra, onSuggestionSelected, onStepChange }: FormWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
+  useEffect(() => {
+    onStepChange?.(steps[currentStep] ?? null);
+    return () => { onStepChange?.(null); };
+  }, [currentStep, steps, onStepChange]);
   const [values, setValues] = useState<Record<string, string>>({});
 
   // Unified text input for single-line text steps (replaces textInput + cursorPos).
@@ -434,8 +440,8 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     }
 
     if (step.type === 'textarea') {
-      // Ctrl+Enter / Cmd+Enter: confirm textarea
-      if (key.return && (key.ctrl || key.meta)) {
+      // Ctrl+Enter / Cmd+Enter / Ctrl+S: confirm textarea
+      if ((key.return && (key.ctrl || key.meta)) || (key.ctrl && input === 's')) {
         const val = taLines.join('\n').trim();
         if (step.required && !val) { setDirty(true); return; }
         if (validationError !== null) {
@@ -728,7 +734,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       <Box marginTop={0}>
         <Text color={tuiColors.white} bold>  {step.label}</Text>
         {step.required && <Text color={tuiColors.red}> *</Text>}
-        {!step.required && <Text color={tuiColors.dim}> (optional, {step.type === 'textarea' ? `${CMD_KEY}+Enter` : 'Enter'} to skip)</Text>}
+        {!step.required && <Text color={tuiColors.dim}> (optional, {step.type === 'textarea' ? `Ctrl+S` : 'Enter'} to skip)</Text>}
       </Box>
 
       {/* Step description / guidance */}
@@ -899,7 +905,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
             : step.type === 'multiselect'
               ? '\u2191\u2193 move  Space toggle  Enter confirm'
               : step.type === 'textarea'
-                ? `Enter newline  ${CMD_KEY}+Enter confirm  \u2190\u2191\u2192\u2193 navigate`
+                ? `Ctrl+S save  Enter newline  \u2190\u2191\u2192\u2193 navigate`
                 : browsingSuggestions
                   ? '\u2191\u2193 browse  Enter select  \u2191 back to input'
                   : step.suggestions

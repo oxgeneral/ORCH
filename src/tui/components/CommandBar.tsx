@@ -38,11 +38,13 @@ export interface CommandBarProps {
   width: number;
   hasSuggestions?: boolean;
   onboardingCompleted?: boolean;
+  /** When a wizard is open, render a wizard-specific hint row instead of the app nav hints. */
+  wizardStepType?: 'text' | 'select' | 'textarea' | 'multiselect' | null;
 }
 
 export const CommandBar = React.memo(function CommandBar({
   mode, value, completion, activeView, canRun, canNew, canApprove, canReject, canCancel, canDelete, canUndo, canEdit, canForceStop, canToggleAuto, autoActive, canPause, isPaused, canToggleShowAll, showAllActive, hasDetail,
-  itemCount, itemLabel, width, hasSuggestions, onboardingCompleted,
+  itemCount, itemLabel, width, hasSuggestions, onboardingCompleted, wizardStepType,
 }: CommandBarProps) {
   if (mode === 'command') {
     const hintText = hasSuggestions
@@ -60,6 +62,67 @@ export const CommandBar = React.memo(function CommandBar({
           <Text color={tuiColors.amber}>{CURSOR_CHAR}</Text>
           <Text color={tuiColors.dim}>{hintText}</Text>
         </Box>
+      </Box>
+    );
+  }
+
+  // Wizard mode — show step-specific hints (overrides the app nav hints)
+  if (wizardStepType) {
+    const hint =
+      wizardStepType === 'textarea' ? (
+        <>
+          <Text bold color={tuiColors.amber}>Ctrl+S</Text>
+          <Text color={tuiColors.dim}> save description</Text>
+          <Text color={tuiColors.dim}>{'  '}</Text>
+          <Text bold color={tuiColors.gray}>Enter</Text>
+          <Text color={tuiColors.dim}> newline</Text>
+          <Text color={tuiColors.dim}>{'  '}</Text>
+          <Text bold color={tuiColors.gray}>{'\u2190\u2191\u2192\u2193'}</Text>
+          <Text color={tuiColors.dim}> navigate</Text>
+          <Text color={tuiColors.dim}>{'  '}</Text>
+          <Text bold color={tuiColors.gray}>Esc</Text>
+          <Text color={tuiColors.dim}> back</Text>
+        </>
+      ) : wizardStepType === 'select' ? (
+        <>
+          <Text bold color={tuiColors.gray}>{'\u2191\u2193'}</Text>
+          <Text color={tuiColors.dim}> select</Text>
+          <Text color={tuiColors.dim}>{'  '}</Text>
+          <Text bold color={tuiColors.gray}>Enter</Text>
+          <Text color={tuiColors.dim}> confirm</Text>
+          <Text color={tuiColors.dim}>{'  '}</Text>
+          <Text bold color={tuiColors.gray}>Esc</Text>
+          <Text color={tuiColors.dim}> back</Text>
+        </>
+      ) : wizardStepType === 'multiselect' ? (
+        <>
+          <Text bold color={tuiColors.gray}>{'\u2191\u2193'}</Text>
+          <Text color={tuiColors.dim}> move</Text>
+          <Text color={tuiColors.dim}>{'  '}</Text>
+          <Text bold color={tuiColors.gray}>Space</Text>
+          <Text color={tuiColors.dim}> toggle</Text>
+          <Text color={tuiColors.dim}>{'  '}</Text>
+          <Text bold color={tuiColors.gray}>Enter</Text>
+          <Text color={tuiColors.dim}> confirm</Text>
+          <Text color={tuiColors.dim}>{'  '}</Text>
+          <Text bold color={tuiColors.gray}>Esc</Text>
+          <Text color={tuiColors.dim}> back</Text>
+        </>
+      ) : (
+        <>
+          <Text bold color={tuiColors.gray}>Enter</Text>
+          <Text color={tuiColors.dim}> confirm</Text>
+          <Text color={tuiColors.dim}>{'  '}</Text>
+          <Text bold color={tuiColors.gray}>{'\u2190\u2192'}</Text>
+          <Text color={tuiColors.dim}> move</Text>
+          <Text color={tuiColors.dim}>{'  '}</Text>
+          <Text bold color={tuiColors.gray}>Esc</Text>
+          <Text color={tuiColors.dim}> back</Text>
+        </>
+      );
+    return (
+      <Box paddingX={2} justifyContent="space-between" width={width}>
+        <Text>{hint}</Text>
       </Box>
     );
   }
