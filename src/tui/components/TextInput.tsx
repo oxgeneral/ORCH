@@ -116,8 +116,8 @@ export function TextInput({
     return (
       <Box borderStyle={borderStyle} borderColor={borderColor}>
         {prefixStr && <Text color={prefixColor}>{prefixStr}</Text>}
-        {placeholder && <Text color={placeholderColor}>{placeholder}</Text>}
         {showCursor && <Text color={cursorColor}>{CURSOR_CHAR}</Text>}
+        {placeholder && <Text color={placeholderColor}>{placeholder}</Text>}
       </Box>
     );
   }

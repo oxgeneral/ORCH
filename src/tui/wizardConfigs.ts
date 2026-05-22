@@ -19,7 +19,11 @@ import { isMcpSkill } from '../application/agent-factory.js';
 // ── Model catalogs per adapter ──
 
 const CLAUDE_MODELS = [
-  { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', hint: 'most capable' },
+  { value: 'capable', label: 'Capable tier (auto)', hint: 'always resolves to latest flagship' },
+  { value: 'balanced', label: 'Balanced tier (auto)', hint: 'always resolves to latest sonnet' },
+  { value: 'fast', label: 'Fast tier (auto)', hint: 'always resolves to latest haiku' },
+  { value: 'claude-opus-4-7', label: 'Claude Opus 4.7', hint: 'most capable, latest' },
+  { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', hint: 'previous flagship' },
   { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', hint: 'fast, balanced' },
   { value: 'claude-haiku-4-6', label: 'Claude Haiku 4.6', hint: 'fastest, cheapest' },
   { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', hint: 'extended thinking' },
@@ -48,8 +52,9 @@ const CURSOR_MODELS = [
 
 const OPENCODE_MODELS = [
   { value: '', label: 'Default', hint: 'use model configured in opencode' },
+  { value: 'openrouter/anthropic/claude-opus-4.7', label: 'Claude Opus 4.7', hint: 'most capable, latest' },
   { value: 'openrouter/anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6', hint: 'fast, balanced' },
-  { value: 'openrouter/anthropic/claude-opus-4.6', label: 'Claude Opus 4.6', hint: 'most capable' },
+  { value: 'openrouter/anthropic/claude-opus-4.6', label: 'Claude Opus 4.6', hint: 'previous flagship' },
   { value: 'openrouter/google/gemini-2.5-pro', label: 'Gemini 2.5 Pro', hint: 'Google' },
   { value: 'openrouter/google/gemini-2.5-flash', label: 'Gemini 2.5 Flash', hint: 'Google, fast' },
   { value: 'openrouter/deepseek/deepseek-v3.2', label: 'DeepSeek V3.2', hint: 'open-source' },

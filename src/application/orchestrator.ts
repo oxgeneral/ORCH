@@ -23,6 +23,7 @@ import {
 } from '../domain/transitions.js';
 import { NoAgentsError, TaskAlreadyRunningError, LockConflictError, WorkspaceError, classifyAdapterError } from '../domain/errors.js';
 import { scopesOverlap, ScopeIndex } from '../domain/scope.js';
+import { isModelTier, resolveModel } from '../domain/model-tiers.js';
 import { acquireLock, releaseLock, touchLock } from '../infrastructure/storage/lock.js';
 import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IContextStore, IGoalStore } from '../infrastructure/storage/interfaces.js';
 import { CachedTaskStore, CachedAgentStore, CachedGoalStore } from '../infrastructure/storage/cached-stores.js';
@@ -1097,6 +1098,12 @@ export class Orchestrator {
       const abortController = new AbortController();
       this.abortControllers.set(taskId, abortController);
 
+      // Resolve semantic tier aliases (capable/balanced/fast) → concrete model strings
+      const resolvedConfig = { ...agentData.config };
+      if (resolvedConfig.model && isModelTier(resolvedConfig.model)) {
+        resolvedConfig.model = resolveModel(agent.adapter, resolvedConfig.model) || undefined;
+      }
+
       const handle = adapter.execute({
         prompt,
         systemPrompt,
@@ -1107,7 +1114,7 @@ export class Orchestrator {
           ORCH_AGENT_NAME: agent.name,
           ORCH_TASK_ID: task.id,
         },
-        config: agentData.config,
+        config: resolvedConfig,
         signal: abortController.signal,
       });
 
