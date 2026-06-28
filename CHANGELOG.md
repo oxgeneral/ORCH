@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.25 (2026-06-28)
+
+### Bug Fixes
+
+- **TUI task wizard: reliable textarea confirmation fallback** ([#13](https://github.com/oxgeneral/ORCH/issues/13)) — `Tab` now confirms every `FormWizard` step, including multiline `Description` fields. This keeps `Enter` available for textarea newlines while giving Windows, WSL, CMD, PowerShell, Git Bash, and terminals without reliable `Ctrl+Enter` support a deterministic way to finish the step.
+- **Wizard hints updated for the new shortcut** — text/select/multiselect steps now show `Enter/Tab confirm`; textarea steps show `⌘+Enter/Tab confirm` on macOS and `Ctrl+Enter/Tab confirm` elsewhere.
+
+### Tests
+
+- Added component coverage for `Tab` confirmation in text, textarea, required textarea, and multiselect steps.
+- Added App-level coverage for creating a task with a textarea description confirmed by `Tab`.
+- Verified the fix manually in a real terminal PTY: task creation persisted the description after `Tab` confirmation.
+
 ## 1.0.24 (2026-05-19)
 
 ### New Features

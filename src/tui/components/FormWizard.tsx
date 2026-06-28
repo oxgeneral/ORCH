@@ -398,8 +398,8 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         // fall through to normal text handling below
       }
 
-      // Enter: submit text step
-      if (key.return) {
+      // Enter / Tab: submit text step
+      if (key.return || key.tab) {
         const val = textInput.trim();
         if (step.required && !val) { setDirty(true); return; }
         if (validationError !== null) {
@@ -434,8 +434,9 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     }
 
     if (step.type === 'textarea') {
-      // Ctrl+Enter / Cmd+Enter: confirm textarea
-      if (key.return && (key.ctrl || key.meta)) {
+      // Ctrl+Enter / Cmd+Enter confirm textarea. Tab is a fallback for
+      // terminals that cannot distinguish Ctrl+Enter from plain Enter.
+      if ((key.return && (key.ctrl || key.meta)) || key.tab) {
         const val = taLines.join('\n').trim();
         if (step.required && !val) { setDirty(true); return; }
         if (validationError !== null) {
@@ -664,7 +665,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
           return;
         }
       } else {
-        // Multiselect: Space toggle, Enter confirm
+        // Multiselect: Space toggle, Enter / Tab confirm
         if (input === ' ') {
           const opt = options[clampedSelectIndex];
           if (opt) {
@@ -680,7 +681,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
           }
           return;
         }
-        if (key.return) {
+        if (key.return || key.tab) {
           const selected = Array.from(multiSelected).join(',');
           goToNextStep(selected);
           return;
@@ -728,7 +729,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       <Box marginTop={0}>
         <Text color={tuiColors.white} bold>  {step.label}</Text>
         {step.required && <Text color={tuiColors.red}> *</Text>}
-        {!step.required && <Text color={tuiColors.dim}> (optional, {step.type === 'textarea' ? `${CMD_KEY}+Enter` : 'Enter'} to skip)</Text>}
+        {!step.required && <Text color={tuiColors.dim}> (optional, {step.type === 'textarea' ? `${CMD_KEY}+Enter/Tab` : 'Enter/Tab'} to skip)</Text>}
       </Box>
 
       {/* Step description / guidance */}
@@ -895,16 +896,16 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         <Text color={tuiColors.ghost}>
           {'  '}
           {step.type === 'select'
-            ? '\u2191\u2193 select  Enter confirm'
+            ? '\u2191\u2193 select  Enter/Tab confirm'
             : step.type === 'multiselect'
-              ? '\u2191\u2193 move  Space toggle  Enter confirm'
+              ? '\u2191\u2193 move  Space toggle  Enter/Tab confirm'
               : step.type === 'textarea'
-                ? `Enter newline  ${CMD_KEY}+Enter confirm  \u2190\u2191\u2192\u2193 navigate`
+                ? `Enter newline  ${CMD_KEY}+Enter/Tab confirm  \u2190\u2191\u2192\u2193 navigate`
                 : browsingSuggestions
-                  ? '\u2191\u2193 browse  Enter select  \u2191 back to input'
+                  ? '\u2191\u2193 browse  Enter select  Tab confirm  \u2191 back to input'
                   : step.suggestions
-                    ? '\u2190\u2192 move  Enter confirm  \u2193 browse templates'
-                    : '\u2190\u2192 move  Enter confirm'}
+                    ? '\u2190\u2192 move  Enter/Tab confirm  \u2193 browse templates'
+                    : '\u2190\u2192 move  Enter/Tab confirm'}
           {onPasteImage && (step.type === 'text' || step.type === 'textarea') ? `  ${CMD_KEY}+V paste image` : ''}
           {'  Esc '}
           {currentStep > 0 ? 'back' : 'cancel'}

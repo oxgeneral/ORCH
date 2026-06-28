@@ -109,7 +109,7 @@ describe('FormWizard textarea', () => {
     await delay(50);
     const output = lastFrame()!;
     expect(output).toContain('Enter newline');
-    expect(output).toContain('Enter confirm');
+    expect(output).toContain('Enter/Tab confirm');
     expect(output).toContain('navigate');
   });
 
@@ -129,7 +129,30 @@ describe('FormWizard textarea', () => {
     await delay(50);
     const output = lastFrame()!;
     expect(output).toContain('←→ move');
-    expect(output).toContain('Enter confirm');
+    expect(output).toContain('Enter/Tab confirm');
+  });
+
+  it('Tab confirms text step without inserting a tab character', async () => {
+    const onComplete = vi.fn();
+    const onCancel = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: [{ id: 'title', label: 'Title', type: 'text' }],
+        onComplete,
+        onCancel,
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    stdin.write('Hello');
+    await delay(50);
+    stdin.write('\t');
+    await delay(50);
+
+    expect(onComplete).toHaveBeenCalledWith({ title: 'Hello' });
   });
 
   /* ── Enter adds new line (Shift+Enter also works) ── */
@@ -194,6 +217,29 @@ describe('FormWizard textarea', () => {
     expect(onComplete).toHaveBeenCalledWith({ body: 'Hello world' });
   });
 
+  it('Tab confirms textarea as fallback for terminals without Ctrl+Enter support', async () => {
+    const onComplete = vi.fn();
+    const onCancel = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextareaSteps(),
+        onComplete,
+        onCancel,
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    stdin.write('Hello from tab');
+    await delay(50);
+    stdin.write('\t');
+    await delay(50);
+
+    expect(onComplete).toHaveBeenCalledWith({ body: 'Hello from tab' });
+  });
+
   it('Ctrl+Enter confirms multiline textarea with newlines joined', async () => {
     const onComplete = vi.fn();
     const onCancel = vi.fn();
@@ -238,6 +284,27 @@ describe('FormWizard textarea', () => {
 
     // Ctrl+Enter on empty required field
     stdin.write(CTRL_ENTER);
+    await delay(50);
+
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('Tab on empty required textarea does not confirm', async () => {
+    const onComplete = vi.fn();
+    const onCancel = vi.fn();
+    const { stdin } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextareaSteps({ required: true }),
+        onComplete,
+        onCancel,
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+
+    stdin.write('\t');
     await delay(50);
 
     expect(onComplete).not.toHaveBeenCalled();
@@ -1102,6 +1169,39 @@ describe('FormWizard inline validation', () => {
     await delay(50);
 
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('Tab confirms multiselect step with current selection', async () => {
+    const onComplete = vi.fn();
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: [
+          {
+            id: 'skills',
+            label: 'Skills',
+            type: 'multiselect',
+            options: [
+              { value: 'frontend', label: 'Frontend' },
+              { value: 'backend', label: 'Backend' },
+            ],
+          },
+        ],
+        onComplete,
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(50);
+    expect(lastFrame()!).toContain('Enter/Tab confirm');
+
+    stdin.write(' ');
+    await delay(50);
+    stdin.write('\t');
+    await delay(50);
+
+    expect(onComplete).toHaveBeenCalledWith({ skills: 'frontend' });
   });
 
   /* ── validationError reset on step navigation ── */

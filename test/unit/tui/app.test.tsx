@@ -758,6 +758,36 @@ describe('App', () => {
     expect(output).toContain('Created');
   });
 
+  it('creates task via wizard with textarea confirmed by Tab', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let createdDescription: string | undefined;
+    const onCreateTask = async (title: string, opts?: { description?: string }) => {
+      createdDescription = opts?.description;
+      return makeTask({ id: 'tsk_tab', title, description: opts?.description });
+    };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], state, onCreateTask }),
+    );
+
+    stdin.write('n');
+    await delay(50);
+    stdin.write('Build API');
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+    expect(lastFrame()!).toContain('Enter/Tab confirm');
+
+    stdin.write('Created through Tab fallback');
+    await delay(50);
+    stdin.write('\t');
+    await delay(100);
+
+    expect(createdDescription).toBe('Created through Tab fallback');
+    expect(lastFrame()!).toContain('Created');
+  });
+
   it('does not create task on Enter with empty title in wizard', async () => {
     const state: OrchestratorState = { ...DEFAULT_STATE };
     let called = false;
