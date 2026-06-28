@@ -48,8 +48,13 @@ jobs:
           fi
           # Write to file to avoid quoting issues
           echo "$BODY" > /tmp/release-notes.md
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
-        run: gh release create "${{ github.ref_name }}" --notes-file /tmp/release-notes.md
+        run: |
+          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            gh release edit "${{ github.ref_name }}" --notes-file /tmp/release-notes.md
+          else
+            gh release create "${{ github.ref_name }}" --notes-file /tmp/release-notes.md
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
