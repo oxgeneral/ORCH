@@ -15,58 +15,16 @@ import { AGENT_SHOP_TEMPLATES, getShopTemplateByKey } from '../domain/agent-shop
 import type { AgentShopTemplate } from '../domain/agent-shop.js';
 import { resolveModel } from '../domain/model-tiers.js';
 import { isMcpSkill } from '../application/agent-factory.js';
+import { getFallbackModelOptions } from '../infrastructure/models/model-discovery.js';
+import type { ModelCatalog, ModelOption } from '../infrastructure/models/model-discovery.js';
 
 // ── Model catalogs per adapter ──
 
-const CLAUDE_MODELS = [
-  { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', hint: 'most capable' },
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', hint: 'fast, balanced' },
-  { value: 'claude-haiku-4-6', label: 'Claude Haiku 4.6', hint: 'fastest, cheapest' },
-  { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', hint: 'extended thinking' },
-  { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', hint: 'legacy' },
-];
-
-const CODEX_MODELS = [
-  { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', hint: 'default, balanced' },
-  { value: 'gpt-5.4', label: 'GPT-5.4', hint: 'latest' },
-  { value: 'gpt-5', label: 'GPT-5', hint: 'capable' },
-  { value: 'gpt-5.3-codex-spark', label: 'GPT-5.3 Codex Spark', hint: 'fast' },
-  { value: 'o3', label: 'o3', hint: 'reasoning' },
-  { value: 'o4-mini', label: 'o4-mini', hint: 'fast reasoning' },
-  { value: 'gpt-5-mini', label: 'GPT-5 Mini', hint: 'light' },
-  { value: 'gpt-5-nano', label: 'GPT-5 Nano', hint: 'cheapest' },
-  { value: 'codex-mini-latest', label: 'Codex Mini', hint: 'legacy' },
-];
-
-const CURSOR_MODELS = [
-  { value: 'auto', label: 'Auto', hint: 'let Cursor decide' },
-  { value: 'composer-1.5', label: 'Composer 1.5', hint: 'latest agent' },
-  { value: 'composer-1', label: 'Composer 1', hint: 'stable agent' },
-  { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', hint: 'OpenAI' },
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', hint: 'Anthropic' },
-];
-
-const OPENCODE_MODELS = [
-  { value: '', label: 'Default', hint: 'use model configured in opencode' },
-  { value: 'openrouter/anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6', hint: 'fast, balanced' },
-  { value: 'openrouter/anthropic/claude-opus-4.6', label: 'Claude Opus 4.6', hint: 'most capable' },
-  { value: 'openrouter/google/gemini-2.5-pro', label: 'Gemini 2.5 Pro', hint: 'Google' },
-  { value: 'openrouter/google/gemini-2.5-flash', label: 'Gemini 2.5 Flash', hint: 'Google, fast' },
-  { value: 'openrouter/deepseek/deepseek-v3.2', label: 'DeepSeek V3.2', hint: 'open-source' },
-  { value: 'openrouter/deepseek/deepseek-r1:free', label: 'DeepSeek R1', hint: 'reasoning, free' },
-  { value: 'opencode/big-pickle', label: 'Big Pickle', hint: 'opencode native' },
-];
-
-const PI_MODELS = [
-  { value: 'openai-codex/gpt-5.5', label: 'GPT-5.5', hint: 'Pi OpenAI Codex provider' },
-  { value: 'openai-codex/gpt-5.4', label: 'GPT-5.4', hint: 'Pi OpenAI Codex provider' },
-  { value: 'openai-codex/gpt-5.3-codex', label: 'GPT-5.3 Codex', hint: 'Pi OpenAI Codex provider' },
-  { value: '', label: 'Default', hint: 'use Pi configured default' },
-];
-
-const SHELL_MODELS = [
-  { value: '', label: 'Default', hint: 'use shell adapter default' },
-];
+function getModelOptions(adapter: string | undefined, modelCatalog?: ModelCatalog): ModelOption[] {
+  const key = adapter || 'claude';
+  const discovered = modelCatalog?.[key as keyof ModelCatalog];
+  return discovered?.length ? discovered : getFallbackModelOptions(key);
+}
 
 // ── Reasoning effort options ──
 
@@ -78,7 +36,7 @@ const EFFORT_OPTIONS = [
 ];
 
 /** Adapters that support the --effort flag */
-const EFFORT_ADAPTERS = new Set(['claude', 'pi']);
+const EFFORT_ADAPTERS = new Set(['claude', 'pi', 'grok']);
 
 // ── Adapter catalog ──
 
@@ -88,6 +46,8 @@ const ADAPTERS = [
   { value: 'codex', label: 'Codex', hint: 'OpenAI Codex CLI' },
   { value: 'cursor', label: 'Cursor', hint: 'Cursor Agent CLI' },
   { value: 'pi', label: 'Pi', hint: 'Pi coding agent RPC' },
+  { value: 'grok', label: 'Grok', hint: 'Grok CLI' },
+  { value: 'antigravity', label: 'Antigravity', hint: 'Google Antigravity CLI (agy)' },
   { value: 'shell', label: 'Shell', hint: 'custom shell command' },
 ];
 
@@ -203,7 +163,7 @@ export function applyShopTemplate(
 
 // ── Agent creation wizard ──
 
-export function getAgentWizardSteps(agents?: Agent[], teams?: Team[]): WizardStep[] {
+export function getAgentWizardSteps(agents?: Agent[], teams?: Team[], modelCatalog?: ModelCatalog): WizardStep[] {
   const teamOptions = buildTeamOptions(teams);
 
   return [
@@ -234,14 +194,7 @@ export function getAgentWizardSteps(agents?: Agent[], teams?: Team[]): WizardSte
       id: 'model',
       label: 'Model',
       type: 'select',
-      getOptions: (vals) => {
-        if (vals.adapter === 'opencode') return OPENCODE_MODELS;
-        if (vals.adapter === 'codex') return CODEX_MODELS;
-        if (vals.adapter === 'cursor') return CURSOR_MODELS;
-        if (vals.adapter === 'pi') return PI_MODELS;
-        if (vals.adapter === 'shell') return SHELL_MODELS;
-        return CLAUDE_MODELS;
-      },
+      getOptions: (vals) => getModelOptions(vals.adapter, modelCatalog),
     },
     {
       id: 'effort',
@@ -460,18 +413,12 @@ export function editTaskWizardToFields(vals: Record<string, string>) {
   };
 }
 
-export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: Team[]): WizardStep[] {
+export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: Team[], modelCatalog?: ModelCatalog): WizardStep[] {
   // Find current role in presets or mark as custom
   const currentRoleInPresets = ROLE_PRESETS.find((r) => r.value === agent.role);
   const roleDefault = currentRoleInPresets ? agent.role! : (agent.role ? '__custom__' : '');
 
-  const modelOptions =
-    agent.adapter === 'opencode' ? OPENCODE_MODELS :
-    agent.adapter === 'codex' ? CODEX_MODELS :
-    agent.adapter === 'cursor' ? CURSOR_MODELS :
-    agent.adapter === 'pi' ? PI_MODELS :
-    agent.adapter === 'shell' ? SHELL_MODELS :
-    CLAUDE_MODELS;
+  const modelOptions = getModelOptions(agent.adapter, modelCatalog);
 
   const teamOptions = buildTeamOptions(teams);
   const currentTeamId = teams?.find(t => t.members.some(m => m.agent_id === agent.id))?.id;

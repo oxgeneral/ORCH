@@ -52,6 +52,7 @@ import type { ActivityFilterPreset, NotificationPreferences } from '../domain/gl
 import { DEFAULT_CONFIG } from '../domain/config.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
 import { ERROR_HINTS, type AdapterErrorKind } from '../domain/errors.js';
+import type { ModelCatalog } from '../infrastructure/models/model-discovery.js';
 import { useTextInput } from './hooks/useTextInput.js';
 import { TextInput as UnifiedTextInput } from './components/TextInput.js';
 
@@ -157,6 +158,8 @@ export interface AppProps {
   onCompleteOnboarding?: () => Promise<void>;
   /** Default adapter from project config (used for agent shop template resolution) */
   defaultAdapter?: string;
+  /** Load runtime model choices for adapters that expose a model-list command. */
+  onLoadModelCatalog?: () => Promise<ModelCatalog>;
 }
 
 type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
@@ -304,6 +307,7 @@ export function App({
   onCheckUpdate,
   onBackgroundInstall,
   defaultAdapter = 'claude',
+  onLoadModelCatalog,
 }: AppProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -346,6 +350,7 @@ export function App({
   const [liveAgents, setLiveAgents] = useState<Agent[]>(initialAgents);
   const [liveState, setLiveState] = useState<OrchestratorState>(initialState);
   const [watchActive, setWatchActive] = useState(initialWatchActive ?? !!initialState.pid);
+  const [modelCatalog, setModelCatalog] = useState<ModelCatalog>({});
 
   // Goals state
   const [liveGoals, setLiveGoals] = useState<Goal[]>([]);
@@ -889,15 +894,24 @@ export function App({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load runtime model choices in the background; wizards fall back until ready.
+  useEffect(() => {
+    let cancelled = false;
+    onLoadModelCatalog?.().then((catalog) => {
+      if (!cancelled) setModelCatalog(catalog);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [onLoadModelCatalog]);
+
   // Wizard launchers
   const launchAgentWizard = useCallback(() => {
     setWizardConfig({
       title: 'NEW AGENT',
-      steps: getAgentWizardSteps(liveAgents, liveTeamsRef.current),
+      steps: getAgentWizardSteps(liveAgents, liveTeamsRef.current, modelCatalog),
       kind: 'agent',
     });
     setInputMode('wizard');
-  }, [liveAgents]);
+  }, [liveAgents, modelCatalog]);
 
   const launchShopWizard = useCallback(() => {
     setWizardConfig({
@@ -970,12 +984,12 @@ export function App({
   const launchEditAgentWizard = useCallback((agent: Agent) => {
     setWizardConfig({
       title: 'EDIT AGENT',
-      steps: getEditAgentWizardSteps(agent, liveAgents, liveTeams),
+      steps: getEditAgentWizardSteps(agent, liveAgents, liveTeams, modelCatalog),
       kind: 'edit_agent',
       targetId: agent.id,
     });
     setInputMode('wizard');
-  }, [liveTeams]);
+  }, [liveAgents, liveTeams, modelCatalog]);
 
   const launchConfigWizard = useCallback(() => {
     setWizardConfig({
@@ -997,7 +1011,7 @@ export function App({
       const templateKey = values.shop_template;
       const template = templateKey ? getShopTemplateByKey(templateKey) : undefined;
       if (template) {
-        const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current);
+        const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current, modelCatalog);
         const prefilledSteps = applyShopTemplate(baseSteps, template, defaultAdapter);
         setWizardConfig({
           title: `NEW AGENT \u2014 ${template.name}`,
@@ -1147,7 +1161,7 @@ export function App({
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
     }
-  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onLeaveTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter, onSaveMaxConcurrent, notifications, onSaveNotifications, liveTeams, pendingAttachments]);
+  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onLeaveTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter, onSaveMaxConcurrent, notifications, onSaveNotifications, liveAgents, liveTeams, pendingAttachments, modelCatalog, defaultAdapter]);
 
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');
@@ -1159,7 +1173,7 @@ export function App({
   const handleSuggestionSelected = useCallback((templateKey: string) => {
     const template = getShopTemplateByKey(templateKey);
     if (!template) return;
-    const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current);
+    const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current, modelCatalog);
     const prefilledSteps = applyShopTemplate(baseSteps, template, defaultAdapter);
     setWizardConfig({
       title: `NEW AGENT \u2014 ${template.name}`,
@@ -1167,7 +1181,7 @@ export function App({
       kind: 'agent_from_shop',
     });
     setInputMode('wizard');
-  }, []);
+  }, [liveAgents, modelCatalog, defaultAdapter]);
 
   // Live event subscription — update activity feed AND refresh data
   useEffect(() => {

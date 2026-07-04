@@ -136,7 +136,10 @@ async function detectAndSelectAdapter(): Promise<string> {
   const checks = await Promise.all(
     SUPPORTED_ADAPTERS.filter((a) => a !== 'shell').map(async (name): Promise<AdapterCheckResult> => {
       // Only probe cursor-agent (not 'agent' — too generic, causes false positives)
-      const cmdsToTry = name === 'cursor' ? ['cursor-agent'] : [name];
+      const cmdsToTry =
+        name === 'cursor' ? ['cursor-agent'] :
+        name === 'antigravity' ? ['agy'] :
+        [name];
       for (const cmd of cmdsToTry) {
         try {
           const { stdout } = await execFileAsync(cmd, ['--version'], { timeout: 5_000 });
@@ -250,7 +253,7 @@ export function registerInitCommand(program: Command): void {
     .command('init')
     .description('Initialize .orchestry/ in the current directory')
     .option('--name <name>', 'Project name')
-    .option('--adapter <adapter>', 'Default agent adapter (claude, opencode, codex, cursor, pi, shell)')
+    .option('--adapter <adapter>', 'Default agent adapter (claude, opencode, codex, cursor, pi, grok, antigravity, shell)')
     .action(async (opts: { name?: string; adapter?: string }) => {
       if (opts.adapter && !isAdapterKind(opts.adapter)) {
         printError(`Unknown adapter "${opts.adapter}"`, `Supported: ${SUPPORTED_ADAPTERS.join(', ')}`);

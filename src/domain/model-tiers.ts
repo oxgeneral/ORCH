@@ -7,7 +7,15 @@
  */
 
 /** The supported adapter kinds. */
-export type AdapterKind = 'claude' | 'opencode' | 'codex' | 'cursor' | 'pi' | 'shell';
+export type AdapterKind =
+  | 'claude'
+  | 'opencode'
+  | 'codex'
+  | 'cursor'
+  | 'pi'
+  | 'grok'
+  | 'antigravity'
+  | 'shell';
 
 /**
  * Semantic capability tiers — adapter-agnostic.
@@ -24,6 +32,7 @@ export type ModelTier = 'capable' | 'balanced' | 'fast';
  *   - shell:    '' for all tiers (model irrelevant)
  *   - opencode: '' for balanced (delegate to opencode's own config)
  *   - cursor:   'auto' for all tiers (Cursor handles selection)
+ *   - antigravity: '' for balanced (delegate to Antigravity's configured default)
  */
 export const MODEL_TIER_MAP: Record<AdapterKind, Record<ModelTier, string>> = {
   claude: {
@@ -50,6 +59,16 @@ export const MODEL_TIER_MAP: Record<AdapterKind, Record<ModelTier, string>> = {
     capable: 'openai-codex/gpt-5.5',
     balanced: 'openai-codex/gpt-5.5',
     fast: 'openai-codex/gpt-5.5',
+  },
+  grok: {
+    capable: 'grok-build',
+    balanced: 'grok-composer-2.5-fast',
+    fast: 'grok-composer-2.5-fast',
+  },
+  antigravity: {
+    capable: 'gemini-3-pro',
+    balanced: '',
+    fast: 'gemini-3-flash',
   },
   shell: {
     capable: '',
@@ -84,4 +103,13 @@ export function isModelTier(value: string): value is ModelTier {
 }
 
 /** All supported adapter names in display order. */
-export const SUPPORTED_ADAPTERS: readonly AdapterKind[] = ['claude', 'opencode', 'codex', 'cursor', 'pi', 'shell'];
+export const SUPPORTED_ADAPTERS: readonly AdapterKind[] = [
+  'claude',
+  'opencode',
+  'codex',
+  'cursor',
+  'pi',
+  'grok',
+  'antigravity',
+  'shell',
+];

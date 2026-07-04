@@ -162,6 +162,8 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     { ShellAdapter },
     { OpenCodeAdapter },
     { PiAdapter },
+    { GrokAdapter },
+    { AntigravityAdapter },
     { WorkspaceManager },
     { LiquidTemplateEngine },
     { SkillLoader },
@@ -176,6 +178,8 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     import('./infrastructure/adapters/shell.js'),
     import('./infrastructure/adapters/opencode.js'),
     import('./infrastructure/adapters/pi.js'),
+    import('./infrastructure/adapters/grok.js'),
+    import('./infrastructure/adapters/antigravity.js'),
     import('./infrastructure/workspace/workspace-manager.js'),
     import('./infrastructure/template/template-engine.js'),
     import('./infrastructure/skills/skill-loader.js'),
@@ -200,6 +204,8 @@ export async function buildFullContainer(context: CliContext): Promise<Container
   adapterRegistry.register(new ShellAdapter(processManager));
   adapterRegistry.register(new OpenCodeAdapter(processManager));
   adapterRegistry.register(new PiAdapter(processManager));
+  adapterRegistry.register(new GrokAdapter(processManager));
+  adapterRegistry.register(new AntigravityAdapter(processManager));
 
   const doctorService = new DoctorService(adapterRegistry, processManager, context.projectRoot);
   const orchestrator = new Orchestrator({

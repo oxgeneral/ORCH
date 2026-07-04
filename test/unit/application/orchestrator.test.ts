@@ -23,6 +23,18 @@ import {
   buildDeps,
 } from './helpers.js';
 
+async function waitFor(
+  predicate: () => Promise<boolean> | boolean,
+  timeoutMs = 2000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await predicate()) return;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  throw new Error(`waitFor timed out after ${timeoutMs}ms`);
+}
+
 // Mock the lock module so we don't touch the filesystem
 vi.mock('../../../src/infrastructure/storage/lock.js', () => ({
   acquireLock: vi.fn(async () => ({ acquired: true, pid: process.pid })),
@@ -80,6 +92,32 @@ describe('Orchestrator', () => {
       expect(acquireLock).toHaveBeenCalled();
       expect(releaseLock).toHaveBeenCalled();
       expect(orchestrator.isOwner).toBe(false); // lock released after run
+    });
+
+    it('runTask does not reactive-dispatch other todo tasks after the requested task completes', async () => {
+      const task1 = makeTask({ id: 'tsk_1', status: 'todo' });
+      const task2 = makeTask({ id: 'tsk_2', status: 'todo' });
+      const agent = makeAgent({ id: 'agt_1', adapter: 'shell', status: 'idle' });
+      const taskStore = createMockTaskStore([task1, task2]);
+      const agentStore = createMockAgentStore([agent]);
+      const runStore = createMockRunStore();
+      const adapterRegistry = new AdapterRegistry();
+      adapterRegistry.register(createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'ok' } },
+      ]));
+
+      deps = buildDeps({ taskStore, agentStore, runStore, adapterRegistry });
+      orchestrator = new Orchestrator(deps);
+
+      await orchestrator.runTask('tsk_1');
+      await waitFor(async () => (await taskStore.get('tsk_1'))?.status === 'done');
+
+      // Wait past the 500ms immediate-dispatch debounce. A single-task run must
+      // not consume the next ready task just because the first agent became idle.
+      await new Promise((r) => setTimeout(r, 650));
+
+      expect((await taskStore.get('tsk_2'))?.status).toBe('todo');
+      expect(await runStore.listAll()).toHaveLength(1);
     });
 
     it('cancelTask auto-acquires lock when not owned', async () => {

@@ -96,6 +96,8 @@ export class Orchestrator {
 
   /** When true, `tick()` skips `seedAutonomousTasks()`. Set via `startWatch()` options. */
   private skipAutonomousSeeding = false;
+  /** Task IDs started via runTask; these must not trigger reactive dispatch of other tasks. */
+  private readonly singleTaskRunIds = new Set<string>();
   /** Cooldown: track last auto-seed time per agent to prevent re-seed spam. */
   private readonly lastAutoSeedAt = new Map<string, number>();
   /** Minimum interval between auto-seed tasks for the same agent (30 seconds). */
@@ -142,10 +144,10 @@ export class Orchestrator {
    */
   async runTask(taskId: string): Promise<void> {
     if (this.lockAcquired) {
-      await this.freshDispatch(() => this.dispatchTask(taskId));
+      await this.freshDispatch(() => this.dispatchOnlyTask(taskId));
       return;
     }
-    await this.withTemporaryLock(() => this.freshDispatch(() => this.dispatchTask(taskId)));
+    await this.withTemporaryLock(() => this.freshDispatch(() => this.dispatchOnlyTask(taskId)));
   }
 
   /**
@@ -523,6 +525,7 @@ export class Orchestrator {
    */
   private async immediateDispatch(): Promise<void> {
     if (this.shuttingDown) return;
+    if (this.singleTaskRunIds.size > 0) return;
     await this.freshDispatch(() => this.shuttingDown ? Promise.resolve() : this.dispatchAll());
   }
 
@@ -838,6 +841,37 @@ export class Orchestrator {
           fatal: false,
         });
       }
+    }
+  }
+
+  /**
+   * Dispatch exactly one requested task.
+   *
+   * A single-shot CLI command (`orch run <task-id>`) should not opportunistically
+   * consume other ready tasks while the requested run is being collected.
+   * Temporarily claiming other dispatchable tasks keeps the shared dispatch path
+   * focused without changing watch/run-all semantics.
+   */
+  private async dispatchOnlyTask(taskId: string): Promise<void> {
+    const state = this.state!;
+    const originalClaimed = new Set(state.claimed);
+    const allTasks = await this.cachedTaskStore.list();
+    this.singleTaskRunIds.add(taskId);
+
+    for (const task of allTasks) {
+      if (task.id !== taskId && isDispatchable(task.status)) {
+        state.claimed.add(task.id);
+      }
+    }
+
+    try {
+      await this.dispatchTask(taskId);
+    } finally {
+      state.claimed = originalClaimed;
+      if (!state.running[taskId]) {
+        this.singleTaskRunIds.delete(taskId);
+      }
+      await this.saveState();
     }
   }
 
@@ -1507,8 +1541,11 @@ export class Orchestrator {
 
     await this.saveState();
 
-    // Reactive dispatch — agent is idle, try to assign next task immediately
-    this.scheduleImmediateDispatch();
+    const wasSingleTaskRun = this.singleTaskRunIds.delete(taskId);
+    if (!wasSingleTaskRun) {
+      // Reactive dispatch — agent is idle, try to assign next task immediately
+      this.scheduleImmediateDispatch();
+    }
   }
 
   private async handleRunFailure(
@@ -1607,8 +1644,11 @@ export class Orchestrator {
     state.stats.total_runs++;
     await this.saveState();
 
-    // Reactive dispatch — agent is idle, try to assign next task immediately
-    this.scheduleImmediateDispatch();
+    const wasSingleTaskRun = this.singleTaskRunIds.delete(taskId);
+    if (!wasSingleTaskRun) {
+      // Reactive dispatch — agent is idle, try to assign next task immediately
+      this.scheduleImmediateDispatch();
+    }
   }
 
   /**

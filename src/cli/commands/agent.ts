@@ -26,7 +26,7 @@ export function registerAgentCommand(program: Command, container: LightContainer
   agent
     .command('add <name>')
     .description('Add a new agent')
-    .requiredOption('--adapter <adapter>', 'Adapter type: claude, opencode, codex, cursor, pi, shell')
+    .requiredOption('--adapter <adapter>', 'Adapter type: claude, opencode, codex, cursor, pi, grok, antigravity, shell')
     .option('--role <role>', 'Agent role description')
     .option('--command <cmd>', 'Shell command (for shell adapter)')
     .option('--model <model>', 'Model name (for AI adapters)')

@@ -8,6 +8,8 @@
 
 import type { Command } from 'commander';
 import type { Container } from '../../container.js';
+import { SUPPORTED_ADAPTERS } from '../../domain/model-tiers.js';
+import { loadModelCatalog } from '../../infrastructure/models/model-discovery.js';
 
 export function registerTuiCommand(program: Command, container: Container): void {
   program
@@ -219,6 +221,10 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.goalService.getProgressReport(goalId);
       };
 
+      const onLoadModelCatalog = async () => {
+        return loadModelCatalog(SUPPORTED_ADAPTERS);
+      };
+
       const onStartWatch = async () => {
         await container.orchestrator.startWatch();
       };
@@ -316,6 +322,7 @@ export function registerTuiCommand(program: Command, container: Container): void
             const m = await import('../update-check.js');
             return m.backgroundInstall(version);
           },
+          onLoadModelCatalog,
           initialActivityFilter: container.globalConfig.tui.activity_filter,
           onSaveActivityFilter: async (preset) => {
             await container.globalConfigStore.set('activity_filter', preset);

@@ -326,7 +326,7 @@ Every department gets the same superpowers: state machine governance, retry, mes
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/adapters-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="./assets/adapters-light.svg">
-  <img alt="Adapters: Claude, OpenCode, Codex, Pi, Cursor, Shell" src="./assets/adapters-dark.svg" width="100%">
+  <img alt="Adapters: Claude, OpenCode, Codex, Pi, Cursor, Grok, Antigravity, Shell" src="./assets/adapters-dark.svg" width="100%">
 </picture>
 
 <br/>
@@ -604,7 +604,7 @@ src/
 ├── domain/           # Models, state machine, errors
 ├── application/      # Orchestrator engine, services, event bus
 ├── infrastructure/
-│   ├── adapters/     # Claude, OpenCode, Codex, Pi, Cursor, Shell
+│   ├── adapters/     # Claude, OpenCode, Codex, Pi, Cursor, Grok, Antigravity, Shell
 │   ├── storage/      # File-based (YAML/JSON/JSONL)
 │   ├── process/      # PID management, graceful kill
 │   ├── template/     # LiquidJS prompt templates
@@ -706,7 +706,7 @@ ORCH is open-source (MIT license). You pay only for the AI APIs you already use 
 
 <br/>
 
-Six adapters: **Claude Code**, **OpenCode** (Gemini, DeepSeek, any OpenRouter model), **Codex**, **Pi**, **Cursor**, and **Shell** (any CLI tool). Your API keys, your tools — ORCH coordinates them.
+Eight adapters: **Claude Code**, **OpenCode** (Gemini, DeepSeek, any OpenRouter model), **Codex**, **Pi**, **Cursor**, **Grok**, **Antigravity**, and **Shell** (any CLI tool). Your API keys, your tools — ORCH coordinates them.
 
 </details>
 

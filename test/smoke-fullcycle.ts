@@ -151,6 +151,7 @@ async function main() {
   const pass = (name: string) => results.push('  \u2705 ' + name);
   const fail = (name: string, reason: string) => results.push('  \u274C ' + name + ': ' + reason);
   const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+  const selectedLine = (frame: string) => frame.split('\n').find(line => line.includes('▸')) ?? '';
 
   const { lastFrame, stdin } = render(
     React.createElement(App, {
@@ -172,7 +173,7 @@ async function main() {
   if (frame.includes('Implement auth') && frame.includes('Fix CSS')) pass('1. Tasks visible on launch');
   else fail('1. Tasks visible', 'tasks not found');
 
-  if (frame.includes('watching') && frame.includes('running')) pass('2. Watch mode active on launch');
+  if (frame.toLowerCase().includes('watching') && (frame.toLowerCase().includes('running') || frame.includes('RUN'))) pass('2. Watch mode active on launch');
   else fail('2. Watch mode', 'watching/running not found');
 
   // ── 3. Create new task via /task add ──
@@ -219,16 +220,12 @@ async function main() {
   // Need to find tsk_1 (todo) — it should be near the top now after refresh
   stdin.write('t'); // ensure we're on tasks view
   await delay(50);
-  // Navigate up to first item
-  stdin.write('\x1B[A'); // up
-  stdin.write('\x1B[A'); // up
-  stdin.write('\x1B[A'); // up
-  await delay(50);
-  stdin.write('\x1B[B'); // down to first todo after in_progress
-  await delay(100);
-  // Check if R hint is shown
-  frame = lastFrame()!;
-  // Press R to run
+  for (let i = 0; i < 10; i++) {
+    frame = lastFrame()!;
+    if (selectedLine(frame).includes('TODO')) break;
+    stdin.write('\x1B[B');
+    await delay(50);
+  }
   stdin.write('r');
   await delay(200);
   frame = lastFrame()!;

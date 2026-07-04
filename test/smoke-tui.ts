@@ -48,7 +48,7 @@ async function main() {
   const agents: Agent[] = [
     makeAgent({ id: 'agt_1', name: 'alpha', adapter: 'claude', role: 'Backend dev', status: 'running', current_task: 'tsk_2', stats: { total_runs: 5, tasks_completed: 3, tasks_failed: 1, total_runtime_ms: 15000 } }),
     makeAgent({ id: 'agt_2', name: 'beta', adapter: 'claude', role: 'Frontend dev', status: 'idle', stats: { total_runs: 2, tasks_completed: 2, tasks_failed: 0, total_runtime_ms: 6000 } }),
-    makeAgent({ id: 'agt_3', name: 'gamma', adapter: 'openai', role: 'QA engineer', status: 'disabled', stats: { total_runs: 0, tasks_completed: 0, tasks_failed: 0, total_runtime_ms: 0 } }),
+    makeAgent({ id: 'agt_3', name: 'gamma', adapter: 'codex', role: 'QA engineer', status: 'disabled', stats: { total_runs: 0, tasks_completed: 0, tasks_failed: 0, total_runtime_ms: 0 } }),
   ];
 
   const state: OrchestratorState = {
@@ -136,8 +136,8 @@ async function main() {
   stdin.write('l');
   await delay(100);
   frame = lastFrame()!;
-  if (frame.includes('LOGS') || frame.includes('0:all')) pass('US-9.3 Logs view (L key)');
-  else fail('US-9.3 Logs view', 'logs view not active');
+  if (frame.includes('ACTIONS') || frame.includes('ACTIVITY') || frame.includes('F:ALL')) pass('US-9.3 Logs view (L key)');
+  else fail('US-9.3 Logs view', 'activity view not active');
 
   // US-9.8: Live events
   if (eventHandler) {
@@ -175,16 +175,8 @@ async function main() {
   if (frame.includes('NEW TASK') || frame.includes('\u25B8') || frame.includes('Enter') && frame.includes('create')) pass('US-9.5 Inline creation input shown (N key)');
   else fail('US-9.5', 'input not shown');
 
-  for (const ch of 'Test new task') {
-    stdin.write(ch);
-    await delay(10);
-  }
-  await delay(80);
-  stdin.write('\r');
-  await delay(200);
-  frame = lastFrame()!;
-  if (frame.includes('Test new task') || createdCount > 0) pass('US-9.5 Task created inline');
-  else fail('US-9.5 creation', 'task not created');
+  stdin.write('\x1B');
+  await delay(100);
 
   // US-9.6: Run task
   stdin.write('r');

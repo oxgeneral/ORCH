@@ -12,6 +12,8 @@ import { AdapterRegistry } from '../../infrastructure/adapters/registry.js';
 import { ClaudeAdapter } from '../../infrastructure/adapters/claude.js';
 import { ShellAdapter } from '../../infrastructure/adapters/shell.js';
 import { PiAdapter } from '../../infrastructure/adapters/pi.js';
+import { GrokAdapter } from '../../infrastructure/adapters/grok.js';
+import { AntigravityAdapter } from '../../infrastructure/adapters/antigravity.js';
 import { DoctorService } from '../../application/doctor-service.js';
 import { Paths } from '../../infrastructure/storage/paths.js';
 import { getIcon, amber, dim } from '../output.js';
@@ -37,6 +39,8 @@ export function registerDoctorCommand(program: Command, container?: Container): 
         registry.register(new ClaudeAdapter(pm));
         registry.register(new ShellAdapter(pm));
         registry.register(new PiAdapter(pm));
+        registry.register(new GrokAdapter(pm));
+        registry.register(new AntigravityAdapter(pm));
         doctorService = new DoctorService(registry, pm, process.cwd());
         paths = new Paths(process.cwd());
       }

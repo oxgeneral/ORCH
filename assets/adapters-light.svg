@@ -15,52 +15,68 @@
     YOUR TOOLS BECOME YOUR EMPLOYEES
   </text>
 
-  <!-- Claude -->
+  <!-- 8 adapter columns -->
   <g>
-    <text x="90" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="18" font-weight="700" fill="#1a1a1a" letter-spacing="1">Claude</text>
-    <text x="90" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" fill="#888888">Anthropic</text>
-    <rect x="52" y="142" width="76" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
-    <text x="90" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#0d9488" letter-spacing="1.5">NATIVE</text>
+    <text x="60" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="15" font-weight="700" fill="#1a1a1a" letter-spacing="1">Claude</text>
+    <text x="60" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="11" fill="#888888">Anthropic</text>
+    <rect x="25" y="142" width="70" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
+    <text x="60" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#0d9488" letter-spacing="1.2">NATIVE</text>
   </g>
+  <line x1="112" y1="85" x2="112" y2="170" stroke="#000000" stroke-opacity="0.06" stroke-width="1"/>
 
-  <line x1="180" y1="85" x2="180" y2="170" stroke="#000000" stroke-opacity="0.06" stroke-width="1"/>
-
-  <!-- OpenCode -->
   <g>
-    <text x="270" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="18" font-weight="700" fill="#1a1a1a" letter-spacing="1">OpenCode</text>
-    <text x="270" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" fill="#888888">Multi-provider</text>
-    <rect x="232" y="142" width="76" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
-    <text x="270" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#0d9488" letter-spacing="1.5">NATIVE</text>
+    <text x="165" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="14" font-weight="700" fill="#1a1a1a" letter-spacing="0.5">OpenCode</text>
+    <text x="165" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="11" fill="#888888">Multi-provider</text>
+    <rect x="130" y="142" width="70" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
+    <text x="165" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#0d9488" letter-spacing="1.2">NATIVE</text>
   </g>
+  <line x1="217" y1="85" x2="217" y2="170" stroke="#000000" stroke-opacity="0.06" stroke-width="1"/>
 
-  <line x1="360" y1="85" x2="360" y2="170" stroke="#000000" stroke-opacity="0.06" stroke-width="1"/>
-
-  <!-- Codex -->
   <g>
-    <text x="420" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="18" font-weight="700" fill="#1a1a1a" letter-spacing="1">Codex</text>
-    <text x="420" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" fill="#888888">OpenAI</text>
-    <rect x="382" y="142" width="76" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
-    <text x="420" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#0d9488" letter-spacing="1.5">NATIVE</text>
+    <text x="270" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="15" font-weight="700" fill="#1a1a1a" letter-spacing="1">Codex</text>
+    <text x="270" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="11" fill="#888888">OpenAI</text>
+    <rect x="235" y="142" width="70" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
+    <text x="270" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#0d9488" letter-spacing="1.2">NATIVE</text>
   </g>
+  <line x1="322" y1="85" x2="322" y2="170" stroke="#000000" stroke-opacity="0.06" stroke-width="1"/>
 
-  <line x1="510" y1="85" x2="510" y2="170" stroke="#000000" stroke-opacity="0.06" stroke-width="1"/>
-
-  <!-- Cursor -->
   <g>
-    <text x="570" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="18" font-weight="700" fill="#1a1a1a" letter-spacing="1">Cursor</text>
-    <text x="570" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" fill="#888888">Cursor CLI</text>
-    <rect x="532" y="142" width="76" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
-    <text x="570" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#0d9488" letter-spacing="1.5">NATIVE</text>
+    <text x="375" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="15" font-weight="700" fill="#1a1a1a" letter-spacing="1">Cursor</text>
+    <text x="375" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="11" fill="#888888">Cursor CLI</text>
+    <rect x="340" y="142" width="70" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
+    <text x="375" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#0d9488" letter-spacing="1.2">NATIVE</text>
   </g>
+  <line x1="427" y1="85" x2="427" y2="170" stroke="#000000" stroke-opacity="0.06" stroke-width="1"/>
 
-  <line x1="660" y1="85" x2="660" y2="170" stroke="#000000" stroke-opacity="0.06" stroke-width="1"/>
-
-  <!-- Shell -->
   <g>
-    <text x="750" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="18" font-weight="700" fill="#1a1a1a" letter-spacing="1">Shell</text>
-    <text x="750" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" fill="#888888">Any CLI Tool</text>
-    <rect x="700" y="142" width="100" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
-    <text x="750" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#0d9488" letter-spacing="1.5">UNIVERSAL</text>
+    <text x="480" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="15" font-weight="700" fill="#1a1a1a" letter-spacing="1">Pi</text>
+    <text x="480" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="11" fill="#888888">Coding agent</text>
+    <rect x="445" y="142" width="70" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
+    <text x="480" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#0d9488" letter-spacing="1.2">NATIVE</text>
+  </g>
+  <line x1="532" y1="85" x2="532" y2="170" stroke="#000000" stroke-opacity="0.06" stroke-width="1"/>
+
+  <g>
+    <text x="585" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="15" font-weight="700" fill="#1a1a1a" letter-spacing="1">Grok</text>
+    <text x="585" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="11" fill="#888888">xAI CLI</text>
+    <rect x="550" y="142" width="70" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
+    <text x="585" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#0d9488" letter-spacing="1.2">NATIVE</text>
+  </g>
+  <line x1="637" y1="85" x2="637" y2="170" stroke="#000000" stroke-opacity="0.06" stroke-width="1"/>
+
+  <g>
+    <text x="700" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="12" font-weight="700" fill="#1a1a1a" letter-spacing="0.2">Antigravity</text>
+    <text x="700" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="11" fill="#888888">Google agy</text>
+    <rect x="658" y="142" width="84" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
+    <text x="700" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#0d9488" letter-spacing="1.2">NATIVE</text>
+  </g>
+  <line x1="752" y1="85" x2="752" y2="170" stroke="#000000" stroke-opacity="0.06" stroke-width="1"/>
+
+  <g>
+    <text x="790" y="105" text-anchor="middle" font-family="'Courier New', monospace" font-size="15" font-weight="700" fill="#1a1a1a" letter-spacing="1">Shell</text>
+    <text x="790" y="128" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="11" fill="#888888">Any CLI</text>
+    <rect x="755" y="142" width="70" height="24" rx="2" fill="none" stroke="#0d9488" stroke-opacity="0.6" stroke-width="1"/>
+    <text x="790" y="159" text-anchor="middle" font-family="'Courier New', monospace" font-size="9" fill="#0d9488" letter-spacing="1.2">UNIV.</text>
   </g>
 
   <!-- Bottom stats bar -->

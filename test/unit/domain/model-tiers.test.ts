@@ -41,6 +41,14 @@ describe('resolveModel', () => {
     expect(resolveModel('pi', 'balanced')).toBe('openai-codex/gpt-5.5');
   });
 
+  it('grok balanced → grok-composer-2.5-fast', () => {
+    expect(resolveModel('grok', 'balanced')).toBe('grok-composer-2.5-fast');
+  });
+
+  it('antigravity balanced → empty (delegate to Antigravity)', () => {
+    expect(resolveModel('antigravity', 'balanced')).toBe('');
+  });
+
   it('shell returns empty string for all tiers', () => {
     expect(resolveModel('shell', 'capable')).toBe('');
     expect(resolveModel('shell', 'balanced')).toBe('');
@@ -64,6 +72,8 @@ describe('defaultModelForAdapter', () => {
     expect(defaultModelForAdapter('claude')).toBe('claude-sonnet-4-6');
     expect(defaultModelForAdapter('codex')).toBe('gpt-5.3-codex');
     expect(defaultModelForAdapter('pi')).toBe('openai-codex/gpt-5.5');
+    expect(defaultModelForAdapter('grok')).toBe('grok-composer-2.5-fast');
+    expect(defaultModelForAdapter('antigravity')).toBe('');
     expect(defaultModelForAdapter('shell')).toBe('');
   });
 });
@@ -87,6 +97,8 @@ describe('isAdapterKind', () => {
     expect(isAdapterKind('codex')).toBe(true);
     expect(isAdapterKind('cursor')).toBe(true);
     expect(isAdapterKind('pi')).toBe(true);
+    expect(isAdapterKind('grok')).toBe(true);
+    expect(isAdapterKind('antigravity')).toBe(true);
     expect(isAdapterKind('shell')).toBe(true);
   });
 
@@ -110,8 +122,8 @@ describe('isModelTier', () => {
 });
 
 describe('SUPPORTED_ADAPTERS', () => {
-  it('has 6 entries', () => {
-    expect(SUPPORTED_ADAPTERS).toHaveLength(6);
+  it('has 8 entries', () => {
+    expect(SUPPORTED_ADAPTERS).toHaveLength(8);
   });
 
   it('matches MODEL_TIER_MAP keys', () => {

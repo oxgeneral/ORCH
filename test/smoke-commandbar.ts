@@ -165,35 +165,42 @@ async function main() {
   if (frame.includes('AGENTS')) pass('Tab cycles to AGENTS view');
   else fail('Tab view cycle', 'AGENTS not found');
 
-  // ── 10. Tab → logs ──
+  // ── 10. Tab → actions/activity ──
   stdin.write('\t');
   await delay(100);
   frame = lastFrame()!;
-  if (frame.includes('LOGS')) pass('Tab cycles to LOGS view');
-  else fail('Tab view cycle 2', 'LOGS not found');
+  if (frame.includes('ACTIONS') || frame.includes('ACTIVITY')) pass('Tab cycles to ACTIONS view');
+  else fail('Tab view cycle 2', 'ACTIONS not found');
 
-  // ── 11. Tab → back to tasks ──
+  // ── 11. Tab → goals ──
+  stdin.write('\t');
+  await delay(100);
+  frame = lastFrame()!;
+  if (frame.includes('GOALS')) pass('Tab cycles to GOALS view');
+  else fail('Tab view cycle 3', 'GOALS not found');
+
+  // ── 12. Tab → back to tasks ──
   stdin.write('\t');
   await delay(100);
   frame = lastFrame()!;
   if (frame.includes('TASKS')) pass('Tab cycles back to TASKS');
-  else fail('Tab view cycle 3', 'TASKS not found');
+  else fail('Tab view cycle 4', 'TASKS not found');
 
-  // ── 12. ← arrow: tasks → logs ──
+  // ── 13. ← arrow: tasks → goals ──
   stdin.write('\x1B[D'); // left
   await delay(100);
   frame = lastFrame()!;
-  if (frame.includes('LOGS')) pass('← arrow: TASKS → LOGS');
-  else fail('← arrow', 'LOGS not found');
+  if (frame.includes('GOALS')) pass('← arrow: TASKS → GOALS');
+  else fail('← arrow', 'GOALS not found');
 
-  // ── 13. → arrow: logs → tasks ──
+  // ── 14. → arrow: goals → tasks ──
   stdin.write('\x1B[C'); // right
   await delay(100);
   frame = lastFrame()!;
-  if (frame.includes('TASKS')) pass('→ arrow: LOGS → TASKS');
+  if (frame.includes('TASKS')) pass('→ arrow: GOALS → TASKS');
   else fail('→ arrow', 'TASKS not found');
 
-  // ── 14. Subcommand completion: /task c → ancel ──
+  // ── 15. Subcommand completion: /task c → ancel ──
   stdin.write('/');
   await delay(50);
   for (const ch of 'task c') stdin.write(ch);
@@ -205,7 +212,7 @@ async function main() {
   stdin.write('\x1B'); // cancel
   await delay(100);
 
-  // ── 15. Esc cancels command mode ──
+  // ── 16. Esc cancels command mode ──
   stdin.write('/');
   await delay(50);
   stdin.write('x');
@@ -216,7 +223,7 @@ async function main() {
   if (frame.includes('Tab') && frame.includes('cmd')) pass('Esc returns to navigate mode');
   else fail('Esc cancel', 'navigate hints not found');
 
-  // ── 16. Unknown command ──
+  // ── 17. Unknown command ──
   stdin.write('/');
   await delay(50);
   for (const ch of 'foobar') stdin.write(ch);

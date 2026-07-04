@@ -33,8 +33,8 @@ export const ONBOARDING_AGENTS: OnboardingConfig = {
   title: 'Agents',
   description: [
     'AI workers that execute your tasks.',
-    'Each agent uses an adapter (claude,',
-    'codex, opencode, cursor, pi, shell).',
+    'Adapters: claude, opencode, codex, cursor,',
+    'pi, grok, antigravity, shell.',
   ],
   hints: [{ key: 'N', label: 'new agent' }, { key: 'W', label: 'start orchestrator' }],
   nudge: 'Add more agents to increase parallelism.',
