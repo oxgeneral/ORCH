@@ -45,6 +45,17 @@ describe('agent wizard model catalog', () => {
     const steps = getEditAgentWizardSteps(makeAgent({ adapter: 'antigravity' }), undefined, undefined, catalog);
     const modelStep = steps.find((step) => step.id === 'model')!;
 
-    expect(modelStep.options).toEqual(catalog.antigravity);
+    expect(modelStep.getOptions?.({ adapter: 'antigravity' })).toEqual(catalog.antigravity);
+  });
+
+  it('uses the newly selected adapter for edit wizard model options', () => {
+    const catalog: ModelCatalog = {
+      grok: [{ value: 'fresh-grok-model', label: 'Fresh Grok Model', hint: 'runtime' }],
+      antigravity: [{ value: 'Gemini 3.5 Flash (High)', label: 'Gemini 3.5 Flash (High)', hint: 'runtime' }],
+    };
+    const steps = getEditAgentWizardSteps(makeAgent({ adapter: 'grok' }), undefined, undefined, catalog);
+    const modelStep = steps.find((step) => step.id === 'model')!;
+
+    expect(modelStep.getOptions?.({ adapter: 'antigravity' })).toEqual(catalog.antigravity);
   });
 });

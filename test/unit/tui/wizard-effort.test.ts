@@ -117,11 +117,27 @@ describe('Agent wizard — effort step', () => {
       expect(effortStep).toBeDefined();
     });
 
+    it('has adapter step pre-filled with current adapter', () => {
+      const agent = makeAgent({ adapter: 'grok' });
+      const steps = getEditAgentWizardSteps(agent);
+      const adapterStep = steps.find((s) => s.id === 'adapter')!;
+      expect(adapterStep).toBeDefined();
+      expect(adapterStep.type).toBe('select');
+      expect(adapterStep.defaultValue).toBe('grok');
+    });
+
     it('effort step is skipped for shell agent', () => {
       const agent = makeAgent({ adapter: 'shell' });
       const steps = getEditAgentWizardSteps(agent);
       const effortStep = steps.find((s) => s.id === 'effort')!;
       expect(effortStep.skip!({})).toBe(true);
+    });
+
+    it('effort step follows selected adapter when editing', () => {
+      const agent = makeAgent({ adapter: 'shell' });
+      const steps = getEditAgentWizardSteps(agent);
+      const effortStep = steps.find((s) => s.id === 'effort')!;
+      expect(effortStep.skip!({ adapter: 'grok' })).toBe(false);
     });
 
     it('pre-fills current effort value', () => {
@@ -148,9 +164,14 @@ describe('Agent wizard — effort step', () => {
       expect(result.effort).toBe('low');
     });
 
-    it('returns undefined for empty effort', () => {
+    it('preserves empty effort so update can clear it', () => {
       const result = editAgentWizardToFields({ name: 'bot', effort: '' });
-      expect(result.effort).toBeUndefined();
+      expect(result.effort).toBe('');
+    });
+
+    it('maps adapter value', () => {
+      const result = editAgentWizardToFields({ name: 'bot', adapter: 'antigravity' });
+      expect(result.adapter).toBe('antigravity');
     });
   });
 });

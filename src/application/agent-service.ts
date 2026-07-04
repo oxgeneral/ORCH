@@ -88,7 +88,7 @@ export class AgentService {
     await this.agentStore.delete(id);
   }
 
-  async update(id: string, fields: { name?: string; role?: string; model?: string; effort?: Agent['config']['effort']; approval_policy?: Agent['config']['approval_policy'] }): Promise<Agent> {
+  async update(id: string, fields: { name?: string; adapter?: string; role?: string; model?: string; effort?: Agent['config']['effort'] | ''; approval_policy?: Agent['config']['approval_policy'] }): Promise<Agent> {
     const agent = await this.get(id);
 
     if (fields.name !== undefined) {
@@ -99,6 +99,10 @@ export class AgentService {
         throw new InvalidArgumentsError(`Agent "${fields.name}" already exists`);
       }
       agent.name = fields.name.trim();
+    }
+    if (fields.adapter !== undefined) {
+      if (!fields.adapter.trim()) throw new InvalidArgumentsError('Agent adapter cannot be empty');
+      agent.adapter = fields.adapter.trim();
     }
     if (fields.role !== undefined) agent.role = fields.role || undefined;
     if (fields.model !== undefined) agent.config.model = fields.model || undefined;

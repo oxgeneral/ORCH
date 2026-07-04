@@ -107,7 +107,7 @@ export interface AppProps {
   onRejectTask?: (taskId: string, feedback?: string) => Promise<void>;
   onDeleteTask?: (taskId: string) => Promise<void>;
   onUpdateTask?: (taskId: string, fields: { title?: string; description?: string; priority?: number; attachments?: string[] }) => Promise<Task>;
-  onUpdateAgent?: (agentId: string, fields: { name?: string; role?: string; model?: string; effort?: string; approval_policy?: string }) => Promise<Agent>;
+  onUpdateAgent?: (agentId: string, fields: { name?: string; adapter?: string; role?: string; model?: string; effort?: string; approval_policy?: string }) => Promise<Agent>;
   onForceStopAgent?: (agentId: string) => Promise<void>;
   onCreateTeam?: (input: CreateTeamInput) => Promise<Team>;
   onListTeams?: () => Promise<Team[]>;
@@ -1099,7 +1099,7 @@ export function App({
       const newTeamId = fields.team_id ?? '';
       const oldTeamId = liveTeams.find(t => t.members.some(m => m.agent_id === targetId))?.id ?? '';
       addMessage(`Updating agent...`, tuiColors.amber);
-      onUpdateAgent(targetId, { name: fields.name, role: fields.role, model: fields.model, effort: fields.effort }).then(
+      onUpdateAgent(targetId, { name: fields.name, adapter: fields.adapter, role: fields.role, model: fields.model, effort: fields.effort }).then(
         (agent) => {
           addMessage(`\u2713 Updated agent "${agent.name}"`, tuiColors.green);
           // Handle team change

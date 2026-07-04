@@ -422,8 +422,6 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
   const currentRoleInPresets = ROLE_PRESETS.find((r) => r.value === agent.role);
   const roleDefault = currentRoleInPresets ? agent.role! : (agent.role ? '__custom__' : '');
 
-  const modelOptions = getModelOptions(agent.adapter, modelCatalog);
-
   const teamOptions = buildTeamOptions(teams);
   const currentTeamId = teams?.find(t => t.members.some(m => m.agent_id === agent.id))?.id;
 
@@ -441,10 +439,17 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
       },
     },
     {
+      id: 'adapter',
+      label: 'Provider',
+      type: 'select',
+      options: ADAPTERS,
+      defaultValue: agent.adapter,
+    },
+    {
       id: 'model',
       label: 'Model',
       type: 'select',
-      options: modelOptions,
+      getOptions: (vals) => getModelOptions(vals.adapter || agent.adapter, modelCatalog),
       defaultValue: agent.config.model ?? '',
     },
     {
@@ -453,7 +458,7 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
       type: 'select',
       options: EFFORT_OPTIONS,
       defaultValue: agent.config.effort ?? '',
-      skip: () => !EFFORT_ADAPTERS.has(agent.adapter),
+      skip: (vals) => !EFFORT_ADAPTERS.has(vals.adapter || agent.adapter),
     },
     {
       id: 'role',
@@ -551,11 +556,12 @@ export function getConfigWizardSteps(
 
 export function editAgentWizardToFields(vals: Record<string, string>) {
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
-  const effort = (vals.effort as ReasoningEffort | undefined) || undefined;
+  const effort = vals.effort !== undefined ? vals.effort as ReasoningEffort | '' : undefined;
   return {
     name: vals.name,
+    adapter: vals.adapter,
     role,
-    model: vals.model || undefined,
+    model: vals.model,
     effort,
     team_id: vals.team || undefined,
   };

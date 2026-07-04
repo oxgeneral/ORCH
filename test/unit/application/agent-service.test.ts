@@ -197,6 +197,32 @@ describe('AgentService', () => {
   });
 
   describe('update effort', () => {
+    it('sets adapter via update', async () => {
+      agentStore = createMockAgentStore([makeAgent({ status: 'idle', adapter: 'claude' })]);
+      service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+      const agent = await service.update('agt_test1', { adapter: 'grok' });
+      expect(agent.adapter).toBe('grok');
+    });
+
+    it('throws when updating adapter to empty string', async () => {
+      agentStore = createMockAgentStore([makeAgent({ status: 'idle' })]);
+      service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+      await expect(service.update('agt_test1', { adapter: '   ' })).rejects.toThrow(InvalidArgumentsError);
+    });
+
+    it('clears model when set to empty string', async () => {
+      agentStore = createMockAgentStore([makeAgent({
+        status: 'idle',
+        config: { ...makeAgent().config, model: 'claude-sonnet-4-6' },
+      })]);
+      service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+      const agent = await service.update('agt_test1', { model: '' });
+      expect(agent.config.model).toBeUndefined();
+    });
+
     it('sets effort via update', async () => {
       agentStore = createMockAgentStore([makeAgent({ status: 'idle' })]);
       service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);
