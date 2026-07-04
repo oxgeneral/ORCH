@@ -3,6 +3,30 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.26 (2026-07-04)
+
+### New Features
+
+- **Grok adapter** — first-class `grok` adapter backed by the Grok CLI. Supports headless execution, model selection, reasoning effort, max turns, system prompt override, tool/error event mapping, streaming text aggregation, `doctor`, `init`, TUI wizard, model tiers, docs, landing assets, and smoke/e2e coverage.
+- **Antigravity adapter** — first-class `antigravity` adapter backed by Google Antigravity CLI (`agy`). Supports headless prompt execution, model selection, permission bypass for autonomous runs, stdout streaming, `doctor`, `init`, TUI wizard, model tiers, docs, landing assets, and smoke/e2e coverage.
+- **Runtime model discovery in TUI** — model choices now load from adapter CLIs where available (`grok models`, `agy models`, `opencode models`, `pi --list-models`) with curated fallbacks for unavailable or non-listing CLIs. Agent creation, edit flows, and Agent Shop templates all use the same model catalog path.
+
+### Bug Fixes
+
+- **Targeted `orch run <task-id>` no longer dispatches unrelated todo tasks** — running a specific task now keeps ownership of that request instead of reactive-dispatching other queued tasks after the requested task completes.
+
+### Refactoring
+
+- **Model catalog source of truth** — moved TUI model fallback options out of wizard config into `src/infrastructure/models/model-discovery.ts`, so adapter model lists are centralized and guarded by `AdapterKind`.
+- **Adapter type safety** — model option lookup now uses the existing `isAdapterKind` guard instead of string casts.
+
+### Tests
+
+- Added unit coverage for Grok and Antigravity adapters.
+- Added integration coverage for the new adapters.
+- Added model discovery parser and TUI wizard catalog tests.
+- Extended model tier, onboarding, and smoke coverage for `grok` and `antigravity`.
+
 ## 1.0.25 (2026-06-28)
 
 ### Bug Fixes
