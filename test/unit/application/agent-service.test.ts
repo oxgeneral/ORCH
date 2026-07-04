@@ -196,7 +196,7 @@ describe('AgentService', () => {
     });
   });
 
-  describe('update effort', () => {
+  describe('update', () => {
     it('sets adapter via update', async () => {
       agentStore = createMockAgentStore([makeAgent({ status: 'idle', adapter: 'claude' })]);
       service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);

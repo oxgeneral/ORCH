@@ -101,8 +101,9 @@ export class AgentService {
       agent.name = fields.name.trim();
     }
     if (fields.adapter !== undefined) {
-      if (!fields.adapter.trim()) throw new InvalidArgumentsError('Agent adapter cannot be empty');
-      agent.adapter = fields.adapter.trim();
+      const adapter = fields.adapter.trim();
+      if (!adapter) throw new InvalidArgumentsError('Agent adapter cannot be empty');
+      agent.adapter = adapter;
     }
     if (fields.role !== undefined) agent.role = fields.role || undefined;
     if (fields.model !== undefined) agent.config.model = fields.model || undefined;
