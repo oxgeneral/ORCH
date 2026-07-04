@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.27 (2026-07-04)
+
+### New Features
+
+- **Editable agent provider in TUI** — the agent edit flow now includes a `Provider` selector, so existing agents can move between adapters without recreating them.
+- **Adapter-aware edit options** — model choices refresh from the selected provider, and reasoning effort is shown only for adapters that support it.
+
+### Bug Fixes
+
+- **Agent edit persistence** — adapter changes now flow through the TUI update handler into `AgentService.update`, with validation for empty adapter values.
+- **Model and effort clearing** — edit submissions can clear stale model or reasoning-effort values when switching to adapters where those fields should no longer apply.
+
+### Refactoring
+
+- **Agent update adapter handling** — adapter normalization now trims once before validation and persistence.
+
+### Tests
+
+- Added AgentService coverage for adapter updates, adapter validation, and clearing model values.
+- Extended TUI wizard coverage for editing adapter/model/effort combinations.
+
 ## 1.0.26 (2026-07-04)
 
 ### New Features
