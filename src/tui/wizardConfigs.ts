@@ -13,7 +13,7 @@ import type { Team } from '../domain/team.js';
 import type { CreateTeamInput } from '../domain/team.js';
 import { AGENT_SHOP_TEMPLATES, getShopTemplateByKey } from '../domain/agent-shop.js';
 import type { AgentShopTemplate } from '../domain/agent-shop.js';
-import { resolveModel } from '../domain/model-tiers.js';
+import { isAdapterKind, resolveModel } from '../domain/model-tiers.js';
 import { isMcpSkill } from '../application/agent-factory.js';
 import { getFallbackModelOptions } from '../infrastructure/models/model-discovery.js';
 import type { ModelCatalog, ModelOption } from '../infrastructure/models/model-discovery.js';
@@ -21,9 +21,13 @@ import type { ModelCatalog, ModelOption } from '../infrastructure/models/model-d
 // ── Model catalogs per adapter ──
 
 function getModelOptions(adapter: string | undefined, modelCatalog?: ModelCatalog): ModelOption[] {
-  const key = adapter || 'claude';
-  const discovered = modelCatalog?.[key as keyof ModelCatalog];
-  return discovered?.length ? discovered : getFallbackModelOptions(key);
+  if (!adapter) {
+    const discovered = modelCatalog?.claude;
+    return discovered?.length ? discovered : getFallbackModelOptions('claude');
+  }
+  if (!isAdapterKind(adapter)) return getFallbackModelOptions(adapter);
+  const discovered = modelCatalog?.[adapter];
+  return discovered?.length ? discovered : getFallbackModelOptions(adapter);
 }
 
 // ── Reasoning effort options ──

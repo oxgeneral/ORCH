@@ -7,7 +7,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import type { AdapterKind } from '../../domain/model-tiers.js';
+import { isAdapterKind, type AdapterKind } from '../../domain/model-tiers.js';
 
 const DISCOVERY_TIMEOUT_MS = 15_000;
 
@@ -77,7 +77,9 @@ export const FALLBACK_MODEL_OPTIONS: Record<AdapterKind, ModelOption[]> = {
 };
 
 export function getFallbackModelOptions(adapter: string): ModelOption[] {
-  return FALLBACK_MODEL_OPTIONS[adapter as AdapterKind] ?? [{ value: '', label: 'Default', hint: 'use adapter default' }];
+  return isAdapterKind(adapter)
+    ? FALLBACK_MODEL_OPTIONS[adapter]
+    : [{ value: '', label: 'Default', hint: 'use adapter default' }];
 }
 
 export async function discoverModelOptions(adapter: AdapterKind): Promise<ModelOption[]> {
