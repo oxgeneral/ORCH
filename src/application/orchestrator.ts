@@ -173,6 +173,7 @@ export class Orchestrator {
       this.cachedTaskStore.invalidate();
       this.cachedAgentStore.invalidate();
       await this.loadState();
+      await this.cleanupStaleRunningEntries();
       await fn();
       await this.saveState();
     });

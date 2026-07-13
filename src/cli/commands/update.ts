@@ -17,7 +17,7 @@ const PACKAGE_NAME = '@oxgeneral/orch';
 const NPM_REGISTRY = 'https://registry.npmjs.org/';
 const CACHE_DIR = path.join(os.homedir(), '.orchestry');
 
-function npmEnv(): NodeJS.ProcessEnv {
+export function npmEnv(): NodeJS.ProcessEnv {
   const emptyUserConfig = path.join(CACHE_DIR, 'empty-user.npmrc');
   const emptyGlobalConfig = path.join(CACHE_DIR, 'empty-global.npmrc');
   return {
@@ -31,7 +31,7 @@ function npmEnv(): NodeJS.ProcessEnv {
   };
 }
 
-async function ensureEmptyNpmConfigs(): Promise<void> {
+export async function ensureEmptyNpmConfigs(): Promise<void> {
   await fs.mkdir(CACHE_DIR, { recursive: true, mode: 0o700 });
   await Promise.all([
     fs.writeFile(path.join(CACHE_DIR, 'empty-user.npmrc'), '', { mode: 0o600 }),
@@ -39,7 +39,7 @@ async function ensureEmptyNpmConfigs(): Promise<void> {
   ]);
 }
 
-async function runInstall(version: string): Promise<{ code: number; output: string }> {
+export async function runInstall(version: string): Promise<{ code: number; output: string }> {
   await ensureEmptyNpmConfigs();
   return new Promise((resolve) => {
     const child = execFile(

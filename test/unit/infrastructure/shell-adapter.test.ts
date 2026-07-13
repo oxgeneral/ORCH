@@ -133,16 +133,15 @@ describe('ShellAdapter', () => {
     expect(result).not.toBe('timeout');
   });
 
-  it('fails when process already exited with non-zero code before close listener is attached', async () => {
-    const proc = createMockProcess() as ReturnType<typeof createMockProcess> & { exitCode: number | null; killed: boolean };
-    proc.exitCode = 1;
-    proc.killed = false;
+  it('fails when process exits non-zero before events are consumed', async () => {
+    const proc = createMockProcess();
     const pm = createMockProcessManager(proc);
     const adapter = new ShellAdapter(pm);
 
     const handle = adapter.execute(makeParams());
     proc.stdout.end();
     proc.stderr.end();
+    proc.emit('close', 1);
 
     await expect(async () => {
       for await (const _ev of handle.events) {

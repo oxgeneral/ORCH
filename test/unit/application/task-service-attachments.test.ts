@@ -217,6 +217,30 @@ describe('TaskService — attachments: copy files', () => {
     ).rejects.toThrow(InvalidArgumentsError);
   });
 
+  it('rejects attachment files outside the project root', async () => {
+    const outsideFile = path.join(path.dirname(tmpDir), `outside-${Date.now()}.txt`);
+    await fs.writeFile(outsideFile, 'blocked');
+
+    try {
+      await expect(
+        service.create({ title: 'Outside attachment', attachments: [outsideFile] }),
+      ).rejects.toThrow(InvalidArgumentsError);
+    } finally {
+      await fs.rm(outsideFile, { force: true });
+    }
+  });
+
+  it('rejects symlink attachments', async () => {
+    const realFile = path.join(tmpDir, 'real.txt');
+    const symlinkFile = path.join(tmpDir, 'link.txt');
+    await fs.writeFile(realFile, 'allowed');
+    await fs.symlink(realFile, symlinkFile);
+
+    await expect(
+      service.create({ title: 'Symlink attachment', attachments: [symlinkFile] }),
+    ).rejects.toThrow(InvalidArgumentsError);
+  });
+
   it('copies from validated real path when the original source path is swapped', async () => {
     const srcFile = path.join(tmpDir, 'race.txt');
     const outsideFile = path.join(path.dirname(tmpDir), `outside-${Date.now()}.txt`);

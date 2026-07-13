@@ -120,6 +120,26 @@ describe('Orchestrator', () => {
       expect(await runStore.listAll()).toHaveLength(1);
     });
 
+    it('runTask clears stale claimed tasks before dispatching', async () => {
+      const task = makeTask({ id: 'tsk_1', status: 'todo' });
+      const agent = makeAgent({ id: 'agt_1', adapter: 'shell', status: 'idle' });
+      const taskStore = createMockTaskStore([task]);
+      const agentStore = createMockAgentStore([agent]);
+      const stateStore = createMockStateStore({ claimed: new Set(['tsk_1']) });
+      const adapterRegistry = new AdapterRegistry();
+      adapterRegistry.register(createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'ok' } },
+      ]));
+
+      deps = buildDeps({ taskStore, agentStore, stateStore, adapterRegistry });
+      orchestrator = new Orchestrator(deps);
+
+      await orchestrator.runTask('tsk_1');
+      await waitFor(async () => (await taskStore.get('tsk_1'))?.status === 'done');
+
+      expect((await stateStore.read())?.claimed).toEqual(new Set());
+    });
+
     it('cancelTask auto-acquires lock when not owned', async () => {
       const { acquireLock, releaseLock } = await import('../../../src/infrastructure/storage/lock.js');
       deps = buildDeps();

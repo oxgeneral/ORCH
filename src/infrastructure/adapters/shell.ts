@@ -65,6 +65,17 @@ export class ShellAdapter implements IAgentAdapter {
     const signal = params.signal;
     const processManager = this.processManager;
 
+    const exitPromise = new Promise<void>((resolve, reject) => {
+      proc.on('close', (code) => {
+        if (code === 0 || signal?.aborted) {
+          resolve();
+        } else {
+          reject(new Error(`Shell command exited with code ${code}`));
+        }
+      });
+      proc.on('error', reject);
+    });
+
     async function* generateEvents(): AsyncGenerator<AgentEvent> {
       // Ring buffer with backpressure replaces Array.shift() polling
       const buffer = new EventBuffer();
@@ -120,28 +131,7 @@ export class ShellAdapter implements IAgentAdapter {
         signal.removeEventListener('abort', onAbort);
       }
 
-      // Wait for process to exit
-      await new Promise<void>((resolve, reject) => {
-        // If process already exited, preserve the real exit status.
-        if (typeof proc.exitCode === 'number') {
-          if (proc.exitCode === 0 || signal?.aborted) resolve();
-          else reject(new Error(`Shell command exited with code ${proc.exitCode}`));
-          return;
-        }
-        if (proc.killed) {
-          if (signal?.aborted) resolve();
-          else reject(new Error('Shell command was killed'));
-          return;
-        }
-        proc.on('close', (code) => {
-          if (code === 0 || signal?.aborted) {
-            resolve();
-          } else {
-            reject(new Error(`Shell command exited with code ${code}`));
-          }
-        });
-        proc.on('error', reject);
-      });
+      await exitPromise;
     }
 
     return { pid, events: generateEvents() };
