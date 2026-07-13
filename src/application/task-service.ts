@@ -6,7 +6,7 @@
  */
 
 import fs from 'node:fs/promises';
-import { constants as fsConstants } from 'node:fs';
+import { constants as fsConstants, createReadStream, createWriteStream } from 'node:fs';
 import path from 'node:path';
 import { nanoid } from 'nanoid';
 import type { Task, CreateTaskInput, TaskStatus } from '../domain/task.js';
@@ -251,41 +251,64 @@ export class TaskService {
     const realProjectRoot = await fs.realpath(projectRoot);
     const realStateRoot = await fs.realpath(paths.root).catch(() => paths.root);
     const realDestDir = path.resolve(dir);
+    const destDirStat = await fs.lstat(realDestDir);
+    if (!destDirStat.isDirectory() || destDirStat.isSymbolicLink()) {
+      throw new InvalidArgumentsError(`Attachment destination is not a safe directory: ${realDestDir}`);
+    }
+    const actualDestDir = await fs.realpath(realDestDir);
+    if (!isWithin(actualDestDir, realStateRoot)) {
+      throw new InvalidArgumentsError(`Attachment destination escaped state directory: ${realDestDir}`);
+    }
 
-    // Validate all files exist first
-    await Promise.all(
+    // Validate all files exist first and keep an opened source handle so the
+    // copied bytes cannot be swapped after validation.
+    const validated = await Promise.all(
       sourcePaths.map(async (srcPath) => {
+        let handle: fs.FileHandle | undefined;
         try {
-          await fs.access(srcPath);
           const stat = await fs.lstat(srcPath);
           if (!stat.isFile()) throw new Error('not a regular file');
           const realSource = await fs.realpath(srcPath);
           if (!isWithin(realSource, realProjectRoot) || isWithin(realSource, realStateRoot)) {
             throw new Error('outside project or inside .orchestry');
           }
-          validateAttachmentName(path.basename(srcPath));
+          handle = await fs.open(srcPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+          const openedStat = await handle.stat();
+          if (!openedStat.isFile() || openedStat.dev !== stat.dev || openedStat.ino !== stat.ino) {
+            throw new Error('source changed during validation');
+          }
+          const basename = path.basename(srcPath);
+          validateAttachmentName(basename);
+          return { handle, basename };
         } catch {
+          await handle?.close().catch(() => {});
           throw new InvalidArgumentsError(`Attachment file not allowed: ${srcPath}`);
         }
       }),
     );
 
-    // Copy all files in parallel
-    const names = await Promise.all(
-      sourcePaths.map(async (srcPath) => {
-        const basename = path.basename(srcPath);
-        validateAttachmentName(basename);
-        const dest = path.resolve(realDestDir, basename);
-        if (!isWithin(dest, realDestDir)) {
-          throw new InvalidArgumentsError(`Attachment destination escaped task directory: ${basename}`);
-        }
-        await fs.copyFile(srcPath, dest, fsConstants.COPYFILE_EXCL);
-        await fs.chmod(dest, 0o600).catch(() => {});
-        return basename;
-      }),
-    );
+    try {
+      // Copy all files in parallel
+      const names = await Promise.all(
+        validated.map(async ({ handle, basename }) => {
+          const dest = path.resolve(realDestDir, basename);
+          if (!isWithin(dest, realDestDir)) {
+            throw new InvalidArgumentsError(`Attachment destination escaped task directory: ${basename}`);
+          }
+          const currentDestDir = await fs.realpath(realDestDir);
+          if (currentDestDir !== actualDestDir) {
+            throw new InvalidArgumentsError(`Attachment destination changed during copy: ${basename}`);
+          }
+          await copyFromHandle(handle, dest);
+          await fs.chmod(dest, 0o600).catch(() => {});
+          return basename;
+        }),
+      );
 
-    return names;
+      return names;
+    } finally {
+      await Promise.all(validated.map(({ handle }) => handle.close().catch(() => {})));
+    }
   }
 
   async incrementAttempts(id: string): Promise<Task> {
@@ -334,4 +357,21 @@ function validateAttachmentName(name: string): void {
 function isWithin(child: string, parent: string): boolean {
   const rel = path.relative(parent, child);
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+async function copyFromHandle(handle: fs.FileHandle, dest: string): Promise<void> {
+  const writer = createWriteStream(dest, { flags: 'wx', mode: 0o600 });
+  const reader = createReadStream('', { fd: handle.fd, autoClose: false, start: 0 });
+
+  await new Promise<void>((resolve, reject) => {
+    const fail = (err: Error) => {
+      reader.destroy();
+      writer.destroy();
+      reject(err);
+    };
+    reader.on('error', fail);
+    writer.on('error', fail);
+    writer.on('finish', resolve);
+    reader.pipe(writer);
+  });
 }

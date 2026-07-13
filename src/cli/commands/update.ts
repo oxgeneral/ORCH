@@ -6,18 +6,46 @@
 
 import type { Command } from 'commander';
 import { execFile } from 'node:child_process';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { checkForUpdateNow } from '../update-check.js';
 import { amber, dim } from '../output.js';
 import chalk from 'chalk';
 
 const PACKAGE_NAME = '@oxgeneral/orch';
+const NPM_REGISTRY = 'https://registry.npmjs.org/';
+const CACHE_DIR = path.join(os.homedir(), '.orchestry');
 
-function runInstall(version: string): Promise<{ code: number; output: string }> {
+function npmEnv(): NodeJS.ProcessEnv {
+  const emptyUserConfig = path.join(CACHE_DIR, 'empty-user.npmrc');
+  const emptyGlobalConfig = path.join(CACHE_DIR, 'empty-global.npmrc');
+  return {
+    PATH: process.env['PATH'],
+    HOME: process.env['HOME'],
+    USERPROFILE: process.env['USERPROFILE'],
+    SystemRoot: process.env['SystemRoot'],
+    NPM_CONFIG_REGISTRY: NPM_REGISTRY,
+    NPM_CONFIG_USERCONFIG: emptyUserConfig,
+    NPM_CONFIG_GLOBALCONFIG: emptyGlobalConfig,
+  };
+}
+
+async function ensureEmptyNpmConfigs(): Promise<void> {
+  await fs.mkdir(CACHE_DIR, { recursive: true, mode: 0o700 });
+  await Promise.all([
+    fs.writeFile(path.join(CACHE_DIR, 'empty-user.npmrc'), '', { mode: 0o600 }),
+    fs.writeFile(path.join(CACHE_DIR, 'empty-global.npmrc'), '', { mode: 0o600 }),
+  ]);
+}
+
+async function runInstall(version: string): Promise<{ code: number; output: string }> {
+  await ensureEmptyNpmConfigs();
   return new Promise((resolve) => {
     const child = execFile(
       'npm',
-      ['install', '-g', `${PACKAGE_NAME}@${version}`],
-      { timeout: 60_000 },
+      ['install', '-g', `${PACKAGE_NAME}@${version}`, '--registry', NPM_REGISTRY],
+      { timeout: 60_000, cwd: os.homedir(), env: npmEnv() },
       (err, stdout, stderr) => {
         const output = (stdout ?? '') + (stderr ?? '');
         resolve({ code: err ? 1 : 0, output });

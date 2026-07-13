@@ -20,6 +20,7 @@ import {
   pathExists,
 } from './fs-utils.js';
 import { createReadStream } from 'node:fs';
+import { sanitizeText } from '../security/redaction.js';
 
 export class RunStore implements IRunStore {
   constructor(private readonly paths: Paths) {}
@@ -88,7 +89,7 @@ export class RunStore implements IRunStore {
           try {
             yield JSON.parse(line) as RunEvent;
           } catch {
-            process.stderr.write(`[RunStore] skipping corrupt JSONL line: ${line.slice(0, 200)}\n`);
+            process.stderr.write(`[RunStore] skipping corrupt JSONL line: ${sanitizeText(line).slice(0, 200)}\n`);
           }
         }
       }

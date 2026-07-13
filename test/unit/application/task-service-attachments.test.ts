@@ -216,6 +216,30 @@ describe('TaskService — attachments: copy files', () => {
       service.create({ title: 'Mixed', attachments: [srcFile, '/nonexistent/bad.txt'] }),
     ).rejects.toThrow(InvalidArgumentsError);
   });
+
+  it('copies from validated real path when the original source path is swapped', async () => {
+    const srcFile = path.join(tmpDir, 'race.txt');
+    const outsideFile = path.join(path.dirname(tmpDir), `outside-${Date.now()}.txt`);
+    await fs.writeFile(srcFile, 'allowed');
+    await fs.writeFile(outsideFile, 'blocked');
+
+    const originalCopyFile = fs.copyFile;
+    const copySpy = vi.spyOn(fs, 'copyFile').mockImplementation(async (from, to, flags) => {
+      await fs.rm(srcFile, { force: true });
+      await fs.symlink(outsideFile, srcFile);
+      return originalCopyFile(from, to, flags as number | undefined);
+    });
+
+    try {
+      const task = await service.create({ title: 'Race attachment', attachments: [srcFile] });
+      const paths = new Paths(tmpDir);
+      const copiedPath = path.join(paths.taskAttachmentsDir(task.id), 'race.txt');
+      await expect(fs.readFile(copiedPath, 'utf8')).resolves.toBe('allowed');
+    } finally {
+      copySpy.mockRestore();
+      await fs.rm(outsideFile, { force: true });
+    }
+  });
 });
 
 describe('TaskService — delete removes attachments directory', () => {

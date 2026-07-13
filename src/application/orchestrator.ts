@@ -38,7 +38,7 @@ import type { TaskService } from './task-service.js';
 import type { AgentService } from './agent-service.js';
 import type { RunService } from './run-service.js';
 import { ReviewRunner } from './review-runner.js';
-import { sanitizeForPersistence } from '../infrastructure/security/redaction.js';
+import { sanitizeForPersistence, sanitizeText } from '../infrastructure/security/redaction.js';
 
 /** Max serialized event data written to JSONL (8 KB) */
 const MAX_EVENT_DATA_LEN = 8192;
@@ -818,14 +818,14 @@ export class Orchestrator {
                 // Patch allTasks in-memory to avoid disk re-read
                 const patchedTasks = allTasks.map((at) => at.id === updated.id ? updated : at);
                 this.cachedTaskStore.invalidate();
-                await this.cascadeFailDependents(updated.id, patchedTasks, `dependency ${updated.id} failed: ${err.message}`);
+                await this.cascadeFailDependents(updated.id, patchedTasks, sanitizeText(`dependency ${updated.id} failed: ${err.message}`));
               } else {
                 const delay = calculateRetryDelay(
                   updated.attempts - 1,
                   this.deps.config.scheduling.retry_base_delay_ms,
                   this.deps.config.scheduling.retry_max_delay_ms,
                 );
-                this.enqueueRetry(state, updated.id, updated.attempts, delay, err.message);
+                this.enqueueRetry(state, updated.id, updated.attempts, delay, sanitizeText(err.message));
                 await this.saveState();
               }
             }
@@ -837,7 +837,7 @@ export class Orchestrator {
         // Log but don't stop dispatching other tasks
         this.deps.eventBus.emit({
           type: 'orchestrator:error',
-          error: err instanceof Error ? err.message : String(err),
+          error: sanitizeText(err instanceof Error ? err.message : String(err)),
           context: `dispatch task ${task.id}`,
           fatal: false,
         });
@@ -892,7 +892,7 @@ export class Orchestrator {
       task_id: taskId,
       attempt,
       due_at: new Date(Date.now() + delay).toISOString(),
-      error,
+      error: sanitizeText(error),
     });
   }
 
@@ -1351,7 +1351,7 @@ export class Orchestrator {
       const finalResult = resultText ?? lastAgentMessage;
       await this.handleRunSuccess(taskId, runId, agentId, collectedTokens, finalResult, [...filesChangedSet]);
     } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
+      const error = sanitizeText(err instanceof Error ? err.message : String(err));
       // Prefer errorKind from last error event; fall back to thrown error's errorKind (from utils.ts)
       const errorKind = lastErrorKind
         ?? (err instanceof Error ? (err as Error & { errorKind?: import('../domain/errors.js').AdapterErrorKind }).errorKind : undefined);
@@ -1408,7 +1408,7 @@ export class Orchestrator {
     // Save proof of work (agent summary + files changed); clear stale feedback
     task.proof = {
       ...task.proof,
-      agent_summary: resultText?.slice(0, 2000) ?? task.proof?.agent_summary,
+      agent_summary: resultText ? sanitizeText(resultText).slice(0, 2000) : task.proof?.agent_summary,
       files_changed: effectiveFilesChanged?.length ? effectiveFilesChanged : (task.proof?.files_changed ?? []),
     };
     delete task.feedback;
@@ -1497,7 +1497,7 @@ export class Orchestrator {
           return;
         }
       } catch (err) {
-        const error = err instanceof Error ? err.message : String(err);
+        const error = sanitizeText(err instanceof Error ? err.message : String(err));
         await this.forceTaskToReview(task, agentId, `MERGE ERROR: ${error}`);
         return;
       }

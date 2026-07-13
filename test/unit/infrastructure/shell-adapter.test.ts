@@ -49,11 +49,13 @@ describe('ShellAdapter', () => {
     const adapter = new ShellAdapter(pm);
 
     const handle = adapter.execute(makeParams({ security: undefined }));
-    const events: AgentEvent[] = [];
-    for await (const ev of handle.events) events.push(ev);
 
     expect(pm.spawn).not.toHaveBeenCalled();
-    expect(events[0]!.data).toContain('Shell adapter is disabled');
+    await expect(async () => {
+      for await (const _ev of handle.events) {
+        // drain generator
+      }
+    }).rejects.toThrow('Shell adapter is disabled');
   });
 
   it('yields output events from stdout', async () => {
@@ -131,6 +133,24 @@ describe('ShellAdapter', () => {
     expect(result).not.toBe('timeout');
   });
 
+  it('fails when process already exited with non-zero code before close listener is attached', async () => {
+    const proc = createMockProcess() as ReturnType<typeof createMockProcess> & { exitCode: number | null; killed: boolean };
+    proc.exitCode = 1;
+    proc.killed = false;
+    const pm = createMockProcessManager(proc);
+    const adapter = new ShellAdapter(pm);
+
+    const handle = adapter.execute(makeParams());
+    proc.stdout.end();
+    proc.stderr.end();
+
+    await expect(async () => {
+      for await (const _ev of handle.events) {
+        // drain generator
+      }
+    }).rejects.toThrow('Shell command exited with code 1');
+  });
+
   it('does not expose the user prompt in the child environment', () => {
     const proc = createMockProcess();
     const pm = createMockProcessManager(proc);
@@ -156,21 +176,18 @@ describe('ShellAdapter', () => {
     expect(Object.values(spawnCall[2].env)).not.toContain('user task');
   });
 
-  it('returns immediate error for missing command', async () => {
+  it('throws immediate error for missing command', async () => {
     const proc = createMockProcess();
     const pm = createMockProcessManager(proc);
     const adapter = new ShellAdapter(pm);
 
     const handle = adapter.execute(makeParams({ config: { adapter: 'shell' } }));
 
-    const events: AgentEvent[] = [];
-    for await (const ev of handle.events) {
-      events.push(ev);
-    }
-
-    expect(events).toHaveLength(1);
-    expect(events[0].type).toBe('error');
-    expect(events[0].data).toContain('requires a command');
+    await expect(async () => {
+      for await (const _ev of handle.events) {
+        // drain generator
+      }
+    }).rejects.toThrow('requires a command');
   });
 
   it('stderr error event has errorKind set by classifyAdapterError', async () => {
@@ -225,11 +242,10 @@ describe('ShellAdapter', () => {
 
     const handle = adapter.execute(makeParams({ config: { adapter: 'shell' } }));
 
-    const events: AgentEvent[] = [];
-    for await (const ev of handle.events) {
-      events.push(ev);
-    }
-
-    expect(events[0]!.errorKind).toBe(AdapterErrorKind.SPAWN_FAILED);
+    await expect(async () => {
+      for await (const _ev of handle.events) {
+        // drain generator
+      }
+    }).rejects.toMatchObject({ errorKind: AdapterErrorKind.SPAWN_FAILED });
   });
 });

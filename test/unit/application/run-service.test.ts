@@ -50,6 +50,16 @@ describe('RunService.getLastFailedRunContext', () => {
     eventBus = new EventBus();
   });
 
+  it('redacts secrets before persisting run errors', async () => {
+    const runStore = createMockRunStore([makeRun({ id: 'run_1' })]);
+    const service = new RunService(runStore, eventBus);
+
+    await service.finish('run_1', 'failed', undefined, 'api_key=supersecret12345');
+
+    const saved = (runStore.save as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as Run;
+    expect(saved.error).toBe('api_key=[REDACTED]');
+  });
+
   it('should return null when no failed runs exist', async () => {
     const runStore = createMockRunStore([
       makeRun({ id: 'run_1', task_id: 'tsk_1', status: 'succeeded' }),

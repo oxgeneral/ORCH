@@ -29,6 +29,39 @@ const PARENT_ENV_ALLOWLIST = new Set([
 ]);
 
 const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const EXPLICIT_ENV_DENYLIST = new Set([
+  'PATH',
+  'NODE_PATH',
+  'NODE_OPTIONS',
+  'BASH_ENV',
+  'ENV',
+  'GIT_CONFIG',
+  'GIT_CONFIG_GLOBAL',
+  'GIT_CONFIG_SYSTEM',
+  'GIT_CONFIG_COUNT',
+  'GIT_SSH',
+  'GIT_SSH_COMMAND',
+  'GIT_ASKPASS',
+  'SSH_ASKPASS',
+  'NPM_CONFIG_USERCONFIG',
+  'NPM_CONFIG_GLOBALCONFIG',
+  'PYTHONPATH',
+  'PYTHONSTARTUP',
+  'RUBYOPT',
+  'PERL5OPT',
+  'PERL5LIB',
+]);
+
+function isSafeExplicitEnvName(key: string): boolean {
+  const upper = key.toUpperCase();
+  return ENV_NAME_RE.test(key) &&
+    !EXPLICIT_ENV_DENYLIST.has(upper) &&
+    !upper.startsWith('LD_') &&
+    !upper.startsWith('DYLD_') &&
+    !upper.startsWith('NPM_CONFIG_') &&
+    !upper.startsWith('GIT_CONFIG_KEY_') &&
+    !upper.startsWith('GIT_CONFIG_VALUE_');
+}
 
 /** Combine system and user prompts. Adapters without native system prompt support use this. */
 export function buildFullPrompt(systemPrompt: string | undefined, userPrompt: string): string {
@@ -50,7 +83,7 @@ export function buildChildEnv(
 
   for (const source of [explicitEnv, extraEnv]) {
     for (const [key, value] of Object.entries(source ?? {})) {
-      if (ENV_NAME_RE.test(key)) env[key] = value;
+      if (isSafeExplicitEnvName(key)) env[key] = value;
     }
   }
 

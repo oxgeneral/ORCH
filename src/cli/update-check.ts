@@ -9,8 +9,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 
 const PACKAGE_NAME = '@oxgeneral/orch';
+const NPM_REGISTRY = 'https://registry.npmjs.org/';
 const CACHE_DIR = path.join(os.homedir(), '.orchestry');
 const CACHE_FILE = path.join(CACHE_DIR, 'update-check.json');
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
@@ -33,6 +35,32 @@ function compareSemver(a: string, b: string): number {
   return 0;
 }
 
+function isStrictSemver(version: string): boolean {
+  return /^\d+\.\d+\.\d+$/.test(version);
+}
+
+function npmEnv(): NodeJS.ProcessEnv {
+  const emptyUserConfig = path.join(CACHE_DIR, 'empty-user.npmrc');
+  const emptyGlobalConfig = path.join(CACHE_DIR, 'empty-global.npmrc');
+  return {
+    PATH: process.env['PATH'],
+    HOME: process.env['HOME'],
+    USERPROFILE: process.env['USERPROFILE'],
+    SystemRoot: process.env['SystemRoot'],
+    NPM_CONFIG_REGISTRY: NPM_REGISTRY,
+    NPM_CONFIG_USERCONFIG: emptyUserConfig,
+    NPM_CONFIG_GLOBALCONFIG: emptyGlobalConfig,
+  };
+}
+
+async function ensureEmptyNpmConfigs(): Promise<void> {
+  await fs.mkdir(CACHE_DIR, { recursive: true, mode: 0o700 });
+  await Promise.all([
+    fs.writeFile(path.join(CACHE_DIR, 'empty-user.npmrc'), '', { mode: 0o600 }),
+    fs.writeFile(path.join(CACHE_DIR, 'empty-global.npmrc'), '', { mode: 0o600 }),
+  ]);
+}
+
 /** Read cached check result. Returns null if stale or missing. */
 async function readCache(): Promise<UpdateCache | null> {
   try {
@@ -49,7 +77,7 @@ async function readCache(): Promise<UpdateCache | null> {
 async function writeCache(latest: string): Promise<void> {
   await fs.mkdir(CACHE_DIR, { recursive: true });
   const data: UpdateCache = { latest, checked_at: Date.now() };
-  const tmp = `${CACHE_FILE}.tmp.${process.pid}`;
+  const tmp = `${CACHE_FILE}.tmp.${process.pid}.${randomBytes(4).toString('hex')}`;
   await fs.writeFile(tmp, JSON.stringify(data), 'utf-8');
   await fs.rename(tmp, CACHE_FILE);
 }
@@ -57,15 +85,22 @@ async function writeCache(latest: string): Promise<void> {
 /** Fetch latest version from npm registry via `npm view`. */
 function fetchLatestVersion(): Promise<string | null> {
   return new Promise((resolve) => {
-    const child = execFile('npm', ['view', PACKAGE_NAME, 'version', '--json'], { timeout: 5000 }, (err, stdout) => {
-      if (err) return resolve(null);
-      try {
-        resolve(JSON.parse(stdout.trim()) as string);
-      } catch {
-        resolve(null);
-      }
-    });
-    child.unref(); // don't keep the event loop alive for fire-and-forget callers
+    ensureEmptyNpmConfigs().then(() => {
+      const child = execFile('npm', ['view', PACKAGE_NAME, 'version', '--json', '--registry', NPM_REGISTRY], {
+        timeout: 5000,
+        cwd: os.homedir(),
+        env: npmEnv(),
+      }, (err, stdout) => {
+        if (err) return resolve(null);
+        try {
+          const version = JSON.parse(stdout.trim()) as string;
+          resolve(isStrictSemver(version) ? version : null);
+        } catch {
+          resolve(null);
+        }
+      });
+      child.unref(); // don't keep the event loop alive for fire-and-forget callers
+    }).catch(() => resolve(null));
   });
 }
 

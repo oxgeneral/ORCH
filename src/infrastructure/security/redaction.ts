@@ -5,9 +5,14 @@ const SECRET_PATTERNS: Array<[RegExp, string]> = [
   [/\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/g, '[REDACTED_API_KEY]'],
   [/\b(?:xox[baprs]-)[A-Za-z0-9-]{20,}\b/g, '[REDACTED_SLACK_TOKEN]'],
   [/(Authorization\s*:\s*Bearer\s+)[^\s"']+/gi, '$1[REDACTED]'],
-  [/\b((?:api[_-]?key|token|password|passwd|secret|client[_-]?secret)\s*[=:]\s*)[^\s"']+/gi, '$1[REDACTED]'],
+  [/(Authorization\s*:\s*Basic\s+)[^\s"']+/gi, '$1[REDACTED]'],
+  [/((?:Cookie|Cookies|Set-Cookie|X-Api-Key)\s*:\s*)[^\r\n]+/gi, '$1[REDACTED]'],
+  [/(\b(?:api[_-]?key|x[_-]?api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|token|password|passwd|secret|client[_-]?secret|private[_-]?key|cookie|cookies|set-cookie)\b\s*[=:]\s*)[^\s"']+/gi, '$1[REDACTED]'],
+  [/(["']?\b(?:api[_-]?key|x[_-]?api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|token|password|passwd|secret|client[_-]?secret|private[_-]?key|cookie|cookies|set-cookie)\b["']?\s*[:=]\s*["'])[^"']+(["'])/gi, '$1[REDACTED]$2'],
   [/(https?:\/\/[^\s/:]+:)[^\s@]+(@)/gi, '$1[REDACTED]$2'],
 ];
+
+const SENSITIVE_KEY_RE = /^(?:api[_-]?key|apikey|x[_-]?api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|token|password|passwd|secret|client[_-]?secret|authorization|private[_-]?key|cookie|cookies|set-cookie)$/i;
 
 const ANSI_PATTERN = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\)|P[^\x1B]*(?:\x1B\\))/g;
 const CONTROL_PATTERN = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g;
@@ -34,7 +39,7 @@ export function sanitizeForPersistence(value: unknown): unknown {
   if (value && typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [key, nested] of Object.entries(value)) {
-      out[key] = sanitizeForPersistence(nested);
+      out[key] = SENSITIVE_KEY_RE.test(key) ? '[REDACTED]' : sanitizeForPersistence(nested);
     }
     return out;
   }

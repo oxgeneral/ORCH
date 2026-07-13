@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';
 import type { Run, RunEvent, RunStatus, TokenUsage } from '../domain/run.js';
 import type { IRunStore } from '../infrastructure/storage/interfaces.js';
 import type { EventBus } from './event-bus.js';
+import { sanitizeText } from '../infrastructure/security/redaction.js';
 
 export class RunService {
   constructor(
@@ -70,7 +71,7 @@ export class RunService {
     run.status = status;
     run.finished_at = new Date().toISOString();
     run.tokens = tokens;
-    run.error = error;
+    run.error = error === undefined ? undefined : sanitizeText(error);
     await this.runStore.save(run);
 
     this.eventBus.emit({

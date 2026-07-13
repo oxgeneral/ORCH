@@ -10,6 +10,7 @@ import fs from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
 import path from 'node:path';
 import * as yaml from 'js-yaml';
+import { sanitizeText } from '../security/redaction.js';
 
 /**
  * Write file atomically: write to temp file, then rename.
@@ -307,7 +308,7 @@ function parseJsonlLines<T>(lines: string[]): T[] {
     try {
       results.push(JSON.parse(line) as T);
     } catch {
-      process.stderr.write(`[readJsonl] skipping corrupt line: ${line.slice(0, 200)}\n`);
+      process.stderr.write(`[readJsonl] skipping corrupt line: ${sanitizeText(line).slice(0, 200)}\n`);
     }
   }
   return results;

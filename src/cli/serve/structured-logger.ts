@@ -9,6 +9,7 @@
 import type { OrchestratorEvent } from '../../domain/events.js';
 import type { EventBus } from '../../application/event-bus.js';
 import type { ServeLoggerOptions, ServeEvent, LogLevel } from './types.js';
+import { sanitizeForPersistence, sanitizeText } from '../../infrastructure/security/redaction.js';
 
 export class StructuredLogger {
   private tickCounter = 0;
@@ -137,9 +138,10 @@ export class StructuredLogger {
   }
 
   private write(entry: ServeEvent): void {
+    const sanitized = sanitizeForPersistence(entry) as ServeEvent;
     const line = this.opts.format === 'json'
-      ? JSON.stringify(entry) + '\n'
-      : this.formatText(entry);
+      ? JSON.stringify(sanitized) + '\n'
+      : this.formatText(sanitized);
 
     for (const stream of this.opts.streams) {
       stream.write(line);
@@ -155,6 +157,6 @@ export class StructuredLogger {
       .map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`)
       .join(' ');
 
-    return `${time} ${level} ${event}  ${fields}\n`;
+    return sanitizeText(`${time} ${level} ${event}  ${fields}\n`);
   }
 }

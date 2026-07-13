@@ -135,6 +135,18 @@ describe('appendJsonl / readJsonl', () => {
     expect(records).toHaveLength(1);
     expect(records[0].data).toBe(12345);
   });
+
+  it('redacts corrupt JSONL diagnostics before writing to stderr', async () => {
+    const filePath = path.join(tmpDir, 'corrupt.jsonl');
+    await fs.writeFile(filePath, 'not json token=supersecret12345\n', 'utf8');
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    await readJsonl(filePath);
+
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('token=[REDACTED]'));
+    expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('supersecret12345'));
+    stderrSpy.mockRestore();
+  });
 });
 
 describe('ensureDir', () => {

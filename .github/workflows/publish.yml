@@ -19,7 +19,6 @@ jobs:
           node-version: 24
           cache: npm
           registry-url: https://registry.npmjs.org
-      - run: npm install -g npm@latest
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
@@ -51,14 +50,16 @@ jobs:
             BODY="Release ${{ steps.check.outputs.tag }}"
           fi
           # Write to file to avoid quoting issues
-          echo "$BODY" > /tmp/release-notes.md
+          NOTES_FILE="$RUNNER_TEMP/release-notes-${{ github.run_id }}.md"
+          echo "$BODY" > "$NOTES_FILE"
+          echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
       - name: Create or update GitHub Release
         run: |
           TAG="${{ steps.check.outputs.tag }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --notes-file /tmp/release-notes.md
+            gh release edit "$TAG" --notes-file "${{ steps.changelog.outputs.notes_file }}"
           else
-            gh release create "$TAG" --target "$GITHUB_SHA" --notes-file /tmp/release-notes.md
+            gh release create "$TAG" --target "$GITHUB_SHA" --notes-file "${{ steps.changelog.outputs.notes_file }}"
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -11,6 +11,33 @@ import { printSuccess, printError, dim } from '../output.js';
 import { spawn } from 'node:child_process';
 
 const VALID_FILTER_PRESETS: ActivityFilterPreset[] = ['all', 'text', 'tools', 'errors', 'events'];
+const SECURITY_CONFIG_KEYS = new Set([
+  'execution.security.allow_permission_bypass',
+  'execution.security.allow_shell_adapter',
+]);
+
+function includesSecurityConfigWrite(key: string, value: unknown): boolean {
+  if (SECURITY_CONFIG_KEYS.has(key)) return true;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+
+  const hasPath = (obj: unknown, parts: string[]): boolean => {
+    let current = obj;
+    for (const part of parts) {
+      if (typeof current !== 'object' || current === null || Array.isArray(current)) return false;
+      if (!Object.prototype.hasOwnProperty.call(current, part)) return false;
+      current = (current as Record<string, unknown>)[part];
+    }
+    return true;
+  };
+
+  if (key === 'execution.security') {
+    return hasPath(value, ['allow_permission_bypass']) || hasPath(value, ['allow_shell_adapter']);
+  }
+  if (key === 'execution') {
+    return hasPath(value, ['security', 'allow_permission_bypass']) || hasPath(value, ['security', 'allow_shell_adapter']);
+  }
+  return false;
+}
 
 export function registerConfigCommand(program: Command, container: LightContainer): void {
   const config = program
@@ -37,14 +64,21 @@ export function registerConfigCommand(program: Command, container: LightContaine
     .command('set <key> <value>')
     .description('Set a config value (dot notation)')
     .action(async (key: string, value: string) => {
-
-
       // Try to parse as JSON, fallback to string
       let parsed: unknown;
       try {
         parsed = JSON.parse(value);
       } catch {
         parsed = value;
+      }
+
+      if (includesSecurityConfigWrite(key, parsed) && process.env['ORCH_ALLOW_SECURITY_CONFIG_WRITE'] !== '1') {
+        printError(
+          `Refusing to set security-sensitive key ${key}. ` +
+          'Edit .orchestry/config.yml manually or set ORCH_ALLOW_SECURITY_CONFIG_WRITE=1 for this command.',
+        );
+        process.exitCode = 1;
+        return;
       }
 
       await container.configStore.set(key, parsed);

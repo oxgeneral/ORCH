@@ -2,6 +2,7 @@
  * Claude Code adapter.
  *
  * Spawns `claude --print --output-format stream-json` in headless mode.
+ * Prompt is piped via stdin instead of argv.
  * Parses JSON-lines from stdout into AgentEvent stream.
  */
 
@@ -59,13 +60,15 @@ export class ClaudeAdapter implements IAgentAdapter {
       args.push('--system-prompt', effectiveSystemPrompt);
     }
 
-    args.push(params.prompt);
-
     const { process: proc, pid } = this.processManager.spawn('claude', args, {
       cwd: params.workspace,
       env: buildChildEnv(params.env),
+      stdio: ['pipe', 'pipe', 'pipe'],
       signal: params.signal,
     });
+
+    proc.stdin?.write(params.prompt);
+    proc.stdin?.end();
 
     const events = createStreamingEvents(proc, parseClaudeEvent, 'Claude', params.signal);
 

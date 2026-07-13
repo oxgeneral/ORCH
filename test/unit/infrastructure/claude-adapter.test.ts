@@ -29,13 +29,13 @@ function createMockProcess() {
   const proc = new EventEmitter() as EventEmitter & {
     stdout: PassThrough;
     stderr: PassThrough;
-    stdin: PassThrough | null;
+    stdin: PassThrough;
     pid: number;
     kill: () => void;
   };
   proc.stdout = new PassThrough();
   proc.stderr = new PassThrough();
-  proc.stdin = null;
+  proc.stdin = new PassThrough();
   proc.pid = 5555;
   proc.kill = vi.fn();
   return proc;
@@ -75,12 +75,12 @@ describe('ClaudeAdapter', () => {
           '--output-format', 'stream-json',
           '--max-turns', '10',
           '--verbose',
-          'test prompt',
         ]),
-        expect.objectContaining({ cwd: '/tmp/workspace' }),
+        expect.objectContaining({ cwd: '/tmp/workspace', stdio: ['pipe', 'pipe', 'pipe'] }),
       );
       const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
       expect(args).not.toContain('--dangerously-skip-permissions');
+      expect(args).not.toContain('test prompt');
     });
 
     it('includes permission bypass only when explicitly enabled', () => {
@@ -183,10 +183,12 @@ describe('ClaudeAdapter', () => {
       expect(args).not.toContain('--system-prompt');
     });
 
-    it('passes prompt as last arg and systemPrompt via --system-prompt flag', () => {
+    it('writes prompt to stdin and systemPrompt via --system-prompt flag', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new ClaudeAdapter(pm);
+      const writeSpy = vi.spyOn(proc.stdin, 'write');
+      const endSpy = vi.spyOn(proc.stdin, 'end');
 
       adapter.execute(makeParams({
         prompt: 'user task prompt',
@@ -194,7 +196,9 @@ describe('ClaudeAdapter', () => {
       }));
 
       const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
-      expect(args[args.length - 1]).toBe('user task prompt');
+      expect(args).not.toContain('user task prompt');
+      expect(writeSpy).toHaveBeenCalledWith('user task prompt');
+      expect(endSpy).toHaveBeenCalled();
       // systemPrompt should be passed via --system-prompt flag, not as a bare arg
       const spIdx = args.indexOf('--system-prompt');
       expect(spIdx).toBeGreaterThan(-1);

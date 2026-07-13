@@ -238,6 +238,13 @@ describe('LiquidTemplateEngine timeout', () => {
     const result = await engine.render('Hello {{ agent.name }}', ctx);
     expect(result).toBe('Hello test-agent');
   });
+
+  it('disables filesystem includes in templates', async () => {
+    const engine = new LiquidTemplateEngine({ renderTimeoutMs: 5000 });
+    const ctx = buildPromptContext(makeTask(), makeAgent(), 1, '/workspace', DEFAULT_CONFIG);
+
+    await expect(engine.render('{% include "/etc/passwd" %}', ctx)).rejects.toThrow();
+  });
 });
 
 describe('LiquidTemplateEngine with retry context', () => {

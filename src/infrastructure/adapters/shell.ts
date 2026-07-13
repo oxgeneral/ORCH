@@ -35,26 +35,23 @@ export class ShellAdapter implements IAgentAdapter {
   execute(params: ExecuteParams): ExecuteHandle {
     if (!params.security?.allowShellAdapter) {
       async function* errorGen(): AsyncGenerator<AgentEvent> {
-        yield {
-          type: 'error',
-          timestamp: new Date().toISOString(),
-          data: 'Shell adapter is disabled. Set execution.security.allow_shell_adapter=true to opt in.',
-          errorKind: AdapterErrorKind.SPAWN_FAILED,
-        };
+        const err = Object.assign(
+          new Error('Shell adapter is disabled. Set execution.security.allow_shell_adapter=true to opt in.'),
+          { errorKind: AdapterErrorKind.SPAWN_FAILED },
+        );
+        throw err;
       }
       return { pid: 0, events: errorGen() };
     }
 
     const command = params.config.command;
     if (!command) {
-      // Return a handle that immediately yields an error
       async function* errorGen(): AsyncGenerator<AgentEvent> {
-        yield {
-          type: 'error',
-          timestamp: new Date().toISOString(),
-          data: 'Shell adapter requires a command in agent config',
-          errorKind: AdapterErrorKind.SPAWN_FAILED,
-        };
+        const err = Object.assign(
+          new Error('Shell adapter requires a command in agent config'),
+          { errorKind: AdapterErrorKind.SPAWN_FAILED },
+        );
+        throw err;
       }
       return { pid: 0, events: errorGen() };
     }
@@ -125,9 +122,15 @@ export class ShellAdapter implements IAgentAdapter {
 
       // Wait for process to exit
       await new Promise<void>((resolve, reject) => {
-        // If process already exited, resolve immediately
-        if (proc.exitCode !== null || proc.killed) {
-          resolve();
+        // If process already exited, preserve the real exit status.
+        if (typeof proc.exitCode === 'number') {
+          if (proc.exitCode === 0 || signal?.aborted) resolve();
+          else reject(new Error(`Shell command exited with code ${proc.exitCode}`));
+          return;
+        }
+        if (proc.killed) {
+          if (signal?.aborted) resolve();
+          else reject(new Error('Shell command was killed'));
           return;
         }
         proc.on('close', (code) => {

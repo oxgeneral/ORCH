@@ -85,6 +85,17 @@ describe('StructuredLogger', () => {
       unsub();
     });
 
+    it('redacts secrets in logged error fields', () => {
+      const { logger, chunks } = createTestLogger();
+      const unsub = logger.subscribe(eventBus);
+
+      eventBus.emit({ type: 'agent:error', runId: 'run_1', agentId: 'agt_1', error: 'token=supersecret12345' });
+
+      const lines = parseLines(chunks);
+      expect(lines[0]).toMatchObject({ error: 'token=[REDACTED]' });
+      unsub();
+    });
+
     it('logs task:status_changed', () => {
       const { logger, chunks } = createTestLogger();
       const unsub = logger.subscribe(eventBus);
