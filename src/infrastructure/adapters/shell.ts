@@ -2,13 +2,13 @@
  * Shell adapter.
  *
  * Spawns an arbitrary command via `bash -lc`.
- * Task prompt is passed via ORCHESTRY_TASK_PROMPT env variable.
+ * Task metadata is passed via environment variables; prompt text is not.
  * Consumes stdout and stderr concurrently to avoid deadlocks.
  */
 
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
-import { buildFullPrompt, buildChildEnv } from './utils.js';
+import { buildChildEnv } from './utils.js';
 import { readLines } from '../process/process-manager.js';
 import { EventBuffer } from './event-buffer.js';
 import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
@@ -61,9 +61,7 @@ export class ShellAdapter implements IAgentAdapter {
 
     const { process: proc, pid } = this.processManager.spawn('bash', ['-lc', command], {
       cwd: params.workspace,
-      env: buildChildEnv(params.env, {
-        ORCHESTRY_TASK_PROMPT: buildFullPrompt(params.systemPrompt, params.prompt),
-      }),
+      env: buildChildEnv(params.env),
       signal: params.signal,
     });
 

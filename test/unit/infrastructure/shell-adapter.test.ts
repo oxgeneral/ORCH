@@ -131,7 +131,7 @@ describe('ShellAdapter', () => {
     expect(result).not.toBe('timeout');
   });
 
-  it('passes combined prompt in ORCHESTRY_TASK_PROMPT env var without systemPrompt', () => {
+  it('does not expose the user prompt in the child environment', () => {
     const proc = createMockProcess();
     const pm = createMockProcessManager(proc);
     const adapter = new ShellAdapter(pm);
@@ -139,10 +139,11 @@ describe('ShellAdapter', () => {
     adapter.execute(makeParams({ prompt: 'user task' }));
 
     const spawnCall = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(spawnCall[2].env['ORCHESTRY_TASK_PROMPT']).toBe('user task');
+    expect(spawnCall[2].env['ORCHESTRY_TASK_PROMPT']).toBeUndefined();
+    expect(Object.values(spawnCall[2].env)).not.toContain('user task');
   });
 
-  it('passes systemPrompt+userPrompt in ORCHESTRY_TASK_PROMPT with double newline separator', () => {
+  it('does not expose the system prompt in the child environment', () => {
     const proc = createMockProcess();
     const pm = createMockProcessManager(proc);
     const adapter = new ShellAdapter(pm);
@@ -150,7 +151,9 @@ describe('ShellAdapter', () => {
     adapter.execute(makeParams({ systemPrompt: 'be concise', prompt: 'user task' }));
 
     const spawnCall = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(spawnCall[2].env['ORCHESTRY_TASK_PROMPT']).toBe('be concise\n\nuser task');
+    expect(spawnCall[2].env['ORCHESTRY_TASK_PROMPT']).toBeUndefined();
+    expect(Object.values(spawnCall[2].env)).not.toContain('be concise');
+    expect(Object.values(spawnCall[2].env)).not.toContain('user task');
   });
 
   it('returns immediate error for missing command', async () => {
