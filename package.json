@@ -28,6 +28,7 @@
     "dev": "tsx src/bin/cli.ts",
     "build": "tsup",
     "build:watch": "tsup --watch",
+    "prepare": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
