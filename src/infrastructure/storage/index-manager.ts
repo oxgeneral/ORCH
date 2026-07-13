@@ -102,9 +102,13 @@ export class IndexManager<T> {
     const results = await Promise.all(
       files
         .filter(this.fileFilter)
-        .map((file) => {
+        .map(async (file) => {
           const id = file.replace(this.ext, '');
-          return this.readItemFn(this.itemPath(id));
+          try {
+            return await this.readItemFn(this.itemPath(id));
+          } catch {
+            return null;
+          }
         }),
     );
 

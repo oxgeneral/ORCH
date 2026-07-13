@@ -63,15 +63,27 @@ describe('AntigravityAdapter', () => {
 
     adapter.execute(makeParams());
 
-    expect(pm.spawn).toHaveBeenCalledWith(
-      'agy',
-      expect.arrayContaining([
-        '-p',
-        'antigravity prompt',
-        '--dangerously-skip-permissions',
-      ]),
-      expect.objectContaining({ cwd: '/tmp/agy-ws' }),
-    );
+      expect(pm.spawn).toHaveBeenCalledWith(
+        'agy',
+        expect.arrayContaining([
+          '-p',
+          'antigravity prompt',
+        ]),
+        expect.objectContaining({ cwd: '/tmp/agy-ws' }),
+      );
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args).not.toContain('--dangerously-skip-permissions');
+    });
+
+  it('includes permission bypass only when explicitly enabled', () => {
+    const proc = createMockProcess();
+    const pm = createMockProcessManager(proc);
+    const adapter = new AntigravityAdapter(pm);
+
+    adapter.execute(makeParams({ security: { allowPermissionBypass: true } }));
+
+    const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+    expect(args).toContain('--dangerously-skip-permissions');
   });
 
   it('prepends system prompt and passes model', () => {

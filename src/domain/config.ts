@@ -33,6 +33,12 @@ export interface SchedulingConfig {
   retry_max_delay_ms: number;
 }
 
+export interface ExecutionSecurityConfig {
+  allow_permission_bypass: boolean;
+  allow_shell_adapter: boolean;
+  persist_prompts: boolean;
+}
+
 export interface OrchestratorConfig {
   project: ProjectConfig;
   defaults: {
@@ -40,6 +46,9 @@ export interface OrchestratorConfig {
     task: TaskDefaults;
   };
   scheduling: SchedulingConfig;
+  execution: {
+    security: ExecutionSecurityConfig;
+  };
   prompt?: {
     template?: string;
     system_template?: string;
@@ -70,5 +79,12 @@ export const DEFAULT_CONFIG: OrchestratorConfig = {
     max_concurrent_agents: 6,
     retry_base_delay_ms: 10_000,
     retry_max_delay_ms: 300_000,
+  },
+  execution: {
+    security: {
+      allow_permission_bypass: false,
+      allow_shell_adapter: false,
+      persist_prompts: false,
+    },
   },
 };

@@ -10,6 +10,7 @@ import type { ChildProcess } from 'node:child_process';
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
 import { readLines } from '../process/process-manager.js';
+import { buildChildEnv } from './utils.js';
 import { classifyAdapterError } from '../../domain/errors.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -40,10 +41,12 @@ export class GrokAdapter implements IAgentAdapter {
     const args = [
       '-p', params.prompt,
       '--output-format', 'streaming-json',
-      '--permission-mode', 'bypassPermissions',
-      '--always-approve',
       '--cwd', params.workspace,
     ];
+
+    if (params.security?.allowPermissionBypass) {
+      args.push('--permission-mode', 'bypassPermissions', '--always-approve');
+    }
 
     if (params.config.model) {
       args.push('--model', params.config.model);
@@ -62,7 +65,7 @@ export class GrokAdapter implements IAgentAdapter {
 
     const { process: proc, pid } = this.processManager.spawn('grok', args, {
       cwd: params.workspace,
-      env: { ...process.env, ...params.env },
+      env: buildChildEnv(params.env),
       signal: params.signal,
     });
 

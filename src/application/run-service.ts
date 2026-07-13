@@ -19,6 +19,7 @@ export class RunService {
     attempt: number;
     prompt: string;
     workspacePath: string;
+    persistPrompt?: boolean;
   }): Promise<Run> {
     const run: Run = {
       id: `run_${nanoid(7)}`,
@@ -28,7 +29,7 @@ export class RunService {
       status: 'preparing',
       started_at: new Date().toISOString(),
       workspace_path: params.workspacePath,
-      prompt: params.prompt,
+      prompt: params.persistPrompt ? params.prompt : '[redacted]',
     };
 
     await this.runStore.save(run);

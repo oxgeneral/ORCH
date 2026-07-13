@@ -7,7 +7,7 @@
 
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
-import { createStreamingEvents, buildFullPrompt } from './utils.js';
+import { createStreamingEvents, buildFullPrompt, buildChildEnv } from './utils.js';
 import { classifyAdapterError } from '../../domain/errors.js';
 import { createTokenUsage } from '../../domain/run.js';
 import { execFile } from 'node:child_process';
@@ -50,7 +50,7 @@ export class OpenCodeAdapter implements IAgentAdapter {
 
     const { process: proc, pid } = this.processManager.spawn('opencode', args, {
       cwd: params.workspace,
-      env: { ...process.env, ...params.env },
+      env: buildChildEnv(params.env),
       signal: params.signal,
     });
 

@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto';
 import fs from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
 import path from 'node:path';
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 
 /**
  * Write file atomically: write to temp file, then rename.
@@ -22,8 +22,9 @@ export async function atomicWrite(filePath: string, content: string): Promise<vo
   const tmpPath = path.join(dir, `.${path.basename(filePath)}.${randomBytes(4).toString('hex')}.tmp`);
 
   try {
-    await fs.writeFile(tmpPath, content, 'utf-8');
+    await fs.writeFile(tmpPath, content, { encoding: 'utf-8', mode: 0o600 });
     await fs.rename(tmpPath, filePath);
+    await fs.chmod(filePath, 0o600).catch(() => {});
   } catch (err) {
     // Clean up temp file on failure
     await fs.unlink(tmpPath).catch(() => {});
@@ -159,7 +160,7 @@ async function getOrCreateHandle(filePath: string): Promise<FileHandle> {
   // Deduplicate concurrent opens for the same path
   let opening = inFlightOpens.get(filePath);
   if (!opening) {
-    opening = fs.open(filePath, 'a').then((handle) => {
+    opening = fs.open(filePath, 'a', 0o600).then((handle) => {
       inFlightOpens.delete(filePath);
       // If another call already populated the cache (race lost), close the duplicate
       if (appendHandles.has(filePath)) {
@@ -324,7 +325,7 @@ const ensuredDirs = new Set<string>();
  */
 export async function ensureDir(dirPath: string): Promise<void> {
   if (ensuredDirs.has(dirPath)) return;
-  await fs.mkdir(dirPath, { recursive: true });
+  await fs.mkdir(dirPath, { recursive: true, mode: 0o700 });
   ensuredDirs.add(dirPath);
 }
 

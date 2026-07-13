@@ -8,7 +8,7 @@
 
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
-import { buildFullPrompt } from './utils.js';
+import { buildFullPrompt, buildChildEnv } from './utils.js';
 import { readLines } from '../process/process-manager.js';
 import { EventBuffer } from './event-buffer.js';
 import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
@@ -33,6 +33,18 @@ export class ShellAdapter implements IAgentAdapter {
   }
 
   execute(params: ExecuteParams): ExecuteHandle {
+    if (!params.security?.allowShellAdapter) {
+      async function* errorGen(): AsyncGenerator<AgentEvent> {
+        yield {
+          type: 'error',
+          timestamp: new Date().toISOString(),
+          data: 'Shell adapter is disabled. Set execution.security.allow_shell_adapter=true to opt in.',
+          errorKind: AdapterErrorKind.SPAWN_FAILED,
+        };
+      }
+      return { pid: 0, events: errorGen() };
+    }
+
     const command = params.config.command;
     if (!command) {
       // Return a handle that immediately yields an error
@@ -49,11 +61,9 @@ export class ShellAdapter implements IAgentAdapter {
 
     const { process: proc, pid } = this.processManager.spawn('bash', ['-lc', command], {
       cwd: params.workspace,
-      env: {
-        ...process.env,
-        ...params.env,
+      env: buildChildEnv(params.env, {
         ORCHESTRY_TASK_PROMPT: buildFullPrompt(params.systemPrompt, params.prompt),
-      },
+      }),
       signal: params.signal,
     });
 

@@ -318,10 +318,6 @@ export function registerTuiCommand(program: Command, container: Container): void
             const fresh = await m.checkForUpdateNow(currentVersion);
             return fresh?.updateAvailable ? fresh.latest : undefined;
           },
-          onBackgroundInstall: async (version: string) => {
-            const m = await import('../update-check.js');
-            return m.backgroundInstall(version);
-          },
           onLoadModelCatalog,
           initialActivityFilter: container.globalConfig.tui.activity_filter,
           onSaveActivityFilter: async (preset) => {

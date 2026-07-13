@@ -12,11 +12,11 @@ import chalk from 'chalk';
 
 const PACKAGE_NAME = '@oxgeneral/orch';
 
-function runInstall(): Promise<{ code: number; output: string }> {
+function runInstall(version: string): Promise<{ code: number; output: string }> {
   return new Promise((resolve) => {
     const child = execFile(
       'npm',
-      ['install', '-g', `${PACKAGE_NAME}@latest`],
+      ['install', '-g', `${PACKAGE_NAME}@${version}`],
       { timeout: 60_000 },
       (err, stdout, stderr) => {
         const output = (stdout ?? '') + (stderr ?? '');
@@ -69,12 +69,12 @@ export function registerUpdateCommand(program: Command): void {
       console.log(`  Installing ${PACKAGE_NAME}@${info.latest}…`);
       console.log();
 
-      const result = await runInstall();
+      const result = await runInstall(info.latest);
 
       if (result.code !== 0) {
         console.log();
         console.log(`  ${chalk.ansi256(167)('✕')}  Update failed. Try manually:`);
-        console.log(`     npm install -g ${PACKAGE_NAME}@latest`);
+        console.log(`     npm install -g ${PACKAGE_NAME}@${info.latest}`);
         console.log();
         process.exit(1);
       }

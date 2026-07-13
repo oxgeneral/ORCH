@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * Post-install: patch Ink caches, install Claude Code skill, show banner.
- * Pure Node.js, no dependencies.
+ * Optional post-install setup. Disabled by default to avoid install-time side effects.
  */
+
+if (process.env.ORCH_POSTINSTALL_OPT_IN !== '1') process.exit(0);
 
 const { readFileSync, writeFileSync, existsSync, mkdirSync } = require('node:fs');
 const { join } = require('node:path');

@@ -132,9 +132,8 @@ describe('new adapters — e2e through Orchestrator', () => {
         'rendered prompt',
         '--output-format',
         'streaming-json',
-        '--permission-mode',
-        'bypassPermissions',
       ]));
+      expect(spawnCall[1]).not.toContain('bypassPermissions');
 
       h.proc.stdout.write(JSON.stringify({ type: 'thought', data: 'skip' }) + '\n');
       h.proc.stdout.write(JSON.stringify({ type: 'text', data: 'Grok result' }) + '\n');
@@ -173,7 +172,7 @@ describe('new adapters — e2e through Orchestrator', () => {
       expect(spawnCall[0]).toBe('agy');
       expect(spawnCall[1]).toContain('-p');
       expect(spawnCall[1][spawnCall[1].indexOf('-p') + 1]).toContain('rendered prompt');
-      expect(spawnCall[1]).toContain('--dangerously-skip-permissions');
+      expect(spawnCall[1]).not.toContain('--dangerously-skip-permissions');
 
       h.proc.stdout.write('Antigravity line one\n');
       h.proc.stdout.write('Antigravity line two\n');

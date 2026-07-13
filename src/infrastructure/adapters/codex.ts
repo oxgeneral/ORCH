@@ -8,7 +8,7 @@
 
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
-import { extractTokens, createStreamingEvents, buildFullPrompt } from './utils.js';
+import { extractTokens, createStreamingEvents, buildFullPrompt, buildChildEnv } from './utils.js';
 import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -38,8 +38,11 @@ export class CodexAdapter implements IAgentAdapter {
     const args = [
       'exec',
       '--json',
-      '--sandbox', 'danger-full-access', // autonomous agents can't respond to approval prompts
     ];
+
+    if (params.security?.allowPermissionBypass) {
+      args.push('--sandbox', 'danger-full-access');
+    }
 
     if (params.config.model) {
       args.push('--model', params.config.model);
@@ -50,7 +53,7 @@ export class CodexAdapter implements IAgentAdapter {
 
     const { process: proc, pid } = this.processManager.spawn('codex', args, {
       cwd: params.workspace,
-      env: { ...process.env, ...params.env },
+      env: buildChildEnv(params.env),
       signal: params.signal,
       stdio: ['pipe', 'pipe', 'pipe'], // stdin must be 'pipe' to send prompt
     });

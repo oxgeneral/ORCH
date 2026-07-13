@@ -37,11 +37,25 @@ function makeParams(overrides?: Partial<ExecuteParams>): ExecuteParams {
     prompt: 'test prompt',
     workspace: '/tmp',
     config: { command: 'echo hello', adapter: 'shell' },
+    security: { allowShellAdapter: true },
     ...overrides,
   };
 }
 
 describe('ShellAdapter', () => {
+  it('is disabled by default', async () => {
+    const proc = createMockProcess();
+    const pm = createMockProcessManager(proc);
+    const adapter = new ShellAdapter(pm);
+
+    const handle = adapter.execute(makeParams({ security: undefined }));
+    const events: AgentEvent[] = [];
+    for await (const ev of handle.events) events.push(ev);
+
+    expect(pm.spawn).not.toHaveBeenCalled();
+    expect(events[0]!.data).toContain('Shell adapter is disabled');
+  });
+
   it('yields output events from stdout', async () => {
     const proc = createMockProcess();
     const pm = createMockProcessManager(proc);

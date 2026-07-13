@@ -10,7 +10,7 @@ import type { ChildProcess } from 'node:child_process';
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
 import { readLines } from '../process/process-manager.js';
-import { buildFullPrompt } from './utils.js';
+import { buildFullPrompt, buildChildEnv } from './utils.js';
 import { classifyAdapterError } from '../../domain/errors.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -40,8 +40,11 @@ export class AntigravityAdapter implements IAgentAdapter {
     const args = [
       '-p',
       buildFullPrompt(params.systemPrompt ?? params.config.system_prompt, params.prompt),
-      '--dangerously-skip-permissions',
     ];
+
+    if (params.security?.allowPermissionBypass) {
+      args.push('--dangerously-skip-permissions');
+    }
 
     if (params.config.model) {
       args.push('--model', params.config.model);
@@ -49,7 +52,7 @@ export class AntigravityAdapter implements IAgentAdapter {
 
     const { process: proc, pid } = this.processManager.spawn('agy', args, {
       cwd: params.workspace,
-      env: { ...process.env, ...params.env },
+      env: buildChildEnv(params.env),
       signal: params.signal,
     });
 

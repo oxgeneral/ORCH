@@ -22,7 +22,7 @@ export interface Run {
   started_at: string;
   finished_at?: string;
   workspace_path: string;
-  prompt: string;
+  prompt?: string;
   pid?: number;
   error?: string;
   tokens?: TokenUsage;

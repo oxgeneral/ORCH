@@ -70,12 +70,25 @@ describe('CodexAdapter', () => {
 
       expect(pm.spawn).toHaveBeenCalledWith(
         'codex',
-        expect.arrayContaining(['exec', '--json', '--sandbox', 'danger-full-access', '-']),
+        expect.arrayContaining(['exec', '--json', '-']),
         expect.objectContaining({
           cwd: '/tmp/codex-ws',
           stdio: ['pipe', 'pipe', 'pipe'],
         }),
       );
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args).not.toContain('danger-full-access');
+    });
+
+    it('includes danger-full-access only when explicitly enabled', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CodexAdapter(pm);
+
+      adapter.execute(makeParams({ security: { allowPermissionBypass: true } }));
+
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args).toEqual(expect.arrayContaining(['--sandbox', 'danger-full-access']));
     });
 
     it('writes prompt to stdin', () => {

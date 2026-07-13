@@ -77,13 +77,25 @@ describe('CursorAdapter', () => {
           '-p',
           '--output-format', 'stream-json',
           '--workspace', '/tmp/cursor-ws',
-          '--yolo',
         ]),
         expect.objectContaining({
           cwd: '/tmp/cursor-ws',
           stdio: ['pipe', 'pipe', 'pipe'],
         }),
       );
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args).not.toContain('--yolo');
+    });
+
+    it('includes --yolo only when explicitly enabled', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+
+      adapter.execute(makeParams({ security: { allowPermissionBypass: true } }));
+
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args).toContain('--yolo');
     });
 
     it('writes prompt to stdin', () => {

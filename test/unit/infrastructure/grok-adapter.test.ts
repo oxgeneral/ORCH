@@ -68,12 +68,24 @@ describe('GrokAdapter', () => {
       expect.arrayContaining([
         '-p', 'grok prompt',
         '--output-format', 'streaming-json',
-        '--permission-mode', 'bypassPermissions',
-        '--always-approve',
         '--cwd', '/tmp/grok-ws',
       ]),
       expect.objectContaining({ cwd: '/tmp/grok-ws' }),
     );
+    const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+    expect(args).not.toContain('bypassPermissions');
+    expect(args).not.toContain('--always-approve');
+  });
+
+  it('includes permission bypass only when explicitly enabled', () => {
+    const proc = createMockProcess();
+    const pm = createMockProcessManager(proc);
+    const adapter = new GrokAdapter(pm);
+
+    adapter.execute(makeParams({ security: { allowPermissionBypass: true } }));
+
+    const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+    expect(args).toEqual(expect.arrayContaining(['--permission-mode', 'bypassPermissions', '--always-approve']));
   });
 
   it('passes model, effort, max turns, and system prompt override', () => {

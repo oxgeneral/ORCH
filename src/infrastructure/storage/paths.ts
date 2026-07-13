@@ -139,6 +139,9 @@ export class Paths {
  * to prevent path traversal attacks.
  */
 export function sanitizeId(id: string): string {
+  if (id === '.' || id === '..') {
+    throw new Error(`Invalid identifier: "${id}"`);
+  }
   if (!ID_PATTERN.test(id)) {
     throw new Error(`Invalid identifier: "${id}"`);
   }

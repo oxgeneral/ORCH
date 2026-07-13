@@ -10,6 +10,8 @@ import type { IConfigStore } from './interfaces.js';
 import type { Paths } from './paths.js';
 import { readYaml, writeYaml } from './fs-utils.js';
 
+const FORBIDDEN_CONFIG_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
 export class ConfigStore implements IConfigStore {
   constructor(private readonly paths: Paths) {}
 
@@ -38,7 +40,7 @@ export class ConfigStore implements IConfigStore {
 }
 
 function getByPath(obj: Record<string, unknown>, keyPath: string): unknown {
-  const keys = keyPath.split('.');
+  const keys = parseSafeKeyPath(keyPath, false);
   let current: unknown = obj;
 
   for (const key of keys) {
@@ -52,7 +54,7 @@ function getByPath(obj: Record<string, unknown>, keyPath: string): unknown {
 }
 
 function setByPath(obj: Record<string, unknown>, keyPath: string, value: unknown): void {
-  const keys = keyPath.split('.');
+  const keys = parseSafeKeyPath(keyPath, true);
   let current: Record<string, unknown> = obj;
 
   for (let i = 0; i < keys.length - 1; i++) {
@@ -67,10 +69,20 @@ function setByPath(obj: Record<string, unknown>, keyPath: string, value: unknown
   current[lastKey] = value;
 }
 
+function parseSafeKeyPath(keyPath: string, shouldThrow: boolean): string[] {
+  const keys = keyPath.split('.');
+  if (keys.some((key) => FORBIDDEN_CONFIG_KEYS.has(key))) {
+    if (shouldThrow) throw new Error(`Unsafe config key path: ${keyPath}`);
+    return [];
+  }
+  return keys;
+}
+
 function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
   const result = { ...target };
 
   for (const key of Object.keys(source)) {
+    if (FORBIDDEN_CONFIG_KEYS.has(key)) continue;
     const sourceVal = source[key];
     const targetVal = result[key];
 

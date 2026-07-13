@@ -6,6 +6,7 @@
  */
 
 import fs from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { nanoid } from 'nanoid';
 import type { Task, CreateTaskInput, TaskStatus } from '../domain/task.js';
@@ -231,7 +232,13 @@ export class TaskService {
     if (!this.paths) {
       throw new InvalidArgumentsError('Paths not configured');
     }
-    return path.join(this.paths.taskAttachmentsDir(taskId), filename);
+    validateAttachmentName(filename);
+    const dir = this.paths.taskAttachmentsDir(taskId);
+    const resolved = path.resolve(dir, filename);
+    if (!isWithin(resolved, path.resolve(dir))) {
+      throw new InvalidArgumentsError(`Invalid attachment filename: ${filename}`);
+    }
+    return resolved;
   }
 
   private async copyAttachments(taskId: string, sourcePaths: string[]): Promise<string[]> {
@@ -239,14 +246,26 @@ export class TaskService {
 
     const dir = this.paths.taskAttachmentsDir(taskId);
     await ensureDir(dir);
+    const paths = this.paths;
+    const projectRoot = path.resolve(paths.root, '..');
+    const realProjectRoot = await fs.realpath(projectRoot);
+    const realStateRoot = await fs.realpath(paths.root).catch(() => paths.root);
+    const realDestDir = path.resolve(dir);
 
     // Validate all files exist first
     await Promise.all(
       sourcePaths.map(async (srcPath) => {
         try {
           await fs.access(srcPath);
+          const stat = await fs.lstat(srcPath);
+          if (!stat.isFile()) throw new Error('not a regular file');
+          const realSource = await fs.realpath(srcPath);
+          if (!isWithin(realSource, realProjectRoot) || isWithin(realSource, realStateRoot)) {
+            throw new Error('outside project or inside .orchestry');
+          }
+          validateAttachmentName(path.basename(srcPath));
         } catch {
-          throw new InvalidArgumentsError(`Attachment file not found: ${srcPath}`);
+          throw new InvalidArgumentsError(`Attachment file not allowed: ${srcPath}`);
         }
       }),
     );
@@ -255,7 +274,13 @@ export class TaskService {
     const names = await Promise.all(
       sourcePaths.map(async (srcPath) => {
         const basename = path.basename(srcPath);
-        await fs.copyFile(srcPath, path.join(dir, basename));
+        validateAttachmentName(basename);
+        const dest = path.resolve(realDestDir, basename);
+        if (!isWithin(dest, realDestDir)) {
+          throw new InvalidArgumentsError(`Attachment destination escaped task directory: ${basename}`);
+        }
+        await fs.copyFile(srcPath, dest, fsConstants.COPYFILE_EXCL);
+        await fs.chmod(dest, 0o600).catch(() => {});
         return basename;
       }),
     );
@@ -298,4 +323,15 @@ export class TaskService {
       `Unknown agent: "${assignee}". Use an agent ID (agt_xxx) or an exact agent name.`,
     );
   }
+}
+
+function validateAttachmentName(name: string): void {
+  if (!name || name === '.' || name === '..' || name.includes('/') || name.includes('\\') || name.includes('\0')) {
+    throw new InvalidArgumentsError(`Invalid attachment filename: ${name}`);
+  }
+}
+
+function isWithin(child: string, parent: string): boolean {
+  const rel = path.relative(parent, child);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }

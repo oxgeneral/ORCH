@@ -11,9 +11,50 @@ import { readLines } from '../process/process-manager.js';
 import { type TokenUsage, createTokenUsage } from '../../domain/run.js';
 import { classifyAdapterError } from '../../domain/errors.js';
 
+const PARENT_ENV_ALLOWLIST = new Set([
+  'PATH',
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'SHELL',
+  'TMPDIR',
+  'TEMP',
+  'TMP',
+  'LANG',
+  'LC_ALL',
+  'TERM',
+  'COLORTERM',
+  'XDG_CONFIG_HOME',
+  'XDG_CACHE_HOME',
+]);
+
+const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 /** Combine system and user prompts. Adapters without native system prompt support use this. */
 export function buildFullPrompt(systemPrompt: string | undefined, userPrompt: string): string {
   return systemPrompt ? systemPrompt + '\n\n' + userPrompt : userPrompt;
+}
+
+/** Build a least-privilege child environment for agent processes. */
+export function buildChildEnv(
+  explicitEnv?: Record<string, string>,
+  extraEnv?: Record<string, string>,
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+
+  for (const [key, value] of Object.entries(process.env)) {
+    if ((PARENT_ENV_ALLOWLIST.has(key) || key.startsWith('LC_')) && value !== undefined) {
+      env[key] = value;
+    }
+  }
+
+  for (const source of [explicitEnv, extraEnv]) {
+    for (const [key, value] of Object.entries(source ?? {})) {
+      if (ENV_NAME_RE.test(key)) env[key] = value;
+    }
+  }
+
+  return env;
 }
 
 /**

@@ -12,6 +12,7 @@ import type { IProcessManager } from '../process/process-manager.js';
 import type { Readable } from 'node:stream';
 import { createTokenUsage, type TokenUsage } from '../../domain/run.js';
 import { classifyAdapterError } from '../../domain/errors.js';
+import { buildChildEnv } from './utils.js';
 import { execFile } from 'node:child_process';
 
 export class PiAdapter implements IAgentAdapter {
@@ -60,7 +61,7 @@ export class PiAdapter implements IAgentAdapter {
 
     const { process: proc, pid } = this.processManager.spawn('pi', args, {
       cwd: params.workspace,
-      env: { ...process.env, ...params.env },
+      env: buildChildEnv(params.env),
       signal: params.signal,
       stdio: ['pipe', 'pipe', 'pipe'],
     });

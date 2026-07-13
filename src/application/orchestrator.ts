@@ -38,6 +38,7 @@ import type { TaskService } from './task-service.js';
 import type { AgentService } from './agent-service.js';
 import type { RunService } from './run-service.js';
 import { ReviewRunner } from './review-runner.js';
+import { sanitizeForPersistence } from '../infrastructure/security/redaction.js';
 
 /** Max serialized event data written to JSONL (8 KB) */
 const MAX_EVENT_DATA_LEN = 8192;
@@ -1095,6 +1096,7 @@ export class Orchestrator {
         attempt,
         prompt,
         workspacePath,
+        persistPrompt: this.deps.config.execution.security.persist_prompts,
       });
 
       // Reset terminal states before transitioning to in_progress
@@ -1142,6 +1144,10 @@ export class Orchestrator {
           ORCH_TASK_ID: task.id,
         },
         config: agentData.config,
+        security: {
+          allowPermissionBypass: this.deps.config.execution.security.allow_permission_bypass,
+          allowShellAdapter: this.deps.config.execution.security.allow_shell_adapter,
+        },
         signal: abortController.signal,
       });
 
@@ -1281,7 +1287,7 @@ export class Orchestrator {
             })()
           : null;
         // Serialize + truncate once — reused for JSONL write and event bus
-        const serialized = serializeEventData(event.data, MAX_EVENT_DATA_LEN);
+        const serialized = serializeEventData(sanitizeForPersistence(event.data), MAX_EVENT_DATA_LEN);
         // Release the original (potentially large) parsed object for GC
         (event as unknown as Record<string, unknown>).data = undefined;
 

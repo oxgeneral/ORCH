@@ -143,8 +143,6 @@ export interface AppProps {
   latestVersion?: string;
   /** Callback to re-check for updates (used for delayed re-check when initial check returned null) */
   onCheckUpdate?: () => Promise<string | undefined>;
-  /** Callback to background-install an update. Returns true if install succeeded. */
-  onBackgroundInstall?: (version: string) => Promise<boolean>;
   /** Toggle autonomous mode on an agent */
   onToggleAutonomous?: (agentId: string, enabled: boolean) => Promise<Agent>;
   // Goal callbacks
@@ -305,7 +303,6 @@ export function App({
   version,
   latestVersion: initialLatestVersion,
   onCheckUpdate,
-  onBackgroundInstall,
   defaultAdapter = 'claude',
   onLoadModelCatalog,
 }: AppProps) {
@@ -322,17 +319,6 @@ export function App({
     }, 5_000);
     return () => clearTimeout(timer);
   }, [initialLatestVersion]);
-
-  // Auto-install update in background when detected, then show restart toast
-  const [updateInstalled, setUpdateInstalled] = useState(false);
-  const installTriggered = useRef(false);
-  useEffect(() => {
-    if (!latestVersion || !onBackgroundInstall || installTriggered.current || updateInstalled) return;
-    installTriggered.current = true;
-    onBackgroundInstall(latestVersion).then((ok) => {
-      if (ok) setUpdateInstalled(true);
-    }).catch(() => {});
-  }, [latestVersion, onBackgroundInstall, updateInstalled]);
 
   // Track terminal size with resize listener
   const [termSize, setTermSize] = useState({ w: stdout?.columns ?? 80, h: stdout?.rows ?? 24 });
@@ -2374,7 +2360,6 @@ export function App({
         width={W}
         version={version}
         latestVersion={latestVersion}
-        updateInstalled={updateInstalled}
         taskBadge={hiddenTaskCount > 0 ? sortedTasks.length : undefined}
         flashTab={flashTab?.tab}
         flashColor={flashTab?.color}

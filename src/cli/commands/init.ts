@@ -221,8 +221,7 @@ async function ensureGitCommit(projectRoot: string): Promise<void> {
   } catch {
     // No commits — create initial commit
     try {
-      await execFileAsync('git', ['add', '-A'], { cwd: projectRoot });
-      await execFileAsync('git', ['commit', '-m', 'Initial commit', '--allow-empty'], { cwd: projectRoot });
+      await execFileAsync('git', ['commit', '--allow-empty', '-m', 'Initial commit'], { cwd: projectRoot });
     } catch {
       // Commit may fail (no user.name/email configured) — non-fatal
     }

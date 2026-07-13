@@ -288,11 +288,11 @@ describe('init command', () => {
 
     await program.parseAsync(['init'], { from: 'user' });
 
-    expect(mocks.execFile).toHaveBeenCalledWith(
-      'git', ['add', '-A'], expect.objectContaining({ cwd: '/mock' }), expect.any(Function),
+    expect(mocks.execFile).not.toHaveBeenCalledWith(
+      'git', ['add', '-A'], expect.anything(), expect.any(Function),
     );
     expect(mocks.execFile).toHaveBeenCalledWith(
-      'git', ['commit', '-m', 'Initial commit', '--allow-empty'],
+      'git', ['commit', '--allow-empty', '-m', 'Initial commit'],
       expect.objectContaining({ cwd: '/mock' }), expect.any(Function),
     );
   });

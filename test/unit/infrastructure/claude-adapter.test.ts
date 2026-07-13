@@ -75,11 +75,23 @@ describe('ClaudeAdapter', () => {
           '--output-format', 'stream-json',
           '--max-turns', '10',
           '--verbose',
-          '--dangerously-skip-permissions',
           'test prompt',
         ]),
         expect.objectContaining({ cwd: '/tmp/workspace' }),
       );
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args).not.toContain('--dangerously-skip-permissions');
+    });
+
+    it('includes permission bypass only when explicitly enabled', () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new ClaudeAdapter(pm);
+
+      adapter.execute(makeParams({ security: { allowPermissionBypass: true } }));
+
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args).toContain('--dangerously-skip-permissions');
     });
 
     it('includes --model when config.model is set', () => {

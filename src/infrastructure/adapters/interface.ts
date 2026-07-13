@@ -22,6 +22,10 @@ export interface ExecuteParams {
   workspace: string;
   env?: Record<string, string>;
   config: AgentConfig;
+  security?: {
+    allowPermissionBypass?: boolean;
+    allowShellAdapter?: boolean;
+  };
   signal?: AbortSignal;
 }
 
