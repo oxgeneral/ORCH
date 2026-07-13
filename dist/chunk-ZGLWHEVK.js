@@ -1,0 +1,2 @@
+#!/usr/bin/env node
+var e={project:{name:"my-project"},defaults:{agent:{adapter:"claude",approval_policy:"auto",max_turns:50,timeout_ms:36e5,stall_timeout_ms:6e5,workspace_mode:"worktree"},task:{max_attempts:3,priority:3}},scheduling:{poll_interval_ms:1e4,max_concurrent_agents:6,retry_base_delay_ms:1e4,retry_max_delay_ms:3e5},execution:{security:{allow_permission_bypass:false,allow_shell_adapter:false,persist_prompts:false}}};export{e as a};

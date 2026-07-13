@@ -1,0 +1,2 @@
+#!/usr/bin/env node
+var e=class{adapters=new Map;register(t){this.adapters.set(t.kind,t);}get(t){return this.adapters.get(t)}require(t){let r=this.adapters.get(t);if(!r)throw new Error(`Unknown adapter: "${t}". Available: ${this.listKinds().join(", ")}`);return r}list(){return Array.from(this.adapters.values())}listKinds(){return Array.from(this.adapters.keys())}has(t){return this.adapters.has(t)}};export{e as a};

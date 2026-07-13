@@ -1,0 +1,2 @@
+#!/usr/bin/env node
+import {a}from'./chunk-DZK72HOZ.js';function l(o){return o.includes(":")}function s(o,n){let r=a(n,o.tier),t=n==="claude"?o.skills:o.skills.filter(i=>!l(i));return {name:o.name,adapter:n,model:r||void 0,role:o.role,skills:t,approval_policy:o.approval_policy}}export{l as a,s as b};

@@ -1,0 +1,2 @@
+#!/usr/bin/env node
+import {b}from'./chunk-KR7VDF23.js';async function p(a,r,s,t=2e3){await a.startWatch({skipAutonomousSeeding:true});let e=false,n=s.on("orchestrator:shutdown",()=>{e=true;});try{let i=await l(r,t,()=>e);return await a.stop(),i.some(u=>u.status==="failed")?"has_failed":"all_done"}finally{n();}}async function l(a,r,s){for(;;){let t=await a.list();if(t.length===0||t.every(e=>b(e.status))||s())return t;await new Promise(e=>{setTimeout(e,r);});}}export{p as runOnce};
