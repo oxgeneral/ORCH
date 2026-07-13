@@ -124,6 +124,19 @@ describe('ReviewRunner', () => {
 
       expect(results[0]!.output.length).toBeLessThanOrEqual(2000);
     });
+
+    it('redacts secrets from persisted review output', async () => {
+      const runner = new ReviewRunner({ cwd: '/tmp/test' });
+
+      simulateExecFile(1, 'Authorization: Bearer secret-token', 'api_key="supersecret12345"');
+
+      const results = await runner.runAll(['test_pass']);
+
+      expect(results[0]!.output).toContain('Authorization: Bearer [REDACTED]');
+      expect(results[0]!.output).toContain('api_key="[REDACTED]"');
+      expect(results[0]!.output).not.toContain('secret-token');
+      expect(results[0]!.output).not.toContain('supersecret12345');
+    });
   });
 
   describe('allPassed', () => {

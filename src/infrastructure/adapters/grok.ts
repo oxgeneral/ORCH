@@ -44,7 +44,7 @@ export class GrokAdapter implements IAgentAdapter {
       '--cwd', params.workspace,
     ];
 
-    if (params.security?.allowPermissionBypass) {
+    if (params.security?.allowPermissionBypass === true) {
       args.push('--permission-mode', 'bypassPermissions', '--always-approve');
     }
 

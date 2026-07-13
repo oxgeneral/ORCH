@@ -47,6 +47,7 @@ describe('Orchestrator', () => {
   let orchestrator: Orchestrator;
 
   afterEach(() => {
+    delete process.env['ORCH_ALLOW_DANGEROUS_EXECUTION'];
     // Force-clean interval and signal handlers without going through the mutex
     if (orchestrator) {
       const o = orchestrator as any;
@@ -138,6 +139,71 @@ describe('Orchestrator', () => {
       await waitFor(async () => (await taskStore.get('tsk_1'))?.status === 'done');
 
       expect((await stateStore.read())?.claimed).toEqual(new Set());
+    });
+
+    it('requires runtime env unlock before passing dangerous execution flags', async () => {
+      const task = makeTask({ id: 'tsk_1', status: 'todo' });
+      const agent = makeAgent({ id: 'agt_1', adapter: 'shell', status: 'idle' });
+      const taskStore = createMockTaskStore([task]);
+      const agentStore = createMockAgentStore([agent]);
+      const adapter = createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'ok' } },
+      ]);
+      const adapterRegistry = new AdapterRegistry();
+      adapterRegistry.register(adapter);
+
+      deps = buildDeps({
+        taskStore,
+        agentStore,
+        adapterRegistry,
+        config: {
+          ...DEFAULT_CONFIG,
+          execution: { security: { allow_permission_bypass: true, allow_shell_adapter: true, persist_prompts: false } },
+        },
+      });
+      orchestrator = new Orchestrator(deps);
+
+      await orchestrator.runTask('tsk_1');
+      await waitFor(async () => (await taskStore.get('tsk_1'))?.status === 'done');
+
+      expect(adapter.execute).toHaveBeenCalledWith(expect.objectContaining({
+        security: { allowPermissionBypass: false, allowShellAdapter: false },
+      }));
+    });
+
+    it('passes dangerous execution flags only with runtime env unlock', async () => {
+      process.env['ORCH_ALLOW_DANGEROUS_EXECUTION'] = '1';
+      const task = makeTask({ id: 'tsk_1', status: 'todo' });
+      const agent = makeAgent({ id: 'agt_1', adapter: 'shell', status: 'idle' });
+      const taskStore = createMockTaskStore([task]);
+      const agentStore = createMockAgentStore([agent]);
+      const adapter = createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'ok' } },
+      ]);
+      const adapterRegistry = new AdapterRegistry();
+      adapterRegistry.register(adapter);
+
+      deps = buildDeps({
+        taskStore,
+        agentStore,
+        adapterRegistry,
+        config: {
+          ...DEFAULT_CONFIG,
+          execution: { security: { allow_permission_bypass: true, allow_shell_adapter: true, persist_prompts: false } },
+        },
+      });
+      orchestrator = new Orchestrator(deps);
+
+      try {
+        await orchestrator.runTask('tsk_1');
+        await waitFor(async () => (await taskStore.get('tsk_1'))?.status === 'done');
+
+        expect(adapter.execute).toHaveBeenCalledWith(expect.objectContaining({
+          security: { allowPermissionBypass: true, allowShellAdapter: true },
+        }));
+      } finally {
+        delete process.env['ORCH_ALLOW_DANGEROUS_EXECUTION'];
+      }
     });
 
     it('cancelTask auto-acquires lock when not owned', async () => {
@@ -985,6 +1051,43 @@ describe('Orchestrator', () => {
       expect(fileEvents.length).toBeGreaterThanOrEqual(1);
       // Regression: file path must NOT be 'undefined' (bug-dom-002 — event.data was nulled before emit)
       expect(fileEvents[0]!.path).toBe('src/foo.ts');
+    });
+
+    it('redacts prompt-like raw event fields when prompt persistence is disabled', async () => {
+      const task = makeTask();
+      const agent = makeAgent();
+      const now = new Date().toISOString();
+      const adapterEvents: AgentEvent[] = [
+        {
+          type: 'done',
+          timestamp: now,
+          data: {
+            result: 'completed',
+            raw: { messages: ['secret task prompt'], input: 'secret input' },
+          },
+        },
+      ];
+      const registry = new AdapterRegistry();
+      registry.register(createMockAdapter(adapterEvents));
+      const taskStore = createMockTaskStore([task]);
+      const runStore = createMockRunStore();
+
+      deps = buildDeps({
+        taskStore,
+        agentStore: createMockAgentStore([agent]),
+        adapterRegistry: registry,
+        runStore,
+      });
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+
+      await waitFor(async () => (await taskStore.get(task.id))?.status === 'done');
+      const run = (await runStore.listAll())[0]!;
+      const events = await runStore.readEvents(run.id);
+
+      expect(events[0]!.data).toContain('"raw":"[REDACTED]"');
+      expect(events[0]!.data).not.toContain('secret task prompt');
+      expect(events[0]!.data).not.toContain('secret input');
     });
   });
 

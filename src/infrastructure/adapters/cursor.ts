@@ -58,7 +58,7 @@ export class CursorAdapter implements IAgentAdapter {
       '--workspace', params.workspace,
     ];
 
-    if (params.security?.allowPermissionBypass) {
+    if (params.security?.allowPermissionBypass === true) {
       args.push('--yolo');
     }
 

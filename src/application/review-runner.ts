@@ -11,6 +11,7 @@
 
 import { execFile } from 'node:child_process';
 import type { ReviewCriterion, ReviewResult } from '../domain/task.js';
+import { sanitizeText } from '../infrastructure/security/redaction.js';
 
 const CRITERION_COMMANDS: Record<ReviewCriterion, { cmd: string; args: string[] }> = {
   test_pass: { cmd: 'npm', args: ['test'] },
@@ -84,7 +85,7 @@ export class ReviewRunner {
         args,
         { cwd: this.cwd, timeout: this.timeoutMs, maxBuffer: 1024 * 1024 },
         (error, stdout, stderr) => {
-          const output = (stdout + '\n' + stderr).trim();
+          const output = sanitizeText((stdout + '\n' + stderr).trim());
           resolve({
             criterion,
             passed: !error,

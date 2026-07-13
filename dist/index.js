@@ -1,11 +1,11 @@
-import { Paths } from './chunk-ZI7JCGH2.js';
-import { canTransition, isTerminal } from './chunk-FKXNBGFH.js';
-export { Orchestrator, canTransition, isBlocked, isDispatchable, isTerminal, resolveFailureStatus } from './chunk-FKXNBGFH.js';
+import { Paths } from './chunk-ZDGESOGD.js';
+import { canTransition, isTerminal } from './chunk-2WWRUCJR.js';
+export { Orchestrator, canTransition, isBlocked, isDispatchable, isTerminal, resolveFailureStatus } from './chunk-2WWRUCJR.js';
 import { AUTONOMOUS_LABEL } from './chunk-JLCWZ7UA.js';
 export { AdapterRegistry } from './chunk-6DWHQPTE.js';
-export { SkillLoader } from './chunk-IO2DZXWX.js';
-import { ensureDir, readYaml, writeYaml, readJson, writeJson, listFiles, appendJsonl, readJsonl, readJsonlTail, closeAppendHandle, pathExists } from './chunk-B5R74Z5W.js';
-import { sanitizeText } from './chunk-3MEOFN6S.js';
+export { SkillLoader } from './chunk-Z632G3QJ.js';
+import { ensureDir, readYaml, writeYaml, readJson, writeJson, listFiles, appendJsonl, readJsonl, readJsonlTail, closeAppendHandle, pathExists } from './chunk-MGX3XJQL.js';
+import { sanitizeText } from './chunk-RQZGDMFG.js';
 export { createTokenUsage } from './chunk-GZVITBV7.js';
 import { InvalidArgumentsError, TaskNotFoundError, InvalidTransitionError, AgentNotFoundError, OrchestryError, TeamNotFoundError, GoalNotFoundError, GoalHasPendingTasksError } from './chunk-IESAV453.js';
 export { AdapterErrorKind, AgentNotFoundError, ERROR_HINTS, GoalHasPendingTasksError, NotInitializedError, OrchestryError, TaskNotFoundError, WorkspaceError, classifyAdapterError } from './chunk-IESAV453.js';
@@ -1694,7 +1694,7 @@ var RunStore = class {
     }
     if (signal?.aborted || Date.now() >= deadline) return;
     const stream = createReadStream(filePath);
-    const { readLines } = await import('./process-manager-A36Y7LHP.js');
+    const { readLines } = await import('./process-manager-BRCBBME3.js');
     try {
       for await (const line of readLines(stream)) {
         if (signal?.aborted) break;
@@ -1827,10 +1827,10 @@ var ConfigStore = class {
   }
   async read() {
     const config = await readYaml(this.paths.configPath);
-    return deepMerge(
+    return normalizeConfig(deepMerge(
       DEFAULT_CONFIG,
       config ?? {}
-    );
+    ));
   }
   async write(config) {
     await writeYaml(this.paths.configPath, config);
@@ -1893,6 +1893,22 @@ function deepMerge(target, source) {
     }
   }
   return result;
+}
+function normalizeConfig(config) {
+  const security = config.execution?.security ?? {};
+  return {
+    ...config,
+    execution: {
+      ...config.execution ?? DEFAULT_CONFIG.execution,
+      security: {
+        ...DEFAULT_CONFIG.execution.security,
+        ...security,
+        allow_permission_bypass: security.allow_permission_bypass === true,
+        allow_shell_adapter: security.allow_shell_adapter === true,
+        persist_prompts: security.persist_prompts === true
+      }
+    }
+  };
 }
 var GLOBAL_DIR = path.join(homedir(), ".orchestry");
 var GLOBAL_CONFIG_PATH = path.join(GLOBAL_DIR, "global.yml");
@@ -2671,20 +2687,20 @@ async function buildFullContainer(context) {
     { Orchestrator: Orchestrator2 },
     { DoctorService }
   ] = await Promise.all([
-    import('./process-manager-A36Y7LHP.js'),
+    import('./process-manager-BRCBBME3.js'),
     import('./registry-JXXRLJ5J.js'),
-    import('./claude-ZE5SNEXZ.js'),
-    import('./codex-VDXRG4NE.js'),
-    import('./cursor-VMK75R4H.js'),
-    import('./shell-EDPTRNTV.js'),
-    import('./opencode-6V6TINXP.js'),
-    import('./pi-3OFLNKYY.js'),
-    import('./grok-QFQSWGTD.js'),
-    import('./antigravity-NRKD5QGY.js'),
-    import('./workspace-manager-MPIOEYSJ.js'),
+    import('./claude-WIPIPJJH.js'),
+    import('./codex-VOHVNIPR.js'),
+    import('./cursor-QG45G2OQ.js'),
+    import('./shell-3O5OB3RT.js'),
+    import('./opencode-XF75C2F4.js'),
+    import('./pi-H5NCLFGU.js'),
+    import('./grok-L3NNDDGF.js'),
+    import('./antigravity-TMW6DSZO.js'),
+    import('./workspace-manager-JJAXIH6T.js'),
     import('./template-engine-ISDP5XFH.js'),
-    import('./skill-loader-JFMCM7IB.js'),
-    import('./orchestrator-IB64GWHA.js'),
+    import('./skill-loader-PIOCB2VQ.js'),
+    import('./orchestrator-AUGLZ4KE.js'),
     import('./doctor-service-F2SXDWHS.js')
   ]);
   const processManager = new ProcessManager();

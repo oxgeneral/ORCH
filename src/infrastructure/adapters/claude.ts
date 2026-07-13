@@ -42,7 +42,7 @@ export class ClaudeAdapter implements IAgentAdapter {
       '--verbose',
     ];
 
-    if (params.security?.allowPermissionBypass) {
+    if (params.security?.allowPermissionBypass === true) {
       args.push('--dangerously-skip-permissions');
     }
 

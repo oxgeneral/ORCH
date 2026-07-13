@@ -20,7 +20,10 @@ export interface IProcessManager {
 }
 
 export class ProcessManager implements IProcessManager {
+  private readonly ownedPids = new Set<number>();
+
   isAlive(pid: number): boolean {
+    if (!isSafePid(pid)) return false;
     try {
       process.kill(pid, 0);
       return true;
@@ -32,6 +35,7 @@ export class ProcessManager implements IProcessManager {
   }
 
   kill(pid: number, signal: NodeJS.Signals = 'SIGTERM'): void {
+    if (!this.ownedPids.has(pid)) return;
     // Kill entire process group (-pid) to clean up child processes (vitest, playwright, etc.)
     try {
       process.kill(-pid, signal);
@@ -46,6 +50,7 @@ export class ProcessManager implements IProcessManager {
   }
 
   async killWithGrace(pid: number, graceMs: number = 10_000): Promise<void> {
+    if (!this.ownedPids.has(pid)) return;
     if (!this.isAlive(pid)) return;
 
     this.kill(pid, 'SIGTERM');
@@ -59,6 +64,7 @@ export class ProcessManager implements IProcessManager {
 
     // Force kill if still alive
     this.kill(pid, 'SIGKILL');
+    this.ownedPids.delete(pid);
   }
 
   spawn(command: string, args: string[], options?: SpawnOptions): SpawnResult {
@@ -75,9 +81,17 @@ export class ProcessManager implements IProcessManager {
     // Allow parent to exit without waiting for this child.
     // Pipes (stdout/stderr) still hold refs while being read — that's intentional.
     proc.unref();
+    this.ownedPids.add(proc.pid);
+    proc.once('close', () => {
+      this.ownedPids.delete(proc.pid!);
+    });
 
     return { process: proc, pid: proc.pid };
   }
+}
+
+function isSafePid(pid: number): boolean {
+  return Number.isSafeInteger(pid) && pid > 1;
 }
 
 /**

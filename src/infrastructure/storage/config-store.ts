@@ -17,10 +17,10 @@ export class ConfigStore implements IConfigStore {
 
   async read(): Promise<OrchestratorConfig> {
     const config = await readYaml<Record<string, unknown>>(this.paths.configPath);
-    return deepMerge(
+    return normalizeConfig(deepMerge(
       DEFAULT_CONFIG as unknown as Record<string, unknown>,
       config ?? {},
-    ) as unknown as OrchestratorConfig;
+    ));
   }
 
   async write(config: OrchestratorConfig): Promise<void> {
@@ -105,4 +105,21 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
   }
 
   return result;
+}
+
+function normalizeConfig(config: Record<string, unknown>): OrchestratorConfig {
+  const security = ((config.execution as Record<string, unknown> | undefined)?.security ?? {}) as Record<string, unknown>;
+  return {
+    ...(config as unknown as OrchestratorConfig),
+    execution: {
+      ...((config.execution as OrchestratorConfig['execution'] | undefined) ?? DEFAULT_CONFIG.execution),
+      security: {
+        ...DEFAULT_CONFIG.execution.security,
+        ...security,
+        allow_permission_bypass: security.allow_permission_bypass === true,
+        allow_shell_adapter: security.allow_shell_adapter === true,
+        persist_prompts: security.persist_prompts === true,
+      },
+    },
+  };
 }

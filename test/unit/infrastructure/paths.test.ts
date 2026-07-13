@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { Paths, sanitizeId, validateWorkspacePath, findProjectRoot, clearProjectRootCache } from '../../../src/infrastructure/storage/paths.js';
 
 describe('Paths', () => {
@@ -70,6 +71,32 @@ describe('Paths', () => {
     expect(paths.teamPath('team_xyz')).toBe(
       path.join(root, '.orchestry', 'teams', 'team_xyz.yml'),
     );
+  });
+});
+
+describe('Paths state root validation', () => {
+  it('accepts a real .orchestry directory', async () => {
+    const tmpDir = await fs.mkdtemp('/tmp/orch-paths-test-');
+    try {
+      const paths = new Paths(tmpDir);
+      await fs.mkdir(paths.root);
+      await expect(paths.requireInit()).resolves.toBeUndefined();
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a symlinked .orchestry directory', async () => {
+    const tmpDir = await fs.mkdtemp('/tmp/orch-paths-test-');
+    const outsideDir = await fs.mkdtemp('/tmp/orch-paths-outside-');
+    try {
+      const paths = new Paths(tmpDir);
+      await fs.symlink(outsideDir, paths.root);
+      await expect(paths.requireInit()).rejects.toThrow('Unsafe .orchestry directory');
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+      await fs.rm(outsideDir, { recursive: true, force: true });
+    }
   });
 });
 

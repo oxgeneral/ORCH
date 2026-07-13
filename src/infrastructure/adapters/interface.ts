@@ -26,6 +26,7 @@ export interface ExecuteParams {
     allowPermissionBypass?: boolean;
     allowShellAdapter?: boolean;
   };
+  persistPrompts?: boolean;
   signal?: AbortSignal;
 }
 

@@ -58,6 +58,21 @@ describe('ShellAdapter', () => {
     }).rejects.toThrow('Shell adapter is disabled');
   });
 
+  it('does not enable shell execution for truthy non-boolean values', async () => {
+    const proc = createMockProcess();
+    const pm = createMockProcessManager(proc);
+    const adapter = new ShellAdapter(pm);
+
+    const handle = adapter.execute(makeParams({ security: { allowShellAdapter: 'true' as unknown as boolean } }));
+
+    expect(pm.spawn).not.toHaveBeenCalled();
+    await expect(async () => {
+      for await (const _ev of handle.events) {
+        // drain generator
+      }
+    }).rejects.toThrow('Shell adapter is disabled');
+  });
+
   it('yields output events from stdout', async () => {
     const proc = createMockProcess();
     const pm = createMockProcessManager(proc);

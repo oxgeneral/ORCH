@@ -847,6 +847,7 @@ declare class Paths {
     defaultTemplatePath(): string;
     isInitialized(): Promise<boolean>;
     requireInit(): Promise<void>;
+    validateStateRoot(): Promise<void>;
 }
 
 /**
@@ -1025,6 +1026,7 @@ interface ExecuteParams {
         allowPermissionBypass?: boolean;
         allowShellAdapter?: boolean;
     };
+    persistPrompts?: boolean;
     signal?: AbortSignal;
 }
 /**

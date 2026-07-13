@@ -23,6 +23,7 @@ describe('ProcessManager', () => {
         stdout: null,
         stderr: null,
         unref: mockUnref,
+        once: vi.fn(),
       };
       vi.mocked(childProcess.spawn).mockReturnValue(mockProc as any);
 
@@ -32,7 +33,7 @@ describe('ProcessManager', () => {
     });
 
     it('spawns with detached:true so process group kill works', () => {
-      const mockProc = { pid: 12345, stdout: null, stderr: null, unref: vi.fn() };
+      const mockProc = { pid: 12345, stdout: null, stderr: null, unref: vi.fn(), once: vi.fn() };
       vi.mocked(childProcess.spawn).mockReturnValue(mockProc as any);
 
       manager.spawn('echo', ['hello']);
@@ -46,6 +47,18 @@ describe('ProcessManager', () => {
       vi.mocked(childProcess.spawn).mockReturnValue(mockProc as any);
 
       expect(() => manager.spawn('bad-cmd', [])).toThrow('Failed to spawn process');
+    });
+  });
+
+  describe('kill ownership', () => {
+    it('does not signal unknown PIDs', () => {
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+      try {
+        manager.kill(12345, 'SIGTERM');
+        expect(killSpy).not.toHaveBeenCalled();
+      } finally {
+        killSpy.mockRestore();
+      }
     });
   });
 });

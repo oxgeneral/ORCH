@@ -44,6 +44,7 @@ import { sanitizeForPersistence, sanitizeText } from '../infrastructure/security
 const MAX_EVENT_DATA_LEN = 8192;
 /** Max event data sent to TUI via event bus (4 KB) */
 const MAX_BUS_DATA_LEN = 4096;
+const DANGEROUS_EXECUTION_ENV = 'ORCH_ALLOW_DANGEROUS_EXECUTION';
 
 export interface OrchestratorDeps {
   taskStore: ITaskStore;
@@ -1134,6 +1135,7 @@ export class Orchestrator {
       const abortController = new AbortController();
       this.abortControllers.set(taskId, abortController);
 
+      const allowDangerousExecution = process.env[DANGEROUS_EXECUTION_ENV] === '1';
       const handle = adapter.execute({
         prompt,
         systemPrompt,
@@ -1146,9 +1148,10 @@ export class Orchestrator {
         },
         config: agentData.config,
         security: {
-          allowPermissionBypass: this.deps.config.execution.security.allow_permission_bypass,
-          allowShellAdapter: this.deps.config.execution.security.allow_shell_adapter,
+          allowPermissionBypass: this.deps.config.execution.security.allow_permission_bypass === true && allowDangerousExecution,
+          allowShellAdapter: this.deps.config.execution.security.allow_shell_adapter === true && allowDangerousExecution,
         },
+        persistPrompts: this.deps.config.execution.security.persist_prompts === true,
         signal: abortController.signal,
       });
 
@@ -1288,7 +1291,11 @@ export class Orchestrator {
             })()
           : null;
         // Serialize + truncate once — reused for JSONL write and event bus
-        const serialized = serializeEventData(sanitizeForPersistence(event.data), MAX_EVENT_DATA_LEN);
+        const sanitizedEventData = sanitizeEventDataForPromptPolicy(
+          event.data,
+          this.deps.config.execution.security.persist_prompts === true,
+        );
+        const serialized = serializeEventData(sanitizedEventData, MAX_EVENT_DATA_LEN);
         // Release the original (potentially large) parsed object for GC
         (event as unknown as Record<string, unknown>).data = undefined;
 
@@ -1937,6 +1944,36 @@ export class Orchestrator {
       await this.saveState();
     }
   }
+}
+
+const PROMPT_LIKE_EVENT_KEYS = new Set([
+  'raw',
+  'prompt',
+  'system',
+  'systemPrompt',
+  'system_prompt',
+  'messages',
+  'conversation',
+  'transcript',
+  'input',
+]);
+
+function sanitizeEventDataForPromptPolicy(value: unknown, persistPrompts: boolean): unknown {
+  const sanitized = sanitizeForPersistence(value);
+  if (persistPrompts) return sanitized;
+  return redactPromptLikeFields(sanitized);
+}
+
+function redactPromptLikeFields(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactPromptLikeFields);
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, nested] of Object.entries(value)) {
+      out[key] = PROMPT_LIKE_EVENT_KEYS.has(key) ? '[REDACTED]' : redactPromptLikeFields(nested);
+    }
+    return out;
+  }
+  return value;
 }
 
 /** Check if a string is a valid ISO 8601 timestamp. */

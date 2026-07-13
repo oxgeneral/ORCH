@@ -12,6 +12,11 @@ describe('redaction', () => {
     expect(sanitizeText('{"access_token":"abcdef12345"}')).toBe('{"access_token":"[REDACTED]"}');
   });
 
+  it('redacts serialized authorization headers and JWTs', () => {
+    expect(sanitizeText('{"authorization":"Bearer abc.def.ghi"}')).toBe('{"authorization":"Bearer [REDACTED]"}');
+    expect(sanitizeText('token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signaturepart')).toBe('token [REDACTED_JWT]');
+  });
+
   it('redacts object values when keys are sensitive', () => {
     expect(sanitizeForPersistence({ token: 'opaque-session-token', private_key: 'key', cookies: 'sid=1', nested: { password: 'pw' } })).toEqual({
       token: '[REDACTED]',

@@ -42,7 +42,7 @@ export class AntigravityAdapter implements IAgentAdapter {
       buildFullPrompt(params.systemPrompt ?? params.config.system_prompt, params.prompt),
     ];
 
-    if (params.security?.allowPermissionBypass) {
+    if (params.security?.allowPermissionBypass === true) {
       args.push('--dangerously-skip-permissions');
     }
 

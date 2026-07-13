@@ -327,6 +327,10 @@ const ensuredDirs = new Set<string>();
 export async function ensureDir(dirPath: string): Promise<void> {
   if (ensuredDirs.has(dirPath)) return;
   await fs.mkdir(dirPath, { recursive: true, mode: 0o700 });
+  const stat = await fs.lstat(dirPath);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new Error(`Unsafe directory path: ${dirPath}`);
+  }
   ensuredDirs.add(dirPath);
 }
 

@@ -6,6 +6,7 @@
  */
 
 import fs from 'node:fs';
+import { constants as fsConstants } from 'node:fs';
 import type { Writable } from 'node:stream';
 import type { Command } from 'commander';
 import type { Container } from '../../container.js';
@@ -53,7 +54,12 @@ async function runServe(container: Container, currentVersion: string, opts: Serv
   let fileStream: fs.WriteStream | undefined;
 
   if (opts.logFile) {
-    fileStream = fs.createWriteStream(opts.logFile, { flags: 'a', mode: 0o600 });
+    const fd = fs.openSync(
+      opts.logFile,
+      fsConstants.O_CREAT | fsConstants.O_APPEND | fsConstants.O_WRONLY | fsConstants.O_NOFOLLOW,
+      0o600,
+    );
+    fileStream = fs.createWriteStream('', { fd, autoClose: true });
     fileStream.on('error', (err) => {
       process.stderr.write(`Log file error: ${err.message}\n`);
     });

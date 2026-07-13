@@ -33,7 +33,7 @@ export class ShellAdapter implements IAgentAdapter {
   }
 
   execute(params: ExecuteParams): ExecuteHandle {
-    if (!params.security?.allowShellAdapter) {
+    if (params.security?.allowShellAdapter !== true) {
       async function* errorGen(): AsyncGenerator<AgentEvent> {
         const err = Object.assign(
           new Error('Shell adapter is disabled. Set execution.security.allow_shell_adapter=true to opt in.'),

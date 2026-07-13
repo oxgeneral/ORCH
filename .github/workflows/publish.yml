@@ -14,6 +14,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -22,10 +23,15 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - run: npm run build
       - name: Check if version already published
         id: check
         run: |
           LOCAL=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${LOCAL}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version ${LOCAL}" >&2
+            exit 1
+          fi
           REMOTE=$(npm view @oxgeneral/orch version 2>/dev/null || echo "0.0.0")
           echo "version=$LOCAL" >> "$GITHUB_OUTPUT"
           echo "tag=v$LOCAL" >> "$GITHUB_OUTPUT"
@@ -36,7 +42,7 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
             echo "Publishing $LOCAL (remote has $REMOTE)"
           fi
-      - run: npm publish --access public
+      - run: npm publish --access public --ignore-scripts --provenance
         if: steps.check.outputs.skip != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

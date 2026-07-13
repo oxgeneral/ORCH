@@ -7,6 +7,7 @@
 
 import path from 'node:path';
 import { accessSync } from 'node:fs';
+import fs from 'node:fs/promises';
 import { NotInitializedError } from '../../domain/errors.js';
 import { pathExists } from './fs-utils.js';
 
@@ -129,6 +130,22 @@ export class Paths {
     if (!(await this.isInitialized())) {
       throw new NotInitializedError();
     }
+    await this.validateStateRoot();
+  }
+
+  async validateStateRoot(): Promise<void> {
+    const expected = path.resolve(this.root);
+    const stat = await fs.lstat(expected);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      throw new Error(`Unsafe .orchestry directory: ${expected}`);
+    }
+    const realRoot = await fs.realpath(expected);
+    const realProjectRoot = await fs.realpath(this.projectRoot);
+    const relative = path.relative(realProjectRoot, realRoot);
+    if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      throw new Error(`Unsafe .orchestry directory location: ${expected}`);
+    }
+    await fs.chmod(expected, 0o700).catch(() => {});
   }
 }
 

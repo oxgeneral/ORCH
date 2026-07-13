@@ -40,7 +40,7 @@ export class CodexAdapter implements IAgentAdapter {
       '--json',
     ];
 
-    if (params.security?.allowPermissionBypass) {
+    if (params.security?.allowPermissionBypass === true) {
       args.push('--sandbox', 'danger-full-access');
     }
 
