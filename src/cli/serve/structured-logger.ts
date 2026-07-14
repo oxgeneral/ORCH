@@ -117,6 +117,18 @@ export class StructuredLogger {
       case 'task:auto_reviewed':
         return { ts, level: 'info', event: event.type, taskId: event.taskId, passed: event.passed };
 
+      case 'task:error':
+        return { ts, level: 'error', event: event.type, taskId: event.taskId, goalId: event.goalId, runId: event.runId, agentId: event.agentId, phase: event.phase, error: event.error, errorKind: event.errorKind, retryable: event.retryable };
+
+      case 'goal:error':
+        return { ts, level: 'error', event: event.type, goalId: event.goalId, taskId: event.taskId, runId: event.runId, agentId: event.agentId, phase: event.phase, error: event.error, retryable: event.retryable };
+
+      case 'goal:phase_changed':
+        return { ts, level: 'info', event: event.type, goalId: event.goalId, from: event.from, to: event.to, cycle: event.cycle };
+
+      case 'goal:lead_task_created':
+        return { ts, level: 'info', event: event.type, goalId: event.goalId, taskId: event.taskId, cycle: event.cycle, role: event.role };
+
       case 'workspace:merge_succeeded':
         return { ts, level: 'info', event: event.type, taskId: event.taskId, branch: event.branch };
 

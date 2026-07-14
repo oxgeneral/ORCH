@@ -116,6 +116,52 @@ describe('buildPromptContext', () => {
     expect(ctx.attempt).toBeNull();
     expect(ctx.retry).toBeUndefined();
   });
+
+  it('includes goal orchestration role metadata', () => {
+    const ctx = buildPromptContext(
+      makeTask({ goalId: 'goal_1', goalTaskRole: 'lead_analysis', goalCycle: 2 }),
+      makeAgent(),
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+    );
+
+    expect(ctx.task.goal_task_role).toBe('lead_analysis');
+    expect(ctx.task.goal_cycle).toBe(2);
+  });
+});
+
+describe('goal orchestration prompt roles', () => {
+  it('renders lead analysis instructions without continuous-loop wording', async () => {
+    const engine = new LiquidTemplateEngine({ renderTimeoutMs: 5000 });
+    const ctx = buildPromptContext(
+      makeTask({ goalId: 'goal_1', goalTaskRole: 'lead_analysis', goalCycle: 1 }),
+      makeAgent({ name: 'Architect' }),
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+    );
+
+    const rendered = await engine.render(DEFAULT_SYSTEM_TEMPLATE, ctx);
+    expect(rendered).toContain('Goal Lead: Analysis And Delegation');
+    expect(rendered).toContain('Every delegated task MUST include');
+    expect(rendered).not.toContain('Do NOT finish the [auto] task until the goal is achieved');
+  });
+
+  it('renders worker instructions for non-lead goal tasks', async () => {
+    const engine = new LiquidTemplateEngine({ renderTimeoutMs: 5000 });
+    const ctx = buildPromptContext(
+      makeTask({ goalId: 'goal_1' }),
+      makeAgent({ name: 'Worker' }),
+      1,
+      '/workspace',
+      DEFAULT_CONFIG,
+    );
+
+    const rendered = await engine.render(DEFAULT_SYSTEM_TEMPLATE, ctx);
+    expect(rendered).toContain('Goal Worker Mode');
+    expect(rendered).toContain('Do not claim ownership of the whole goal');
+  });
 });
 
 describe('buildPromptContext team listing', () => {
@@ -502,7 +548,7 @@ describe('system/user template split', () => {
     expect(rendered).not.toContain('## Orchestrator CLI');
   });
 
-  it('system template includes autonomous mode when task has auto label', async () => {
+  it('system template treats autonomous goal tasks as worker mode unless explicitly lead', async () => {
     const autoCtx = buildPromptContext(
       makeTask({ labels: ['autonomous'], goalId: 'goal_123' }),
       makeAgent(),
@@ -511,13 +557,13 @@ describe('system/user template split', () => {
       DEFAULT_CONFIG,
     );
     const rendered = await engine.render(DEFAULT_SYSTEM_TEMPLATE, autoCtx);
-    expect(rendered).toContain('## Autonomous Goal Mode');
-    expect(rendered).toContain('goal_123');
+    expect(rendered).toContain('## Goal Worker Mode');
+    expect(rendered).toContain('Do not claim ownership of the whole goal');
   });
 
   it('system template omits autonomous mode for regular tasks', async () => {
     const rendered = await engine.render(DEFAULT_SYSTEM_TEMPLATE, ctx);
-    expect(rendered).not.toContain('## Autonomous Goal Mode');
+    expect(rendered).not.toContain('## Goal Worker Mode');
   });
 
   it('user template includes goal context when provided', async () => {

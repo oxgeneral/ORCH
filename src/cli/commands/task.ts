@@ -6,6 +6,7 @@
 
 import type { Command } from 'commander';
 import type { LightContainer } from '../../container.js';
+import { InvalidArgumentsError } from '../../domain/errors.js';
 import {
   statusIcon,
   priorityLabel,
@@ -40,9 +41,15 @@ export function registerTaskCommand(program: Command, container: LightContainer)
     .option('--review-criteria <criteria>', 'Comma-separated auto-review criteria: test_pass,typecheck,lint')
     .option('--scope <patterns>', 'Comma-separated glob patterns for file scope (e.g. src/auth/**,src/session/**)')
     .option('--goal-id <goalId>', 'Associate task with a goal')
+    .option('--goal-role <role>', 'Goal role: worker')
+    .option('--goal-cycle <n>', 'Goal orchestration cycle number')
     .option('--attach <paths>', 'Comma-separated file paths to attach (screenshots, docs)')
     .option('-e, --edit', 'Open $EDITOR to write the description')
     .action(async (title: string, opts) => {
+      if (opts.goalRole !== undefined && opts.goalRole !== 'worker') {
+        throw new InvalidArgumentsError('Goal role must be "worker"');
+      }
+
       let description = opts.description;
       if (opts.edit) {
         const { openInEditor, toEditorContent, fromEditorContent } = await import('../editor.js');
@@ -65,6 +72,8 @@ export function registerTaskCommand(program: Command, container: LightContainer)
         review_criteria: opts.reviewCriteria?.split(',').map((s: string) => s.trim()),
         scope: opts.scope?.split(',').map((s: string) => s.trim()),
         goalId: opts.goalId,
+        goalTaskRole: opts.goalRole === 'worker' ? 'worker' : undefined,
+        goalCycle: opts.goalCycle ? parseInt(opts.goalCycle, 10) : undefined,
         attachments: opts.attach?.split(',').map((s: string) => s.trim()),
       });
 
@@ -157,6 +166,17 @@ export function registerTaskCommand(program: Command, container: LightContainer)
       pairs.push(['Created', t.created_at]);
 
       printKeyValue(pairs);
+
+      if (t.last_error) {
+        console.log(`\n  Last Error\n  ${'─'.repeat(42)}`);
+        console.log(`  Phase:   ${t.last_error.phase}`);
+        console.log(`  Time:    ${t.last_error.at}`);
+        if (t.last_error.runId) console.log(`  Run:     ${t.last_error.runId}`);
+        if (t.last_error.agentId) console.log(`  Agent:   ${t.last_error.agentId}`);
+        for (const line of t.last_error.message.split('\n')) {
+          console.log(`  ${line}`);
+        }
+      }
 
       if (t.attachments?.length) {
         console.log(`\n  Attachments (${t.attachments.length})\n  ${'─'.repeat(42)}`);

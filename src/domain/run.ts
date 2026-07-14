@@ -5,6 +5,8 @@
  * Events are stored in separate .jsonl files (append-only), not in memory.
  */
 
+import type { PersistedFailure } from './errors.js';
+
 export type RunStatus =
   | 'preparing'
   | 'running'
@@ -25,6 +27,7 @@ export interface Run {
   prompt?: string;
   pid?: number;
   error?: string;
+  failure?: PersistedFailure;
   tokens?: TokenUsage;
 }
 

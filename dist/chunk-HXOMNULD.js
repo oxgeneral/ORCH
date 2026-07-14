@@ -1,2 +1,0 @@
-#!/usr/bin/env node
-var a=["active","paused","achieved","abandoned"],e=new Set(["achieved","abandoned"]);function n(t){return e.has(t)}var s={active:0,paused:1,achieved:2,abandoned:3};export{a,n as b,s as c};

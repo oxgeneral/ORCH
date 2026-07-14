@@ -142,6 +142,27 @@ export enum AdapterErrorKind {
   UNKNOWN = 'unknown',
 }
 
+export type FailurePhase =
+  | 'pre_run'
+  | 'lead_plan_validation'
+  | 'worker'
+  | 'goal'
+  | 'review'
+  | 'orchestrator';
+
+export interface PersistedFailure {
+  message: string;
+  phase: FailurePhase;
+  at: string;
+  context?: string;
+  retryable?: boolean;
+  runId?: string;
+  taskId?: string;
+  goalId?: string;
+  agentId?: string;
+  errorKind?: AdapterErrorKind;
+}
+
 export interface AdapterErrorHint {
   message: string;
   fix: string;

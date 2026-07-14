@@ -7,14 +7,17 @@
  */
 
 import type { GoalStatus } from './goal.js';
+import type { GoalOrchestrationPhase } from './goal.js';
 import type { MessageChannel } from './message.js';
 import type { Task, TaskStatus, ReviewResult } from './task.js';
+import type { AdapterErrorKind, FailurePhase } from './errors.js';
 
 export type OrchestratorEvent =
   | { type: 'task:created'; task: Task }
   | { type: 'task:assigned'; taskId: string; agentId: string }
   | { type: 'task:status_changed'; taskId: string; from: TaskStatus; to: TaskStatus }
   | { type: 'task:auto_reviewed'; taskId: string; passed: boolean; results: ReviewResult[] }
+  | { type: 'task:error'; taskId: string; error: string; phase: FailurePhase; runId?: string; agentId?: string; goalId?: string; errorKind?: AdapterErrorKind; retryable?: boolean }
   | { type: 'agent:started'; agentId: string; taskId: string; runId: string }
   | { type: 'agent:output'; runId: string; agentId: string; data: string }
   | { type: 'agent:file_changed'; runId: string; agentId: string; path: string }
@@ -41,6 +44,9 @@ export type OrchestratorEvent =
   | { type: 'agent:autonomous_toggled'; agentId: string; autonomous: boolean }
   | { type: 'goal:created'; goalId: string; title: string }
   | { type: 'goal:status_changed'; goalId: string; from: GoalStatus; to: GoalStatus }
+  | { type: 'goal:phase_changed'; goalId: string; from: GoalOrchestrationPhase; to: GoalOrchestrationPhase; cycle: number }
+  | { type: 'goal:lead_task_created'; goalId: string; taskId: string; cycle: number; role: 'lead_analysis' | 'lead_review' }
+  | { type: 'goal:error'; goalId: string; error: string; phase: FailurePhase; taskId?: string; runId?: string; agentId?: string; retryable?: boolean }
   | { type: 'goal:updated'; goalId: string }
   | { type: 'goal:deleted'; goalId: string };
 

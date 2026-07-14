@@ -1,14 +1,14 @@
-import { Paths } from './chunk-ZDGESOGD.js';
-import { canTransition, isTerminal } from './chunk-2WWRUCJR.js';
-export { Orchestrator, canTransition, isBlocked, isDispatchable, isTerminal, resolveFailureStatus } from './chunk-2WWRUCJR.js';
-import { AUTONOMOUS_LABEL } from './chunk-JLCWZ7UA.js';
+import { Paths } from './chunk-SVLEMEUQ.js';
+import { canTransition, isTerminal } from './chunk-K5UXMBMS.js';
+export { Orchestrator, canTransition, isBlocked, isDispatchable, isTerminal, resolveFailureStatus } from './chunk-K5UXMBMS.js';
+import { GOAL_LEAD_LABEL, GOAL_REVIEW_LABEL, AUTONOMOUS_LABEL } from './chunk-YNPZFT75.js';
 export { AdapterRegistry } from './chunk-6DWHQPTE.js';
 export { SkillLoader } from './chunk-Z632G3QJ.js';
 import { ensureDir, readYaml, writeYaml, readJson, writeJson, listFiles, appendJsonl, readJsonl, readJsonlTail, closeAppendHandle, pathExists } from './chunk-MGX3XJQL.js';
 import { sanitizeText } from './chunk-RQZGDMFG.js';
-export { createTokenUsage } from './chunk-GZVITBV7.js';
-import { InvalidArgumentsError, TaskNotFoundError, InvalidTransitionError, AgentNotFoundError, OrchestryError, TeamNotFoundError, GoalNotFoundError, GoalHasPendingTasksError } from './chunk-IESAV453.js';
-export { AdapterErrorKind, AgentNotFoundError, ERROR_HINTS, GoalHasPendingTasksError, NotInitializedError, OrchestryError, TaskNotFoundError, WorkspaceError, classifyAdapterError } from './chunk-IESAV453.js';
+export { createTokenUsage } from './chunk-UG72A2JI.js';
+import { InvalidArgumentsError, TaskNotFoundError, InvalidTransitionError, AgentNotFoundError, OrchestryError, TeamNotFoundError, GoalNotFoundError, GoalHasPendingTasksError } from './chunk-BBYWS5VU.js';
+export { AdapterErrorKind, AgentNotFoundError, ERROR_HINTS, GoalHasPendingTasksError, NotInitializedError, OrchestryError, TaskNotFoundError, WorkspaceError, classifyAdapterError } from './chunk-BBYWS5VU.js';
 import fs, { mkdtemp, readFile, unlink, rm, mkdir } from 'fs/promises';
 import { constants, createWriteStream, createReadStream } from 'fs';
 import path, { join } from 'path';
@@ -719,7 +719,20 @@ var TaskService = class {
       }
     }
     const assignee = await this.resolveAssignee(input.assignee);
+    if (input.goalTaskRole !== void 0 && !["lead_analysis", "worker", "lead_review"].includes(input.goalTaskRole)) {
+      throw new InvalidArgumentsError('Goal role must be "worker"');
+    }
+    if ((input.goalTaskRole === "lead_analysis" || input.goalTaskRole === "lead_review") && input.systemGenerated !== true) {
+      throw new InvalidArgumentsError("Lead goal roles are internal orchestration roles and cannot be set manually");
+    }
     const now = (/* @__PURE__ */ new Date()).toISOString();
+    const labels = input.labels ? [...input.labels] : [];
+    if (input.goalTaskRole === "lead_analysis" && !labels.includes(GOAL_LEAD_LABEL)) {
+      labels.push(GOAL_LEAD_LABEL);
+    }
+    if (input.goalTaskRole === "lead_review" && !labels.includes(GOAL_REVIEW_LABEL)) {
+      labels.push(GOAL_REVIEW_LABEL);
+    }
     const task = {
       id: `tsk_${nanoid(7)}`,
       title: input.title.trim(),
@@ -727,7 +740,7 @@ var TaskService = class {
       status: "todo",
       priority,
       assignee,
-      labels: input.labels ?? [],
+      labels,
       depends_on: input.depends_on ?? [],
       created_at: now,
       updated_at: now,
@@ -736,7 +749,9 @@ var TaskService = class {
       workspace_mode: input.workspace_mode,
       review_criteria: input.review_criteria,
       scope: input.scope,
-      goalId: input.goalId
+      goalId: input.goalId,
+      goalTaskRole: input.goalTaskRole,
+      goalCycle: input.goalCycle
     };
     if (input.attachments?.length && this.paths) {
       const attachmentNames = await this.copyAttachments(task.id, input.attachments);
@@ -798,6 +813,7 @@ var TaskService = class {
     const oldStatus = task.status;
     task.status = "todo";
     task.attempts = 0;
+    task.last_error = void 0;
     task.updated_at = (/* @__PURE__ */ new Date()).toISOString();
     await this.taskStore.save(task);
     this.eventBus.emit({
@@ -1190,13 +1206,14 @@ var RunService = class {
     });
     return run;
   }
-  async finish(id, status, tokens, error) {
+  async finish(id, status, tokens, error, failure) {
     const run = await this.runStore.get(id);
     if (!run) throw new Error(`Run not found: ${id}`);
     run.status = status;
     run.finished_at = (/* @__PURE__ */ new Date()).toISOString();
     run.tokens = tokens;
     run.error = error === void 0 ? void 0 : sanitizeText(error);
+    run.failure = failure;
     await this.runStore.save(run);
     this.eventBus.emit({
       type: "agent:completed",
@@ -2347,6 +2364,13 @@ var GoalService = class {
       description: input.description?.trim() ?? "",
       status: "active",
       assignee: input.assignee,
+      orchestration: {
+        enabled: true,
+        phase: "needs_analysis",
+        cycle: 1,
+        lead_agent_id: input.assignee,
+        last_transition_at: now
+      },
       created_at: now,
       updated_at: now
     };
@@ -2369,9 +2393,9 @@ var GoalService = class {
     const goal = await this.get(id);
     const oldStatus = goal.status;
     if (!VALID_TRANSITIONS[oldStatus].includes(newStatus)) {
-      throw new InvalidArgumentsError(
-        `Cannot transition goal from '${oldStatus}' to '${newStatus}'`
-      );
+      const err = new InvalidArgumentsError(`Cannot transition goal from '${oldStatus}' to '${newStatus}'`);
+      await this.recordGoalFailure(goal, err.message, "status transition");
+      throw err;
     }
     if (newStatus === "achieved" && this.taskService) {
       const childTasks = await this.taskService.list({ goalId: id });
@@ -2388,18 +2412,42 @@ var GoalService = class {
           );
           if (running.length > 0) {
             const summary = running.map((t) => `${t.id} (in_progress)`).join(", ");
-            throw new GoalHasPendingTasksError(id, running.length, summary);
+            const err = new GoalHasPendingTasksError(id, running.length, summary);
+            await this.recordGoalFailure(goal, err.message, "force achieved blocked by running tasks");
+            throw err;
           }
         } else {
           const summary = pending.map((t) => `${t.id} (${t.status})`).join(", ");
-          throw new GoalHasPendingTasksError(id, pending.length, summary);
+          const err = new GoalHasPendingTasksError(id, pending.length, summary);
+          await this.recordGoalFailure(goal, err.message, "achieved blocked by pending tasks");
+          throw err;
         }
       }
     }
     goal.status = newStatus;
+    const oldPhase = goal.orchestration?.phase;
+    if (goal.orchestration) {
+      if (newStatus === "paused") {
+        goal.orchestration.phase = "paused";
+      } else if (newStatus === "active" && oldStatus === "paused") {
+        goal.orchestration.phase = "needs_analysis";
+      } else if (isGoalTerminal(newStatus)) {
+        goal.orchestration.phase = "closed";
+      }
+      goal.orchestration.last_transition_at = (/* @__PURE__ */ new Date()).toISOString();
+    }
     goal.updated_at = (/* @__PURE__ */ new Date()).toISOString();
     await this.goalStore.save(goal);
     this.eventBus.emit({ type: "goal:status_changed", goalId: id, from: oldStatus, to: newStatus });
+    if (oldPhase && goal.orchestration && oldPhase !== goal.orchestration.phase) {
+      this.eventBus.emit({
+        type: "goal:phase_changed",
+        goalId: id,
+        from: oldPhase,
+        to: goal.orchestration.phase,
+        cycle: goal.orchestration.cycle
+      });
+    }
     if (goal.assignee) {
       if (newStatus === "paused") {
         await this.maybeDisableAutonomous(goal.assignee);
@@ -2421,6 +2469,10 @@ var GoalService = class {
     }
     if (fields.description !== void 0) goal.description = fields.description.trim();
     if (fields.assignee !== void 0) goal.assignee = fields.assignee || void 0;
+    if (fields.assignee !== void 0 && goal.orchestration?.enabled) {
+      goal.orchestration.lead_agent_id = goal.assignee;
+      goal.orchestration.last_transition_at = (/* @__PURE__ */ new Date()).toISOString();
+    }
     goal.updated_at = (/* @__PURE__ */ new Date()).toISOString();
     await this.goalStore.save(goal);
     this.eventBus.emit({ type: "goal:updated", goalId: id });
@@ -2457,6 +2509,27 @@ var GoalService = class {
       await this.agentService.setAutonomous(agentId, true);
     } catch {
     }
+  }
+  async recordGoalFailure(goal, message, context) {
+    const failure = {
+      message: sanitizeText(message).slice(0, 1e3),
+      phase: "goal",
+      at: (/* @__PURE__ */ new Date()).toISOString(),
+      context,
+      goalId: goal.id,
+      retryable: true
+    };
+    goal.last_error = failure;
+    goal.updated_at = failure.at;
+    await this.goalStore.save(goal).catch(() => {
+    });
+    this.eventBus.emit({
+      type: "goal:error",
+      goalId: goal.id,
+      error: failure.message,
+      phase: failure.phase,
+      retryable: failure.retryable
+    });
   }
   /** Check if an agent has at least one active goal. */
   async hasActiveGoalsForAgent(agentId) {
@@ -2689,18 +2762,18 @@ async function buildFullContainer(context) {
   ] = await Promise.all([
     import('./process-manager-BRCBBME3.js'),
     import('./registry-JXXRLJ5J.js'),
-    import('./claude-WIPIPJJH.js'),
-    import('./codex-VOHVNIPR.js'),
-    import('./cursor-QG45G2OQ.js'),
-    import('./shell-3O5OB3RT.js'),
-    import('./opencode-XF75C2F4.js'),
-    import('./pi-H5NCLFGU.js'),
-    import('./grok-L3NNDDGF.js'),
-    import('./antigravity-TMW6DSZO.js'),
-    import('./workspace-manager-JJAXIH6T.js'),
-    import('./template-engine-ISDP5XFH.js'),
+    import('./claude-I3NKCY6H.js'),
+    import('./codex-TQU3MZZL.js'),
+    import('./cursor-EQIQXDJK.js'),
+    import('./shell-2GBVWZBE.js'),
+    import('./opencode-VWM44YZ6.js'),
+    import('./pi-LFHJZAPC.js'),
+    import('./grok-J27VLGLO.js'),
+    import('./antigravity-IP4D5ALO.js'),
+    import('./workspace-manager-ELPCSEFR.js'),
+    import('./template-engine-ZZWWQC5M.js'),
     import('./skill-loader-PIOCB2VQ.js'),
-    import('./orchestrator-AUGLZ4KE.js'),
+    import('./orchestrator-KHFBBUDV.js'),
     import('./doctor-service-F2SXDWHS.js')
   ]);
   const processManager = new ProcessManager();

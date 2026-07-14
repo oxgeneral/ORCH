@@ -67,6 +67,8 @@ function filterBySince(events: RunEvent[], sinceMs: number | undefined): RunEven
 }
 
 async function showRunLogs(container: LightContainer, runId: string, sinceMs?: number): Promise<void> {
+  const maybeGet = (container.runService as { get?: (id: string) => Promise<import('../../domain/run.js').Run | null> }).get;
+  const run = maybeGet ? await maybeGet.call(container.runService, runId) : null;
   let events = sinceMs
     ? filterBySince(await container.runService.readEventsTail(runId, 500), sinceMs)
     : await container.runService.readEventsTail(runId, 50);
@@ -77,6 +79,10 @@ async function showRunLogs(container: LightContainer, runId: string, sinceMs?: n
   }
 
   if (events.length === 0) {
+    if (run?.error) {
+      console.log(`\n  ${getIcon('failed')} ${run.error}\n`);
+      return;
+    }
     console.log(`\n  No events for run ${runId}\n`);
     return;
   }
@@ -89,7 +95,10 @@ async function showRunLogs(container: LightContainer, runId: string, sinceMs?: n
 }
 
 async function showTaskLogs(container: LightContainer, taskId: string, sinceMs?: number): Promise<void> {
-  const runs = await container.runService.listForTask(taskId);
+  const [task, runs] = await Promise.all([
+    container.taskService.get(taskId).catch(() => null),
+    container.runService.listForTask(taskId),
+  ]);
 
   if (container.context.json) {
     console.log(JSON.stringify(runs, null, 2));
@@ -97,8 +106,16 @@ async function showTaskLogs(container: LightContainer, taskId: string, sinceMs?:
   }
 
   if (runs.length === 0) {
+    if (task?.last_error) {
+      console.log(`\n  Last error · ${task.last_error.phase}\n  ${getIcon('failed')} ${task.last_error.message}\n`);
+      return;
+    }
     console.log(`\n  No runs for task ${taskId}\n`);
     return;
+  }
+
+  if (task?.last_error) {
+    console.log(`\n  Last error · ${task.last_error.phase}\n  ${getIcon('failed')} ${task.last_error.message}`);
   }
 
   const recentRuns = sinceMs ? runs.slice(-20) : runs;
@@ -237,7 +254,7 @@ async function followLive(
 
     // Apply filters
     if (hasFilter) {
-      if ('runId' in event && runIds.size > 0 && !runIds.has(event.runId)) return;
+      if ('runId' in event && runIds.size > 0 && typeof event.runId === 'string' && !runIds.has(event.runId)) return;
       if ('agentId' in event && agentIds.size > 0) {
         const evt = event as Extract<OrchestratorEvent, { agentId: string }>;
         if (!agentIds.has(evt.agentId)) return;
@@ -255,6 +272,15 @@ async function followLive(
         break;
       case 'agent:error':
         console.log(`  ${dim(time)}  ${getIcon('failed')} ${event.error}`);
+        break;
+      case 'task:error':
+        console.log(`  ${dim(time)}  ${getIcon('failed')} [${event.phase}] ${event.error}`);
+        break;
+      case 'goal:error':
+        console.log(`  ${dim(time)}  ${getIcon('failed')} [goal:${event.phase}] ${event.error}`);
+        break;
+      case 'orchestrator:error':
+        console.log(`  ${dim(time)}  ${getIcon('failed')} [orchestrator] ${event.error}`);
         break;
       case 'agent:started':
         console.log(`  ${dim(time)}  ${getIcon('orchestratorEvent')} Started ${event.runId} (agent: ${event.agentId})`);

@@ -4133,6 +4133,18 @@ function formatEvent(
       addMsg(`${event.error.slice(0, 150)}`, tuiColors.red,
         { agentId: event.agentId, taskId: resolveTask(event.runId), detail: event.error, msgType: 'error' });
       break;
+    case 'task:error':
+      addMsg(`[${event.phase}] ${event.error.slice(0, 150)}`, tuiColors.red,
+        { agentId: event.agentId, taskId: event.taskId, detail: event.error, msgType: 'error' });
+      break;
+    case 'goal:error':
+      addMsg(`[goal:${event.phase}] ${event.error.slice(0, 150)}`, tuiColors.red,
+        { agentId: event.agentId, taskId: event.taskId, detail: event.error, msgType: 'error' });
+      break;
+    case 'orchestrator:error':
+      addMsg(`[orchestrator] ${event.error.slice(0, 150)}`, tuiColors.red,
+        { detail: `${event.context}: ${event.error}`, msgType: 'error' });
+      break;
     case 'task:status_changed':
       addMsg(`${event.from} \u2192 ${event.to}`, tuiColors.cyan,
         { taskId: event.taskId, msgType: 'system' });

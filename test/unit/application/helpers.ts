@@ -8,6 +8,7 @@ import { DEFAULT_CONFIG } from '../../../src/domain/config.js';
 import { DEFAULT_STATE, type OrchestratorState } from '../../../src/domain/state.js';
 import type { Task } from '../../../src/domain/task.js';
 import type { Agent } from '../../../src/domain/agent.js';
+import type { Goal } from '../../../src/domain/goal.js';
 import type { Run, RunEvent } from '../../../src/domain/run.js';
 import type {
   ITaskStore,
@@ -15,6 +16,7 @@ import type {
   IRunStore,
   IStateStore,
   IContextStore,
+  IGoalStore,
   IMessageStore,
   ITeamStore,
 } from '../../../src/infrastructure/storage/interfaces.js';
@@ -83,6 +85,18 @@ export function makeRun(overrides: Partial<Run> = {}): Run {
   };
 }
 
+export function makeGoal(overrides: Partial<Goal> = {}): Goal {
+  return {
+    id: 'goal_test1',
+    title: 'Test goal',
+    description: 'Goal description',
+    status: 'active',
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
 // --- Mock store factories ---
 
 export function createMockTaskStore(tasks: Task[] = []): ITaskStore {
@@ -124,6 +138,26 @@ export function createMockAgentStore(agents: Agent[] = []): IAgentStore {
     }),
     save: vi.fn(async (agent: Agent) => {
       store.set(agent.id, structuredClone(agent));
+    }),
+    delete: vi.fn(async (id: string) => {
+      store.delete(id);
+    }),
+  };
+}
+
+export function createMockGoalStore(goals: Goal[] = []): IGoalStore {
+  const store = new Map(goals.map((g) => [g.id, structuredClone(g)]));
+  return {
+    list: vi.fn(async (filter?) => {
+      const all = [...store.values()].map((g) => structuredClone(g));
+      return filter?.status ? all.filter((g) => g.status === filter.status) : all;
+    }),
+    get: vi.fn(async (id: string) => {
+      const g = store.get(id);
+      return g ? structuredClone(g) : null;
+    }),
+    save: vi.fn(async (goal: Goal) => {
+      store.set(goal.id, structuredClone(goal));
     }),
     delete: vi.fn(async (id: string) => {
       store.delete(id);

@@ -4,6 +4,7 @@
 
 import { nanoid } from 'nanoid';
 import type { Run, RunEvent, RunStatus, TokenUsage } from '../domain/run.js';
+import type { PersistedFailure } from '../domain/errors.js';
 import type { IRunStore } from '../infrastructure/storage/interfaces.js';
 import type { EventBus } from './event-bus.js';
 import { sanitizeText } from '../infrastructure/security/redaction.js';
@@ -64,6 +65,7 @@ export class RunService {
     status: RunStatus,
     tokens?: TokenUsage,
     error?: string,
+    failure?: PersistedFailure,
   ): Promise<Run> {
     const run = await this.runStore.get(id);
     if (!run) throw new Error(`Run not found: ${id}`);
@@ -72,6 +74,7 @@ export class RunService {
     run.finished_at = new Date().toISOString();
     run.tokens = tokens;
     run.error = error === undefined ? undefined : sanitizeText(error);
+    run.failure = failure;
     await this.runStore.save(run);
 
     this.eventBus.emit({

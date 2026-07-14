@@ -9,7 +9,7 @@ import fs from 'node:fs/promises';
 import { constants as fsConstants, createReadStream, createWriteStream } from 'node:fs';
 import path from 'node:path';
 import { nanoid } from 'nanoid';
-import type { Task, CreateTaskInput, TaskStatus } from '../domain/task.js';
+import { GOAL_LEAD_LABEL, GOAL_REVIEW_LABEL, type Task, type CreateTaskInput, type TaskStatus } from '../domain/task.js';
 import { canTransition, isTerminal } from '../domain/transitions.js';
 import {
   TaskNotFoundError,
@@ -55,7 +55,23 @@ export class TaskService {
 
     const assignee = await this.resolveAssignee(input.assignee);
 
+    if (input.goalTaskRole !== undefined && !['lead_analysis', 'worker', 'lead_review'].includes(input.goalTaskRole)) {
+      throw new InvalidArgumentsError('Goal role must be "worker"');
+    }
+
+    if ((input.goalTaskRole === 'lead_analysis' || input.goalTaskRole === 'lead_review') && input.systemGenerated !== true) {
+      throw new InvalidArgumentsError('Lead goal roles are internal orchestration roles and cannot be set manually');
+    }
+
     const now = new Date().toISOString();
+    const labels = input.labels ? [...input.labels] : [];
+    if (input.goalTaskRole === 'lead_analysis' && !labels.includes(GOAL_LEAD_LABEL)) {
+      labels.push(GOAL_LEAD_LABEL);
+    }
+    if (input.goalTaskRole === 'lead_review' && !labels.includes(GOAL_REVIEW_LABEL)) {
+      labels.push(GOAL_REVIEW_LABEL);
+    }
+
     const task: Task = {
       id: `tsk_${nanoid(7)}`,
       title: input.title.trim(),
@@ -63,7 +79,7 @@ export class TaskService {
       status: 'todo',
       priority,
       assignee,
-      labels: input.labels ?? [],
+      labels,
       depends_on: input.depends_on ?? [],
       created_at: now,
       updated_at: now,
@@ -73,6 +89,8 @@ export class TaskService {
       review_criteria: input.review_criteria,
       scope: input.scope,
       goalId: input.goalId,
+      goalTaskRole: input.goalTaskRole,
+      goalCycle: input.goalCycle,
     };
 
     if (input.attachments?.length && this.paths) {
@@ -153,6 +171,7 @@ export class TaskService {
     const oldStatus = task.status;
     task.status = 'todo';
     task.attempts = 0;
+    task.last_error = undefined;
     task.updated_at = new Date().toISOString();
     await this.taskStore.save(task);
 

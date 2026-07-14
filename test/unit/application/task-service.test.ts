@@ -87,6 +87,22 @@ describe('TaskService', () => {
       expect(task.description).toBe('desc');
     });
 
+    it('rejects manual creation of internal lead goal roles', async () => {
+      await expect(service.create({
+        title: 'Escalate',
+        goalId: 'goal_1',
+        goalTaskRole: 'lead_review',
+      })).rejects.toThrow(InvalidArgumentsError);
+    });
+
+    it('rejects invalid goal roles', async () => {
+      await expect(service.create({
+        title: 'Invalid role',
+        goalId: 'goal_1',
+        goalTaskRole: 'lead' as any,
+      })).rejects.toThrow('Goal role must be "worker"');
+    });
+
     describe('depends_on validation', () => {
       it('throws InvalidArgumentsError for unknown single task ID', async () => {
         await expect(

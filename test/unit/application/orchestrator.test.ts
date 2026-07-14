@@ -9,9 +9,11 @@ import { LockConflictError } from '../../../src/domain/errors.js';
 import {
   makeTask,
   makeAgent,
+  makeGoal,
   makeRun,
   createMockTaskStore,
   createMockAgentStore,
+  createMockGoalStore,
   createMockRunStore,
   createMockStateStore,
   createMockProcessManager,
@@ -227,6 +229,165 @@ describe('Orchestrator', () => {
       expect(acquireLock).toHaveBeenCalled();
       expect(releaseLock).toHaveBeenCalled();
       expect(orchestrator.isOwner).toBe(false);
+    });
+  });
+
+  describe('lead-first goal orchestration', () => {
+    it('creates a lead analysis task before worker tasks can run', async () => {
+      const lead = makeAgent({ id: 'agt_lead', name: 'Architect', autonomous: true, status: 'idle' });
+      const worker = makeAgent({ id: 'agt_worker', name: 'Full Stack', autonomous: true, status: 'idle' });
+      const goal = makeGoal({ id: 'goal_1', assignee: 'agt_lead' });
+      const taskStore = createMockTaskStore([]);
+      const agentStore = createMockAgentStore([lead, worker]);
+      const goalStore = createMockGoalStore([goal]);
+
+      deps = buildDeps({ taskStore, agentStore, goalStore });
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+      await waitFor(async () => (await taskStore.list({ goalId: 'goal_1' })).length === 1);
+
+      const tasks = await taskStore.list({ goalId: 'goal_1' });
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0]).toMatchObject({
+        assignee: 'agt_lead',
+        goalTaskRole: 'lead_analysis',
+        goalCycle: 1,
+      });
+      expect(['todo', 'in_progress']).toContain(tasks[0]!.status);
+      expect(tasks[0]!.labels).toContain('goal-lead');
+      expect((await goalStore.get('goal_1'))?.orchestration?.phase).toBe('lead_analyzing');
+    });
+
+    it('blocks worker goal tasks until lead analysis is done', async () => {
+      const leadTask = makeTask({
+        id: 'tsk_lead',
+        goalId: 'goal_1',
+        goalTaskRole: 'lead_analysis',
+        goalCycle: 1,
+        status: 'todo',
+        assignee: 'agt_lead',
+      });
+      const workerTask = makeTask({
+        id: 'tsk_worker',
+        goalId: 'goal_1',
+        status: 'todo',
+        assignee: 'agt_worker',
+      });
+      const goal = makeGoal({
+        id: 'goal_1',
+        assignee: 'agt_lead',
+        orchestration: {
+          enabled: true,
+          phase: 'lead_analyzing',
+          cycle: 1,
+          lead_agent_id: 'agt_lead',
+          last_lead_task_id: 'tsk_lead',
+        },
+      });
+      const taskStore = createMockTaskStore([leadTask, workerTask]);
+      const agentStore = createMockAgentStore([
+        makeAgent({ id: 'agt_lead', status: 'idle' }),
+        makeAgent({ id: 'agt_worker', status: 'idle' }),
+      ]);
+      const goalStore = createMockGoalStore([goal]);
+      const adapterRegistry = new AdapterRegistry();
+      adapterRegistry.register(createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'planned' } },
+      ]));
+
+      deps = buildDeps({ taskStore, agentStore, goalStore, adapterRegistry });
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.runAll();
+      await waitFor(async () => (await taskStore.get('tsk_lead'))?.status === 'done');
+
+      expect((await taskStore.get('tsk_worker'))?.status).toBe('todo');
+      expect(await deps.runStore.listAll()).toHaveLength(1);
+    });
+
+    it('records a visible error instead of letting workers claim an unassigned goal', async () => {
+      const worker = makeAgent({ id: 'agt_worker', name: 'Worker', autonomous: true, status: 'idle' });
+      const goal = makeGoal({ id: 'goal_1' });
+      const taskStore = createMockTaskStore([]);
+      const agentStore = createMockAgentStore([worker]);
+      const goalStore = createMockGoalStore([goal]);
+
+      deps = buildDeps({ taskStore, agentStore, goalStore });
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+      await waitFor(async () => !!(await goalStore.get('goal_1'))?.last_error);
+
+      expect(await taskStore.list({ goalId: 'goal_1' })).toHaveLength(0);
+      expect((await goalStore.get('goal_1'))?.last_error?.message).toContain('needs a lead agent');
+    });
+
+    it('blocks direct runTask of worker tasks before lead analysis completes', async () => {
+      const workerTask = makeTask({
+        id: 'tsk_worker',
+        goalId: 'goal_1',
+        status: 'todo',
+        assignee: 'agt_worker',
+      });
+      const goal = makeGoal({
+        id: 'goal_1',
+        assignee: 'agt_lead',
+        orchestration: {
+          enabled: true,
+          phase: 'lead_analyzing',
+          cycle: 1,
+          lead_agent_id: 'agt_lead',
+        },
+      });
+      const taskStore = createMockTaskStore([workerTask]);
+      const agentStore = createMockAgentStore([makeAgent({ id: 'agt_worker', status: 'idle' })]);
+      const goalStore = createMockGoalStore([goal]);
+      const adapterRegistry = new AdapterRegistry();
+      adapterRegistry.register(createMockAdapter([
+        { type: 'done', timestamp: new Date().toISOString(), data: { result: 'should not run' } },
+      ]));
+
+      deps = buildDeps({ taskStore, agentStore, goalStore, adapterRegistry });
+      orchestrator = new Orchestrator(deps);
+
+      await orchestrator.runTask('tsk_worker').catch(() => {});
+
+      expect((await taskStore.get('tsk_worker'))?.status).toBe('failed');
+      expect(await deps.runStore.listAll()).toHaveLength(0);
+      expect((await taskStore.get('tsk_worker'))?.last_error?.message).toContain('blocked by goal orchestration phase');
+    });
+
+    it('does not advance a goal when lead analysis fails', async () => {
+      const failedLead = makeTask({
+        id: 'tsk_lead',
+        goalId: 'goal_1',
+        goalTaskRole: 'lead_analysis',
+        goalCycle: 1,
+        status: 'failed',
+        assignee: 'agt_lead',
+      });
+      const workerTask = makeTask({ id: 'tsk_worker', goalId: 'goal_1', status: 'todo', assignee: 'agt_worker' });
+      const goal = makeGoal({
+        id: 'goal_1',
+        assignee: 'agt_lead',
+        orchestration: {
+          enabled: true,
+          phase: 'lead_analyzing',
+          cycle: 1,
+          lead_agent_id: 'agt_lead',
+          last_lead_task_id: 'tsk_lead',
+        },
+      });
+      const taskStore = createMockTaskStore([failedLead, workerTask]);
+      const goalStore = createMockGoalStore([goal]);
+
+      deps = buildDeps({ taskStore, goalStore });
+      orchestrator = new Orchestrator(deps);
+      await orchestrator.startWatch();
+      await waitFor(async () => !!(await goalStore.get('goal_1'))?.last_error);
+
+      const savedGoal = await goalStore.get('goal_1');
+      expect(savedGoal?.orchestration?.phase).toBe('lead_analyzing');
+      expect(savedGoal?.last_error?.message).toContain('ended with status failed');
+      expect((await taskStore.get('tsk_worker'))?.status).toBe('todo');
     });
   });
 

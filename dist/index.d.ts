@@ -1,12 +1,78 @@
 import { SpawnOptions, ChildProcess } from 'node:child_process';
 
 /**
+ * Typed error hierarchy for the orchestrator.
+ *
+ * Every error carries an exit code (matching CLI_UI_DESIGN.md §11)
+ * and an optional hint for the user.
+ *
+ * Exit codes:
+ *   0 - Success
+ *   1 - General error
+ *   2 - Invalid arguments
+ *   3 - Not initialized (.orchestry/ not found)
+ *   4 - Lock conflict (orchestrator already running)
+ *   5 - Agent error (adapter test failed)
+ */
+declare class OrchestryError extends Error {
+    readonly exitCode: number;
+    readonly hint?: string | undefined;
+    constructor(message: string, exitCode: number, hint?: string | undefined);
+}
+declare class NotInitializedError extends OrchestryError {
+    constructor();
+}
+declare class TaskNotFoundError extends OrchestryError {
+    constructor(taskId: string);
+}
+declare class AgentNotFoundError extends OrchestryError {
+    constructor(agentId: string);
+}
+declare class GoalHasPendingTasksError extends OrchestryError {
+    constructor(goalId: string, count: number, summary: string);
+}
+declare class WorkspaceError extends OrchestryError {
+    constructor(message: string, hint?: string);
+}
+declare enum AdapterErrorKind {
+    ADAPTER_NOT_FOUND = "adapter_not_found",
+    AUTH_FAILED = "auth_failed",
+    TIMEOUT = "timeout",
+    RATE_LIMIT = "rate_limit",
+    PROCESS_CRASH = "process_crash",
+    SPAWN_FAILED = "spawn_failed",
+    UNKNOWN = "unknown"
+}
+type FailurePhase = 'pre_run' | 'lead_plan_validation' | 'worker' | 'goal' | 'review' | 'orchestrator';
+interface PersistedFailure {
+    message: string;
+    phase: FailurePhase;
+    at: string;
+    context?: string;
+    retryable?: boolean;
+    runId?: string;
+    taskId?: string;
+    goalId?: string;
+    agentId?: string;
+    errorKind?: AdapterErrorKind;
+}
+interface AdapterErrorHint {
+    message: string;
+    fix: string;
+    doctorHint?: boolean;
+}
+declare const ERROR_HINTS: Record<AdapterErrorKind, AdapterErrorHint>;
+declare function classifyAdapterError(error: string, exitCode?: number): AdapterErrorKind;
+
+/**
  * Task domain model.
  *
  * A Task is the unit of work in the orchestrator.
  * It moves through a state machine: todo → in_progress → review → done.
  */
+
 type TaskStatus = 'todo' | 'in_progress' | 'retrying' | 'review' | 'done' | 'failed' | 'cancelled';
+type GoalTaskRole = 'lead_analysis' | 'worker' | 'lead_review';
 type WorkspaceMode = 'shared' | 'worktree' | 'isolated';
 type ReviewCriterion = 'test_pass' | 'typecheck' | 'lint';
 interface ReviewResult {
@@ -42,7 +108,10 @@ interface Task {
     scope?: string[];
     feedback?: string;
     goalId?: string;
+    goalTaskRole?: GoalTaskRole;
+    goalCycle?: number;
     attachments?: string[];
+    last_error?: PersistedFailure;
 }
 interface CreateTaskInput {
     title: string;
@@ -56,6 +125,9 @@ interface CreateTaskInput {
     review_criteria?: ReviewCriterion[];
     scope?: string[];
     goalId?: string;
+    goalTaskRole?: GoalTaskRole;
+    goalCycle?: number;
+    systemGenerated?: boolean;
     attachments?: string[];
 }
 
@@ -128,6 +200,7 @@ interface CreateAgentInput {
  * A Run represents a single execution attempt of a Task by an Agent.
  * Events are stored in separate .jsonl files (append-only), not in memory.
  */
+
 type RunStatus = 'preparing' | 'running' | 'succeeded' | 'failed' | 'timed_out' | 'cancelled';
 interface Run {
     id: string;
@@ -141,6 +214,7 @@ interface Run {
     prompt?: string;
     pid?: number;
     error?: string;
+    failure?: PersistedFailure;
     tokens?: TokenUsage;
 }
 interface TokenUsage {
@@ -254,57 +328,6 @@ interface OrchestratorState {
 }
 
 /**
- * Typed error hierarchy for the orchestrator.
- *
- * Every error carries an exit code (matching CLI_UI_DESIGN.md §11)
- * and an optional hint for the user.
- *
- * Exit codes:
- *   0 - Success
- *   1 - General error
- *   2 - Invalid arguments
- *   3 - Not initialized (.orchestry/ not found)
- *   4 - Lock conflict (orchestrator already running)
- *   5 - Agent error (adapter test failed)
- */
-declare class OrchestryError extends Error {
-    readonly exitCode: number;
-    readonly hint?: string | undefined;
-    constructor(message: string, exitCode: number, hint?: string | undefined);
-}
-declare class NotInitializedError extends OrchestryError {
-    constructor();
-}
-declare class TaskNotFoundError extends OrchestryError {
-    constructor(taskId: string);
-}
-declare class AgentNotFoundError extends OrchestryError {
-    constructor(agentId: string);
-}
-declare class GoalHasPendingTasksError extends OrchestryError {
-    constructor(goalId: string, count: number, summary: string);
-}
-declare class WorkspaceError extends OrchestryError {
-    constructor(message: string, hint?: string);
-}
-declare enum AdapterErrorKind {
-    ADAPTER_NOT_FOUND = "adapter_not_found",
-    AUTH_FAILED = "auth_failed",
-    TIMEOUT = "timeout",
-    RATE_LIMIT = "rate_limit",
-    PROCESS_CRASH = "process_crash",
-    SPAWN_FAILED = "spawn_failed",
-    UNKNOWN = "unknown"
-}
-interface AdapterErrorHint {
-    message: string;
-    fix: string;
-    doctorHint?: boolean;
-}
-declare const ERROR_HINTS: Record<AdapterErrorKind, AdapterErrorHint>;
-declare function classifyAdapterError(error: string, exitCode?: number): AdapterErrorKind;
-
-/**
  * Goal domain model.
  *
  * A Goal is a persistent objective that drives autonomous agent work.
@@ -316,14 +339,27 @@ declare function classifyAdapterError(error: string, exitCode?: number): Adapter
  */
 declare const GOAL_STATUSES: readonly ["active", "paused", "achieved", "abandoned"];
 type GoalStatus = (typeof GOAL_STATUSES)[number];
+
 interface Goal {
     id: string;
     title: string;
     description: string;
     status: GoalStatus;
     assignee?: string;
+    orchestration?: GoalOrchestrationState;
+    last_error?: PersistedFailure;
     created_at: string;
     updated_at?: string;
+}
+type GoalOrchestrationPhase = 'needs_analysis' | 'lead_analyzing' | 'workers_running' | 'lead_reviewing' | 'paused' | 'closed';
+interface GoalOrchestrationState {
+    enabled: boolean;
+    phase: GoalOrchestrationPhase;
+    cycle: number;
+    lead_agent_id?: string;
+    last_lead_task_id?: string;
+    last_review_task_id?: string;
+    last_transition_at?: string;
 }
 interface CreateGoalInput {
     title: string;
@@ -381,6 +417,16 @@ type OrchestratorEvent = {
     taskId: string;
     passed: boolean;
     results: ReviewResult[];
+} | {
+    type: 'task:error';
+    taskId: string;
+    error: string;
+    phase: FailurePhase;
+    runId?: string;
+    agentId?: string;
+    goalId?: string;
+    errorKind?: AdapterErrorKind;
+    retryable?: boolean;
 } | {
     type: 'agent:started';
     agentId: string;
@@ -498,6 +544,27 @@ type OrchestratorEvent = {
     goalId: string;
     from: GoalStatus;
     to: GoalStatus;
+} | {
+    type: 'goal:phase_changed';
+    goalId: string;
+    from: GoalOrchestrationPhase;
+    to: GoalOrchestrationPhase;
+    cycle: number;
+} | {
+    type: 'goal:lead_task_created';
+    goalId: string;
+    taskId: string;
+    cycle: number;
+    role: 'lead_analysis' | 'lead_review';
+} | {
+    type: 'goal:error';
+    goalId: string;
+    error: string;
+    phase: FailurePhase;
+    taskId?: string;
+    runId?: string;
+    agentId?: string;
+    retryable?: boolean;
 } | {
     type: 'goal:updated';
     goalId: string;
@@ -955,7 +1022,7 @@ declare class RunService {
     }): Promise<Run>;
     get(id: string): Promise<Run | null>;
     start(id: string, pid: number): Promise<Run>;
-    finish(id: string, status: RunStatus, tokens?: TokenUsage, error?: string): Promise<Run>;
+    finish(id: string, status: RunStatus, tokens?: TokenUsage, error?: string, failure?: PersistedFailure): Promise<Run>;
     appendEvent(runId: string, event: RunEvent): Promise<void>;
     listAll(): Promise<Run[]>;
     listForTask(taskId: string): Promise<Run[]>;
@@ -1182,6 +1249,8 @@ interface PromptContext {
         scope?: string[];
         is_autonomous: boolean;
         goal_id?: string;
+        goal_task_role?: GoalTaskRole;
+        goal_cycle?: number;
     };
     agent: {
         id: string;
@@ -1378,13 +1447,9 @@ declare class Orchestrator {
      * Reconcile: check PID liveness, detect stalls, process retry queue.
      */
     private reconcile;
-    /**
-     * Create tasks for autonomous agents that have no active work.
-     *
-     * Priority: active Goals assigned to the agent come first.
-     * If no goals, falls back to role-based autonomous work.
-     */
+    /** Create lead/review tasks for orchestrated goals, then legacy role-based autonomous work. */
     private seedAutonomousTasks;
+    private seedGoalOrchestrationTasks;
     /**
      * Dispatch all dispatchable tasks up to max_concurrent_agents.
      */
@@ -1400,6 +1465,22 @@ declare class Orchestrator {
     private dispatchOnlyTask;
     /** Dedup + bounded push onto the retry queue. */
     private enqueueRetry;
+    private ensureGoalOrchestration;
+    private getGoalLeadAgentId;
+    private hasOpenGoalTask;
+    private isGoalWorkerTask;
+    private hasNonTerminalWorkerTasks;
+    private hasDispatchableWorkerTasks;
+    private saveGoalPhase;
+    private createGoalLeadTask;
+    private buildLeadAnalysisDescription;
+    private buildLeadReviewDescription;
+    private isAllowedByGoalPhase;
+    private isTaskAllowedByCurrentGoalPhase;
+    private makeFailure;
+    private recordTaskFailure;
+    private recordGoalFailure;
+    private handlePreRunFailure;
     /**
      * When a task permanently fails, cascade-fail all tasks that depend on it
      * (directly or transitively). Prevents dependent tasks from hanging as TODO forever.
@@ -1578,6 +1659,7 @@ declare class GoalService {
     getProgressReport(goalId: string): Promise<string | undefined>;
     /** Enable autonomous mode on an agent. */
     private enableAutonomous;
+    private recordGoalFailure;
     /** Check if an agent has at least one active goal. */
     private hasActiveGoalsForAgent;
     /** Cancel dispatchable (todo/retrying) autonomous tasks assigned to the agent. */
@@ -1700,4 +1782,4 @@ declare function buildFullContainer(context: CliContext): Promise<Container>;
  */
 declare function buildContainer(context: CliContext): Promise<Container>;
 
-export { AGENT_SHOP_TEMPLATES, type AdapterErrorHint, AdapterErrorKind, type AdapterKind, AdapterRegistry, type AdapterTestResult, type Agent, type AgentConfig, type AgentEvent, type AgentLastError, AgentNotFoundError, AgentService, type AgentShopTemplate, type AgentStats, type AgentStatus, type ApprovalPolicy, type ClipboardContentType, type ClipboardImage, type Container, type CreateAgentInput, type CreateTaskInput, ERROR_HINTS, EventBus, type EventPayload, type ExecuteParams, GoalHasPendingTasksError, type IAgentAdapter, type ISkillLoader, type LightContainer, MODEL_TIER_MAP, type ModelTier, NotInitializedError, Orchestrator, type OrchestratorConfig, type OrchestratorEvent, type OrchestratorEventType, type OrchestratorState, OrchestryError, type ProjectConfig, type ReasoningEffort, type RetryEntry, type Run, type RunEvent, type RunEventType, RunService, type RunStatus, type RunningEntry, SUPPORTED_ADAPTERS, type SchedulingConfig, SkillLoader, type Task, TaskNotFoundError, type TaskProof, TaskService, type TaskStatus, type TokenUsage, WorkspaceError, type WorkspaceMode, buildContainer, buildFullContainer, buildLightContainer, canTransition, classifyAdapterError, createTokenUsage, defaultModelForAdapter, detectClipboardType, getClipboardImage, getShopTemplateByKey, isAdapterKind, isBlocked, isClipboardToolAvailable, isDispatchable, isMcpSkill, isModelTier, isTerminal, resolveFailureStatus, resolveModel, templateToAgentInput };
+export { AGENT_SHOP_TEMPLATES, type AdapterErrorHint, AdapterErrorKind, type AdapterKind, AdapterRegistry, type AdapterTestResult, type Agent, type AgentConfig, type AgentEvent, type AgentLastError, AgentNotFoundError, AgentService, type AgentShopTemplate, type AgentStats, type AgentStatus, type ApprovalPolicy, type ClipboardContentType, type ClipboardImage, type Container, type CreateAgentInput, type CreateGoalInput, type CreateTaskInput, ERROR_HINTS, EventBus, type EventPayload, type ExecuteParams, type FailurePhase, type Goal, GoalHasPendingTasksError, type GoalOrchestrationPhase, type GoalOrchestrationState, type GoalStatus, type GoalTaskRole, type IAgentAdapter, type ISkillLoader, type LightContainer, MODEL_TIER_MAP, type ModelTier, NotInitializedError, Orchestrator, type OrchestratorConfig, type OrchestratorEvent, type OrchestratorEventType, type OrchestratorState, OrchestryError, type PersistedFailure, type ProjectConfig, type ReasoningEffort, type RetryEntry, type Run, type RunEvent, type RunEventType, RunService, type RunStatus, type RunningEntry, SUPPORTED_ADAPTERS, type SchedulingConfig, SkillLoader, type Task, TaskNotFoundError, type TaskProof, TaskService, type TaskStatus, type TokenUsage, WorkspaceError, type WorkspaceMode, buildContainer, buildFullContainer, buildLightContainer, canTransition, classifyAdapterError, createTokenUsage, defaultModelForAdapter, detectClipboardType, getClipboardImage, getShopTemplateByKey, isAdapterKind, isBlocked, isClipboardToolAvailable, isDispatchable, isMcpSkill, isModelTier, isTerminal, resolveFailureStatus, resolveModel, templateToAgentInput };

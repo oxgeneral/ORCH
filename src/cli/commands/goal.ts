@@ -102,11 +102,23 @@ export function registerGoalCommand(program: Command, container: LightContainer)
         ['ID', g.id],
         ['Title', g.title],
         ['Status', g.status],
-        ['Assignee', g.assignee ?? dim('any')],
+        ['Lead', g.orchestration?.lead_agent_id ?? g.assignee ?? dim('unassigned')],
+        ['Phase', g.orchestration ? `${g.orchestration.phase} · cycle ${g.orchestration.cycle}` : dim('legacy')],
         ['Description', g.description || dim('none')],
         ['Created', g.created_at],
         ['Updated', g.updated_at ?? dim('never')],
       ]);
+
+      if (g.last_error) {
+        console.log(`\n  Last Error\n  ${'─'.repeat(42)}`);
+        console.log(`  Phase:   ${g.last_error.phase}`);
+        console.log(`  Time:    ${g.last_error.at}`);
+        if (g.last_error.taskId) console.log(`  Task:    ${g.last_error.taskId}`);
+        if (g.last_error.runId) console.log(`  Run:     ${g.last_error.runId}`);
+        for (const line of g.last_error.message.split('\n')) {
+          console.log(`  ${line}`);
+        }
+      }
 
       if (tasks.length > 0) {
         console.log(`\n  Tasks (${tasks.length})\n  ${'─'.repeat(42)}`);

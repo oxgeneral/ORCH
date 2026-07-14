@@ -19,6 +19,7 @@ import type { IGoalStore, IContextStore } from '../infrastructure/storage/interf
 import type { EventBus } from './event-bus.js';
 import type { AgentService } from './agent-service.js';
 import type { TaskService } from './task-service.js';
+import { sanitizeText } from '../infrastructure/security/redaction.js';
 
 const VALID_TRANSITIONS: Record<GoalStatus, GoalStatus[]> = {
   active: ['paused', 'achieved', 'abandoned'],
@@ -48,6 +49,13 @@ export class GoalService {
       description: input.description?.trim() ?? '',
       status: 'active',
       assignee: input.assignee,
+      orchestration: {
+        enabled: true,
+        phase: 'needs_analysis',
+        cycle: 1,
+        lead_agent_id: input.assignee,
+        last_transition_at: now,
+      },
       created_at: now,
       updated_at: now,
     };
@@ -77,9 +85,9 @@ export class GoalService {
     const oldStatus = goal.status;
 
     if (!VALID_TRANSITIONS[oldStatus].includes(newStatus)) {
-      throw new InvalidArgumentsError(
-        `Cannot transition goal from '${oldStatus}' to '${newStatus}'`,
-      );
+      const err = new InvalidArgumentsError(`Cannot transition goal from '${oldStatus}' to '${newStatus}'`);
+      await this.recordGoalFailure(goal, err.message, 'status transition');
+      throw err;
     }
 
     // Guard: block achieved if child tasks are still pending.
@@ -101,20 +109,44 @@ export class GoalService {
           );
           if (running.length > 0) {
             const summary = running.map((t) => `${t.id} (in_progress)`).join(', ');
-            throw new GoalHasPendingTasksError(id, running.length, summary);
+            const err = new GoalHasPendingTasksError(id, running.length, summary);
+            await this.recordGoalFailure(goal, err.message, 'force achieved blocked by running tasks');
+            throw err;
           }
         } else {
           const summary = pending.map((t) => `${t.id} (${t.status})`).join(', ');
-          throw new GoalHasPendingTasksError(id, pending.length, summary);
+          const err = new GoalHasPendingTasksError(id, pending.length, summary);
+          await this.recordGoalFailure(goal, err.message, 'achieved blocked by pending tasks');
+          throw err;
         }
       }
     }
 
     goal.status = newStatus;
+    const oldPhase = goal.orchestration?.phase;
+    if (goal.orchestration) {
+      if (newStatus === 'paused') {
+        goal.orchestration.phase = 'paused';
+      } else if (newStatus === 'active' && oldStatus === 'paused') {
+        goal.orchestration.phase = 'needs_analysis';
+      } else if (isGoalTerminal(newStatus)) {
+        goal.orchestration.phase = 'closed';
+      }
+      goal.orchestration.last_transition_at = new Date().toISOString();
+    }
     goal.updated_at = new Date().toISOString();
     await this.goalStore.save(goal);
 
     this.eventBus.emit({ type: 'goal:status_changed', goalId: id, from: oldStatus, to: newStatus });
+    if (oldPhase && goal.orchestration && oldPhase !== goal.orchestration.phase) {
+      this.eventBus.emit({
+        type: 'goal:phase_changed',
+        goalId: id,
+        from: oldPhase,
+        to: goal.orchestration.phase,
+        cycle: goal.orchestration.cycle,
+      });
+    }
 
     if (goal.assignee) {
       if (newStatus === 'paused') {
@@ -143,6 +175,10 @@ export class GoalService {
     }
     if (fields.description !== undefined) goal.description = fields.description.trim();
     if (fields.assignee !== undefined) goal.assignee = fields.assignee || undefined;
+    if (fields.assignee !== undefined && goal.orchestration?.enabled) {
+      goal.orchestration.lead_agent_id = goal.assignee;
+      goal.orchestration.last_transition_at = new Date().toISOString();
+    }
 
     goal.updated_at = new Date().toISOString();
     await this.goalStore.save(goal);
@@ -189,6 +225,27 @@ export class GoalService {
     } catch {
       // Agent may not exist — ignore silently
     }
+  }
+
+  private async recordGoalFailure(goal: Goal, message: string, context: string): Promise<void> {
+    const failure = {
+      message: sanitizeText(message).slice(0, 1000),
+      phase: 'goal' as const,
+      at: new Date().toISOString(),
+      context,
+      goalId: goal.id,
+      retryable: true,
+    };
+    goal.last_error = failure;
+    goal.updated_at = failure.at;
+    await this.goalStore.save(goal).catch(() => {});
+    this.eventBus.emit({
+      type: 'goal:error',
+      goalId: goal.id,
+      error: failure.message,
+      phase: failure.phase,
+      retryable: failure.retryable,
+    });
   }
 
   /** Check if an agent has at least one active goal. */

@@ -110,6 +110,21 @@ describe('GoalService autonomous mode side effects', () => {
       expect(agentService.setAutonomous).toHaveBeenCalledWith('agt_001', true);
     });
 
+    it('initializes orchestration state with assignee as lead', async () => {
+      const goalStore = createMockGoalStore();
+      const agentService = createMockAgentService();
+      const svc = new GoalService(goalStore, eventBus, agentService as any);
+
+      const goal = await svc.create({ title: 'Goal A', assignee: 'agt_001' });
+
+      expect(goal.orchestration).toMatchObject({
+        enabled: true,
+        phase: 'needs_analysis',
+        cycle: 1,
+        lead_agent_id: 'agt_001',
+      });
+    });
+
     it('does not call enableAutonomous when goal is created without assignee', async () => {
       const goalStore = createMockGoalStore();
       const agentService = createMockAgentService();
@@ -311,6 +326,7 @@ describe('GoalService autonomous mode side effects', () => {
 
       await expect(svc.updateStatus('goal_pend1', 'achieved'))
         .rejects.toThrow(GoalHasPendingTasksError);
+      expect((await goalStore.get('goal_pend1'))?.last_error?.phase).toBe('goal');
     });
 
     it('throws when in_progress tasks exist for the goal', async () => {
