@@ -1222,6 +1222,34 @@ describe('App', () => {
     // Agent name shown as chip in logs view
     expect(output).toContain('backend');
   });
+
+  it('clears activity and logs with K', async () => {
+    const agents = [makeAgent({ id: 'agt-1', name: 'backend' })];
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let eventHandler: ((event: any) => void) | null = null;
+    const onSubscribeEvents = (handler: (event: any) => void) => {
+      eventHandler = handler;
+      return () => { eventHandler = null; };
+    };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], agents, state, onSubscribeEvents }),
+    );
+
+    eventHandler!({ type: 'agent:started', agentId: 'agt-1', taskId: 't1', runId: 'r1' });
+    eventHandler!({ type: 'agent:completed', agentId: 'agt-1', runId: 'r1', success: false });
+    await delay(50);
+    stdin.write('l');
+    await delay(50);
+    expect(lastFrame()!).toContain('Run failed: r1');
+    expect(lastFrame()!).toContain('K clear');
+
+    stdin.write('K');
+    await delay(50);
+    const output = lastFrame()!;
+    expect(output).toContain('Activity cleared');
+    expect(output).not.toContain('Run failed: r1');
+    expect(output).not.toContain('Started task');
+  });
 });
 
 /* ── Command Bar: Tab Completion ─────────────────────── */

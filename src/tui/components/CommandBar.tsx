@@ -32,6 +32,7 @@ export interface CommandBarProps {
   isPaused?: boolean;
   canToggleShowAll?: boolean;
   showAllActive?: boolean;
+  canClearLogs?: boolean;
   hasDetail: boolean;
   itemCount: number;
   itemLabel: string;
@@ -41,7 +42,7 @@ export interface CommandBarProps {
 }
 
 export const CommandBar = React.memo(function CommandBar({
-  mode, value, completion, activeView, canRun, canNew, canApprove, canReject, canCancel, canDelete, canUndo, canEdit, canForceStop, canToggleAuto, autoActive, canPause, isPaused, canToggleShowAll, showAllActive, hasDetail,
+  mode, value, completion, activeView, canRun, canNew, canApprove, canReject, canCancel, canDelete, canUndo, canEdit, canForceStop, canToggleAuto, autoActive, canPause, isPaused, canToggleShowAll, showAllActive, canClearLogs, hasDetail,
   itemCount, itemLabel, width, hasSuggestions, onboardingCompleted,
 }: CommandBarProps) {
   if (mode === 'command') {
@@ -158,6 +159,13 @@ export const CommandBar = React.memo(function CommandBar({
             {'  '}
             <Text bold color={tuiColors.yellow}>Z</Text>
             {' undo'}
+          </>
+        )}
+        {canClearLogs && (
+          <>
+            {'  '}
+            <Text bold color={tuiColors.red}>K</Text>
+            {' clear'}
           </>
         )}
         {hasDetail && (

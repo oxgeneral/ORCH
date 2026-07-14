@@ -726,6 +726,18 @@ export function App({
     }
   }, [flushMessages]);
 
+  const clearActivityFeed = useCallback(() => {
+    if (flushTimer.current) {
+      clearTimeout(flushTimer.current);
+      flushTimer.current = null;
+    }
+    pendingMessages.current = [];
+    setMessages([]);
+    setLogSelectedIndex(-1);
+    setLogScrollOffset(0);
+    addMessage('Activity cleared. New events will appear here.', tuiColors.dim, { msgType: 'system' });
+  }, [addMessage]);
+
   // Show watch mode error or observer mode info on mount
   useEffect(() => {
     if (observerMode) {
@@ -1952,6 +1964,11 @@ export function App({
       return;
     }
 
+    if ((input === 'k' || input === 'K') && messages.length > 0 && !detailOpen && !showAgentPicker && !showTypePicker) {
+      clearActivityFeed();
+      return;
+    }
+
     // Z or Ctrl+Z: undo last pending deletion
     if ((input === 'z' || input === 'Z') && pendingDeletions.length > 0) {
       undoLastDeletion();
@@ -2586,6 +2603,7 @@ export function App({
         isPaused={selectedGoal?.status === 'paused'}
         canToggleShowAll={activeView === 'tasks' && sortedTasks.length > TASK_LIST_LIMIT}
         showAllActive={showAllTasks}
+        canClearLogs={messages.length > 0 && !detailOpen}
         hasDetail={!!(showTaskDetail || showAgentDetail || showGoalDetail)}
         itemCount={activeView === 'goals' ? sortedGoals.length : activeView === 'tasks' ? sortedTasks.length : activeView === 'agents' ? liveAgents.length : messages.length}
         itemLabel={activeView === 'goals' ? 'goals' : activeView === 'tasks' ? 'tasks' : activeView === 'agents' ? 'agents' : 'events'}
@@ -4124,9 +4142,14 @@ function formatEvent(
       break;
     case 'agent:completed':
       addMsg(
-        event.success ? 'Completed successfully' : 'Failed',
+        event.success ? 'Completed successfully' : `Run failed: ${event.runId}`,
         event.success ? tuiColors.green : tuiColors.red,
-        { agentId: event.agentId, taskId: resolveTask(event.runId), msgType: 'lifecycle' },
+        {
+          agentId: event.agentId,
+          taskId: resolveTask(event.runId),
+          detail: event.success ? undefined : `Run ${event.runId} failed. Select the related error entry or run: orch logs ${event.runId}`,
+          msgType: event.success ? 'lifecycle' : 'error',
+        },
       );
       break;
     case 'agent:error':
