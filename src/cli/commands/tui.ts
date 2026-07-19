@@ -29,6 +29,16 @@ export function registerTuiCommand(program: Command, container: Container): void
         await container.orchestrator.runTask(taskId);
       };
 
+      const onCloneTask = async (taskId: string) => {
+        const cloned = await container.taskService.clone(taskId);
+        await container.orchestrator.runTask(cloned.id).catch((dispatchErr) => {
+          const msg = dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr);
+          // Attach cloned task so App can show "cloned but dispatch failed" vs "clone itself failed"
+          throw Object.assign(new Error(msg), { cloned });
+        });
+        return cloned;
+      };
+
       const onCreateTask = async (title: string, opts?: { priority?: number; description?: string; attachments?: string[] }) => {
         return container.taskService.create({
           title,
@@ -271,6 +281,7 @@ export function registerTuiCommand(program: Command, container: Container): void
           agents,
           state,
           onRunTask,
+          onCloneTask,
           onCreateTask,
           onCancelTask,
           onRetryTask,

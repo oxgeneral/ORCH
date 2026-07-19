@@ -12,13 +12,15 @@ import { tuiColors, LOZENGE } from '../colors.js';
 
 /* ── Types ───────────────────────────────────────── */
 
-export type ToastType = 'done' | 'failed' | 'review';
+export type ToastType = 'done' | 'failed' | 'review' | 'info';
 
 export interface Toast {
   id: string;
   type: ToastType;
   title: string;
   agentName?: string;
+  /** Custom message — overrides the default per-type message when set. */
+  message?: string;
   ts: number;
 }
 
@@ -38,29 +40,34 @@ const AUTO_DISMISS_MS: Record<ToastType, number> = {
   done: 4000,
   failed: 8000,
   review: 6000,
+  info: 4000,
 };
 
 const ICON: Record<ToastType, string> = {
   done: '\u2713',   // ✓
   failed: '\u2715', // ✕
   review: LOZENGE,  // ◈
+  info: '\u25CF',   // ●
 };
 
 const FG: Record<ToastType, string> = {
   done: tuiColors.green,
   failed: tuiColors.red,
   review: tuiColors.blue,
+  info: tuiColors.amber,
 };
 
 const BG: Record<ToastType, string> = {
   done: tuiColors.successBg,
   failed: tuiColors.errorBg,
   review: tuiColors.infoBg,
+  info: tuiColors.warnBg,
 };
 
 /* ── Helpers ─────────────────────────────────────── */
 
 function toastMessage(toast: Toast): string {
+  if (toast.message !== undefined) return toast.message;
   const agent = toast.agentName ?? 'Agent';
   switch (toast.type) {
     case 'done':
@@ -69,6 +76,8 @@ function toastMessage(toast: Toast): string {
       return 'Task failed \u2014 press Enter for details';
     case 'review':
       return 'Task ready for review \u2014 press A to approve';
+    case 'info':
+      return '';
   }
 }
 

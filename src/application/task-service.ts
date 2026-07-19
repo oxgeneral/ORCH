@@ -142,6 +142,23 @@ export class TaskService {
     return this.updateStatus(id, 'cancelled');
   }
 
+  async clone(id: string): Promise<Task> {
+    const src = await this.get(id);
+    return this.create({
+      title: src.title,
+      description: src.description,
+      priority: src.priority,
+      assignee: src.assignee,
+      labels: [...src.labels],
+      depends_on: src.depends_on.length ? [...src.depends_on] : undefined,
+      max_attempts: src.max_attempts,
+      workspace_mode: src.workspace_mode,
+      review_criteria: src.review_criteria ? [...src.review_criteria] : undefined,
+      scope: src.scope ? [...src.scope] : undefined,
+      goalId: src.goalId,
+    });
+  }
+
   async retry(id: string): Promise<Task> {
     const task = await this.get(id);
 

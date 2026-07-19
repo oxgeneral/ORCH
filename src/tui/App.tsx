@@ -20,6 +20,9 @@ import { TaskRow, STATUS_ORDER, GoalSectionRow, UngroupedSectionRow } from './co
 import { AgentRow, AGENT_STATUS_ORDER, TeamSectionRow, UnassignedSectionRow } from './components/AgentList.js';
 import { GoalRow, GOAL_STATUS_ORDER } from './components/GoalList.js';
 import { DetailPanel, SectionDivider } from './components/DetailPanel.js';
+import { DEFAULT_TUI_SETTINGS, loadTuiSettings, saveTuiSettings, type WrapMode } from '../infrastructure/storage/tui-settings.js';
+import { detailScrollReducer } from './detail-scroll.js';
+import { colCapLine, wrapToWidth } from './text-wrap.js';
 import { Header } from './components/Header.js';
 import type { HeaderStats, HeaderTokens } from './components/Header.js';
 import { TABS } from './components/TabBar.js';
@@ -63,6 +66,8 @@ const TASK_LIST_LIMIT = 10;
 const MAX_RUN_MAP_SIZE = 500;
 /** Max characters for detail strings in status messages (prevents multi-MB objects) */
 const MAX_DETAIL_LEN = 2048;
+/** Max characters for summary text (what's rendered inline in the activity feed / logs). */
+const MAX_SUMMARY_LEN = 2048;
 /** Max status messages kept in the activity feed */
 const MAX_MESSAGES = 500;
 /** Max toast notifications in the queue (FIFO — oldest removed) */
@@ -86,6 +91,7 @@ export interface AppProps {
   agents?: Agent[];
   state: OrchestratorState;
   onRunTask?: (taskId: string) => Promise<void>;
+  onCloneTask?: (taskId: string) => Promise<Task>;
   onCreateTask?: (title: string, opts?: { priority?: number; description?: string; attachments?: string[] }) => Promise<Task>;
   onCancelTask?: (taskId: string) => Promise<void>;
   onRetryTask?: (taskId: string) => Promise<void>;
@@ -282,7 +288,7 @@ function entityListChanged(prev: { id: string; updated_at?: string }[], next: { 
 
 export function App({
   projectName, tasks: initialTasks, agents: initialAgents = [], state: initialState,
-  onRunTask, onCreateTask, onCancelTask, onRetryTask, onAssignTask,
+  onRunTask, onCloneTask, onCreateTask, onCancelTask, onRetryTask, onAssignTask,
   onRunAll, onDisableAgent, onEnableAgent, onSubscribeEvents,
   onRefreshTasks, onRefreshAgents, onRefreshState, onLoadHistory,
   onAddAgent, onDeleteAgent, onApproveTask, onRejectTask, onDeleteTask,
@@ -428,6 +434,11 @@ export function App({
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastSeq = useRef(0);
 
+  const showInfoToast = useCallback((message: string, type: ToastType = 'info') => {
+    const id = `info_${++toastSeq.current}`;
+    setToasts((prev) => [...prev.slice(-(MAX_TOASTS - 1)), { id, type, title: '', message, ts: Date.now() }]);
+  }, []);
+
   // Tab flash state — flash the TASKS tab pill when a task event fires on another tab
   const [flashTab, setFlashTab] = useState<{ tab: ViewId; color: string } | undefined>();
   const activeViewRef = useRef(activeView);
@@ -483,6 +494,17 @@ export function App({
   const [isDetailMaximized, setIsDetailMaximized] = useState(false);
   const [goalDetailScroll, setGoalDetailScroll] = useState(0);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
+
+  // Task detail wrap mode + scroll + focus (persisted via tui-settings.json)
+  const [detailWrapMode, setDetailWrapMode] = useState<WrapMode>(DEFAULT_TUI_SETTINGS.wrapMode);
+  const [detailReadingWidth, setDetailReadingWidth] = useState<number>(DEFAULT_TUI_SETTINGS.readingWidth);
+  const [detailFocus, setDetailFocus] = useState<'list' | 'detail'>('list');
+  const [detailScroll, setDetailScroll] = useState(0);
+  const [detailScrollMax, setDetailScrollMax] = useState(0);
+
+  // Dashboard activity feed scrollback
+  const [activityFocus, setActivityFocus] = useState<'list' | 'activity'>('list');
+  const [activityScroll, setActivityScroll] = useState(0);
 
   // Teams state (refreshed alongside other data)
   const [liveTeams, setLiveTeams] = useState<Team[]>([]);
@@ -661,6 +683,46 @@ export function App({
   // onGetGoalProgress is stable by contract (defined once in tui.ts command handler)
   const onGetGoalProgressRef = useRef(onGetGoalProgress);
   onGetGoalProgressRef.current = onGetGoalProgress;
+  // Load TUI settings (wrap mode, reading width) on mount.
+  useEffect(() => {
+    let cancelled = false;
+    loadTuiSettings().then((s) => {
+      if (cancelled) return;
+      setDetailWrapMode(s.wrapMode);
+      setDetailReadingWidth(s.readingWidth);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Reset detail scroll/focus when the selected task changes.
+  useEffect(() => {
+    setDetailScroll(0);
+    setDetailFocus('list');
+  }, [taskSelectedIndex]);
+
+  // Drop focus + scroll on the dashboard activity feed when the view changes or detail opens.
+  useEffect(() => {
+    if (detailOpen || activeView === 'logs') {
+      setActivityFocus('list');
+      setActivityScroll(0);
+    }
+  }, [detailOpen, activeView]);
+
+  // Clamp scroll when max shrinks (content reduced).
+  useEffect(() => {
+    setDetailScroll((o) => Math.min(o, detailScrollMax));
+  }, [detailScrollMax]);
+
+  // Persist wrap mode changes (debounced).
+  const saveTuiSettingsTimer = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (saveTuiSettingsTimer.current) clearTimeout(saveTuiSettingsTimer.current);
+    saveTuiSettingsTimer.current = setTimeout(() => {
+      saveTuiSettings({ wrapMode: detailWrapMode }).catch(() => {});
+    }, 300);
+    return () => { if (saveTuiSettingsTimer.current) clearTimeout(saveTuiSettingsTimer.current); };
+  }, [detailWrapMode]);
+
   useEffect(() => {
     if (!selectedGoal || !onGetGoalProgressRef.current) { setGoalProgressReport(undefined); return; }
     let cancelled = false;
@@ -846,7 +908,7 @@ export function App({
 
         if (entry.type === 'error') {
           text = typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data);
-          text = text.slice(0, 200);
+          text = text.slice(0, MAX_SUMMARY_LEN);
           color = tuiColors.red;
           msgType = 'error';
         } else if (entry.type === 'file_changed') {
@@ -1886,11 +1948,83 @@ export function App({
       return;
     }
 
+    // ── Wrap mode: active on task detail AND logs tab (both show long text) ──
+    const isTaskDetail = detailOpen && activeView === 'tasks' && !!selectedTask;
+    const isLogsView = activeView === 'logs' && !detailOpen && !showAgentPicker && !showTypePicker;
+    // Activity feed is shown on non-logs tabs when no detail is open and there are messages
+    const isActivityFeed = !detailOpen && activeView !== 'logs' && messages.length > 0 && inputMode === 'none';
+    if ((isTaskDetail || isLogsView || isActivityFeed) && input === 'w') {
+      setDetailWrapMode((m) => (m === 'reading' ? 'wide' : m === 'wide' ? 'off' : 'reading'));
+      setDetailScroll(0);
+      return;
+    }
+
+    // ── Dashboard activity feed: Tab to focus, arrows/PgUp/PgDn to scroll ──
+    if (isActivityFeed) {
+      if (key.tab) {
+        setActivityFocus((f) => (f === 'list' ? 'activity' : 'list'));
+        return;
+      }
+      if (activityFocus === 'activity') {
+        const feedLen = activityFilteredMessages.length;
+        const feedMax = Math.max(0, feedLen - 1);
+        const pageSize = Math.max(1, contentH - 3);
+        if (key.escape) { setActivityFocus('list'); setActivityScroll(0); return; }
+        if (key.upArrow) { setActivityScroll((o) => Math.min(feedMax, o + 1)); return; }
+        if (key.downArrow) { setActivityScroll((o) => Math.max(0, o - 1)); return; }
+        if (key.pageUp) { setActivityScroll((o) => Math.min(feedMax, o + pageSize)); return; }
+        if (key.pageDown) { setActivityScroll((o) => Math.max(0, o - pageSize)); return; }
+        if (input === 'g') { setActivityScroll(feedMax); return; }
+        if (input === 'G') { setActivityScroll(0); return; }
+      }
+    }
+    if (isTaskDetail) {
+      // Tab: toggle focus list ↔ detail
+      if (key.tab) {
+        setDetailFocus((f) => (f === 'list' ? 'detail' : 'list'));
+        return;
+      }
+      // Detail-focused: scroll keys + Esc returns focus to list
+      if (detailFocus === 'detail') {
+        if (key.escape) {
+          setDetailFocus('list');
+          return;
+        }
+        if (key.upArrow) {
+          setDetailScroll((o) => detailScrollReducer({ offset: o }, { type: 'UP' }, detailScrollMax).offset);
+          return;
+        }
+        if (key.downArrow) {
+          setDetailScroll((o) => detailScrollReducer({ offset: o }, { type: 'DOWN' }, detailScrollMax).offset);
+          return;
+        }
+        if (key.pageUp) {
+          setDetailScroll((o) => detailScrollReducer({ offset: o }, { type: 'PAGE_UP', pageSize: Math.max(1, contentH - 2) }, detailScrollMax).offset);
+          return;
+        }
+        if (key.pageDown) {
+          setDetailScroll((o) => detailScrollReducer({ offset: o }, { type: 'PAGE_DOWN', pageSize: Math.max(1, contentH - 2) }, detailScrollMax).offset);
+          return;
+        }
+        // Home / End (Ink exposes these as ctrl+a/ctrl+e on some terms; use raw keys here)
+        if (input === 'g') { // g — jump to oldest
+          setDetailScroll(detailScrollMax);
+          return;
+        }
+        if (input === 'G') { // G — jump to newest (pin)
+          setDetailScroll(0);
+          return;
+        }
+      }
+    }
+
     // Escape: close detail panel or deselect (never quit — use Q to quit)
     if (key.escape) {
       if (detailOpen) {
         setDetailOpen(false);
         setGoalDetailScroll(0);
+        setDetailFocus('list');
+        setDetailScroll(0);
         return;
       }
       if (activeView === 'logs' && logSelectedIndex >= 0) {
@@ -2223,10 +2357,38 @@ export function App({
       }
     }
 
-    // R: run selected task (only in tasks view)
-    if ((input === 'r' || input === 'R') && activeView === 'tasks' && selectedTask && onRunTask) {
+    // Shift+R: clone task and run the clone (works on terminal tasks too)
+    if (input === 'R' && activeView === 'tasks' && selectedTask && onCloneTask) {
+      const src = selectedTask;
+      showInfoToast(`Cloning "${src.title}" \u2026`);
+      onCloneTask(src.id).then(
+        (cloned) => {
+          addMessage(`\u2713 Cloned & dispatched "${cloned.title}" (${cloned.id})`, tuiColors.green);
+          showInfoToast(`Cloned & dispatched "${cloned.title}"`, 'done');
+          refreshAll();
+        },
+        (err) => {
+          const e = err as Error & { cloned?: Task };
+          if (e.cloned) {
+            const msg = e instanceof Error ? e.message : String(e);
+            addMessage(`Cloned "${e.cloned.title}" (${e.cloned.id}) \u2014 dispatch failed: ${msg}`, tuiColors.yellow);
+            showInfoToast(`Cloned "${e.cloned.title}" \u2014 dispatch failed`, 'info');
+            refreshAll();
+          } else {
+            const msg = e instanceof Error ? e.message : String(e);
+            addMessage(`Failed to clone: ${msg}`, tuiColors.red);
+            showInfoToast(`Failed to clone: ${msg}`, 'failed');
+          }
+        },
+      );
+      return;
+    }
+
+    // r: run selected task (only in tasks view)
+    if (input === 'r' && activeView === 'tasks' && selectedTask && onRunTask) {
       if (!RUNNABLE.has(selectedTask.status)) {
-        addMessage(`Cannot run "${selectedTask.title}" \u2014 status is ${selectedTask.status}`, tuiColors.yellow);
+        const hint = onCloneTask ? ' \u2014 press Shift+R to clone & rerun' : '';
+        showInfoToast(`Cannot run "${selectedTask.title}" \u2014 status is ${selectedTask.status}${hint}`);
         return;
       }
       addMessage(`Running "${selectedTask.title}"...`, tuiColors.green);
@@ -2459,6 +2621,8 @@ export function App({
           agentMsgCounts={agentMsgCounts}
           taskTitleMap={taskTitleMap}
           width={ruleW}
+          wrapMode={detailWrapMode}
+          readingWidth={detailReadingWidth}
         />
         {showAgentPicker && (
           <Box paddingX={2}>
@@ -2527,7 +2691,12 @@ export function App({
           <DetailPanel task={selectedTask} height={feedH} width={ruleW}
             taskLogs={memoizedTaskLogs}
             agentNameMap={agentNameMap}
-            taskTitleMap={taskTitleMap} />
+            taskTitleMap={taskTitleMap}
+            wrapMode={detailWrapMode}
+            readingWidth={detailReadingWidth}
+            scrollOffset={detailScroll}
+            focused={detailFocus === 'detail'}
+            onReportScrollMax={setDetailScrollMax} />
         </>
       ) : showGoalDetail ? (
         <>
@@ -2549,17 +2718,25 @@ export function App({
       ) : messages.length > 0 && activeView !== 'logs' ? (
         <>
           {(() => {
-            const suffixText = ` F:${activityFilterLabel.toUpperCase()} \u2502 ${activityFilteredMessages.length}/${messages.length}`;
-            return <SectionLabel label="ACTIVITY" width={ruleW} suffixLen={suffixText.length} suffix={
+            const scrollBadge = activityScroll > 0 ? ` \u25B2${activityScroll}` : '';
+            const focusSuffix = activityFocus === 'activity' ? ' \u25B8' : '';
+            const suffixText = ` F:${activityFilterLabel.toUpperCase()} \u2502 ${activityFilteredMessages.length}/${messages.length}${scrollBadge}${focusSuffix}`;
+            const labelColor = activityFocus === 'activity' ? tuiColors.amber : undefined;
+            return <SectionLabel label="ACTIVITY" width={ruleW} suffixLen={suffixText.length} color={labelColor} suffix={
               <>
                 <Text color={tuiColors.dim}> F:</Text>
                 <Text color={tuiColors.amber}>{activityFilterLabel.toUpperCase()}</Text>
                 <Text color={tuiColors.ghost}> {'\u2502'} {activityFilteredMessages.length}/{messages.length}</Text>
+                {activityScroll > 0 && <Text color={tuiColors.amber}> {'\u25B2'}{activityScroll}</Text>}
+                {activityFocus === 'activity' && <Text color={tuiColors.amber}> {'\u25B8'}</Text>}
               </>
             } />;
           })()}
           <ActivityFeed messages={activityFilteredMessages} height={Math.max(1, feedH - 1)} width={ruleW}
-            agents={sortedAgents} agentNameMap={agentNameMap} agentColorMap={agentColorMap} />
+            agents={sortedAgents} agentNameMap={agentNameMap} agentColorMap={agentColorMap}
+            wrapMode={detailWrapMode} readingWidth={detailReadingWidth}
+            scrollOffset={activityScroll}
+            focused={activityFocus === 'activity'} />
         </>
       ) : activeView === 'goals' ? (
         <OnboardingBox count={sortedGoals.length} config={ONBOARDING_GOALS} width={ruleW} />
@@ -2602,6 +2779,13 @@ export function App({
         canToggleShowAll={activeView === 'tasks' && sortedTasks.length > TASK_LIST_LIMIT}
         showAllActive={showAllTasks}
         hasDetail={!!(showTaskDetail || showAgentDetail || showGoalDetail)}
+        detailWrap={(showTaskDetail || (!detailOpen && !inInput && messages.length > 0)) ? detailWrapMode : undefined}
+        detailFocus={
+          showTaskDetail ? detailFocus
+          : (!detailOpen && !inInput && messages.length > 0 && activeView !== 'logs')
+            ? activityFocus
+            : undefined
+        }
         itemCount={activeView === 'goals' ? sortedGoals.length : activeView === 'tasks' ? sortedTasks.length : activeView === 'agents' ? liveAgents.length : messages.length}
         itemLabel={activeView === 'goals' ? 'goals' : activeView === 'tasks' ? 'tasks' : activeView === 'agents' ? 'agents' : 'events'}
         width={W}
@@ -3190,7 +3374,7 @@ function getMsgTextColor(msgType: MsgType, fallback: string): string {
 
 /* ── Logs Content ────────────────────────────────────── */
 
-function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, selectedIndex, scrollOffset, agentNameMap, agentColorMap, agentMsgCounts, taskTitleMap, width }: {
+function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, selectedIndex, scrollOffset, agentNameMap, agentColorMap, agentMsgCounts, taskTitleMap, width, wrapMode, readingWidth }: {
   messages: StatusMessage[];
   height: number;
   agents: Agent[];
@@ -3203,6 +3387,8 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
   agentMsgCounts: Map<string, number>;
   taskTitleMap: Map<string, string>;
   width: number;
+  wrapMode: WrapMode;
+  readingWidth: number;
 }) {
   const now = useNow();
 
@@ -3352,10 +3538,16 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
           const badgeLabel = taskTitle && width > 80 ? `#${taskTitle.slice(0, 20)}` : '';
           const badgeW = badgeLabel ? badgeLabel.length + 3 : 0; // space + ` #title `
           const textW = Math.max(10, (width - 2) - prefixW - badgeW);
-          const displayText = capLine(msg.text, textW);
+          const effTextW = wrapMode === 'reading' ? Math.min(textW, readingWidth) : textW;
+          const wrapped: string[] = wrapMode === 'off'
+            ? [colCapLine(msg.text, textW)]
+            : wrapToWidth(msg.text, effTextW);
+          const displayText = wrapped[0] ?? '';
+          const continuationLines = wrapped.slice(1);
 
           return (
-            <Box key={i} backgroundColor={rowBg}>
+            <Box key={i} flexDirection="column" backgroundColor={rowBg}>
+            <Box>
               {/* Left border — agent color accent for sessions */}
               <Text color={agentColor ?? tuiColors.ghost}>
                 {sessionStart && showAgentBadge ? '┌' : showConnector ? '│' : ' '}
@@ -3411,6 +3603,23 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
                 </Text>
               )}
             </Box>
+            {continuationLines.map((line, k) => (
+              <Box key={`c${k}`}>
+                <Text color={tuiColors.ghost}> </Text>
+                <Text> </Text>
+                <Box width={5}><Text> </Text></Box>
+                <Box width={agentColW + 1}>
+                  <Text color={agentColor ?? tuiColors.ghost}>
+                    {' '}{'\u00B7'.padEnd(agentColW)}
+                  </Text>
+                </Box>
+                <Text>{'   '}</Text>
+                <Text color={isSelected ? tuiColors.white : textColor} bold={isSelected || msgType === 'lifecycle'}>
+                  {line}
+                </Text>
+              </Box>
+            ))}
+            </Box>
           );
         })
       )}
@@ -3420,21 +3629,60 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
 
 /* ── Activity Feed ────────────────────────────────────── */
 
-function ActivityFeed({ messages, height, width, agents, agentNameMap, agentColorMap }: {
+function ActivityFeed({ messages, height, width, agents, agentNameMap, agentColorMap, wrapMode, readingWidth, scrollOffset = 0, focused = false, onReportScrollMax }: {
   messages: StatusMessage[];
   height: number;
   width: number;
   agents: Agent[];
   agentNameMap: Map<string, string>;
   agentColorMap: Map<string, string>;
+  wrapMode: WrapMode;
+  readingWidth: number;
+  scrollOffset?: number;
+  focused?: boolean;
+  onReportScrollMax?: (max: number) => void;
 }) {
   const now = useNow();
 
-  const visible = messages.slice(-height);
   // Available text width: total - paddingX(2) - border(1) - ts(5) - agent(9) - icon(2)
   const textW = Math.max(10, width - 2 - 17);
+  const effTextW = wrapMode === 'reading' ? Math.min(textW, readingWidth) : textW;
+
+  // Slice messages so that the total rendered rows (after wrap) still fits `height`.
+  // Walk newest-first, accumulating wrapped-row counts until we fill height.
+  // scrollOffset: number of newest messages to skip (0 = pinned to bottom / tail).
+  const clampedOffset = Math.max(0, Math.min(messages.length - 1, scrollOffset));
+  const endIdx = messages.length - clampedOffset; // exclusive
+  const picked: { msg: StatusMessage; rows: string[] }[] = [];
+  let used = 0;
+  for (let k = endIdx - 1; k >= 0 && used < height; k--) {
+    const m = messages[k]!;
+    const rows: string[] = wrapMode === 'off'
+      ? [colCapLine(m.text, textW)]
+      : wrapToWidth(m.text, effTextW);
+    picked.unshift({ msg: m, rows });
+    used += rows.length;
+  }
+  const scrollMax = Math.max(0, messages.length - 1);
+  useEffect(() => {
+    if (onReportScrollMax) onReportScrollMax(scrollMax);
+  }, [scrollMax, onReportScrollMax]);
+  // Trim earliest picked entry if it overflows height
+  while (used > height && picked.length > 0) {
+    const first = picked[0]!;
+    const overflow = used - height;
+    if (first.rows.length > overflow) {
+      first.rows = first.rows.slice(overflow);
+      used -= overflow;
+    } else {
+      used -= first.rows.length;
+      picked.shift();
+    }
+  }
+  const visible = picked.map((p) => p.msg);
+  const visibleRows = picked.map((p) => p.rows);
   // Pad with empty rows so the component always renders exactly `height` rows
-  const padRows = Math.max(0, height - visible.length);
+  const padRows = Math.max(0, height - used);
 
   // Pre-compute agent group index for zebra striping
   let groupIdx = 0;
@@ -3464,29 +3712,38 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap, agentColo
         const rowBg = getMsgBg(msgType) ?? (isOddGroup ? '#1a1a1a' : undefined);
 
         const relTs = relativeTime(msg.ts, now);
-        const displayText = capLine(msg.text, textW);
+        const rows = visibleRows[i]!;
 
         return (
-          <Box key={i} backgroundColor={rowBg}>
-            {/* Left border accent — colored stripe per agent */}
-            <Text color={agentColor ?? tuiColors.ghost}>
-              {!isContinuation && agentName ? '▍' : isContinuation ? '▏' : ' '}
-            </Text>
-            {/* Relative timestamp — dimmed on continuation */}
-            <Box width={5}>
-              <Text color={isContinuation ? tuiColors.ghost : relTs === 'now' ? tuiColors.green : tuiColors.dim}>
-                {isContinuation ? '    ' : relTs.padStart(4)}
-              </Text>
-            </Box>
-            <Box width={9}>
-              {agentName && !isContinuation ? (
-                <Text color={agentColor} bold>{' '}{agentName.slice(0, 8)}</Text>
-              ) : (
-                <Text color={tuiColors.ghost}>{AGENT_INDENT}</Text>
-              )}
-            </Box>
-            <Text color={msgType === 'error' ? tuiColors.red : isContinuation ? tuiColors.ghost : agentColor ?? tuiColors.dim}>{icon} </Text>
-            <Text color={textColor}>{displayText}</Text>
+          <Box key={i} flexDirection="column" backgroundColor={rowBg}>
+            {rows.map((line, r) => {
+              const isHeader = r === 0;
+              return (
+                <Box key={`l${r}`}>
+                  {/* Left border accent */}
+                  <Text color={agentColor ?? tuiColors.ghost}>
+                    {isHeader && !isContinuation && agentName ? '▍' : '▏'}
+                  </Text>
+                  {/* Relative timestamp — only on header row */}
+                  <Box width={5}>
+                    <Text color={isHeader && !isContinuation ? (relTs === 'now' ? tuiColors.green : tuiColors.dim) : tuiColors.ghost}>
+                      {isHeader && !isContinuation ? relTs.padStart(4) : '    '}
+                    </Text>
+                  </Box>
+                  <Box width={9}>
+                    {isHeader && agentName && !isContinuation ? (
+                      <Text color={agentColor} bold>{' '}{agentName.slice(0, 8)}</Text>
+                    ) : (
+                      <Text color={tuiColors.ghost}>{AGENT_INDENT}</Text>
+                    )}
+                  </Box>
+                  <Text color={msgType === 'error' ? tuiColors.red : tuiColors.ghost}>
+                    {isHeader ? `${icon} ` : '  '}
+                  </Text>
+                  <Text color={textColor}>{line}</Text>
+                </Box>
+              );
+            })}
           </Box>
         );
       })}
@@ -3585,18 +3842,20 @@ function LogDetailPanel({ message, height, width, agents, agentNameMap, agentCol
 
 /* ── Section Labels ───────────────────────────────────── */
 
-function SectionLabel({ label, width, suffix, suffixLen = 0 }: { label: string; width: number; suffix?: React.ReactNode; suffixLen?: number }) {
+function SectionLabel({ label, width, suffix, suffixLen = 0, color }: { label: string; width: number; suffix?: React.ReactNode; suffixLen?: number; color?: string }) {
   // Chip-style section label: ━━━━[ LABEL ]━━ suffix ━━━━━━━━━━━━
   const chipText = ` ${label} `;
   const leftRuleLen = 3;
   const usedLen = leftRuleLen + chipText.length + 2;
+  const chipColor = color ?? tuiColors.dim;
+  const ruleColor = color ?? tuiColors.ghost;
   if (!suffix) {
     const rightRuleLen = Math.max(0, width - usedLen);
     return (
       <Box paddingX={1}>
-        <Text color={tuiColors.ghost}>{heavyRule(leftRuleLen)}</Text>
-        <Text backgroundColor="#1a1a22" color={tuiColors.dim} bold>{chipText}</Text>
-        <Text color={tuiColors.ghost}>{heavyRule(rightRuleLen)}</Text>
+        <Text color={ruleColor}>{heavyRule(leftRuleLen)}</Text>
+        <Text backgroundColor="#1a1a22" color={chipColor} bold>{chipText}</Text>
+        <Text color={ruleColor}>{heavyRule(rightRuleLen)}</Text>
       </Box>
     );
   }
@@ -3604,11 +3863,11 @@ function SectionLabel({ label, width, suffix, suffixLen = 0 }: { label: string; 
   const trailLen = Math.max(0, width - usedLen - gapLen - suffixLen);
   return (
     <Box paddingX={1}>
-      <Text color={tuiColors.ghost}>{heavyRule(leftRuleLen)}</Text>
-      <Text backgroundColor="#1a1a22" color={tuiColors.dim} bold>{chipText}</Text>
-      <Text color={tuiColors.ghost}>{heavyRule(gapLen)}</Text>
+      <Text color={ruleColor}>{heavyRule(leftRuleLen)}</Text>
+      <Text backgroundColor="#1a1a22" color={chipColor} bold>{chipText}</Text>
+      <Text color={ruleColor}>{heavyRule(gapLen)}</Text>
       {suffix}
-      <Text color={tuiColors.ghost}>{heavyRule(trailLen)}</Text>
+      <Text color={ruleColor}>{heavyRule(trailLen)}</Text>
     </Box>
   );
 }
@@ -3994,7 +4253,7 @@ function formatAgentOutput(raw: string): { summary: string | null; detail: strin
     // Claude API message: {"type":"message","role":"assistant","content":[...]}
     if (parsed.type === 'message' && parsed.role === 'assistant') {
       const text = extractTextFromContent(parsed.content);
-      if (text) return { summary: text.slice(0, 200), detail: detail() };
+      if (text) return { summary: text.slice(0, MAX_SUMMARY_LEN), detail: detail() };
       // Empty assistant messages (tool_use-only or empty content) — skip
       return { summary: null, detail: '' };
     }
@@ -4003,7 +4262,7 @@ function formatAgentOutput(raw: string): { summary: string | null; detail: strin
     if (parsed.type === 'assistant' || parsed.role === 'assistant') {
       const content = parsed.message?.content ?? parsed.content;
       const text = extractTextFromContent(content);
-      if (text) return { summary: text.slice(0, 200), detail: detail() };
+      if (text) return { summary: text.slice(0, MAX_SUMMARY_LEN), detail: detail() };
       // Empty assistant messages (tool_use-only or empty content) — skip
       return { summary: null, detail: '' };
     }
@@ -4031,7 +4290,7 @@ function formatAgentOutput(raw: string): { summary: string | null; detail: strin
     // Result / done
     if (parsed.type === 'result') {
       const text = typeof parsed.result === 'string' ? parsed.result : null;
-      return { summary: text ? `\u2713 ${text.slice(0, 180)}` : '\u2713 Agent finished', detail: detail() };
+      return { summary: text ? `\u2713 ${text.slice(0, MAX_SUMMARY_LEN)}` : '\u2713 Agent finished', detail: detail() };
     }
 
     // Rate limit event
@@ -4045,7 +4304,7 @@ function formatAgentOutput(raw: string): { summary: string | null; detail: strin
       if (parsed.message) {
         const content = parsed.message.content ?? parsed.message;
         const text = extractTextFromContent(content);
-        if (text) return { summary: text.slice(0, 200), detail: detail() };
+        if (text) return { summary: text.slice(0, MAX_SUMMARY_LEN), detail: detail() };
       }
       return { summary: `[${parsed.subtype}]`, detail: detail() };
     }
@@ -4053,7 +4312,7 @@ function formatAgentOutput(raw: string): { summary: string | null; detail: strin
     // Generic: try content field
     if (parsed.content) {
       const text = extractTextFromContent(parsed.content);
-      if (text) return { summary: text.slice(0, 200), detail: detail() };
+      if (text) return { summary: text.slice(0, MAX_SUMMARY_LEN), detail: detail() };
     }
 
     // Fallback: show type or truncate
