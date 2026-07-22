@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## Unreleased
+## 1.0.28 (2026-07-22)
 
 ### Bug Fixes
 
@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Tests
 
 - Added regression coverage for Cursor argument construction, positional system/user prompts, ignored stdin, stderr propagation, immediate process exits, and bounded stderr capture.
+
+### Refactoring
+
+- Simplified shared token-usage alias lookup without changing snake_case or camelCase compatibility.
 
 ## 1.0.27 (2026-07-04)
 
