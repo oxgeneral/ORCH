@@ -6,10 +6,13 @@
  */
 
 import type { ChildProcess } from 'node:child_process';
+import type { Readable } from 'node:stream';
 import type { AgentEvent } from './interface.js';
 import { readLines } from '../process/process-manager.js';
 import { type TokenUsage, createTokenUsage } from '../../domain/run.js';
 import { classifyAdapterError } from '../../domain/errors.js';
+
+const STDERR_TAIL_BYTES = 4096;
 
 /** Combine system and user prompts. Adapters without native system prompt support use this. */
 export function buildFullPrompt(systemPrompt: string | undefined, userPrompt: string): string {
@@ -33,15 +36,56 @@ export function extractTokens(
     usage = stats?.usage as Record<string, unknown> | undefined;
   }
 
-  if (usage && typeof usage.input_tokens === 'number') {
-    const input = usage.input_tokens;
-    const output = typeof usage.output_tokens === 'number' ? usage.output_tokens : 0;
-    const reasoning = typeof usage.reasoning_tokens === 'number' ? usage.reasoning_tokens : 0;
-    const cache_read = typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : 0;
-    const cache_write = typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : 0;
+  const readUsageNumber = (keys: readonly string[]): number | undefined => {
+    if (!usage) return undefined;
+    for (const key of keys) {
+      const value = usage[key];
+      if (typeof value === 'number') return value;
+    }
+    return undefined;
+  };
+
+  const input = readUsageNumber(['input_tokens', 'inputTokens']);
+  if (input !== undefined) {
+    const output = readUsageNumber(['output_tokens', 'outputTokens']) ?? 0;
+    const reasoning = readUsageNumber(['reasoning_tokens', 'reasoningTokens']) ?? 0;
+    const cache_read = readUsageNumber(['cache_read_input_tokens', 'cacheReadTokens']) ?? 0;
+    const cache_write = readUsageNumber(['cache_creation_input_tokens', 'cacheWriteTokens']) ?? 0;
     return createTokenUsage(input, output, { reasoning, cache_read, cache_write });
   }
   return undefined;
+}
+
+/**
+ * Drain stderr while retaining a bounded tail for diagnostics.
+ *
+ * Attaching the data listener immediately prevents a chatty child process from
+ * blocking on a full stderr pipe. The returned closure exposes only the tail so
+ * adapter failures stay useful without retaining unbounded output in memory.
+ */
+export function createStderrTailCapture(
+  stderr: Readable | null | undefined,
+): () => string {
+  if (!stderr) return () => '';
+
+  let buf: Buffer = Buffer.alloc(0);
+  stderr.on('data', (chunk: Buffer | string) => {
+    const next = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf-8');
+    buf = buf.length === 0 ? next : Buffer.concat([buf, next], buf.length + next.length);
+    if (buf.length > STDERR_TAIL_BYTES) {
+      // Materialize an exactly-sized copy rather than retaining a view into a
+      // potentially much larger chunk's backing ArrayBuffer.
+      buf = Buffer.from(buf.subarray(buf.length - STDERR_TAIL_BYTES));
+    }
+  });
+  stderr.on('error', () => {});
+
+  return () => buf.toString('utf-8').trimEnd();
+}
+
+/** Append a captured stderr tail to an adapter process error. */
+export function appendStderrTail(message: string, adapterName: string, tail: string): string {
+  return tail ? `${message}\n--- ${adapterName} stderr (tail) ---\n${tail}` : message;
 }
 
 /**
@@ -60,15 +104,19 @@ export function createStreamingEvents(
   adapterName: string,
   signal?: AbortSignal,
 ): AsyncGenerator<AgentEvent> {
+  // Set up lifecycle and stderr listeners eagerly. Async generator bodies do
+  // not run until their first next(), and fast process failures can otherwise
+  // happen before ORCH starts consuming the event stream.
+  let exitCode: number | null = null;
+  let exitError: Error | null = null;
+  const stderrTail = createStderrTailCapture(proc.stderr);
+  const exitPromise = new Promise<void>((resolve) => {
+    proc.once('close', (code) => { exitCode = code; resolve(); });
+    proc.once('error', (err) => { exitError = err; resolve(); });
+  });
+
   async function* generate(): AsyncGenerator<AgentEvent> {
     let gotDoneEvent = false;
-
-    let exitCode: number | null = null;
-    let exitError: Error | null = null;
-    const exitPromise = new Promise<void>((resolve) => {
-      proc.on('close', (code) => { exitCode = code; resolve(); });
-      proc.on('error', (err) => { exitError = err; resolve(); });
-    });
 
     if (proc.stdout) {
       try {
@@ -92,12 +140,17 @@ export function createStreamingEvents(
 
     if (exitError && !signal?.aborted && !gotDoneEvent) {
       const spawnErr = exitError as Error;
-      const classified = classifyAdapterError(spawnErr.message, exitCode ?? undefined);
-      const err = Object.assign(new Error(spawnErr.message), { errorKind: classified });
+      const message = appendStderrTail(spawnErr.message, adapterName, stderrTail());
+      const classified = classifyAdapterError(message, exitCode ?? undefined);
+      const err = Object.assign(new Error(message), { errorKind: classified });
       throw err;
     }
     if (exitCode !== 0 && exitCode !== null && !signal?.aborted && !gotDoneEvent) {
-      const msg = `${adapterName} process exited with code ${exitCode}`;
+      const msg = appendStderrTail(
+        `${adapterName} process exited with code ${exitCode}`,
+        adapterName,
+        stderrTail(),
+      );
       const classified = classifyAdapterError(msg, exitCode);
       const err = Object.assign(new Error(msg), { errorKind: classified });
       throw err;

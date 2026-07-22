@@ -52,29 +52,29 @@ export class CursorAdapter implements IAgentAdapter {
   }
 
   execute(params: ExecuteParams): ExecuteHandle {
+    // Cursor print mode requires the prompt as a positional argument. Unlike
+    // Codex, it does not support reading the prompt from stdin.
+    const fullPrompt = buildFullPrompt(params.systemPrompt, params.prompt);
     const args = [
       '-p',
       '--output-format', 'stream-json',
       '--workspace', params.workspace,
       '--yolo', // bypass interactive prompts for autonomous agents
+      '--trust', // ORCH creates fresh worktrees that have not been trusted interactively
     ];
 
     if (params.config.model) {
       args.push('--model', params.config.model);
     }
 
+    args.push(fullPrompt);
+
     const { process: proc, pid } = this.processManager.spawn(this.resolvedCommand, args, {
       cwd: params.workspace,
       env: { ...process.env, ...params.env },
       signal: params.signal,
-      stdio: ['pipe', 'pipe', 'pipe'], // stdin must be 'pipe' to send prompt
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-
-    // Pipe prompt via stdin — prepend system prompt if present (Cursor has no native --system-prompt)
-    if (proc.stdin) {
-      proc.stdin.write(buildFullPrompt(params.systemPrompt, params.prompt));
-      proc.stdin.end();
-    }
 
     const events = createStreamingEvents(proc, parseCursorEvent, 'Cursor agent', params.signal);
 

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { buildFullPrompt } from '../../../src/infrastructure/adapters/utils.js';
+import { PassThrough } from 'node:stream';
+import {
+  buildFullPrompt,
+  createStderrTailCapture,
+} from '../../../src/infrastructure/adapters/utils.js';
 
 describe('buildFullPrompt', () => {
   it('returns userPrompt when systemPrompt is undefined', () => {
@@ -29,5 +33,24 @@ describe('buildFullPrompt', () => {
     const result = buildFullPrompt('sys', 'usr');
     const sep = result.slice('sys'.length, result.length - 'usr'.length);
     expect(sep).toBe('\n\n');
+  });
+});
+
+describe('createStderrTailCapture', () => {
+  it('drains stderr and retains only the last 4 KB', () => {
+    const stderr = new PassThrough();
+    const getTail = createStderrTailCapture(stderr);
+    const suffix = 'ACTIONABLE_ERROR';
+
+    stderr.write('x'.repeat(5000) + suffix);
+
+    const tail = getTail();
+    expect(Buffer.byteLength(tail, 'utf-8')).toBeLessThanOrEqual(4096);
+    expect(tail).toHaveLength(4096);
+    expect(tail.endsWith(suffix)).toBe(true);
+  });
+
+  it('returns an empty tail when stderr is unavailable', () => {
+    expect(createStderrTailCapture(null)()).toBe('');
   });
 });

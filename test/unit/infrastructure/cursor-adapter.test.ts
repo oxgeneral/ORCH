@@ -73,20 +73,22 @@ describe('CursorAdapter', () => {
 
       expect(pm.spawn).toHaveBeenCalledWith(
         'cursor-agent',
-        expect.arrayContaining([
+        [
           '-p',
           '--output-format', 'stream-json',
           '--workspace', '/tmp/cursor-ws',
           '--yolo',
-        ]),
+          '--trust',
+          'cursor prompt',
+        ],
         expect.objectContaining({
           cwd: '/tmp/cursor-ws',
-          stdio: ['pipe', 'pipe', 'pipe'],
+          stdio: ['ignore', 'pipe', 'pipe'],
         }),
       );
     });
 
-    it('writes prompt to stdin', () => {
+    it('does not write prompt to stdin', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new CursorAdapter(pm);
@@ -94,31 +96,29 @@ describe('CursorAdapter', () => {
       const writeSpy = vi.spyOn(proc.stdin, 'write');
       adapter.execute(makeParams());
 
-      expect(writeSpy).toHaveBeenCalledWith('cursor prompt');
+      expect(writeSpy).not.toHaveBeenCalled();
     });
 
-    it('prepends systemPrompt to stdin when provided (no native --system-prompt support)', () => {
+    it('prepends systemPrompt to the positional prompt when provided', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new CursorAdapter(pm);
-
-      const writeSpy = vi.spyOn(proc.stdin, 'write');
 
       adapter.execute(makeParams({ systemPrompt: 'system instructions', prompt: 'user task' }));
 
-      expect(writeSpy).toHaveBeenCalledWith('system instructions\n\nuser task');
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args.at(-1)).toBe('system instructions\n\nuser task');
     });
 
-    it('writes only userPrompt to stdin when systemPrompt is absent', () => {
+    it('passes only userPrompt positionally when systemPrompt is absent', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new CursorAdapter(pm);
 
-      const writeSpy = vi.spyOn(proc.stdin, 'write');
-
       adapter.execute(makeParams({ prompt: 'just the task', systemPrompt: undefined }));
 
-      expect(writeSpy).toHaveBeenCalledWith('just the task');
+      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+      expect(args.at(-1)).toBe('just the task');
     });
 
     it('includes --model when config.model is set', () => {
@@ -131,6 +131,7 @@ describe('CursorAdapter', () => {
       const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1];
       expect(args).toContain('--model');
       expect(args).toContain('gpt-4o');
+      expect(args.at(-1)).toBe('cursor prompt');
     });
 
     it('returns pid', () => {
@@ -198,7 +199,12 @@ describe('CursorAdapter', () => {
 
       proc.stdout.write(JSON.stringify({
         type: 'result',
-        usage: { input_tokens: 50, output_tokens: 25 },
+        usage: {
+          inputTokens: 50,
+          outputTokens: 25,
+          cacheReadTokens: 10,
+          cacheWriteTokens: 5,
+        },
       }) + '\n');
       proc.stdout.end();
       setTimeout(() => proc.emit('close', 0), 20);
@@ -207,7 +213,14 @@ describe('CursorAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('done');
-      expect(events[0]!.tokens).toEqual({ input: 50, output: 25, reasoning: 0, total: 75, cache_read: 0, cache_write: 0 });
+      expect(events[0]!.tokens).toEqual({
+        input: 50,
+        output: 25,
+        reasoning: 0,
+        total: 75,
+        cache_read: 10,
+        cache_write: 5,
+      });
     });
 
     it('handles non-JSON gracefully', async () => {
@@ -239,6 +252,21 @@ describe('CursorAdapter', () => {
       await expect(async () => {
         for await (const ev of handle.events) { /* drain */ }
       }).rejects.toThrow('exited with code 1');
+    });
+
+    it('captures stderr and an immediate exit before event iteration starts', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CursorAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stderr.end('Error: No prompt provided for print mode\n');
+      proc.stdout.end();
+      proc.emit('close', 1);
+
+      await expect(async () => {
+        for await (const ev of handle.events) { /* drain */ }
+      }).rejects.toThrow(/No prompt provided for print mode/);
     });
 
     it('does not throw on non-zero exit when done event received', async () => {

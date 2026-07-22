@@ -12,6 +12,7 @@ import type { IProcessManager } from '../process/process-manager.js';
 import type { Readable } from 'node:stream';
 import { createTokenUsage, type TokenUsage } from '../../domain/run.js';
 import { classifyAdapterError } from '../../domain/errors.js';
+import { appendStderrTail, createStderrTailCapture } from './utils.js';
 import { execFile } from 'node:child_process';
 
 export class PiAdapter implements IAgentAdapter {
@@ -170,23 +171,19 @@ function createPiRpcEvents(
 
     const spawnError = exitError as Error | null;
     if (spawnError && !signal?.aborted && !gotDoneEvent) {
-      const message = appendStderrTail(spawnError.message, stderrTail());
+      const message = appendStderrTail(spawnError.message, 'pi', stderrTail());
       const classified = classifyAdapterError(message, exitCode ?? undefined);
       throw Object.assign(new Error(message), { errorKind: classified });
     }
     if (exitCode !== 0 && exitCode !== null && !signal?.aborted && !gotDoneEvent) {
       const baseMsg = `Pi process exited with code ${exitCode}`;
-      const message = appendStderrTail(baseMsg, stderrTail());
+      const message = appendStderrTail(baseMsg, 'pi', stderrTail());
       const classified = classifyAdapterError(message, exitCode);
       throw Object.assign(new Error(message), { errorKind: classified });
     }
   }
 
   return generate();
-}
-
-function appendStderrTail(message: string, tail: string): string {
-  return tail ? `${message}\n--- pi stderr (tail) ---\n${tail}` : message;
 }
 
 interface ParseState {
@@ -454,33 +451,6 @@ function extractPiTokensFromMessage(parsed: Record<string, unknown>): TokenUsage
 
   if (input === 0 && output === 0 && reasoning === 0 && cache_read === 0 && cache_write === 0) return undefined;
   return createTokenUsage(input, output, { reasoning, cache_read, cache_write });
-}
-
-/**
- * Drain stderr while keeping the last STDERR_TAIL_BYTES bytes for diagnostics.
- * Returns a closure that yields the captured tail as a UTF-8 string.
- *
- * Single backing Buffer with subarray-based truncation — no array shifts, no
- * repeated concats on overflow. Without draining a chatty stderr can fill the
- * pipe buffer and stall Pi; without the tail, auth or extension-load failures
- * vanish on non-zero exit.
- */
-const STDERR_TAIL_BYTES = 4096;
-function createStderrTailCapture(stderr: Readable | null | undefined): () => string {
-  if (!stderr) return () => '';
-  let buf: Buffer = Buffer.alloc(0);
-  stderr.on('data', (chunk: Buffer | string) => {
-    const next = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf-8');
-    buf = buf.length === 0 ? next : Buffer.concat([buf, next], buf.length + next.length);
-    if (buf.length > STDERR_TAIL_BYTES) {
-      // Buffer.from materializes a fresh, exactly-sized copy. Plain subarray
-      // would keep a view into the larger backing ArrayBuffer (sized to the
-      // last chunk), wasting memory on every oversized burst until GC.
-      buf = Buffer.from(buf.subarray(buf.length - STDERR_TAIL_BYTES));
-    }
-  });
-  stderr.on('error', () => {});
-  return () => buf.toString('utf-8').trimEnd();
 }
 
 /**

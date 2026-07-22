@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## Unreleased
+
+### Bug Fixes
+
+- **Cursor print-mode prompt transport** ([#14](https://github.com/oxgeneral/ORCH/issues/14)) — Cursor now receives the assembled ORCH prompt as its required positional argument, trusts fresh ORCH worktrees non-interactively, and no longer opens stdin for a prompt the CLI will not read.
+- **Cursor token usage compatibility** — result events from current Cursor releases use camelCase usage fields; the shared extractor now accepts both camelCase and the existing snake_case provider schema.
+- **Adapter stderr diagnostics** — shared streaming adapters continuously drain stderr, retain a bounded 4 KB tail, and include it in spawn/non-zero-exit errors. Process lifecycle listeners are installed eagerly so immediate CLI failures cannot be missed before event collection starts.
+
+### Tests
+
+- Added regression coverage for Cursor argument construction, positional system/user prompts, ignored stdin, stderr propagation, immediate process exits, and bounded stderr capture.
+
 ## 1.0.27 (2026-07-04)
 
 ### New Features
