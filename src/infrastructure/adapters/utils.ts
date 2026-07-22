@@ -14,6 +14,18 @@ import { classifyAdapterError } from '../../domain/errors.js';
 
 const STDERR_TAIL_BYTES = 4096;
 
+function readUsageNumber(
+  usage: Record<string, unknown>,
+  primaryKey: string,
+  fallbackKey: string,
+): number | undefined {
+  const primary = usage[primaryKey];
+  if (typeof primary === 'number') return primary;
+
+  const fallback = usage[fallbackKey];
+  return typeof fallback === 'number' ? fallback : undefined;
+}
+
 /** Combine system and user prompts. Adapters without native system prompt support use this. */
 export function buildFullPrompt(systemPrompt: string | undefined, userPrompt: string): string {
   return systemPrompt ? systemPrompt + '\n\n' + userPrompt : userPrompt;
@@ -36,24 +48,16 @@ export function extractTokens(
     usage = stats?.usage as Record<string, unknown> | undefined;
   }
 
-  const readUsageNumber = (keys: readonly string[]): number | undefined => {
-    if (!usage) return undefined;
-    for (const key of keys) {
-      const value = usage[key];
-      if (typeof value === 'number') return value;
-    }
-    return undefined;
-  };
+  if (!usage) return undefined;
 
-  const input = readUsageNumber(['input_tokens', 'inputTokens']);
-  if (input !== undefined) {
-    const output = readUsageNumber(['output_tokens', 'outputTokens']) ?? 0;
-    const reasoning = readUsageNumber(['reasoning_tokens', 'reasoningTokens']) ?? 0;
-    const cache_read = readUsageNumber(['cache_read_input_tokens', 'cacheReadTokens']) ?? 0;
-    const cache_write = readUsageNumber(['cache_creation_input_tokens', 'cacheWriteTokens']) ?? 0;
-    return createTokenUsage(input, output, { reasoning, cache_read, cache_write });
-  }
-  return undefined;
+  const input = readUsageNumber(usage, 'input_tokens', 'inputTokens');
+  if (input === undefined) return undefined;
+
+  const output = readUsageNumber(usage, 'output_tokens', 'outputTokens') ?? 0;
+  const reasoning = readUsageNumber(usage, 'reasoning_tokens', 'reasoningTokens') ?? 0;
+  const cache_read = readUsageNumber(usage, 'cache_read_input_tokens', 'cacheReadTokens') ?? 0;
+  const cache_write = readUsageNumber(usage, 'cache_creation_input_tokens', 'cacheWriteTokens') ?? 0;
+  return createTokenUsage(input, output, { reasoning, cache_read, cache_write });
 }
 
 /**
@@ -142,8 +146,7 @@ export function createStreamingEvents(
       const spawnErr = exitError as Error;
       const message = appendStderrTail(spawnErr.message, adapterName, stderrTail());
       const classified = classifyAdapterError(message, exitCode ?? undefined);
-      const err = Object.assign(new Error(message), { errorKind: classified });
-      throw err;
+      throw Object.assign(new Error(message), { errorKind: classified });
     }
     if (exitCode !== 0 && exitCode !== null && !signal?.aborted && !gotDoneEvent) {
       const msg = appendStderrTail(
@@ -152,8 +155,7 @@ export function createStreamingEvents(
         stderrTail(),
       );
       const classified = classifyAdapterError(msg, exitCode);
-      const err = Object.assign(new Error(msg), { errorKind: classified });
-      throw err;
+      throw Object.assign(new Error(msg), { errorKind: classified });
     }
   }
 
