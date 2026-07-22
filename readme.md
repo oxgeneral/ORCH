@@ -641,8 +641,6 @@ npm run typecheck      # Strict TypeScript
 
 If ORCH saves you time — **[Star it on GitHub](https://github.com/oxgeneral/ORCH)** — it helps other founders find the project.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=oxgeneral/ORCH&type=Date)](https://star-history.com/#oxgeneral/ORCH&Date)
-
 - **Open an issue** if something breaks or could be better
 - **Submit a PR** — see [CONTRIBUTING.md](CONTRIBUTING.md)
 
