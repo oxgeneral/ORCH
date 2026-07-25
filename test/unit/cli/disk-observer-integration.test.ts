@@ -262,7 +262,9 @@ describe('DiskObserver integration', () => {
 
     await waitFor(() => {
       const outs = events.filter((e) => e.type === 'agent:output');
-      return outs.length >= 2;
+      const ticks = events.filter((e) => e.type === 'orchestrator:tick');
+      return outs.length >= 2
+        && ticks.some((t) => 'running' in t && t.running === 2);
     });
 
     const startedA = events.filter((e) => e.type === 'agent:started' && 'runId' in e && e.runId === 'run_a');
