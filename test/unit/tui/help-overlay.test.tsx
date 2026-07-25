@@ -115,6 +115,12 @@ describe('HelpOverlay', () => {
     expect(lastFrame()).toContain('KEYBOARD SHORTCUTS');
   });
 
+  it('suggests palette under /config', () => {
+    const suggestions = resolveSuggestions('/config p');
+    expect(suggestions.some((item) => item.cmd === '/config palette')).toBe(true);
+    expect(resolveCompletion('/config pal')).toBe('ette');
+  });
+
   it('renders all Navigation hotkeys', () => {
     const { lastFrame } = render(<HelpOverlay width={100} height={30} />);
     const frame = lastFrame()!;
@@ -171,28 +177,28 @@ describe('resolveSuggestions', () => {
     expect(results).toEqual([]);
   });
 
-  it('includes УПРАВЛЕНИЕ category separator for "/" input', () => {
+  it('includes MANAGEMENT category separator for "/" input', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    expect(descs.some((d) => d.includes('УПРАВЛЕНИЕ'))).toBe(true);
+    expect(descs.some((d) => d.includes('MANAGEMENT'))).toBe(true);
   });
 
-  it('includes МОНИТОРИНГ category separator for "/" input', () => {
+  it('includes MONITORING category separator for "/" input', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    expect(descs.some((d) => d.includes('МОНИТОРИНГ'))).toBe(true);
+    expect(descs.some((d) => d.includes('MONITORING'))).toBe(true);
   });
 
-  it('includes НАСТРОЙКИ category separator for "/" input', () => {
+  it('includes SETTINGS category separator for "/" input', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    expect(descs.some((d) => d.includes('НАСТРОЙКИ'))).toBe(true);
+    expect(descs.some((d) => d.includes('SETTINGS'))).toBe(true);
   });
 
   it('category separators have empty cmd field', () => {
     const results = resolveSuggestions('/');
     const separators = results.filter((r) =>
-      r.desc.includes('УПРАВЛЕНИЕ') || r.desc.includes('МОНИТОРИНГ') || r.desc.includes('НАСТРОЙКИ'),
+      r.desc.includes('MANAGEMENT') || r.desc.includes('MONITORING') || r.desc.includes('SETTINGS'),
     );
     for (const sep of separators) {
       expect(sep.cmd).toBe('');
@@ -205,78 +211,78 @@ describe('resolveSuggestions', () => {
     expect(separators.length).toBe(3); // one per category
   });
 
-  it('УПРАВЛЕНИЕ category comes before МОНИТОРИНГ', () => {
+  it('MANAGEMENT category comes before MONITORING', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    const manageIdx = descs.findIndex((d) => d.includes('УПРАВЛЕНИЕ'));
-    const monitorIdx = descs.findIndex((d) => d.includes('МОНИТОРИНГ'));
+    const manageIdx = descs.findIndex((d) => d.includes('MANAGEMENT'));
+    const monitorIdx = descs.findIndex((d) => d.includes('MONITORING'));
     expect(manageIdx).toBeLessThan(monitorIdx);
   });
 
-  it('МОНИТОРИНГ category comes before НАСТРОЙКИ', () => {
+  it('MONITORING category comes before SETTINGS', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    const monitorIdx = descs.findIndex((d) => d.includes('МОНИТОРИНГ'));
-    const settingsIdx = descs.findIndex((d) => d.includes('НАСТРОЙКИ'));
+    const monitorIdx = descs.findIndex((d) => d.includes('MONITORING'));
+    const settingsIdx = descs.findIndex((d) => d.includes('SETTINGS'));
     expect(monitorIdx).toBeLessThan(settingsIdx);
   });
 
-  it('УПРАВЛЕНИЕ group contains /task', () => {
+  it('MANAGEMENT group contains /task', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    const manageIdx = descs.findIndex((d) => d.includes('УПРАВЛЕНИЕ'));
-    const monitorIdx = descs.findIndex((d) => d.includes('МОНИТОРИНГ'));
+    const manageIdx = descs.findIndex((d) => d.includes('MANAGEMENT'));
+    const monitorIdx = descs.findIndex((d) => d.includes('MONITORING'));
     const manageGroup = results.slice(manageIdx + 1, monitorIdx);
     expect(manageGroup.some((r) => r.cmd === '/task')).toBe(true);
   });
 
-  it('УПРАВЛЕНИЕ group contains /agent', () => {
+  it('MANAGEMENT group contains /agent', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    const manageIdx = descs.findIndex((d) => d.includes('УПРАВЛЕНИЕ'));
-    const monitorIdx = descs.findIndex((d) => d.includes('МОНИТОРИНГ'));
+    const manageIdx = descs.findIndex((d) => d.includes('MANAGEMENT'));
+    const monitorIdx = descs.findIndex((d) => d.includes('MONITORING'));
     const manageGroup = results.slice(manageIdx + 1, monitorIdx);
     expect(manageGroup.some((r) => r.cmd === '/agent')).toBe(true);
   });
 
-  it('МОНИТОРИНГ group contains /run', () => {
+  it('MONITORING group contains /run', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    const monitorIdx = descs.findIndex((d) => d.includes('МОНИТОРИНГ'));
-    const settingsIdx = descs.findIndex((d) => d.includes('НАСТРОЙКИ'));
+    const monitorIdx = descs.findIndex((d) => d.includes('MONITORING'));
+    const settingsIdx = descs.findIndex((d) => d.includes('SETTINGS'));
     const monitorGroup = results.slice(monitorIdx + 1, settingsIdx);
     expect(monitorGroup.some((r) => r.cmd.startsWith('/run'))).toBe(true);
   });
 
-  it('МОНИТОРИНГ group contains /watch', () => {
+  it('MONITORING group contains /watch', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    const monitorIdx = descs.findIndex((d) => d.includes('МОНИТОРИНГ'));
-    const settingsIdx = descs.findIndex((d) => d.includes('НАСТРОЙКИ'));
+    const monitorIdx = descs.findIndex((d) => d.includes('MONITORING'));
+    const settingsIdx = descs.findIndex((d) => d.includes('SETTINGS'));
     const monitorGroup = results.slice(monitorIdx + 1, settingsIdx);
     expect(monitorGroup.some((r) => r.cmd === '/watch')).toBe(true);
   });
 
-  it('НАСТРОЙКИ group contains /config', () => {
+  it('SETTINGS group contains /config', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    const settingsIdx = descs.findIndex((d) => d.includes('НАСТРОЙКИ'));
+    const settingsIdx = descs.findIndex((d) => d.includes('SETTINGS'));
     const settingsGroup = results.slice(settingsIdx + 1);
     expect(settingsGroup.some((r) => r.cmd === '/config')).toBe(true);
   });
 
-  it('НАСТРОЙКИ group contains /quit', () => {
+  it('SETTINGS group contains /quit', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    const settingsIdx = descs.findIndex((d) => d.includes('НАСТРОЙКИ'));
+    const settingsIdx = descs.findIndex((d) => d.includes('SETTINGS'));
     const settingsGroup = results.slice(settingsIdx + 1);
     expect(settingsGroup.some((r) => r.cmd === '/quit')).toBe(true);
   });
 
-  it('НАСТРОЙКИ group contains /help', () => {
+  it('SETTINGS group contains /help', () => {
     const results = resolveSuggestions('/');
     const descs = results.map((r) => r.desc);
-    const settingsIdx = descs.findIndex((d) => d.includes('НАСТРОЙКИ'));
+    const settingsIdx = descs.findIndex((d) => d.includes('SETTINGS'));
     const settingsGroup = results.slice(settingsIdx + 1);
     expect(settingsGroup.some((r) => r.cmd === '/help')).toBe(true);
   });
@@ -290,7 +296,7 @@ describe('resolveSuggestions', () => {
   it('does NOT include category separators for prefix input "/ta"', () => {
     const results = resolveSuggestions('/ta');
     const hasSeparators = results.some(
-      (r) => r.desc.includes('УПРАВЛЕНИЕ') || r.desc.includes('МОНИТОРИНГ') || r.desc.includes('НАСТРОЙКИ'),
+      (r) => r.desc.includes('MANAGEMENT') || r.desc.includes('MONITORING') || r.desc.includes('SETTINGS'),
     );
     expect(hasSeparators).toBe(false);
   });

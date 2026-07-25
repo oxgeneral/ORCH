@@ -9,6 +9,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { tuiColors, LOZENGE } from '../colors.js';
+import type { TuiPaletteName } from '../../domain/global-config.js';
 
 /* ── Types ───────────────────────────────────────── */
 
@@ -25,6 +26,7 @@ export interface Toast {
 export interface ToastBannerProps {
   toasts: Toast[];
   onDismiss: (id: string) => void;
+  palette?: TuiPaletteName;
 }
 
 /* ── Constants ───────────────────────────────────── */
@@ -46,18 +48,6 @@ const ICON: Record<ToastType, string> = {
   review: LOZENGE,  // ◈
 };
 
-const FG: Record<ToastType, string> = {
-  done: tuiColors.green,
-  failed: tuiColors.red,
-  review: tuiColors.blue,
-};
-
-const BG: Record<ToastType, string> = {
-  done: tuiColors.successBg,
-  failed: tuiColors.errorBg,
-  review: tuiColors.infoBg,
-};
-
 /* ── Helpers ─────────────────────────────────────── */
 
 function toastMessage(toast: Toast): string {
@@ -77,6 +67,7 @@ function toastMessage(toast: Toast): string {
 interface ToastRowProps {
   toast: Toast;
   onDismiss: (id: string) => void;
+  palette?: TuiPaletteName;
 }
 
 const ToastRow = React.memo(function ToastRow({ toast, onDismiss }: ToastRowProps) {
@@ -103,8 +94,16 @@ const ToastRow = React.memo(function ToastRow({ toast, onDismiss }: ToastRowProp
   const dimmed = fadingIn || fadingOut;
 
   const icon = ICON[toast.type];
-  const fg = FG[toast.type];
-  const bg = BG[toast.type];
+  const fg = toast.type === 'done'
+    ? tuiColors.green
+    : toast.type === 'failed'
+      ? tuiColors.red
+      : tuiColors.blue;
+  const bg = toast.type === 'done'
+    ? tuiColors.successBg
+    : toast.type === 'failed'
+      ? tuiColors.errorBg
+      : tuiColors.infoBg;
   const msg = toastMessage(toast);
   const title = toast.title.length > 40
     ? toast.title.slice(0, 39) + '\u2026'
@@ -123,7 +122,7 @@ const ToastRow = React.memo(function ToastRow({ toast, onDismiss }: ToastRowProp
 
 /* ── Banner ──────────────────────────────────────── */
 
-export const ToastBanner = React.memo(function ToastBanner({ toasts, onDismiss }: ToastBannerProps) {
+export const ToastBanner = React.memo(function ToastBanner({ toasts, onDismiss, palette }: ToastBannerProps) {
   const visible = toasts.slice(0, MAX_VISIBLE);
 
   if (visible.length === 0) return null;
@@ -131,7 +130,7 @@ export const ToastBanner = React.memo(function ToastBanner({ toasts, onDismiss }
   return (
     <Box flexDirection="column">
       {visible.map((t) => (
-        <ToastRow key={t.id} toast={t} onDismiss={onDismiss} />
+        <ToastRow key={t.id} toast={t} onDismiss={onDismiss} palette={palette} />
       ))}
     </Box>
   );

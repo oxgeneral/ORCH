@@ -8,7 +8,11 @@
 import type { WizardStep } from './components/FormWizard.js';
 import type { Agent, ReasoningEffort } from '../domain/agent.js';
 import type { Goal } from '../domain/goal.js';
-import type { ActivityFilterPreset, NotificationPreferences } from '../domain/global-config.js';
+import type {
+  ActivityFilterPreset,
+  NotificationPreferences,
+  TuiPaletteName,
+} from '../domain/global-config.js';
 import type { Team } from '../domain/team.js';
 import type { CreateTeamInput } from '../domain/team.js';
 import { AGENT_SHOP_TEMPLATES, getShopTemplateByKey } from '../domain/agent-shop.js';
@@ -508,6 +512,13 @@ const ACTIVITY_FILTER_OPTIONS = [
   { value: 'events', label: 'Events', hint: 'lifecycle, system events' },
 ];
 
+const PALETTE_OPTIONS = [
+  { value: 'amber', label: 'Amber', hint: 'warm ORCH default' },
+  { value: 'ocean', label: 'Ocean', hint: 'cool blue control room' },
+  { value: 'forest', label: 'Forest', hint: 'calm green operations' },
+  { value: 'violet', label: 'Violet', hint: 'high-contrast purple' },
+];
+
 // ── Notification toggle options ──
 
 const TOGGLE_OPTIONS = [
@@ -515,43 +526,76 @@ const TOGGLE_OPTIONS = [
   { value: 'false', label: 'Off' },
 ];
 
+export type ConfigSetting =
+  | 'palette'
+  | 'activity-filter'
+  | 'max-concurrent'
+  | 'notifications-toast'
+  | 'notifications-bell';
+
+export const CONFIG_SETTINGS: readonly ConfigSetting[] = [
+  'palette',
+  'activity-filter',
+  'max-concurrent',
+  'notifications-toast',
+  'notifications-bell',
+];
+
+export function isConfigSetting(value: unknown): value is ConfigSetting {
+  return typeof value === 'string' && CONFIG_SETTINGS.includes(value as ConfigSetting);
+}
+
 export function getConfigWizardSteps(
+  setting: ConfigSetting,
+  currentPalette: TuiPaletteName,
   currentFilter: ActivityFilterPreset,
   currentMaxConcurrent: number,
   currentNotifications?: NotificationPreferences,
 ): WizardStep[] {
   const notif = currentNotifications ?? { toast: true, bell: false };
 
-  return [
-    {
-      id: 'activity_filter',
-      label: 'Activity filter preset',
-      type: 'select',
-      options: ACTIVITY_FILTER_OPTIONS,
-      defaultValue: currentFilter,
-    },
-    {
-      id: 'max_concurrent',
-      label: 'Max concurrent agents',
-      type: 'select',
-      options: MAX_CONCURRENT_OPTIONS,
-      defaultValue: String(currentMaxConcurrent),
-    },
-    {
-      id: 'notifications_toast',
-      label: 'Toast notifications',
-      type: 'select',
-      options: TOGGLE_OPTIONS,
-      defaultValue: String(notif.toast),
-    },
-    {
-      id: 'notifications_bell',
-      label: 'Bell on completion',
-      type: 'select',
-      options: TOGGLE_OPTIONS,
-      defaultValue: String(notif.bell),
-    },
-  ];
+  switch (setting) {
+    case 'palette':
+      return [{
+        id: 'palette',
+        label: 'Color palette',
+        type: 'select',
+        options: PALETTE_OPTIONS,
+        defaultValue: currentPalette,
+      }];
+    case 'activity-filter':
+      return [{
+        id: 'activity_filter',
+        label: 'Activity filter preset',
+        type: 'select',
+        options: ACTIVITY_FILTER_OPTIONS,
+        defaultValue: currentFilter,
+      }];
+    case 'max-concurrent':
+      return [{
+        id: 'max_concurrent',
+        label: 'Max concurrent agents',
+        type: 'select',
+        options: MAX_CONCURRENT_OPTIONS,
+        defaultValue: String(currentMaxConcurrent),
+      }];
+    case 'notifications-toast':
+      return [{
+        id: 'notifications_toast',
+        label: 'Toast notifications',
+        type: 'select',
+        options: TOGGLE_OPTIONS,
+        defaultValue: String(notif.toast),
+      }];
+    case 'notifications-bell':
+      return [{
+        id: 'notifications_bell',
+        label: 'Bell on completion',
+        type: 'select',
+        options: TOGGLE_OPTIONS,
+        defaultValue: String(notif.bell),
+      }];
+  }
 }
 
 export function editAgentWizardToFields(vals: Record<string, string>) {

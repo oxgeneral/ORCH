@@ -51,7 +51,7 @@ describe('AgentRow — inline error summary', () => {
 
     const output = lastFrame()!;
     // Should show the ERROR_HINTS message for AUTH_FAILED, not the raw error
-    expect(output).toContain('API ключ невалиден.');
+    expect(output).toContain('API key is invalid.');
     expect(output).not.toContain('raw error text');
   });
 
@@ -136,7 +136,7 @@ describe('AgentDetailPanel — ErrorHintPanel', () => {
     return lastFrame()!;
   }
 
-  it('shows ⚠ Ошибка header when agent has last_error', async () => {
+  it('shows ⚠ Error header when agent has last_error', async () => {
     const agent = makeAgent({
       id: 'a1',
       name: 'backend',
@@ -148,7 +148,7 @@ describe('AgentDetailPanel — ErrorHintPanel', () => {
       },
     });
     const output = await openDetailPanel(agent);
-    expect(output).toContain('Ошибка');
+    expect(output).toContain('Error');
   });
 
   it('shows hint.message for known error kind', async () => {
@@ -163,8 +163,8 @@ describe('AgentDetailPanel — ErrorHintPanel', () => {
       },
     });
     const output = await openDetailPanel(agent);
-    // ERROR_HINTS[RATE_LIMIT].message = 'Достигнут лимит API.'
-    expect(output).toContain('Достигнут лимит API.');
+    // ERROR_HINTS[RATE_LIMIT].message = 'API rate limit reached.'
+    expect(output).toContain('API rate limit reached.');
   });
 
   it('shows hint.fix for known error kind', async () => {
@@ -179,7 +179,7 @@ describe('AgentDetailPanel — ErrorHintPanel', () => {
       },
     });
     const output = await openDetailPanel(agent);
-    // ERROR_HINTS[RATE_LIMIT].fix = 'Подождите и повторите: orch task retry <id>'
+    // ERROR_HINTS[RATE_LIMIT].fix = 'Wait and retry with: orch task retry <id>'
     expect(output).toContain('orch task retry');
   });
 
@@ -211,7 +211,7 @@ describe('AgentDetailPanel — ErrorHintPanel', () => {
     });
     const output = await openDetailPanel(agent);
     // PROCESS_CRASH has no doctorHint — should not show doctor hint line
-    expect(output).not.toContain('Диагностика: orch doctor');
+    expect(output).not.toContain('Diagnostics: orch doctor');
   });
 
   it('shows raw error message for UNKNOWN kind', async () => {
@@ -268,7 +268,7 @@ describe('AgentDetailPanel — ErrorHintPanel', () => {
       status: 'idle',
     });
     const output = await openDetailPanel(agent);
-    expect(output).not.toContain('Ошибка');
+    expect(output).not.toContain('Error');
     expect(output).not.toContain('ago');
   });
 

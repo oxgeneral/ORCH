@@ -1264,6 +1264,88 @@ describe('Command bar — tab completion', () => {
     // Ghost text "lp" should appear for "he" → "help"
     expect(output).toContain('lp');
   });
+
+  it('applies and globally saves a palette through /config palette', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const onSavePalette = vi.fn().mockResolvedValue(undefined);
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        agents: [],
+        state,
+        initialPalette: 'amber',
+        onSavePalette,
+      }),
+    );
+
+    stdin.write('/');
+    await delay(20);
+    for (const ch of 'config palette ocean') stdin.write(ch);
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+
+    expect(onSavePalette).toHaveBeenCalledWith('ocean');
+    expect(lastFrame()).toContain('Palette: ocean');
+  });
+
+  it('opens /config palette as a standalone 1/1 wizard and closes after saving', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const onSavePalette = vi.fn().mockResolvedValue(undefined);
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        agents: [],
+        state,
+        initialPalette: 'amber',
+        onSavePalette,
+      }),
+    );
+
+    stdin.write('/');
+    await delay(20);
+    for (const ch of 'config palette') stdin.write(ch);
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+
+    expect(lastFrame()).toContain('SETTINGS — PALETTE');
+    expect(lastFrame()).toContain('step 1/1');
+
+    stdin.write('\x1B[B');
+    await delay(20);
+    stdin.write('\r');
+    await delay(50);
+
+    expect(onSavePalette).toHaveBeenCalledWith('ocean');
+    expect(lastFrame()).toContain('Settings saved');
+    expect(lastFrame()).not.toContain('step 1/5');
+  });
+
+  it('uses /config suggestions to open one standalone setting', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], agents: [], state }),
+    );
+
+    stdin.write('/');
+    await delay(20);
+    for (const ch of 'config') stdin.write(ch);
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+
+    expect(lastFrame()).toContain('/config palette');
+    expect(lastFrame()).toContain('/config notifications-bell');
+
+    stdin.write('\r');
+    await delay(50);
+
+    expect(lastFrame()).toContain('SETTINGS — PALETTE');
+    expect(lastFrame()).toContain('step 1/1');
+  });
 });
 
 /* ── Command Bar: History ────────────────────────────── */

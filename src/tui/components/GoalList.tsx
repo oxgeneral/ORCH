@@ -14,6 +14,7 @@ import { Box, Text } from 'ink';
 import { GOAL_STATUS_ORDER, type Goal, type GoalStatus } from '../../domain/goal.js';
 import type { Task } from '../../domain/task.js';
 import { tuiColors, DOT } from '../colors.js';
+import type { TuiPaletteName } from '../../domain/global-config.js';
 
 /* ── Glyphs ───────────────────────────────────────── */
 
@@ -24,28 +25,21 @@ const TARGET = '\u25C9';         // ◉
 
 /* ── Chip backgrounds ─────────────────────────────── */
 
-const chipBg = {
-  green:   '#0f2d1f',
-  amber:   '#2d1f0a',
-  neutral: '#1a1a22',
-  red:     '#2d0f0f',
-} as const;
-
 /* ── Status chip config ───────────────────────────── */
 
 interface StatusChipConfig {
   icon: string;
   label: string;
-  fg: string;
-  bg: string;
+  fg: keyof typeof tuiColors;
+  bg: keyof typeof tuiColors;
   bold?: boolean;
 }
 
 const STATUS_CHIP: Record<GoalStatus, StatusChipConfig> = {
-  active:    { icon: TARGET,       label: 'ACTIVE',  fg: tuiColors.green,  bg: chipBg.green, bold: true },
-  paused:    { icon: PAUSE,        label: 'PAUSED',  fg: tuiColors.dim,    bg: chipBg.neutral },
-  achieved:  { icon: CHECK,        label: 'DONE',    fg: tuiColors.amber,  bg: chipBg.amber,  bold: true },
-  abandoned: { icon: CROSS,        label: 'DROP',    fg: tuiColors.ghost,  bg: chipBg.neutral },
+  active: { icon: TARGET, label: 'ACTIVE', fg: 'green', bg: 'successBg', bold: true },
+  paused: { icon: PAUSE, label: 'PAUSED', fg: 'dim', bg: 'neutralBg' },
+  achieved: { icon: CHECK, label: 'DONE', fg: 'amber', bg: 'accentBg', bold: true },
+  abandoned: { icon: CROSS, label: 'DROP', fg: 'ghost', bg: 'neutralBg' },
 };
 
 // Re-export for consumers that import from this module
@@ -63,6 +57,8 @@ export interface GoalRowProps {
   agentNameMap?: Map<string, string>;
   /** Linked tasks for progress bar */
   tasksByGoal?: Task[];
+  /** Palette identity is used to invalidate React.memo after live theme changes. */
+  palette?: TuiPaletteName;
 }
 
 const PROGRESS_WIDTH = 14; // " ████░░ 4/6 " = 14 chars
@@ -114,7 +110,7 @@ export const GoalRow = React.memo(function GoalRow({ goal, selected, width, agen
 
       {/* Status chip */}
       <Box width={chipWidth}>
-        <Text backgroundColor={chip.bg} color={chip.fg} bold={chip.bold}>
+        <Text backgroundColor={tuiColors[chip.bg]} color={tuiColors[chip.fg]} bold={chip.bold}>
           {' '}{chip.icon} {chip.label}{' '}
         </Text>
       </Box>
@@ -147,7 +143,7 @@ export const GoalRow = React.memo(function GoalRow({ goal, selected, width, agen
       {/* Assignee chip */}
       <Box width={assigneeWidth}>
         {assigneeName ? (
-          <Text backgroundColor={chipBg.green} color={tuiColors.green} wrap="truncate">
+          <Text backgroundColor={tuiColors.successBg} color={tuiColors.green} wrap="truncate">
             {' '}{assigneeName.length > assigneeWidth - 2 ? assigneeName.slice(0, assigneeWidth - 3) + '\u2026' : assigneeName}{' '}
           </Text>
         ) : (
@@ -191,4 +187,3 @@ export function GoalList({ goals, selectedIndex }: GoalListProps) {
     </Box>
   );
 }
-

@@ -7,7 +7,11 @@
 import path from 'node:path';
 import { homedir } from 'node:os';
 import { mkdir } from 'node:fs/promises';
-import { DEFAULT_GLOBAL_CONFIG, type GlobalConfig } from '../../domain/global-config.js';
+import {
+  DEFAULT_GLOBAL_CONFIG,
+  isTuiPaletteName,
+  type GlobalConfig,
+} from '../../domain/global-config.js';
 import { readYaml, writeYaml } from './fs-utils.js';
 
 const GLOBAL_DIR = path.join(homedir(), '.orchestry');
@@ -21,6 +25,9 @@ export class GlobalConfigStore {
     const notif = tui?.notifications as Record<string, unknown> | undefined;
     return {
       tui: {
+        palette: isTuiPaletteName(tui?.palette)
+          ? tui.palette
+          : DEFAULT_GLOBAL_CONFIG.tui.palette,
         activity_filter: tui?.activity_filter as GlobalConfig['tui']['activity_filter']
           ?? DEFAULT_GLOBAL_CONFIG.tui.activity_filter,
         notifications: {

@@ -19,6 +19,7 @@ import { tuiColors, DOT, LOZENGE, STAR, LOOP, lightRule, capLine } from '../colo
 import { Spinner } from './Spinner.js';
 import { formatDuration } from '../../cli/output.js';
 import { ERROR_HINTS, type AdapterErrorKind } from '../../domain/errors.js';
+import type { TuiPaletteName } from '../../domain/global-config.js';
 
 /* ── Glyphs ───────────────────────────────────────── */
 
@@ -30,29 +31,22 @@ const CHECK = '\u2713';          // ✓
 
 /* ── Chip backgrounds ─────────────────────────────── */
 
-const chipBg = {
-  green:   '#0f2d1f',
-  red:     '#2d0f0f',
-  neutral: '#1a1a22',
-  amber:   '#2d1f0a',
-} as const;
-
 /* ── Status chip config ───────────────────────────── */
 
 interface StatusChipConfig {
   icon: string;
   label: string;
-  fg: string;
-  bg: string;
+  fg: keyof typeof tuiColors;
+  bg: keyof typeof tuiColors;
   bold?: boolean;
   spinner?: boolean;
 }
 
 const STATUS_CHIP: Record<AgentStatus, StatusChipConfig> = {
-  running:  { icon: TRIANGLE,       label: 'ACTIVE', fg: tuiColors.green, bg: chipBg.green, bold: true, spinner: true },
-  idle:     { icon: EMPTY_CIRCLE,   label: 'IDLE',   fg: tuiColors.dim,   bg: chipBg.neutral },
-  error:    { icon: CROSS,          label: 'ERROR',  fg: tuiColors.red,   bg: chipBg.red,   bold: true },
-  disabled: { icon: EMPTY_CIRCLE,   label: 'OFF',    fg: tuiColors.ghost, bg: chipBg.neutral },
+  running: { icon: TRIANGLE, label: 'ACTIVE', fg: 'green', bg: 'successBg', bold: true, spinner: true },
+  idle: { icon: EMPTY_CIRCLE, label: 'IDLE', fg: 'dim', bg: 'neutralBg' },
+  error: { icon: CROSS, label: 'ERROR', fg: 'red', bg: 'errorBg', bold: true },
+  disabled: { icon: EMPTY_CIRCLE, label: 'OFF', fg: 'ghost', bg: 'neutralBg' },
 };
 
 /** Sort order: running → idle → error → disabled */
@@ -75,6 +69,8 @@ export interface AgentRowProps {
   teamName?: string;
   /** Whether this agent is a team lead */
   isLead?: boolean;
+  /** Palette identity is used to invalidate React.memo after live theme changes. */
+  palette?: TuiPaletteName;
 }
 
 export const AgentRow = React.memo(function AgentRow({ agent, selected, width, runningEntry, currentTaskTitle, teamName, isLead }: AgentRowProps) {
@@ -119,9 +115,9 @@ export const AgentRow = React.memo(function AgentRow({ agent, selected, width, r
 
       {/* Status chip with background */}
       <Box width={chipWidth}>
-        <Text backgroundColor={chip.bg} color={chip.fg} bold={chip.bold}>
+        <Text backgroundColor={tuiColors[chip.bg]} color={tuiColors[chip.fg]} bold={chip.bold}>
           {chip.spinner ? (
-            <>{' '}<Spinner color={chip.fg} /> {chip.label}{' '}</>
+            <>{' '}<Spinner color={tuiColors[chip.fg]} /> {chip.label}{' '}</>
           ) : (
             <>{' '}{chip.icon} {chip.label}{' '}</>
           )}
@@ -197,7 +193,7 @@ export function TeamSectionRow({ teamName, memberCount, leadName, width }: TeamS
   return (
     <Box paddingX={2}>
       <Text color={tuiColors.ghost}>{lightRule(leftLen)}</Text>
-      <Text backgroundColor={chipBg.amber} color={tuiColors.amber} bold>{label}</Text>
+      <Text backgroundColor={tuiColors.accentBg} color={tuiColors.amber} bold>{label}</Text>
       <Text color={tuiColors.ghost}>{lightRule(rightLen)}</Text>
     </Box>
   );
@@ -221,7 +217,7 @@ export function UnassignedSectionRow({ memberCount, width }: { memberCount: numb
   return (
     <Box paddingX={2}>
       <Text color={tuiColors.ghost}>{lightRule(leftLen)}</Text>
-      <Text backgroundColor={chipBg.neutral} color={tuiColors.dim}>{label}</Text>
+      <Text backgroundColor={tuiColors.neutralBg} color={tuiColors.dim}>{label}</Text>
       <Text color={tuiColors.ghost}>{lightRule(rightLen)}</Text>
     </Box>
   );

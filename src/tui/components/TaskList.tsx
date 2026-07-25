@@ -19,6 +19,7 @@ import type { Goal } from '../../domain/goal.js';
 import { tuiColors, DOT, LOZENGE, capLine, lightRule } from '../colors.js';
 import { Spinner } from './Spinner.js';
 import { formatDuration } from '../../cli/output.js';
+import type { TuiPaletteName } from '../../domain/global-config.js';
 
 // Status sort order: running → retrying → review → todo → done → failed → cancelled
 const STATUS_ORDER: Record<TaskStatus, number> = {
@@ -41,41 +42,32 @@ const RETRY = '\u21BB';          // ↻
 const DASH = '\u2500';           // ─
 const TRIANGLE = '\u25B6';       // ▶
 
-const chipBg = {
-  green:   '#0f2d1f',
-  blue:    '#0f1f2d',
-  yellow:  '#2d2a0f',
-  red:     '#2d0f0f',
-  neutral: '#1a1a22',
-  amber:   '#2d1f0a',
-} as const;
-
 interface StatusChipConfig {
   icon: string;
   label: string;
-  fg: string;
-  bg: string;
+  fg: keyof typeof tuiColors;
+  bg: keyof typeof tuiColors;
   bold?: boolean;
   spinner?: boolean;
 }
 
 const STATUS_CHIP: Record<TaskStatus, StatusChipConfig> = {
-  in_progress: { icon: TRIANGLE, label: 'RUN',    fg: tuiColors.green,  bg: chipBg.green,   bold: true, spinner: true },
-  retrying:    { icon: RETRY,    label: 'RETRY',   fg: tuiColors.yellow, bg: chipBg.yellow,  spinner: true },
-  review:      { icon: LOZENGE,  label: 'REVIEW',  fg: tuiColors.blue,   bg: chipBg.blue },
-  todo:        { icon: EMPTY_CIRCLE, label: 'TODO', fg: tuiColors.dim,   bg: chipBg.neutral },
-  done:        { icon: CHECK,    label: 'DONE',    fg: tuiColors.green,  bg: chipBg.green },
-  failed:      { icon: CROSS,    label: 'FAIL',    fg: tuiColors.red,    bg: chipBg.red,     bold: true },
-  cancelled:   { icon: DASH,     label: 'OFF',     fg: tuiColors.dim,    bg: chipBg.neutral },
+  in_progress: { icon: TRIANGLE, label: 'RUN', fg: 'green', bg: 'successBg', bold: true, spinner: true },
+  retrying: { icon: RETRY, label: 'RETRY', fg: 'yellow', bg: 'warnBg', spinner: true },
+  review: { icon: LOZENGE, label: 'REVIEW', fg: 'blue', bg: 'toolBg' },
+  todo: { icon: EMPTY_CIRCLE, label: 'TODO', fg: 'dim', bg: 'neutralBg' },
+  done: { icon: CHECK, label: 'DONE', fg: 'green', bg: 'successBg' },
+  failed: { icon: CROSS, label: 'FAIL', fg: 'red', bg: 'errorBg', bold: true },
+  cancelled: { icon: DASH, label: 'OFF', fg: 'dim', bg: 'neutralBg' },
 };
 
 /* ── Priority pips ────────────────────────────────── */
 
-const PRIORITY_CONFIG: Record<number, { color: string; label: string }> = {
-  1: { color: tuiColors.red,    label: '!!!' },
-  2: { color: tuiColors.yellow, label: '!!' },
-  3: { color: tuiColors.dim,    label: '!' },
-  4: { color: tuiColors.ghost,  label: DOT },
+const PRIORITY_CONFIG: Record<number, { color: keyof typeof tuiColors; label: string }> = {
+  1: { color: 'red', label: '!!!' },
+  2: { color: 'yellow', label: '!!' },
+  3: { color: 'dim', label: '!' },
+  4: { color: 'ghost', label: DOT },
 };
 
 /* ── Exports ──────────────────────────────────────── */
@@ -115,15 +107,15 @@ export interface TaskRowProps {
   agentNameMap?: Map<string, string>;
   /** Map goal ID → Goal for badge display */
   goalMap?: Map<string, Goal>;
+  /** Palette identity is used to invalidate React.memo after live theme changes. */
+  palette?: TuiPaletteName;
 }
 
 const GOAL_BADGE_WIDTH = 18; // " ⊕ TRUNCATED_TITLE " = up to 18 chars
-const goalBadgeBg = '#2d1f0a'; // amber dim background
-
 export const TaskRow = React.memo(function TaskRow({ task, selected, width, agentNameMap, goalMap }: TaskRowProps) {
   const chip = STATUS_CHIP[task.status];
   const isRunning = task.status === 'in_progress' || task.status === 'retrying';
-  const priConf = PRIORITY_CONFIG[task.priority] ?? { color: tuiColors.ghost, label: DOT };
+  const priConf = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG[4]!;
 
   // Time display
   let timeStr: string;
@@ -170,9 +162,9 @@ export const TaskRow = React.memo(function TaskRow({ task, selected, width, agen
 
       {/* Status chip with background */}
       <Box width={chipWidth}>
-        <Text backgroundColor={chip.bg} color={chip.fg} bold={chip.bold}>
+        <Text backgroundColor={tuiColors[chip.bg]} color={tuiColors[chip.fg]} bold={chip.bold}>
           {chip.spinner ? (
-            <>{' '}<Spinner color={chip.fg} /> {chip.label}{' '}</>
+            <>{' '}<Spinner color={tuiColors[chip.fg]} /> {chip.label}{' '}</>
           ) : (
             <>{' '}{chip.icon} {chip.label}{' '}</>
           )}
@@ -181,7 +173,7 @@ export const TaskRow = React.memo(function TaskRow({ task, selected, width, agen
 
       {/* Priority indicator */}
       <Box width={priWidth}>
-        <Text color={priConf.color} bold={task.priority <= 2}>
+        <Text color={tuiColors[priConf.color]} bold={task.priority <= 2}>
           {priConf.label}
         </Text>
       </Box>
@@ -203,7 +195,7 @@ export const TaskRow = React.memo(function TaskRow({ task, selected, width, agen
       {/* Goal badge */}
       {hasGoalBadge && (
         <Box width={goalBadgeW}>
-          <Text backgroundColor={goalBadgeBg} color={tuiColors.amberDim} wrap="truncate">
+          <Text backgroundColor={tuiColors.accentBg} color={tuiColors.amberDim} wrap="truncate">
             {' \u2295 '}{capLine(goal.title, 13)}{' '}
           </Text>
         </Box>
@@ -212,7 +204,7 @@ export const TaskRow = React.memo(function TaskRow({ task, selected, width, agen
       {/* Assignee chip (truncated to column width) */}
       <Box width={assigneeWidth}>
         {assigneeName ? (
-          <Text backgroundColor={chipBg.green} color={tuiColors.green} wrap="truncate">
+          <Text backgroundColor={tuiColors.successBg} color={tuiColors.green} wrap="truncate">
             {' '}{assigneeName.length > assigneeWidth - 2 ? assigneeName.slice(0, assigneeWidth - 3) + '\u2026' : assigneeName}{' '}
           </Text>
         ) : (
@@ -251,7 +243,7 @@ export function GoalSectionRow({ goalTitle, taskCount, doneCount, width }: GoalS
   return (
     <Box paddingX={2}>
       <Text color={tuiColors.ghost}>{lightRule(leftLen)}</Text>
-      <Text backgroundColor={chipBg.amber} color={tuiColors.amber} bold>{label}</Text>
+      <Text backgroundColor={tuiColors.accentBg} color={tuiColors.amber} bold>{label}</Text>
       <Text color={tuiColors.ghost}>{lightRule(rightLen)}</Text>
     </Box>
   );
@@ -265,7 +257,7 @@ export function UngroupedSectionRow({ taskCount, width }: { taskCount: number; w
   return (
     <Box paddingX={2}>
       <Text color={tuiColors.ghost}>{lightRule(leftLen)}</Text>
-      <Text backgroundColor={chipBg.neutral} color={tuiColors.dim}>{label}</Text>
+      <Text backgroundColor={tuiColors.neutralBg} color={tuiColors.dim}>{label}</Text>
       <Text color={tuiColors.ghost}>{lightRule(rightLen)}</Text>
     </Box>
   );

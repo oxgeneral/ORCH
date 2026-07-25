@@ -150,33 +150,33 @@ export interface AdapterErrorHint {
 
 export const ERROR_HINTS: Record<AdapterErrorKind, AdapterErrorHint> = {
   [AdapterErrorKind.ADAPTER_NOT_FOUND]: {
-    message: 'CLI не установлен.',
-    fix: 'Установите: npm i -g @anthropic-ai/claude-code',
+    message: 'CLI is not installed.',
+    fix: 'Install it with: npm i -g @anthropic-ai/claude-code',
     doctorHint: true,
   },
   [AdapterErrorKind.AUTH_FAILED]: {
-    message: 'API ключ невалиден.',
-    fix: 'Проверьте: claude auth status',
+    message: 'API key is invalid.',
+    fix: 'Check it with: claude auth status',
   },
   [AdapterErrorKind.TIMEOUT]: {
-    message: 'Агент превысил лимит времени.',
-    fix: 'Увеличьте через: orch config set agent_timeout <ms>',
+    message: 'Agent timed out.',
+    fix: 'Increase the timeout with: orch config set agent_timeout <ms>',
   },
   [AdapterErrorKind.RATE_LIMIT]: {
-    message: 'Достигнут лимит API.',
-    fix: 'Подождите и повторите: orch task retry <id>',
+    message: 'API rate limit reached.',
+    fix: 'Wait and retry with: orch task retry <id>',
   },
   [AdapterErrorKind.PROCESS_CRASH]: {
-    message: 'Процесс агента упал.',
-    fix: 'Попробуйте: orch task retry <id>',
+    message: 'Agent process crashed.',
+    fix: 'Try again with: orch task retry <id>',
   },
   [AdapterErrorKind.SPAWN_FAILED]: {
-    message: 'Не удалось запустить процесс.',
-    fix: 'Проверьте PATH и права доступа',
+    message: 'Failed to start the process.',
+    fix: 'Check PATH and file permissions',
   },
   [AdapterErrorKind.UNKNOWN]: {
-    message: 'Неизвестная ошибка.',
-    fix: 'Запустите: orch doctor',
+    message: 'Unknown error.',
+    fix: 'Run: orch doctor',
     doctorHint: true,
   },
 };

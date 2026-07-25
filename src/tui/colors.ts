@@ -7,35 +7,187 @@
 
 import type { TaskStatus } from '../domain/task.js';
 import type { GoalStatus } from '../domain/goal.js';
+import type { TuiPaletteName } from '../domain/global-config.js';
 
-export const tuiColors = {
-  // Brand
-  amber: '#ffaf00',      // ansi256(214) — logo, selected cursor, accents
-  amberDim: '#af8700',   // ansi256(136) — amber at reduced intensity
+export interface TuiColorPalette {
+  amber: string;
+  amberDim: string;
+  green: string;
+  red: string;
+  blue: string;
+  yellow: string;
+  cyan: string;
+  purple: string;
+  white: string;
+  silver: string;
+  gray: string;
+  dim: string;
+  ghost: string;
+  void: string;
+  errorBg: string;
+  warnBg: string;
+  successBg: string;
+  infoBg: string;
+  toolBg: string;
+  accentBg: string;
+  neutralBg: string;
+  darkText: string;
+  pink: string;
+  olive: string;
+  orange: string;
+}
 
-  // Semantic
-  green: '#5faf87',      // ansi256(72) — running, success, active
-  red: '#d75f5f',        // ansi256(167) — failed, P1, errors
-  blue: '#5fafd7',       // ansi256(74) — review, info
-  yellow: '#d7af00',     // ansi256(178) — retrying, P2, warning
-  cyan: '#5fd7d7',       // ansi256(80) — timestamps, metadata
-  purple: '#af87ff',     // ansi256(141) — file paths, labels
+export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPalette>>> = {
+  amber: {
+    amber: '#ffaf00',
+    amberDim: '#af8700',
+    green: '#5faf87',
+    red: '#d75f5f',
+    blue: '#5fafd7',
+    yellow: '#d7af00',
+    cyan: '#5fd7d7',
+    purple: '#af87ff',
+    white: '#eeeeee',
+    silver: '#bcbcbc',
+    gray: '#808080',
+    dim: '#585858',
+    ghost: '#3a3a3a',
+    void: '#262626',
+    errorBg: '#3d1515',
+    warnBg: '#3d2e0a',
+    successBg: '#0f2d1f',
+    infoBg: '#1a1a22',
+    toolBg: '#0f1f2d',
+    accentBg: '#2d1f0a',
+    neutralBg: '#1a1a22',
+    darkText: '#0a0a0c',
+    pink: '#d787af',
+    olive: '#afaf5f',
+    orange: '#d7875f',
+  },
+  ocean: {
+    amber: '#5fafff',
+    amberDim: '#5f87af',
+    green: '#5fd7af',
+    red: '#ff6b6b',
+    blue: '#87afff',
+    yellow: '#ffd75f',
+    cyan: '#5fd7ff',
+    purple: '#af87ff',
+    white: '#f0f6ff',
+    silver: '#b8c7d9',
+    gray: '#7890a8',
+    dim: '#52677a',
+    ghost: '#304252',
+    void: '#17212b',
+    errorBg: '#3a171d',
+    warnBg: '#352e12',
+    successBg: '#102d29',
+    infoBg: '#14283a',
+    toolBg: '#102f46',
+    accentBg: '#12304a',
+    neutralBg: '#182631',
+    darkText: '#07131d',
+    pink: '#ff87d7',
+    olive: '#afd787',
+    orange: '#ff9f5f',
+  },
+  forest: {
+    amber: '#5fd787',
+    amberDim: '#5f9f6f',
+    green: '#87d75f',
+    red: '#e06c75',
+    blue: '#5fafd7',
+    yellow: '#d7d75f',
+    cyan: '#87d7af',
+    purple: '#af87d7',
+    white: '#edf5ed',
+    silver: '#b8c9b8',
+    gray: '#7f967f',
+    dim: '#536b57',
+    ghost: '#34483a',
+    void: '#1b271e',
+    errorBg: '#3a191c',
+    warnBg: '#303013',
+    successBg: '#12351d',
+    infoBg: '#1a2b20',
+    toolBg: '#15302a',
+    accentBg: '#14351f',
+    neutralBg: '#1c2920',
+    darkText: '#09150c',
+    pink: '#d787af',
+    olive: '#afd75f',
+    orange: '#d79f5f',
+  },
+  violet: {
+    amber: '#af87ff',
+    amberDim: '#7f5faf',
+    green: '#5fd7a7',
+    red: '#ff6b87',
+    blue: '#8787ff',
+    yellow: '#ffd75f',
+    cyan: '#5fd7d7',
+    purple: '#d787ff',
+    white: '#f4efff',
+    silver: '#c7bbd9',
+    gray: '#9380a8',
+    dim: '#655477',
+    ghost: '#433552',
+    void: '#251b2d',
+    errorBg: '#401724',
+    warnBg: '#382c12',
+    successBg: '#123026',
+    infoBg: '#271d36',
+    toolBg: '#1c2342',
+    accentBg: '#30204a',
+    neutralBg: '#261e30',
+    darkText: '#130a1d',
+    pink: '#ff87d7',
+    olive: '#afd787',
+    orange: '#ff9f7f',
+  },
+};
 
-  // Neutrals (high → low intensity)
-  white: '#eeeeee',      // ansi256(255) — primary text
-  silver: '#bcbcbc',     // ansi256(250) — secondary text
-  gray: '#808080',       // ansi256(244) — tertiary text
-  dim: '#585858',        // ansi256(240) — subtle text, deemphasized
-  ghost: '#3a3a3a',      // ansi256(237) — rules, separators
-  void: '#262626',       // ansi256(235) — deepest background elements
+/** Mutable live palette. Imports keep the same object reference across TUI rerenders. */
+export const tuiColors: TuiColorPalette = { ...TUI_PALETTES.amber };
 
-  // Semantic backgrounds (for log highlights)
-  errorBg: '#3d1515',    // deep red background for errors
-  warnBg: '#3d2e0a',     // deep amber background for warnings
-  successBg: '#0f2d1f',  // deep green background for success
-  infoBg: '#1a1a22',     // subtle dark background for info chips
-  toolBg: '#0f1f2d',     // deep blue background for tool calls
-} as const;
+let activePalette: TuiPaletteName = 'amber';
+
+export function applyTuiPalette(name: TuiPaletteName): void {
+  activePalette = name;
+  Object.assign(tuiColors, TUI_PALETTES[name]);
+  Object.assign(TASK_STATUS_COLOR, buildTaskStatusColors());
+  Object.assign(GOAL_STATUS_COLOR, buildGoalStatusColors());
+}
+
+export function getActiveTuiPalette(): TuiPaletteName {
+  return activePalette;
+}
+
+/** Preserve a semantic color token while switching between palette values. */
+export function remapTuiColor(
+  color: string,
+  from: TuiPaletteName,
+  to: TuiPaletteName,
+): string {
+  const fromPalette = TUI_PALETTES[from];
+  const token = (Object.keys(fromPalette) as Array<keyof TuiColorPalette>)
+    .find((key) => fromPalette[key] === color);
+  return token ? TUI_PALETTES[to][token] : color;
+}
+
+export function getAgentColors(): readonly string[] {
+  return [
+    tuiColors.green,
+    tuiColors.blue,
+    tuiColors.purple,
+    tuiColors.yellow,
+    tuiColors.cyan,
+    tuiColors.pink,
+    tuiColors.olive,
+    tuiColors.orange,
+  ];
+}
 
 /** Heavy horizontal rule character (━) */
 export const HEAVY_RULE = '\u2501';
@@ -53,15 +205,19 @@ export const LOOP = '\u27F3';
 export const DIAMOND = '\u25C6';
 
 /** Canonical task status → foreground color mapping. */
-export const TASK_STATUS_COLOR: Record<TaskStatus, string> = {
-  in_progress: tuiColors.green,
-  retrying: tuiColors.yellow,
-  review: tuiColors.blue,
-  todo: tuiColors.dim,
-  done: tuiColors.green,
-  failed: tuiColors.red,
-  cancelled: tuiColors.dim,
-};
+function buildTaskStatusColors(): Record<TaskStatus, string> {
+  return {
+    in_progress: tuiColors.green,
+    retrying: tuiColors.yellow,
+    review: tuiColors.blue,
+    todo: tuiColors.dim,
+    done: tuiColors.green,
+    failed: tuiColors.red,
+    cancelled: tuiColors.dim,
+  };
+}
+
+export const TASK_STATUS_COLOR: Record<TaskStatus, string> = buildTaskStatusColors();
 
 /**
  * Pre-computed rule strings to avoid per-render Intl.Segmenter overhead.
@@ -98,9 +254,13 @@ export function capText(s: string | undefined, max: number = MAX_PANEL_TEXT): st
 }
 
 /** Canonical goal status → foreground color mapping. */
-export const GOAL_STATUS_COLOR: Record<GoalStatus, string> = {
-  active: tuiColors.green,
-  paused: tuiColors.dim,
-  achieved: tuiColors.amber,
-  abandoned: tuiColors.ghost,
-};
+function buildGoalStatusColors(): Record<GoalStatus, string> {
+  return {
+    active: tuiColors.green,
+    paused: tuiColors.dim,
+    achieved: tuiColors.amber,
+    abandoned: tuiColors.ghost,
+  };
+}
+
+export const GOAL_STATUS_COLOR: Record<GoalStatus, string> = buildGoalStatusColors();

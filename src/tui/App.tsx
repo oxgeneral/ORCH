@@ -15,7 +15,20 @@ import { GOAL_STATUSES, type Goal, type GoalStatus } from '../domain/goal.js';
 import type { OrchestratorState } from '../domain/state.js';
 import type { OrchestratorEvent } from '../domain/events.js';
 import { formatDurationSince, formatTokens } from '../cli/output.js';
-import { tuiColors, HEAVY_RULE, LOOP, TASK_STATUS_COLOR, GOAL_STATUS_COLOR, heavyRule, lightRule, capLine, capText } from './colors.js';
+import {
+  applyTuiPalette,
+  getAgentColors,
+  remapTuiColor,
+  tuiColors,
+  HEAVY_RULE,
+  LOOP,
+  TASK_STATUS_COLOR,
+  GOAL_STATUS_COLOR,
+  heavyRule,
+  lightRule,
+  capLine,
+  capText,
+} from './colors.js';
 import { TaskRow, STATUS_ORDER, GoalSectionRow, UngroupedSectionRow } from './components/TaskList.js';
 import { AgentRow, AGENT_STATUS_ORDER, TeamSectionRow, UnassignedSectionRow } from './components/AgentList.js';
 import { GoalRow, GOAL_STATUS_ORDER } from './components/GoalList.js';
@@ -42,13 +55,20 @@ import {
   getEditTaskWizardSteps, editTaskWizardToFields,
   getEditAgentWizardSteps, editAgentWizardToFields,
   getTeamWizardSteps, teamWizardToInput,
-  getConfigWizardSteps,
+  CONFIG_SETTINGS, getConfigWizardSteps, isConfigSetting,
   getGoalWizardSteps, goalWizardToInput,
   getEditGoalWizardSteps, editGoalWizardToFields,
   getShopWizardSteps, applyShopTemplate,
+  type ConfigSetting,
 } from './wizardConfigs.js';
 import { getShopTemplateByKey } from '../domain/agent-shop.js';
-import type { ActivityFilterPreset, NotificationPreferences } from '../domain/global-config.js';
+import {
+  isTuiPaletteName,
+  TUI_PALETTE_NAMES,
+  type ActivityFilterPreset,
+  type NotificationPreferences,
+  type TuiPaletteName,
+} from '../domain/global-config.js';
 import { DEFAULT_CONFIG } from '../domain/config.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
 import { ERROR_HINTS, type AdapterErrorKind } from '../domain/errors.js';
@@ -137,6 +157,10 @@ export interface AppProps {
   initialNotifications?: NotificationPreferences;
   /** Save notification preferences to global config */
   onSaveNotifications?: (notif: NotificationPreferences) => Promise<void>;
+  /** Initial global TUI color palette */
+  initialPalette?: TuiPaletteName;
+  /** Save TUI color palette to global config */
+  onSavePalette?: (palette: TuiPaletteName) => Promise<void>;
   /** Current CLI version (shown in header) */
   version?: string;
   /** Latest available version from npm (shown as UPDATE chip if newer) */
@@ -171,7 +195,17 @@ interface WizardConfig {
   kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team' | 'config' | 'goal' | 'edit_goal' | 'agent_shop' | 'agent_from_shop';
   /** Target ID for edit wizards */
   targetId?: string;
+  /** Individual setting edited by a config wizard. */
+  configSetting?: ConfigSetting;
 }
+
+const CONFIG_SETTING_TITLES: Record<ConfigSetting, string> = {
+  palette: 'PALETTE',
+  'activity-filter': 'ACTIVITY FILTER',
+  'max-concurrent': 'MAX CONCURRENT',
+  'notifications-toast': 'TOAST NOTIFICATIONS',
+  'notifications-bell': 'COMPLETION BELL',
+};
 
 /** Message types for semantic styling */
 type MsgType = 'system' | 'lifecycle' | 'output' | 'tool' | 'result' | 'error' | 'file' | 'info';
@@ -223,19 +257,6 @@ function classifyAgentSummary(summary: string): { msgType: MsgType; color: strin
   if (summary.startsWith('\u23F3')) return { msgType: 'info', color: tuiColors.silver };
   return { msgType: 'output', color: tuiColors.silver };
 }
-
-/** Rotating palette for agent identification */
-const AGENT_COLORS = [
-  '#5faf87', // green
-  '#5fafd7', // blue
-  '#af87ff', // purple
-  '#d7af00', // yellow
-  '#5fd7d7', // cyan
-  '#d787af', // pink
-  '#afaf5f', // olive
-  '#d7875f', // orange
-] as const;
-
 
 /** Blank indent for continuation rows in activity feed (matches agent column width) */
 const AGENT_INDENT = ' '.repeat(9);
@@ -302,6 +323,8 @@ export function App({
   onSaveMaxConcurrent,
   initialNotifications,
   onSaveNotifications,
+  initialPalette = 'amber',
+  onSavePalette,
   version,
   latestVersion: initialLatestVersion,
   onCheckUpdate,
@@ -309,6 +332,10 @@ export function App({
   defaultAdapter = 'claude',
   onLoadModelCatalog,
 }: AppProps) {
+  const [palette, setPalette] = useState<TuiPaletteName>(() => {
+    applyTuiPalette(initialPalette);
+    return initialPalette;
+  });
   const { exit } = useApp();
   const { stdout } = useStdout();
 
@@ -423,6 +450,17 @@ export function App({
 
   // Notification preferences (global config)
   const [notifications, setNotifications] = useState<NotificationPreferences>(initialNotifications ?? { toast: true, bell: false });
+
+  const changePalette = useCallback((next: TuiPaletteName) => {
+    const previous = palette;
+    applyTuiPalette(next);
+    setMessages((current) => current.map((message) => {
+      const color = remapTuiColor(message.color, previous, next);
+      return color === message.color ? message : { ...message, color };
+    }));
+    setPalette(next);
+    onSavePalette?.(next);
+  }, [onSavePalette, palette]);
 
   // Toast notification queue
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -587,12 +625,13 @@ export function App({
 
   // Build agent ID → color map to avoid O(n) findIndex per message row during render
   const agentColorMap = useMemo(() => {
+    const colors = getAgentColors();
     const map = new Map<string, string>();
     for (let i = 0; i < liveAgents.length; i++) {
-      map.set(liveAgents[i]!.id, AGENT_COLORS[i % AGENT_COLORS.length]!);
+      map.set(liveAgents[i]!.id, colors[i % colors.length]!);
     }
     return map;
-  }, [liveAgents]);
+  }, [liveAgents, palette]);
 
   // Count messages per agent (for LogsFilterPicker)
   const agentMsgCounts = useMemo(() => {
@@ -991,19 +1030,21 @@ export function App({
     setInputMode('wizard');
   }, [liveAgents, liveTeams, modelCatalog]);
 
-  const launchConfigWizard = useCallback(() => {
+  const launchConfigWizard = useCallback((setting: ConfigSetting) => {
     setWizardConfig({
-      title: 'SETTINGS',
-      steps: getConfigWizardSteps(activityFilterLabel, maxConcurrent, notifications),
+      title: `SETTINGS — ${CONFIG_SETTING_TITLES[setting]}`,
+      steps: getConfigWizardSteps(setting, palette, activityFilterLabel, maxConcurrent, notifications),
       kind: 'config',
+      configSetting: setting,
     });
     setInputMode('wizard');
-  }, [activityFilterLabel, maxConcurrent]);
+  }, [activityFilterLabel, maxConcurrent, notifications, palette]);
 
   const handleWizardComplete = useCallback((values: Record<string, string>) => {
     setInputMode('none');
     const kind = wizardConfig?.kind;
     const targetId = wizardConfig?.targetId;
+    const configSetting = wizardConfig?.configSetting;
     setWizardConfig(null);
 
     if (kind === 'agent_shop') {
@@ -1124,8 +1165,10 @@ export function App({
         },
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
-    } else if (kind === 'config') {
-      // Apply all config values from the linear wizard
+    } else if (kind === 'config' && configSetting) {
+      if (isTuiPaletteName(values.palette)) {
+        changePalette(values.palette);
+      }
       if (values.activity_filter) {
         const preset = ACTIVITY_PRESETS.find((p) => p.label === values.activity_filter);
         if (preset) {
@@ -1140,11 +1183,16 @@ export function App({
           onSaveMaxConcurrent?.(num);
         }
       }
-      const toastEnabled = values.notifications_toast === 'true';
-      const bellEnabled = values.notifications_bell === 'true';
-      const updated = { toast: toastEnabled, bell: bellEnabled };
-      setNotifications(updated);
-      onSaveNotifications?.(updated);
+      if (values.notifications_toast !== undefined) {
+        const updated = { ...notifications, toast: values.notifications_toast === 'true' };
+        setNotifications(updated);
+        onSaveNotifications?.(updated);
+      }
+      if (values.notifications_bell !== undefined) {
+        const updated = { ...notifications, bell: values.notifications_bell === 'true' };
+        setNotifications(updated);
+        onSaveNotifications?.(updated);
+      }
       addMessage('Settings saved', tuiColors.green);
     } else if (kind === 'goal' && onCreateGoal) {
       const input = goalWizardToInput(values);
@@ -1161,7 +1209,7 @@ export function App({
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
     }
-  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onLeaveTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter, onSaveMaxConcurrent, notifications, onSaveNotifications, liveAgents, liveTeams, pendingAttachments, modelCatalog, defaultAdapter]);
+  }, [wizardConfig, onAddAgent, onCreateTask, onCreateTeam, onJoinTeam, onLeaveTeam, onAssignTask, onUpdateTask, onUpdateAgent, onToggleAutonomous, onCreateGoal, onUpdateGoal, addMessage, refreshAll, onSaveActivityFilter, onSaveMaxConcurrent, notifications, onSaveNotifications, changePalette, launchConfigWizard, liveAgents, liveTeams, pendingAttachments, modelCatalog, defaultAdapter]);
 
   const handleWizardCancel = useCallback(() => {
     setInputMode('none');
@@ -1701,16 +1749,20 @@ export function App({
       // ── /config ──
       case 'config': {
         const sub = parts[1]?.toLowerCase();
-        if (sub === 'activity-filter') {
-          setActivityFilter((prev) => {
-            const next = cyclePreset(prev);
-            onSaveActivityFilter?.(next.label);
-            addMessage(`Activity filter: ${next.label}`, tuiColors.amber);
-            return new Set(next.types);
-          });
+        if (sub === 'palette' && parts[2]) {
+          const requested = parts[2].toLowerCase();
+          if (!isTuiPaletteName(requested)) {
+            addMessage(`Unknown palette: ${requested}. Available: ${TUI_PALETTE_NAMES.join(', ')}`, tuiColors.yellow);
+            return;
+          }
+          changePalette(requested);
+          addMessage(`Palette: ${requested}`, tuiColors.amber);
+        } else if (isConfigSetting(sub)) {
+          launchConfigWizard(sub);
+        } else if (!sub) {
+          addMessage(`Choose a setting: ${CONFIG_SETTINGS.join(', ')}`, tuiColors.cyan);
         } else {
-          // No subcommand or named setting → open interactive settings wizard
-          launchConfigWizard();
+          addMessage(`Unknown setting: ${sub}. Available: ${CONFIG_SETTINGS.join(', ')}`, tuiColors.yellow);
         }
         return;
       }
@@ -1766,7 +1818,7 @@ export function App({
       onCancelTask, onRetryTask, onAssignTask, onRunAll, onRunTask, onCreateTask,
       onDisableAgent, onEnableAgent, onAddAgent, onApproveTask, onRejectTask, onDeleteTask,
       onJoinTeam, onLeaveTeam, onDisbandTeam, onSetTeamLead,
-      onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard, launchConfigWizard]);
+      onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard, launchConfigWizard, changePalette]);
 
   useInput((input, key) => {
     // ── Help overlay dismiss: any key closes it ──
@@ -2379,6 +2431,7 @@ export function App({
         flashTab={flashTab?.tab}
         flashColor={flashTab?.color}
         onFlashComplete={flashTab ? () => setFlashTab(undefined) : undefined}
+        palette={palette}
       />
 
       {/* Breathing room after header */}
@@ -2405,6 +2458,7 @@ export function App({
           showAddRow={!!onCreateGoal}
           agentNameMap={agentNameMap}
           tasksByGoalMap={tasksByGoalMap}
+          palette={palette}
         />
       )}
       {!showHelpOverlay && onboardingStep !== 'welcome' && activeView === 'tasks' && (
@@ -2419,6 +2473,7 @@ export function App({
           hiddenCount={hiddenTaskCount}
           goalMap={goalMap}
           groupByGoal={groupByGoal}
+          palette={palette}
         />
       )}
       {/* Onboarding nudge — shown under task list for task_created/run_started */}
@@ -2442,6 +2497,7 @@ export function App({
           agentTeamMap={agentTeamMap}
           teamLeadSet={teamLeadSet}
           activeTeamCount={activeTeamCount}
+          palette={palette}
         />
       )}
 {!showHelpOverlay && activeView === 'logs' && (
@@ -2534,7 +2590,7 @@ export function App({
           <SectionLabel label={`GOAL: ${selectedGoal.title}`} width={ruleW}
             suffixLen={detailResizeHint.length + 2}
             suffix={<Text color={tuiColors.dim}> {detailResizeHint} </Text>} />
-          <GoalDetailPanel goal={selectedGoal} height={feedH} width={ruleW} agentNameMap={agentNameMap} tasks={selectedGoalTasks} progressReport={goalProgressReport} scrollOffset={goalDetailScroll} onClampScroll={setGoalDetailScroll} />
+          <GoalDetailPanel goal={selectedGoal} height={feedH} width={ruleW} agentNameMap={agentNameMap} tasks={selectedGoalTasks} progressReport={goalProgressReport} scrollOffset={goalDetailScroll} onClampScroll={setGoalDetailScroll} palette={palette} />
         </>
       ) : showAgentDetail ? (
         <>
@@ -2573,7 +2629,7 @@ export function App({
       <Box flexGrow={1} />
 
       {/* Toast notifications — task completion events */}
-      <ToastBanner toasts={toasts} onDismiss={handleDismissToast} />
+      <ToastBanner toasts={toasts} onDismiss={handleDismissToast} palette={palette} />
 
       {/* Undo banner — shows pending deletions with countdown */}
       {pendingDeletions.length > 0 && (
@@ -2677,10 +2733,10 @@ function SuggestionsPanel({ suggestions, selectedIndex, height, width }: {
         const isSelected = realIndex === selectedIndex;
         const marker = isSelected ? '\u25B6' : ' ';
         // Pad command to fixed width for alignment
-        const cmdPad = Math.min(20, Math.max(14, ...suggestions.map((s) => s.cmd.length + 1)));
-        const cmdText = sug.cmd.padEnd(cmdPad);
+        const cmdPad = Math.min(32, Math.max(14, ...suggestions.map((s) => s.cmd.length + 1)));
+        const cmdText = `${sug.cmd.padEnd(cmdPad)} `;
         const subsText = sug.subs ? `  ${sug.subs}` : '';
-        const maxDescLen = Math.max(4, width - cmdPad - subsText.length - 8);
+        const maxDescLen = Math.max(4, width - cmdPad - subsText.length - 9);
         const desc = sug.desc.length > maxDescLen ? sug.desc.slice(0, maxDescLen - 1) + '\u2026' : sug.desc;
 
         return (
@@ -2698,7 +2754,7 @@ function SuggestionsPanel({ suggestions, selectedIndex, height, width }: {
 
 /* ── Goals Content ───────────────────────────────────── */
 
-function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, tasksByGoalMap }: {
+function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, tasksByGoalMap, palette }: {
   goals: Goal[];
   selectedIndex: number;
   scrollOffset?: number;
@@ -2707,6 +2763,7 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
   showAddRow?: boolean;
   agentNameMap?: Map<string, string>;
   tasksByGoalMap?: Map<string, Task[]>;
+  palette: TuiPaletteName;
 }) {
   const addRowIndex = goals.length;
 
@@ -2717,7 +2774,7 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
     <Box flexDirection="column" height={height}>
       {visible.map((goal, i) => (
         <Box key={goal.id} paddingX={2}>
-          <GoalRow goal={goal} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} tasksByGoal={tasksByGoalMap?.get(goal.id)} />
+          <GoalRow goal={goal} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} tasksByGoal={tasksByGoalMap?.get(goal.id)} palette={palette} />
         </Box>
       ))}
       {addRowVisible && (
@@ -2734,7 +2791,7 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
 
 /* ── Goal Detail Panel ──────────────────────────────── */
 
-function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressReport, scrollOffset = 0, onClampScroll }: {
+function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressReport, scrollOffset = 0, onClampScroll, palette }: {
   goal: Goal;
   height: number;
   width: number;
@@ -2743,6 +2800,7 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
   progressReport?: string;
   scrollOffset?: number;
   onClampScroll?: (v: number) => void;
+  palette: TuiPaletteName;
 }) {
   const col1Width = 24;
 
@@ -2879,7 +2937,7 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
     }
 
     return lines;
-  }, [goal, tasks, progressReport, width, agentNameMap]);
+  }, [goal, tasks, progressReport, width, agentNameMap, palette]);
 
   // Clamp scroll offset
   const maxScroll = Math.max(0, allLines.length - height);
@@ -2910,7 +2968,7 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
 
 /* ── Tasks Content ───────────────────────────────────── */
 
-function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, hiddenCount = 0, goalMap, groupByGoal = false }: {
+function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, hiddenCount = 0, goalMap, groupByGoal = false, palette }: {
   tasks: Task[];
   selectedIndex: number;
   scrollOffset?: number;
@@ -2921,6 +2979,7 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
   hiddenCount?: number;
   goalMap?: Map<string, Goal>;
   groupByGoal?: boolean;
+  palette: TuiPaletteName;
 }) {
   const hasShowAll = hiddenCount > 0;
   // Virtual indices: tasks[0..n-1], show-all row (optional), add row (optional)
@@ -2988,7 +3047,7 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
 
     rows.push(
       <Box key={task.id} paddingX={2}>
-        <TaskRow task={task} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} goalMap={goalMap} />
+        <TaskRow task={task} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} goalMap={goalMap} palette={palette} />
       </Box>,
     );
   }
@@ -3026,7 +3085,7 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
 
 /* ── Agents Content ──────────────────────────────────── */
 
-function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width, state, taskTitleMap, showAddRow, agentTeamMap, teamLeadSet, activeTeamCount }: {
+function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width, state, taskTitleMap, showAddRow, agentTeamMap, teamLeadSet, activeTeamCount, palette }: {
   agents: Agent[];
   selectedIndex: number;
   scrollOffset?: number;
@@ -3038,6 +3097,7 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
   agentTeamMap?: Map<string, string>;
   teamLeadSet?: Set<string>;
   activeTeamCount?: number;
+  palette: TuiPaletteName;
 }) {
   // Build running entry lookup by agent ID
   const runningByAgent = new Map<string, typeof state.running[string]>();
@@ -3120,6 +3180,7 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
           currentTaskTitle={agent.current_task ? taskTitleMap.get(agent.current_task) : undefined}
           teamName={team}
           isLead={teamLeadSet?.has(agent.id)}
+          palette={palette}
         />
       </Box>,
     );
@@ -3292,7 +3353,7 @@ function LogsContent({ messages, height, agents, logAgentFilter, logTypeFilter, 
       {/* ── Line 2: Agent chips — full names, spaced ── */}
       <Box gap={0}>
         {agents.map((a) => {
-          const ac = agentColorMap.get(a.id) ?? AGENT_COLORS[0]!;
+          const ac = agentColorMap.get(a.id) ?? tuiColors.green;
           const active = logAgentFilter.size === 0 || logAgentFilter.has(a.id);
           const name = a.name.length > agentChipLen ? a.name.slice(0, agentChipLen - 1) + '\u2026' : a.name;
           return (
@@ -3595,7 +3656,7 @@ function SectionLabel({ label, width, suffix, suffixLen = 0 }: { label: string; 
     return (
       <Box paddingX={1}>
         <Text color={tuiColors.ghost}>{heavyRule(leftRuleLen)}</Text>
-        <Text backgroundColor="#1a1a22" color={tuiColors.dim} bold>{chipText}</Text>
+        <Text backgroundColor={tuiColors.neutralBg} color={tuiColors.dim} bold>{chipText}</Text>
         <Text color={tuiColors.ghost}>{heavyRule(rightRuleLen)}</Text>
       </Box>
     );
@@ -3605,7 +3666,7 @@ function SectionLabel({ label, width, suffix, suffixLen = 0 }: { label: string; 
   return (
     <Box paddingX={1}>
       <Text color={tuiColors.ghost}>{heavyRule(leftRuleLen)}</Text>
-      <Text backgroundColor="#1a1a22" color={tuiColors.dim} bold>{chipText}</Text>
+      <Text backgroundColor={tuiColors.neutralBg} color={tuiColors.dim} bold>{chipText}</Text>
       <Text color={tuiColors.ghost}>{heavyRule(gapLen)}</Text>
       {suffix}
       <Text color={tuiColors.ghost}>{heavyRule(trailLen)}</Text>
@@ -3624,7 +3685,7 @@ function DetailSectionLabel({ task, width, resizeHint }: { task: Task; width: nu
   return (
     <Box paddingX={1}>
       <Text color={tuiColors.ghost}>{heavyRule(3)}</Text>
-      <Text backgroundColor="#2d1f0a" color={tuiColors.amber} bold>{chipText}</Text>
+      <Text backgroundColor={tuiColors.accentBg} color={tuiColors.amber} bold>{chipText}</Text>
       <Text color={tuiColors.ghost}>{HEAVY_RULE} </Text>
       <Text color={tuiColors.white} bold>{titleTrunc}</Text>
       <Text color={tuiColors.ghost}> {heavyRule(Math.max(0, rightRuleLen))}</Text>
@@ -3644,7 +3705,7 @@ function AgentDetailSectionLabel({ agent, width, resizeHint }: { agent: Agent; w
   return (
     <Box paddingX={1}>
       <Text color={tuiColors.ghost}>{heavyRule(3)}</Text>
-      <Text backgroundColor="#0f2d1f" color={tuiColors.green} bold>{chipText}</Text>
+      <Text backgroundColor={tuiColors.successBg} color={tuiColors.green} bold>{chipText}</Text>
       <Text color={tuiColors.ghost}>{HEAVY_RULE} </Text>
       <Text color={tuiColors.green} bold>{nameTrunc}</Text>
       <Text color={tuiColors.ghost}> {heavyRule(Math.max(0, rightRuleLen))}</Text>
@@ -3662,7 +3723,7 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
   taskTitleMap: Map<string, string>;
   teamName?: string;
 }) {
-  const statusColor = STATUS_DETAIL_COLOR[agent.status] ?? tuiColors.dim;
+  const statusColor = getAgentStatusDetailColor(agent.status);
   const runningEntry = Object.values(state.running).find((e) => e.agent_id === agent.id);
   const taskTitle = agent.current_task ? taskTitleMap.get(agent.current_task) : undefined;
 
@@ -3744,10 +3805,10 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
           <>
             <Text> </Text>
             <Box flexDirection="column" borderStyle="single" borderColor={tuiColors.red} paddingX={1}>
-              <Text color={tuiColors.red} bold>{'\u26A0'} Ошибка</Text>
+              <Text color={tuiColors.red} bold>{'\u26A0'} Error</Text>
               {hint && <Text color={tuiColors.white}>{hint.message}</Text>}
               {hint && <Text color={tuiColors.cyan}>{hint.fix}</Text>}
-              {hint?.doctorHint && <Text color={tuiColors.yellow}>Диагностика: orch doctor</Text>}
+              {hint?.doctorHint && <Text color={tuiColors.yellow}>Diagnostics: orch doctor</Text>}
               {showRaw && agent.last_error!.message && (
                 <Text color={tuiColors.dim}>{capLine(agent.last_error!.message, 120)}</Text>
               )}
@@ -3771,12 +3832,14 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
   );
 }
 
-const STATUS_DETAIL_COLOR: Record<string, string> = {
-  idle: tuiColors.dim,
-  running: tuiColors.green,
-  error: tuiColors.red,
-  disabled: tuiColors.ghost,
-};
+function getAgentStatusDetailColor(status: AgentStatus): string {
+  return {
+    idle: tuiColors.dim,
+    running: tuiColors.green,
+    error: tuiColors.red,
+    disabled: tuiColors.ghost,
+  }[status];
+}
 
 /* ── Input Panel ─────────────────────────────────────── */
 
@@ -3787,7 +3850,7 @@ function InputSectionLabel({ mode, width }: { mode: InputMode; width: number }) 
   return (
     <Box paddingX={1}>
       <Text color={tuiColors.ghost}>{heavyRule(3)}</Text>
-      <Text backgroundColor="#2d1f0a" color={tuiColors.amber} bold>{chipText}</Text>
+      <Text backgroundColor={tuiColors.accentBg} color={tuiColors.amber} bold>{chipText}</Text>
       <Text color={tuiColors.ghost}>{heavyRule(rightRuleLen)}</Text>
     </Box>
   );

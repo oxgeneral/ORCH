@@ -323,6 +323,10 @@ export function registerTuiCommand(program: Command, container: Container): void
             return m.backgroundInstall(version);
           },
           onLoadModelCatalog,
+          initialPalette: container.globalConfig.tui.palette,
+          onSavePalette: async (palette) => {
+            await container.globalConfigStore.set('palette', palette);
+          },
           initialActivityFilter: container.globalConfig.tui.activity_filter,
           onSaveActivityFilter: async (preset) => {
             await container.globalConfigStore.set('activity_filter', preset);

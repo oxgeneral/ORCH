@@ -24,6 +24,7 @@ import { TABS } from './TabBar.js';
 import type { ViewId } from './TabBar.js';
 import { useAnimTick } from './useAnimTick.js';
 import { Spinner as MiniSpinner } from './Spinner.js';
+import type { TuiPaletteName } from '../../domain/global-config.js';
 
 /* ══════════════════════════════════════════════════════════
    CONSTANTS & GLYPHS
@@ -39,19 +40,6 @@ const TRIANGLE_RIGHT = '\u25B6';     // ▶
 const RETRY_ICON = '\u21BB';         // ↻
 const BRAIN = '\u{1F9E0}';              // 🧠
 const SPARK_CHARS = [' ', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
-
-/* ══════════════════════════════════════════════════════════
-   CHIP BACKGROUND COLORS (very dark tints for terminal)
-   ══════════════════════════════════════════════════════════ */
-
-const chipBg = {
-  green:   '#0f2d1f',  // dark emerald tint
-  blue:    '#0f1f2d',  // dark sky tint
-  yellow:  '#2d2a0f',  // dark amber tint
-  red:     '#2d0f0f',  // dark rose tint
-  neutral: '#1a1a22',  // dark slate
-  amber:   '#2d1f0a',  // dark warm
-} as const;
 
 /* ══════════════════════════════════════════════════════════
    ANIMATED PRIMITIVES
@@ -143,7 +131,7 @@ function FlashingTabLabel({
 
   if (isBright) {
     return (
-      <Text backgroundColor={flashColor} color="#0a0a0c" bold>
+      <Text backgroundColor={flashColor} color={tuiColors.darkText} bold>
         {' '}{tab.key} {tab.label}{badge}{' '}
       </Text>
     );
@@ -201,6 +189,8 @@ export interface HeaderProps {
   flashColor?: string;
   /** Called after flash animation completes (3 blinks) */
   onFlashComplete?: () => void;
+  /** Palette identity is used to invalidate React.memo after live theme changes. */
+  palette?: TuiPaletteName;
 }
 
 /* Tab config imported from TabBar.tsx — single source of truth */
@@ -221,8 +211,8 @@ function BrandBar({
         {version && <Text color={tuiColors.ghost}> {version}</Text>}
         {latestVersion && latestVersion !== version && (
           updateInstalled
-            ? <Text backgroundColor={chipBg.green} color={tuiColors.green} bold>  v{latestVersion} INSTALLED — RESTART TO APPLY </Text>
-            : <Text backgroundColor={chipBg.green} color={tuiColors.green} bold>  UPDATE {latestVersion} </Text>
+            ? <Text backgroundColor={tuiColors.successBg} color={tuiColors.green} bold>  v{latestVersion} INSTALLED — RESTART TO APPLY </Text>
+            : <Text backgroundColor={tuiColors.successBg} color={tuiColors.green} bold>  UPDATE {latestVersion} </Text>
         )}
         <Text color={tuiColors.ghost}> {DOT} </Text>
         <Text color={tuiColors.silver}>{projectName}</Text>
@@ -238,7 +228,7 @@ function BrandBar({
             <React.Fragment key={tab.id}>
               {i > 0 && <Text>{'  '}</Text>}
               {isActive ? (
-                <Text backgroundColor={tuiColors.amber} color="#0a0a0c" bold>
+                <Text backgroundColor={tuiColors.amber} color={tuiColors.darkText} bold>
                   {' '}{tab.key} {tab.label}{badge}{' '}
                 </Text>
               ) : isFlashing ? (
@@ -257,22 +247,22 @@ function BrandBar({
       {/* ── Right: Mode + Uptime ── */}
       <Box gap={0}>
         {mode === 'watching' ? (
-          <Text backgroundColor={chipBg.green} color={tuiColors.green} bold>
+          <Text backgroundColor={tuiColors.successBg} color={tuiColors.green} bold>
             {' '}{FILLED_CIRCLE} WATCHING{' '}
           </Text>
         ) : mode === 'observing' ? (
-          <Text backgroundColor={chipBg.amber} color={tuiColors.amber} bold>
+          <Text backgroundColor={tuiColors.accentBg} color={tuiColors.amber} bold>
             {' '}{FILLED_CIRCLE} OBSERVING{' '}
           </Text>
         ) : (
-          <Text backgroundColor={chipBg.neutral} color={tuiColors.dim}>
+          <Text backgroundColor={tuiColors.neutralBg} color={tuiColors.dim}>
             {' '}{EMPTY_CIRCLE} IDLE{' '}
           </Text>
         )}
         {stats.running > 0 && (
           <>
             <Text> </Text>
-            <Text backgroundColor={chipBg.green} color={tuiColors.green}>
+            <Text backgroundColor={tuiColors.successBg} color={tuiColors.green}>
               {' '}<MiniSpinner color={tuiColors.green} /> {stats.running} active{' '}
             </Text>
           </>
@@ -304,13 +294,13 @@ function StatsBar({
 }: Pick<HeaderProps, 'stats' | 'tokens' | 'width' | 'sparklineData'>) {
 
   const allChips: Array<ChipDef & { show: boolean }> = [
-    { icon: TRIANGLE_RIGHT, label: 'RUN', count: stats.running, fg: tuiColors.green, bg: chipBg.green, bold: true, spinner: true, show: stats.running > 0 },
-    { icon: RETRY_ICON, label: 'RETRY', count: stats.retrying, fg: tuiColors.yellow, bg: chipBg.yellow, show: stats.retrying > 0 },
-    { icon: LOZENGE, label: 'REVIEW', count: stats.review, fg: tuiColors.blue, bg: chipBg.blue, show: stats.review > 0 },
-    { icon: EMPTY_CIRCLE, label: 'TODO', count: stats.todo, fg: tuiColors.dim, bg: chipBg.neutral, show: stats.todo > 0 },
-    { icon: CHECK, label: 'DONE', count: stats.done, fg: tuiColors.green, bg: chipBg.green, show: stats.done > 0 },
-    { icon: CROSS, label: 'FAIL', count: stats.failed, fg: tuiColors.red, bg: chipBg.red, bold: true, show: stats.failed > 0 },
-    { icon: DIAMOND, label: 'TEAMS', count: stats.teams, fg: tuiColors.amber, bg: chipBg.amber, show: stats.teams > 0 },
+    { icon: TRIANGLE_RIGHT, label: 'RUN', count: stats.running, fg: tuiColors.green, bg: tuiColors.successBg, bold: true, spinner: true, show: stats.running > 0 },
+    { icon: RETRY_ICON, label: 'RETRY', count: stats.retrying, fg: tuiColors.yellow, bg: tuiColors.warnBg, show: stats.retrying > 0 },
+    { icon: LOZENGE, label: 'REVIEW', count: stats.review, fg: tuiColors.blue, bg: tuiColors.toolBg, show: stats.review > 0 },
+    { icon: EMPTY_CIRCLE, label: 'TODO', count: stats.todo, fg: tuiColors.dim, bg: tuiColors.neutralBg, show: stats.todo > 0 },
+    { icon: CHECK, label: 'DONE', count: stats.done, fg: tuiColors.green, bg: tuiColors.successBg, show: stats.done > 0 },
+    { icon: CROSS, label: 'FAIL', count: stats.failed, fg: tuiColors.red, bg: tuiColors.errorBg, bold: true, show: stats.failed > 0 },
+    { icon: DIAMOND, label: 'TEAMS', count: stats.teams, fg: tuiColors.amber, bg: tuiColors.accentBg, show: stats.teams > 0 },
   ];
   const chips = allChips.filter((c) => c.show);
 
@@ -334,7 +324,7 @@ function StatsBar({
           </Text>
         ))}
         {chips.length === 0 && (
-          <Text backgroundColor={chipBg.neutral} color={tuiColors.dim}>{' '}NO TASKS{' '}</Text>
+          <Text backgroundColor={tuiColors.neutralBg} color={tuiColors.dim}>{' '}NO TASKS{' '}</Text>
         )}
       </Box>
 
@@ -347,7 +337,7 @@ function StatsBar({
           </>
         )}
         {hasTokens && (
-          <Text backgroundColor={chipBg.amber} color={tuiColors.cyan}>
+          <Text backgroundColor={tuiColors.accentBg} color={tuiColors.cyan}>
             {' '}{ARROW_UP}{formatTokens(tokens.input)} {ARROW_DOWN}{formatTokens(tokens.output)}{tokens.reasoning > 0 ? ` ${BRAIN}${formatTokens(tokens.reasoning)}` : ''} {DOT} {SIGMA}{formatTokens(tokens.total)}{' '}
           </Text>
         )}

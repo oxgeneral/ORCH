@@ -33,15 +33,15 @@ const TYPE_LABELS: Record<MsgType, string> = {
   info: 'Info',
 };
 
-const TYPE_COLORS: Record<MsgType, string> = {
-  system: tuiColors.purple,
-  lifecycle: tuiColors.cyan,
-  output: tuiColors.white,
-  tool: tuiColors.blue,
-  result: tuiColors.green,
-  error: tuiColors.red,
-  file: tuiColors.purple,
-  info: tuiColors.silver,
+const TYPE_COLOR_KEYS: Record<MsgType, keyof typeof tuiColors> = {
+  system: 'purple',
+  lifecycle: 'cyan',
+  output: 'white',
+  tool: 'blue',
+  result: 'green',
+  error: 'red',
+  file: 'purple',
+  info: 'silver',
 };
 
 const ALL_TYPES: MsgType[] = ['system', 'lifecycle', 'output', 'tool', 'result', 'error', 'file', 'info'];
@@ -154,7 +154,7 @@ const LogsTypeFilterPicker = React.memo(function LogsTypeFilterPicker({
         const isCursor = idx === cursor;
         const isChecked = draft.has(type);
         const count = typeCounts[type] ?? 0;
-        const typeColor = TYPE_COLORS[type];
+        const typeColor = tuiColors[TYPE_COLOR_KEYS[type]];
 
         return (
           <Box key={type} gap={0}>
