@@ -3,6 +3,35 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.29 (2026-07-25)
+
+### New Features
+
+- **Global TUI color palettes** — choose Amber, Ocean, Forest, or Violet through `/config palette`. The selected palette is applied across the dashboard and saved in the global `~/.orchestry/config.yml`.
+- **Independent TUI settings** — `/config` settings now open individually instead of forcing users through a multi-step setup wizard. Palette, activity filter, concurrency, toast, and bell preferences can be changed separately.
+- **Live model catalogs for every adapter** — agent create/edit wizards load models from the installed Claude, Codex, Cursor, OpenCode, Pi, Grok, and Antigravity CLIs; Shell exposes an explicit no-model default.
+- **Searchable model selection** — the model field filters large live catalogs while still accepting custom provider/model IDs.
+
+### Bug Fixes
+
+- **Existing agent provider changes** — switching an agent to another adapter clears the previous adapter's model before showing the new catalog.
+- **Live wizard refresh** — model suggestions update even when discovery finishes after the agent wizard is already open.
+- **Edited agent refresh** — agent cards now detect adapter/model changes even though agent records do not carry `updated_at`.
+- **Agent Shop compatibility** — templates choose a model that is actually present in the selected adapter's live catalog and otherwise fall back safely.
+- **English command categories** — removed the remaining Russian management, monitoring, and settings headings from TUI command help.
+
+### Refactoring
+
+- **Palette context** — palette-aware components consume one shared context instead of threading palette props through the component tree.
+- **Model discovery command path** — shared CLI execution, stdout/stderr selection, default insertion, and parser dispatch are centralized without changing adapter fallback behavior.
+- **Wizard model fallback** — simplified adapter lookup while preserving a neutral fallback for custom adapters.
+
+### Tests
+
+- Added runtime parser, streamed-catalog, open-wizard refresh, searchable selection, existing-agent default, and timestamp-less agent refresh regression coverage.
+- Verified all eight adapter model screens in real PTY TUI sessions.
+- Full suite: 2034 passed, 2 skipped.
+
 ## 1.0.28 (2026-07-22)
 
 ### Bug Fixes
