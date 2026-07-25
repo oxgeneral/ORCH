@@ -1751,6 +1751,106 @@ describe('onLoadHistory — progressive history loading', () => {
     expect(lastFrame()!).toContain('ConnectionRefused');
   });
 
+  it('renders legacy Codex agent_message text instead of its event type', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let capturedBatch!: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void;
+    const onLoadHistory = (onBatch: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void): Promise<void> => {
+      capturedBatch = onBatch;
+      return Promise.resolve();
+    };
+
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], state, onLoadHistory }),
+    );
+    await delay(50);
+    capturedBatch([makeEntry({
+      data: JSON.stringify({
+        id: 'item_0',
+        type: 'agent_message',
+        text: 'Readable Codex response',
+      }),
+    })]);
+    await delay(50);
+
+    stdin.write('l');
+    await delay(50);
+    expect(lastFrame()!).toContain('Readable Codex response');
+    expect(lastFrame()!).not.toContain('[agent_message]');
+  });
+
+  it('unwraps nested provider JSON errors and deduplicates them within one run', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let capturedBatch!: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void;
+    const onLoadHistory = (onBatch: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void): Promise<void> => {
+      capturedBatch = onBatch;
+      return Promise.resolve();
+    };
+    const providerError = JSON.stringify({
+      type: 'error',
+      status: 400,
+      error: {
+        type: 'invalid_request_error',
+        message: "The 'gpt-5.6' model is not supported for this account.",
+      },
+    });
+
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], state, onLoadHistory }),
+    );
+    await delay(50);
+    capturedBatch([
+      makeEntry({
+        runId: 'run_1',
+        type: 'error',
+        data: JSON.stringify({ type: 'error', message: providerError }),
+      }),
+      makeEntry({
+        runId: 'run_1',
+        type: 'error',
+        data: JSON.stringify({ type: 'turn.failed', error: { message: providerError } }),
+      }),
+    ]);
+    await delay(50);
+
+    stdin.write('l');
+    await delay(50);
+    const output = lastFrame()!;
+    expect(output).toContain("The 'gpt-5.6' model is not supported for this account.");
+    expect(output).not.toContain('invalid_request_error');
+    expect(output.match(/not supported for this account/g)).toHaveLength(1);
+  });
+
+  it('excludes dotted Codex lifecycle events from the text activity preset', async () => {
+    const task = makeTask({ id: 'tsk_1', title: 'Research', status: 'in_progress' });
+    const agent = makeAgent({ id: 'agt_1', name: 'Researcher', status: 'running' });
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let capturedBatch!: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void;
+    const onLoadHistory = (onBatch: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void): Promise<void> => {
+      capturedBatch = onBatch;
+      return Promise.resolve();
+    };
+
+    const { lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [task],
+        agents: [agent],
+        state,
+        initialActivityFilter: 'text',
+        onLoadHistory,
+      }),
+    );
+    await delay(50);
+    capturedBatch([
+      makeEntry({ data: JSON.stringify({ type: 'thread.started', thread_id: 'thread_1' }) }),
+      makeEntry({ data: JSON.stringify({ type: 'agent_message', text: 'Visible response' }) }),
+    ]);
+    await delay(50);
+
+    expect(lastFrame()!).toContain('Visible response');
+    expect(lastFrame()!).not.toContain('[thread.started]');
+  });
+
   it('empty batch does not change the empty state message', async () => {
     const state: OrchestratorState = { ...DEFAULT_STATE };
     let capturedBatch!: (entries: import('../../../src/tui/App.js').HistoryEntry[]) => void;

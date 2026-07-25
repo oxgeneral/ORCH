@@ -29,6 +29,7 @@
     "build": "tsup",
     "build:watch": "tsup --watch",
     "test": "vitest run",
+    "test:e2e:tui": "npm run build && tsx test/e2e/tui-codex-logs.pty.ts",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",

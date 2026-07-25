@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fsUtils = vi.hoisted(() => ({
   readYaml: vi.fn(),
@@ -12,6 +12,11 @@ import { GlobalConfigStore } from '../../../src/infrastructure/storage/global-co
 describe('GlobalConfigStore palette migration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env['ORCHESTRY_GLOBAL_CONFIG_PATH'];
+  });
+
+  afterEach(() => {
+    delete process.env['ORCHESTRY_GLOBAL_CONFIG_PATH'];
   });
 
   it('reads a persisted global palette', async () => {
@@ -39,5 +44,14 @@ describe('GlobalConfigStore palette migration', () => {
     const config = await new GlobalConfigStore().read();
 
     expect(config.tui.palette).toBe('amber');
+  });
+
+  it('uses an isolated config path when explicitly overridden', async () => {
+    process.env['ORCHESTRY_GLOBAL_CONFIG_PATH'] = '/tmp/orch-e2e/global.yml';
+    fsUtils.readYaml.mockResolvedValue(null);
+
+    await new GlobalConfigStore().read();
+
+    expect(fsUtils.readYaml).toHaveBeenCalledWith('/tmp/orch-e2e/global.yml');
   });
 });

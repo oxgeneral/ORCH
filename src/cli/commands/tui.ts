@@ -150,6 +150,7 @@ export function registerTuiCommand(program: Command, container: Container): void
           const events = await container.runService.readEventsTail(run.id, 30);
           return events.map((evt) => ({
             timestamp: evt.timestamp,
+            runId: run.id,
             agentId: run.agent_id,
             taskId: run.task_id,
             type: evt.type,

@@ -78,7 +78,12 @@ import {
 } from '../domain/global-config.js';
 import { DEFAULT_CONFIG } from '../domain/config.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
-import { ERROR_HINTS, type AdapterErrorKind } from '../domain/errors.js';
+import {
+  ERROR_HINTS,
+  extractErrorMessage,
+  isModelMetadataWarning,
+  type AdapterErrorKind,
+} from '../domain/errors.js';
 import { TuiPaletteContext, useTuiPalette } from './paletteContext.js';
 import type { ModelCatalog } from '../infrastructure/models/model-discovery.js';
 import { useTextInput } from './hooks/useTextInput.js';
@@ -102,6 +107,7 @@ const RUNNABLE: Set<TaskStatus> = new Set(['todo', 'failed', 'cancelled']);
 /** History entry returned by onLoadHistory */
 export interface HistoryEntry {
   timestamp: string;
+  runId?: string;
   agentId: string;
   taskId: string;
   type: 'agent_output' | 'file_changed' | 'tool_call' | 'error' | 'done' | 'command_run';
@@ -246,14 +252,16 @@ let pendingDeletionSeq = 0;
 export function _resetPendingDeletionSeq(): void { pendingDeletionSeq = 0; }
 
 /** Bracket-tags emitted by adapters: [init], [hook_started], [hook_response], etc. */
-const LIFECYCLE_TAG_RE = /^\[[\w_]+\]$/;
+const LIFECYCLE_TAG_RE = /^\[[\w.:-]+\]$/;
 
 /** Classify agent output summary into a semantic message type + color. */
 function classifyAgentSummary(summary: string): { msgType: MsgType; color: string } {
   if (LIFECYCLE_TAG_RE.test(summary)) return { msgType: 'lifecycle', color: tuiColors.dim };
   if (summary.startsWith('\u2699')) return { msgType: 'tool', color: tuiColors.dim };
+  if (summary.startsWith('$ ')) return { msgType: 'tool', color: tuiColors.dim };
   if (summary.startsWith('\u2190')) return { msgType: 'result', color: tuiColors.dim };
   if (summary.startsWith('\u2713')) return { msgType: 'lifecycle', color: tuiColors.dim };
+  if (summary.startsWith('\u26A0')) return { msgType: 'info', color: tuiColors.yellow };
   if (summary.startsWith('\u23F3')) return { msgType: 'info', color: tuiColors.silver };
   return { msgType: 'output', color: tuiColors.silver };
 }
@@ -885,20 +893,32 @@ export function App({
   // Load history progressively from disk on mount
   useEffect(() => {
     if (!onLoadHistory) return;
+    const seenRunErrors = new Set<string>();
     const historyEntryToMsg = (entry: HistoryEntry): StatusMessage | null => {
         const time = new Date(entry.timestamp).toLocaleTimeString('en-US', {
           hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
         });
         const raw = typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data);
         let text: string;
+        let detail: string | undefined;
         let color: string = tuiColors.silver;
         let msgType: MsgType = 'output';
 
         if (entry.type === 'error') {
-          text = typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data);
-          text = text.slice(0, 200);
-          color = tuiColors.red;
-          msgType = 'error';
+          const formatted = formatAgentError(raw);
+          text = formatted.summary;
+          detail = formatted.detail;
+          if (isModelMetadataWarning(text)) {
+            text = `\u26A0 ${text}`;
+            color = tuiColors.yellow;
+            msgType = 'info';
+          } else {
+            const errorKey = entry.runId ? `${entry.runId}\0${text}` : null;
+            if (errorKey && seenRunErrors.has(errorKey)) return null;
+            if (errorKey) seenRunErrors.add(errorKey);
+            color = tuiColors.red;
+            msgType = 'error';
+          }
         } else if (entry.type === 'file_changed') {
           text = String(entry.data);
           color = tuiColors.purple;
@@ -921,7 +941,16 @@ export function App({
           color = cls.color;
         }
 
-      return { text, color, time, ts: new Date(entry.timestamp).getTime(), agentId: entry.agentId, taskId: entry.taskId, msgType };
+      return {
+        text,
+        color,
+        time,
+        ts: new Date(entry.timestamp).getTime(),
+        agentId: entry.agentId,
+        taskId: entry.taskId,
+        detail,
+        msgType,
+      };
     };
 
     onLoadHistory((batch) => {
@@ -4059,6 +4088,15 @@ function firstLineTrunc(s: string, n: number): string {
   return (s.split('\n').find((l) => /\S/.test(l)) ?? s).slice(0, n);
 }
 
+/** Unwrap nested provider envelopes while preserving the full payload for detail view. */
+function formatAgentError(raw: string): { summary: string; detail: string } {
+  const message = extractErrorMessage(raw);
+  return {
+    summary: firstLineTrunc(message || raw, 200),
+    detail: raw.length > MAX_DETAIL_LEN ? raw.slice(0, MAX_DETAIL_LEN) + '…' : raw,
+  };
+}
+
 /** Extract human-readable text from agent output data (which may be raw JSON from Claude CLI) */
 function formatAgentOutput(raw: string): { summary: string | null; detail: string } {
   // Lazy detail — avoids slicing 100KB+ strings for messages that will be skipped
@@ -4071,6 +4109,37 @@ function formatAgentOutput(raw: string): { summary: string | null; detail: strin
 
   try {
     const parsed = JSON.parse(raw);
+
+    // Older Codex runs persisted the provider wrapper. Re-enter with its item
+    // so existing .jsonl history benefits from the current item formatting.
+    if ((parsed.type === 'item.started' || parsed.type === 'item.completed') && parsed.item) {
+      const formatted = formatAgentOutput(JSON.stringify(parsed.item));
+      return { ...formatted, detail: detail() };
+    }
+
+    // Legacy flat Codex item shapes persisted before adapter normalization.
+    if (parsed.type === 'agent_message' && typeof parsed.text === 'string') {
+      return { summary: firstLineTrunc(parsed.text, 200), detail: detail() };
+    }
+    if (parsed.type === 'reasoning') {
+      return { summary: null, detail: '' };
+    }
+    if (parsed.type === 'command_execution' && typeof parsed.command === 'string') {
+      const result = typeof parsed.aggregated_output === 'string' ? parsed.aggregated_output : parsed.result;
+      const tail = typeof result === 'string' && result
+        ? ` → ${firstLineTrunc(result, 80)}`
+        : '';
+      return { summary: `$ ${parsed.command.slice(0, 120)}${tail}`, detail: detail() };
+    }
+    if (parsed.type === 'web_search') {
+      const query = typeof parsed.query === 'string'
+        ? parsed.query
+        : Array.isArray(parsed.action?.queries) ? parsed.action.queries[0] : '';
+      return {
+        summary: `\u2699 web_search(${typeof query === 'string' ? query.slice(0, 80) : ''})`,
+        detail: detail(),
+      };
+    }
 
     // Canonical AgentEvent data shapes — see JSDoc in adapters/interface.ts.
     if (typeof parsed.text === 'string' && parsed.text.length > 0 && !parsed.type && !parsed.role) {
@@ -4244,8 +4313,11 @@ function formatEvent(
       );
       break;
     case 'agent:error':
-      addMsg(`${event.error.slice(0, 150)}`, tuiColors.red,
-        { agentId: event.agentId, taskId: resolveTask(event.runId), detail: event.error, msgType: 'error' });
+      {
+        const { summary, detail } = formatAgentError(event.error);
+        addMsg(summary, tuiColors.red,
+          { agentId: event.agentId, taskId: resolveTask(event.runId), detail, msgType: 'error' });
+      }
       break;
     case 'task:status_changed':
       addMsg(`${event.from} \u2192 ${event.to}`, tuiColors.cyan,

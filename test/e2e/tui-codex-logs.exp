@@ -1,0 +1,86 @@
+#!/usr/bin/expect -f
+
+set timeout 25
+log_user 0
+
+set cli_path [lindex $argv 0]
+set project_path [lindex $argv 1]
+set global_config_path [lindex $argv 2]
+
+if {$cli_path eq "" || $project_path eq "" || $global_config_path eq ""} {
+  puts "FAIL setup: expected CLI, project, and global config paths"
+  exit 1
+}
+
+cd $project_path
+spawn -noecho env ORCHESTRY_GLOBAL_CONFIG_PATH=$global_config_path /bin/sh -c "stty rows 50 columns 180; export TERM=xterm-256color; exec node \"$cli_path\" tui"
+
+proc fail {message} {
+  puts "FAIL $message"
+  send -- "q"
+  exit 1
+}
+
+expect {
+  -re {WATCHING|OBSERVING} { puts "PASS boot: real TUI reached live mode" }
+  timeout { fail "boot: TUI did not render" }
+  eof { fail "boot: TUI exited early" }
+}
+
+expect -re {F:}
+expect {
+  -re {ALL} { puts "PASS initial: ALL preset loaded" }
+  timeout { fail "initial: ALL preset not loaded" }
+}
+
+after 300
+send -- "f"
+expect -re {F:}
+expect {
+  -re {TEXT} { puts "PASS text: TEXT preset rendered" }
+  timeout { fail "text: TEXT preset not rendered" }
+}
+expect {
+  -re {PTY_VISIBLE_AGENT_TEXT} { puts "PASS text: Codex agent message rendered" }
+  timeout { fail "text: Codex agent message missing" }
+}
+set timeout 1
+expect {
+  -re {thread[.]started|turn[.]started|item[.]completed} { fail "text: lifecycle noise leaked into TEXT" }
+  timeout { puts "PASS text: lifecycle noise absent" }
+}
+
+set timeout 25
+send -- "f"
+expect -re {F:}
+expect {
+  -re {TOOLS} { puts "PASS tools: TOOLS preset rendered" }
+  timeout { fail "tools: TOOLS preset not rendered" }
+}
+expect {
+  -re {PTY_VISIBLE_TOOL} { puts "PASS tools: Codex command rendered" }
+  timeout { fail "tools: Codex command missing" }
+}
+
+send -- "f"
+expect -re {F:}
+expect {
+  -re {ERRORS} { puts "PASS errors: ERRORS preset rendered" }
+  timeout { fail "errors: ERRORS preset not rendered" }
+}
+expect {
+  -re {PTY unsupported model} { puts "PASS errors: nested provider error is human-readable" }
+  timeout { fail "errors: readable provider error missing" }
+}
+set timeout 1
+expect {
+  -re {invalid_request_error|turn[.]failed|Model metadata for} { fail "errors: raw or duplicate error leaked into ERRORS" }
+  timeout { puts "PASS errors: raw JSON, duplicate failure, metadata warning absent" }
+}
+
+set timeout 10
+send -- "q"
+expect {
+  eof { puts "PASS exit: TUI closed cleanly" }
+  timeout { fail "exit: TUI did not close" }
+}

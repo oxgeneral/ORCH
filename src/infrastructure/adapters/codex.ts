@@ -9,7 +9,11 @@
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
 import { extractTokens, createStreamingEvents, buildFullPrompt } from './utils.js';
-import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
+import {
+  classifyAdapterError,
+  extractErrorMessage,
+  isModelMetadataWarning,
+} from '../../domain/errors.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -61,7 +65,7 @@ export class CodexAdapter implements IAgentAdapter {
       proc.stdin.end();
     }
 
-    const events = createStreamingEvents(proc, parseCodexEvent, 'Codex', params.signal);
+    const events = createStreamingEvents(proc, createCodexEventParser(), 'Codex', params.signal);
 
     return { pid, events };
   }
@@ -69,6 +73,25 @@ export class CodexAdapter implements IAgentAdapter {
   async stop(pid: number): Promise<void> {
     await this.processManager.killWithGrace(pid);
   }
+}
+
+function createCodexEventParser(): (line: string) => AgentEvent | null {
+  let lastErrorMessage: string | null = null;
+
+  return (line) => {
+    const event = parseCodexEvent(line);
+    if (!event) return null;
+
+    if (event.type !== 'error') {
+      lastErrorMessage = null;
+      return event;
+    }
+
+    const message = extractErrorMessage(event.data);
+    if (message && message === lastErrorMessage) return null;
+    lastErrorMessage = message;
+    return event;
+  };
 }
 
 function parseCodexEvent(line: string): AgentEvent | null {
@@ -82,39 +105,45 @@ function parseCodexEvent(line: string): AgentEvent | null {
 
     // Codex JSONL event types
     switch (type) {
-      // Thread/session started
+      // Provider lifecycle noise carries no user-facing information.
       case 'thread.started':
-        return { type: 'output', timestamp, data: parsed };
-
-      // Turn lifecycle
       case 'turn.started':
-        return { type: 'output', timestamp, data: parsed };
+      case 'item.started':
+        return null;
 
       case 'turn.completed': {
         const tokens = extractTokens(parsed);
-        return { type: 'done', timestamp, data: parsed, tokens };
+        const result = typeof parsed.result === 'string' ? parsed.result : undefined;
+        return {
+          type: 'done',
+          timestamp,
+          data: { ...(result ? { result } : {}), raw: parsed },
+          tokens,
+        };
       }
 
       case 'turn.failed': {
         const tokens = extractTokens(parsed);
-        const failMsg = typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed);
-        return { type: 'error', timestamp, data: parsed, tokens, errorKind: classifyAdapterError(failMsg) };
+        return codexErrorEvent(timestamp, parsed, parsed.error ?? parsed, tokens);
       }
 
-      // Item events
-      case 'item.started':
       case 'item.completed': {
         const item = (parsed.item as Record<string, unknown>) ?? {};
         const itemType = (item.type as string) ?? '';
 
         if (itemType === 'agent_message') {
-          return { type: 'output', timestamp, data: item };
+          const text = typeof item.text === 'string' ? item.text : '';
+          return text ? { type: 'output', timestamp, data: { text, raw: item } } : null;
         }
         if (itemType === 'reasoning') {
-          return { type: 'output', timestamp, data: item };
+          return null;
         }
         if (itemType === 'command_execution') {
-          return { type: 'command', timestamp, data: item };
+          const command = typeof item.command === 'string' ? item.command : '';
+          const result = typeof item.aggregated_output === 'string' ? item.aggregated_output : undefined;
+          return command
+            ? { type: 'command', timestamp, data: { command, ...(result !== undefined ? { result } : {}), raw: item } }
+            : null;
         }
         if (itemType === 'file_change') {
           const changes = Array.isArray(item.changes) ? item.changes : [];
@@ -123,29 +152,70 @@ function parseCodexEvent(line: string): AgentEvent | null {
             .filter(Boolean);
           return { type: 'file_change', timestamp, data: { paths, raw: item } };
         }
-        if (itemType === 'tool_use') {
-          return { type: 'tool_call', timestamp, data: item };
+        if (itemType === 'tool_use' || itemType === 'mcp_tool_call') {
+          const name = typeof item.name === 'string'
+            ? item.name
+            : typeof item.tool === 'string' ? item.tool : itemType;
+          return {
+            type: 'tool_call',
+            timestamp,
+            data: { name, ...('input' in item ? { input: item.input } : {}), raw: item },
+          };
+        }
+        if (itemType === 'web_search') {
+          const input = {
+            ...(typeof item.query === 'string' ? { query: item.query } : {}),
+            ...(item.action !== undefined ? { action: item.action } : {}),
+          };
+          return { type: 'tool_call', timestamp, data: { name: 'web_search', input, raw: item } };
         }
         if (itemType === 'tool_result') {
-          return { type: 'output', timestamp, data: item };
+          const text = extractItemText(item);
+          return text ? { type: 'output', timestamp, data: { text, raw: item } } : null;
         }
         if (itemType === 'error') {
-          const itemErrMsg = typeof item.message === 'string' ? item.message : JSON.stringify(item);
-          return { type: 'error', timestamp, data: item, errorKind: classifyAdapterError(itemErrMsg) };
+          return codexErrorEvent(timestamp, item);
         }
-        return { type: 'output', timestamp, data: item };
+        const text = extractItemText(item);
+        return text ? { type: 'output', timestamp, data: { text, raw: item } } : null;
       }
 
       case 'error': {
-        const errData = (parsed.error as unknown) ?? parsed;
-        const errMsg = typeof errData === 'string' ? errData : JSON.stringify(errData);
-        return { type: 'error', timestamp, data: errData, errorKind: classifyAdapterError(errMsg) };
+        return codexErrorEvent(timestamp, parsed, parsed.error ?? parsed);
       }
 
-      default:
-        return { type: 'output', timestamp, data: parsed };
+      default: {
+        const text = extractItemText(parsed);
+        return text ? { type: 'output', timestamp, data: { text, raw: parsed } } : null;
+      }
     }
   } catch {
     return { type: 'output', timestamp: new Date().toISOString(), data: line };
   }
+}
+
+function codexErrorEvent(
+  timestamp: string,
+  raw: Record<string, unknown>,
+  value: unknown = raw,
+  tokens?: AgentEvent['tokens'],
+): AgentEvent {
+  const message = extractErrorMessage(value);
+  if (isModelMetadataWarning(message)) {
+    return { type: 'output', timestamp, data: { text: `⚠ ${message}`, raw } };
+  }
+  return {
+    type: 'error',
+    timestamp,
+    data: { message, raw },
+    ...(tokens ? { tokens } : {}),
+    errorKind: classifyAdapterError(message),
+  };
+}
+
+function extractItemText(item: Record<string, unknown>): string {
+  if (typeof item.text === 'string') return item.text;
+  if (typeof item.content === 'string') return item.content;
+  if (typeof item.message === 'string') return item.message;
+  return '';
 }

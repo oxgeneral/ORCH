@@ -14,12 +14,14 @@ import {
 } from '../../domain/global-config.js';
 import { readYaml, writeYaml } from './fs-utils.js';
 
-const GLOBAL_DIR = path.join(homedir(), '.orchestry');
-const GLOBAL_CONFIG_PATH = path.join(GLOBAL_DIR, 'global.yml');
+function globalConfigPath(): string {
+  const override = process.env['ORCHESTRY_GLOBAL_CONFIG_PATH']?.trim();
+  return override ? path.resolve(override) : path.join(homedir(), '.orchestry', 'global.yml');
+}
 
 export class GlobalConfigStore {
   async read(): Promise<GlobalConfig> {
-    const data = await readYaml<Record<string, unknown>>(GLOBAL_CONFIG_PATH);
+    const data = await readYaml<Record<string, unknown>>(globalConfigPath());
     if (!data) return { ...DEFAULT_GLOBAL_CONFIG, tui: { ...DEFAULT_GLOBAL_CONFIG.tui, notifications: { ...DEFAULT_GLOBAL_CONFIG.tui.notifications } } };
     const tui = data.tui as Record<string, unknown> | undefined;
     const notif = tui?.notifications as Record<string, unknown> | undefined;
@@ -39,8 +41,9 @@ export class GlobalConfigStore {
   }
 
   async write(config: GlobalConfig): Promise<void> {
-    await mkdir(GLOBAL_DIR, { recursive: true });
-    await writeYaml(GLOBAL_CONFIG_PATH, config as unknown as Record<string, unknown>);
+    const configPath = globalConfigPath();
+    await mkdir(path.dirname(configPath), { recursive: true });
+    await writeYaml(configPath, config as unknown as Record<string, unknown>);
   }
 
   async set<K extends keyof GlobalConfig['tui']>(key: K, value: GlobalConfig['tui'][K]): Promise<void> {

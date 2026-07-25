@@ -181,6 +181,55 @@ export const ERROR_HINTS: Record<AdapterErrorKind, AdapterErrorHint> = {
   },
 };
 
+/**
+ * Extract the human-facing message from provider errors.
+ *
+ * Some CLIs wrap an API error several times, including JSON serialized inside
+ * a `message` string. Keep this provider-agnostic so adapters and UIs present
+ * the same concise error without leaking the transport envelope.
+ */
+export function extractErrorMessage(value: unknown, depth = 0): string {
+  if (depth >= 6) return stringifyErrorValue(value);
+  if (value instanceof Error) return value.message;
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    try {
+      return extractErrorMessage(JSON.parse(trimmed), depth + 1);
+    } catch {
+      return value;
+    }
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    for (const key of ['error', 'message', 'detail', 'reason']) {
+      if (record[key] === undefined || record[key] === null) continue;
+      const message = extractErrorMessage(record[key], depth + 1);
+      if (message) return message;
+    }
+  }
+
+  return stringifyErrorValue(value);
+}
+
+/** Codex reports this recoverable cache miss as an error item. */
+export function isModelMetadataWarning(message: string): boolean {
+  return /^Model metadata for .+ not found\. Defaulting to fallback metadata\b/i.test(message.trim());
+}
+
+function stringifyErrorValue(value: unknown): string {
+  if (value === undefined) return '';
+  if (value === null) return 'null';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 export function classifyAdapterError(error: string, exitCode?: number): AdapterErrorKind {
   const lower = error.toLowerCase();
 

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { AdapterErrorKind, ERROR_HINTS, classifyAdapterError } from '../../../src/domain/errors.js';
+import {
+  AdapterErrorKind,
+  ERROR_HINTS,
+  classifyAdapterError,
+  extractErrorMessage,
+  isModelMetadataWarning,
+} from '../../../src/domain/errors.js';
 
 describe('AdapterErrorKind', () => {
   it('has 7 enum values', () => {
@@ -122,5 +128,34 @@ describe('classifyAdapterError', () => {
     expect(classifyAdapterError('RATE LIMIT exceeded')).toBe(AdapterErrorKind.RATE_LIMIT);
     expect(classifyAdapterError('AUTHENTICATION FAILED')).toBe(AdapterErrorKind.AUTH_FAILED);
     expect(classifyAdapterError('TIMEOUT')).toBe(AdapterErrorKind.TIMEOUT);
+  });
+});
+
+describe('adapter error display helpers', () => {
+  it('unwraps provider messages nested inside serialized JSON', () => {
+    const providerError = JSON.stringify({
+      type: 'error',
+      status: 400,
+      error: {
+        type: 'invalid_request_error',
+        message: "The 'gpt-5.6' model is not supported for this account.",
+      },
+    });
+
+    expect(extractErrorMessage({
+      type: 'turn.failed',
+      error: { message: providerError },
+    })).toBe("The 'gpt-5.6' model is not supported for this account.");
+  });
+
+  it('preserves plain error strings', () => {
+    expect(extractErrorMessage('Connection refused')).toBe('Connection refused');
+  });
+
+  it('recognizes the Codex fallback metadata warning', () => {
+    expect(isModelMetadataWarning(
+      'Model metadata for `gpt-5.6` not found. Defaulting to fallback metadata; this can degrade performance.',
+    )).toBe(true);
+    expect(isModelMetadataWarning('Model request failed')).toBe(false);
   });
 });

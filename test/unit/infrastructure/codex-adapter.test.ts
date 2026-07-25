@@ -172,23 +172,24 @@ describe('CodexAdapter', () => {
       expect(events[0]!.type).toBe('error');
     });
 
-    it('parses thread.started as output', async () => {
+    it('drops thread and turn lifecycle noise', async () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new CodexAdapter(pm);
       const handle = adapter.execute(makeParams());
 
       proc.stdout.write(JSON.stringify({ type: 'thread.started' }) + '\n');
+      proc.stdout.write(JSON.stringify({ type: 'turn.started' }) + '\n');
       proc.stdout.end();
       setTimeout(() => proc.emit('close', 0), 20);
 
       const events: AgentEvent[] = [];
       for await (const ev of handle.events) events.push(ev);
 
-      expect(events[0]!.type).toBe('output');
+      expect(events).toEqual([]);
     });
 
-    it('parses item.completed with agent_message as output', async () => {
+    it('normalizes item.completed agent_message to canonical output data', async () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new CodexAdapter(pm);
@@ -196,7 +197,7 @@ describe('CodexAdapter', () => {
 
       proc.stdout.write(JSON.stringify({
         type: 'item.completed',
-        item: { type: 'agent_message', text: 'hello' },
+        item: { id: 'item_0', type: 'agent_message', text: 'hello' },
       }) + '\n');
       proc.stdout.end();
       setTimeout(() => proc.emit('close', 0), 20);
@@ -205,17 +206,25 @@ describe('CodexAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('output');
+      expect(events[0]!.data).toMatchObject({
+        text: 'hello',
+        raw: { id: 'item_0', type: 'agent_message', text: 'hello' },
+      });
     });
 
-    it('parses item.completed with command_execution as command', async () => {
+    it('normalizes completed command_execution and drops its started event', async () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new CodexAdapter(pm);
       const handle = adapter.execute(makeParams());
 
       proc.stdout.write(JSON.stringify({
+        type: 'item.started',
+        item: { type: 'command_execution', command: 'ls', status: 'in_progress' },
+      }) + '\n');
+      proc.stdout.write(JSON.stringify({
         type: 'item.completed',
-        item: { type: 'command_execution', command: 'ls' },
+        item: { type: 'command_execution', command: 'ls', aggregated_output: 'file.txt\n', exit_code: 0 },
       }) + '\n');
       proc.stdout.end();
       setTimeout(() => proc.emit('close', 0), 20);
@@ -223,7 +232,9 @@ describe('CodexAdapter', () => {
       const events: AgentEvent[] = [];
       for await (const ev of handle.events) events.push(ev);
 
+      expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe('command');
+      expect(events[0]!.data).toMatchObject({ command: 'ls', result: 'file.txt\n' });
     });
 
     it('parses item.completed with file_change and extracts paths', async () => {
@@ -249,15 +260,15 @@ describe('CodexAdapter', () => {
       expect((events[0]!.data as any).paths).toEqual(['a.ts', 'b.ts']);
     });
 
-    it('parses item.completed with tool_use as tool_call', async () => {
+    it('normalizes completed tool_use as canonical tool_call', async () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new CodexAdapter(pm);
       const handle = adapter.execute(makeParams());
 
       proc.stdout.write(JSON.stringify({
-        type: 'item.started',
-        item: { type: 'tool_use', name: 'search' },
+        type: 'item.completed',
+        item: { type: 'tool_use', name: 'search', input: { query: 'orch' } },
       }) + '\n');
       proc.stdout.end();
       setTimeout(() => proc.emit('close', 0), 20);
@@ -266,6 +277,35 @@ describe('CodexAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('tool_call');
+      expect(events[0]!.data).toMatchObject({ name: 'search', input: { query: 'orch' } });
+    });
+
+    it('normalizes completed web_search as a tool_call instead of text output', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CodexAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({
+        type: 'item.completed',
+        item: {
+          id: 'call_1',
+          type: 'web_search',
+          query: 'privacy preserving AI',
+          action: { type: 'search', queries: ['privacy preserving AI'] },
+        },
+      }) + '\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 0), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events[0]!.type).toBe('tool_call');
+      expect(events[0]!.data).toMatchObject({
+        name: 'web_search',
+        input: { query: 'privacy preserving AI' },
+      });
     });
 
     it('parses item.completed with error type as error', async () => {
@@ -285,6 +325,7 @@ describe('CodexAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('error');
+      expect(events[0]!.data).toMatchObject({ message: 'oops' });
     });
 
     it('handles non-JSON lines gracefully', async () => {
@@ -332,7 +373,69 @@ describe('CodexAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(events[0]!.type).toBe('error');
-      expect(events[0]!.data).toBe('fatal');
+      expect(events[0]!.data).toMatchObject({ message: 'fatal' });
+    });
+
+    it('unwraps nested provider JSON and suppresses the duplicate turn.failed error', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CodexAdapter(pm);
+      const handle = adapter.execute(makeParams());
+      const providerError = JSON.stringify({
+        type: 'error',
+        status: 400,
+        error: {
+          type: 'invalid_request_error',
+          message: "The 'gpt-5.6' model is not supported when using Codex with a ChatGPT account.",
+        },
+      });
+
+      proc.stdout.write(JSON.stringify({
+        type: 'error',
+        message: providerError,
+      }) + '\n');
+      proc.stdout.write(JSON.stringify({
+        type: 'turn.failed',
+        error: { message: providerError },
+      }) + '\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 0), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe('error');
+      expect(events[0]!.data).toMatchObject({
+        message: "The 'gpt-5.6' model is not supported when using Codex with a ChatGPT account.",
+      });
+    });
+
+    it('keeps model metadata warnings out of the error stream', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new CodexAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({
+        type: 'item.completed',
+        item: {
+          id: 'item_0',
+          type: 'error',
+          message: 'Model metadata for `gpt-5.6` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.',
+        },
+      }) + '\n');
+      proc.stdout.end();
+      setTimeout(() => proc.emit('close', 0), 20);
+
+      const events: AgentEvent[] = [];
+      for await (const ev of handle.events) events.push(ev);
+
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe('output');
+      expect(events[0]!.data).toMatchObject({
+        text: expect.stringContaining('Model metadata for `gpt-5.6` not found'),
+      });
     });
 
     it('turn.failed error event has errorKind set via classifyAdapterError', async () => {
