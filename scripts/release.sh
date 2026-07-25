@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Usage: ./scripts/release.sh patch|minor|major
-# Bumps version in package.json + cli.ts, commits, tags, and pushes.
+# Bumps version in package.json + cli.ts, commits, and tags for a GitHub-only release.
 
 BUMP="${1:?Usage: release.sh patch|minor|major}"
 
@@ -27,6 +27,6 @@ git tag "$NEW_VERSION"
 echo ""
 echo "  ✓ ${NEW_VERSION}"
 echo ""
-echo "  Push to publish:"
+echo "  Push GitHub release:"
 echo "    git push && git push --tags"
 echo ""

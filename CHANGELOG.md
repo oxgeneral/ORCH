@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.30 (2026-07-25)
+
+### Bug Fixes
+
+- **Readable Codex activity text** — Codex agent messages, commands, file changes, tool calls, and web searches are normalized before reaching the TUI, while provider lifecycle and reasoning noise is omitted.
+- **Concise provider errors** — nested JSON error envelopes are reduced to their human-facing message, repeated `turn.failed` copies are suppressed per run, and recoverable model-metadata fallback notices no longer appear as failures.
+- **Historical run compatibility** — existing Codex JSONL history receives the same text, tool, lifecycle, warning, and error formatting as newly streamed events.
+
+### Release Infrastructure
+
+- **GitHub-only tagged releases** — pushing a `v*` tag validates, builds, tests, and creates a GitHub Release without publishing a package to npm.
+- **Isolated PTY configuration** — real terminal tests use a temporary global TUI config and never overwrite `~/.orchestry/global.yml`.
+
+### Tests
+
+- Added a real pseudo-terminal E2E that launches the built CLI and verifies `ALL → TEXT → TOOLS → ERRORS`, visible Codex content, lifecycle filtering, readable errors, deduplication, and clean shutdown.
+- Stabilized the concurrent disk-observer assertion.
+- Full suite: 2044 passed, 2 skipped.
+
 ## 1.0.29 (2026-07-25)
 
 ### New Features
