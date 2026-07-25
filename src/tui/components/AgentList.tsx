@@ -19,7 +19,7 @@ import { tuiColors, DOT, LOZENGE, STAR, LOOP, lightRule, capLine } from '../colo
 import { Spinner } from './Spinner.js';
 import { formatDuration } from '../../cli/output.js';
 import { ERROR_HINTS, type AdapterErrorKind } from '../../domain/errors.js';
-import type { TuiPaletteName } from '../../domain/global-config.js';
+import { useTuiPalette } from '../paletteContext.js';
 
 /* ── Glyphs ───────────────────────────────────────── */
 
@@ -69,11 +69,10 @@ export interface AgentRowProps {
   teamName?: string;
   /** Whether this agent is a team lead */
   isLead?: boolean;
-  /** Palette identity is used to invalidate React.memo after live theme changes. */
-  palette?: TuiPaletteName;
 }
 
 export const AgentRow = React.memo(function AgentRow({ agent, selected, width, runningEntry, currentTaskTitle, teamName, isLead }: AgentRowProps) {
+  useTuiPalette();
   const chip = STATUS_CHIP[agent.status];
   const isRunning = agent.status === 'running';
 

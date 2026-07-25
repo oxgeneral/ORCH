@@ -24,7 +24,7 @@ import { TABS } from './TabBar.js';
 import type { ViewId } from './TabBar.js';
 import { useAnimTick } from './useAnimTick.js';
 import { Spinner as MiniSpinner } from './Spinner.js';
-import type { TuiPaletteName } from '../../domain/global-config.js';
+import { useTuiPalette } from '../paletteContext.js';
 
 /* ══════════════════════════════════════════════════════════
    CONSTANTS & GLYPHS
@@ -189,8 +189,6 @@ export interface HeaderProps {
   flashColor?: string;
   /** Called after flash animation completes (3 blinks) */
   onFlashComplete?: () => void;
-  /** Palette identity is used to invalidate React.memo after live theme changes. */
-  palette?: TuiPaletteName;
 }
 
 /* Tab config imported from TabBar.tsx — single source of truth */
@@ -351,6 +349,7 @@ function StatsBar({
    ══════════════════════════════════════════════════════════ */
 
 export const Header = React.memo(function Header(props: HeaderProps) {
+  useTuiPalette();
   const barWidth = Math.max(10, props.width - 2);
   const isActive = props.stats.running > 0;
 

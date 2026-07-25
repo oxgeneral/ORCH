@@ -34,10 +34,18 @@ export interface WizardStep {
   description?: string;
   required?: boolean;
   defaultValue?: string;
+  /** Dynamic default based on already-collected values */
+  getDefaultValue?: (values: Record<string, string>) => string;
   /** Skip this step based on previous values */
   skip?: (values: Record<string, string>) => boolean;
   /** Optional suggestion list shown below text input (↓ to browse, filtered by input) */
   suggestions?: SelectOption[];
+  /** Dynamic suggestions based on already-collected values */
+  getSuggestions?: (values: Record<string, string>) => SelectOption[];
+  /** Select a suggestion as the field value instead of invoking the form callback */
+  suggestionMode?: 'callback' | 'value';
+  /** Label rendered above the suggestion list */
+  suggestionsLabel?: string;
   /** Validate the current value. Return null if valid, or an error message string. */
   validate?: (value: string) => string | null;
 }
@@ -59,6 +67,10 @@ export interface FormWizardProps {
 
 const CURSOR = '\u2588'; // █ (used by textarea render)
 const CMD_KEY = process.platform === 'darwin' ? '\u2318' : 'Ctrl';
+
+function resolveDefaultValue(step: WizardStep, values: Record<string, string>): string {
+  return step.getDefaultValue?.(values) ?? step.defaultValue ?? '';
+}
 
 // ── Text editing helpers ─────────────────────────────────────────────
 
@@ -107,7 +119,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   const textHook = useTextInput({
     initialValue: (() => {
       const firstActive = steps.find((s) => !s.skip?.({}));
-      return firstActive?.type === 'text' && firstActive.defaultValue ? firstActive.defaultValue : '';
+      return firstActive?.type === 'text' ? resolveDefaultValue(firstActive, {}) : '';
     })(),
   });
   // Alias for compatibility with existing code paths (suggestions, validation)
@@ -115,8 +127,9 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   // Textarea state: array of lines + cursor row/col
   const [taLines, setTaLines] = useState<string[]>(() => {
     const firstActive = steps.find((s) => !s.skip?.({}));
-    if (firstActive?.type === 'textarea' && firstActive.defaultValue) {
-      return firstActive.defaultValue.split('\n');
+    const defaultValue = firstActive ? resolveDefaultValue(firstActive, {}) : '';
+    if (firstActive?.type === 'textarea' && defaultValue) {
+      return defaultValue.split('\n');
     }
     return [''];
   });
@@ -125,9 +138,10 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   const [selectIndex, setSelectIndex] = useState(() => {
     // Pre-select default option for first select step
     const firstActive = steps.find((s) => !s.skip?.({}));
-    if (firstActive?.type === 'select' && firstActive.defaultValue) {
+    const defaultValue = firstActive ? resolveDefaultValue(firstActive, {}) : '';
+    if (firstActive?.type === 'select' && defaultValue) {
       const opts = firstActive.getOptions?.({}) ?? firstActive.options ?? [];
-      const idx = opts.findIndex((o) => o.value === firstActive.defaultValue);
+      const idx = opts.findIndex((o) => o.value === defaultValue);
       return idx >= 0 ? idx : 0;
     }
     return 0;
@@ -223,15 +237,20 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   // Clamp selectIndex when options change
   const clampedSelectIndex = Math.min(selectIndex, Math.max(0, options.length - 1));
 
-  // Filtered suggestions for text steps with suggestion lists
+  // Filtered suggestions for text steps with static or dynamic suggestion lists
+  const suggestions = useMemo(() => {
+    if (!step || step.type !== 'text') return [];
+    return step.getSuggestions?.(values) ?? step.suggestions ?? [];
+  }, [step, values]);
   const filteredSuggestions = useMemo(() => {
-    if (!step?.suggestions) return [];
-    if (!textInput.trim()) return step.suggestions;
+    if (!textInput.trim()) return suggestions;
     const q = textInput.toLowerCase();
-    return step.suggestions.filter((s) =>
-      s.label.toLowerCase().includes(q) || (s.hint ?? '').toLowerCase().includes(q),
+    return suggestions.filter((suggestion) =>
+      suggestion.value.toLowerCase().includes(q) ||
+      suggestion.label.toLowerCase().includes(q) ||
+      (suggestion.hint ?? '').toLowerCase().includes(q),
     );
-  }, [step?.suggestions, textInput]);
+  }, [suggestions, textInput]);
   const clampedSuggestionIdx = Math.min(suggestionIndex, Math.max(0, filteredSuggestions.length - 1));
 
   const goToNextStep = (value: string) => {
@@ -271,18 +290,19 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       setCurrentStep(nextActiveIdx >= 0 ? nextActiveIdx : 0);
 
       const nextStep = steps[nextOrigIdx]!;
+      const nextDefaultValue = resolveDefaultValue(nextStep, newValues);
       // Pre-fill defaults
       if (nextStep.type === 'text') {
-        textHook.reset(nextStep.defaultValue ?? '');
+        textHook.reset(nextDefaultValue);
       } else if (nextStep.type === 'textarea') {
-        const lines = nextStep.defaultValue ? nextStep.defaultValue.split('\n') : [''];
+        const lines = nextDefaultValue ? nextDefaultValue.split('\n') : [''];
         setTaLines(lines);
         setTaCursorRow(lines.length - 1);
         setTaCursorCol(lines[lines.length - 1]!.length);
       } else if (nextStep.type === 'select') {
         const opts = nextStep.getOptions?.(newValues) ?? nextStep.options ?? [];
-        if (nextStep.defaultValue) {
-          const idx = opts.findIndex((o) => o.value === nextStep.defaultValue);
+        if (nextDefaultValue) {
+          const idx = opts.findIndex((o) => o.value === nextDefaultValue);
           setSelectIndex(idx >= 0 ? idx : 0);
         } else {
           setSelectIndex(0);
@@ -290,8 +310,8 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       } else if (nextStep.type === 'multiselect') {
         setSelectIndex(0);
         // Pre-select from comma-separated defaultValue
-        if (nextStep.defaultValue) {
-          setMultiSelected(new Set(nextStep.defaultValue.split(',')));
+        if (nextDefaultValue) {
+          setMultiSelected(new Set(nextDefaultValue.split(',')));
         } else {
           setMultiSelected(new Set());
         }
@@ -329,13 +349,14 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
     const prevStep = steps[prevOrigIdx]!;
+    const prevDefaultValue = resolveDefaultValue(prevStep, values);
     // Restore previous value — mark dirty if value was previously entered
     const hasPrevValue = !!values[prevStep.id];
     if (hasPrevValue) setDirty(true);
     if (prevStep.type === 'text') {
-      textHook.reset(values[prevStep.id] ?? prevStep.defaultValue ?? '');
+      textHook.reset(values[prevStep.id] ?? prevDefaultValue);
     } else if (prevStep.type === 'textarea') {
-      const val = values[prevStep.id] ?? prevStep.defaultValue ?? '';
+      const val = values[prevStep.id] ?? prevDefaultValue;
       const lines = val ? val.split('\n') : [''];
       setTaLines(lines);
       setTaCursorRow(lines.length - 1);
@@ -388,8 +409,12 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         }
         if (key.return) {
           const selected = filteredSuggestions[clampedSuggestionIdx];
-          if (selected && onSuggestionSelected) {
-            onSuggestionSelected(selected.value);
+          if (selected) {
+            if (step.suggestionMode === 'value') {
+              goToNextStep(selected.value);
+            } else if (onSuggestionSelected) {
+              onSuggestionSelected(selected.value);
+            }
           }
           return;
         }
@@ -413,7 +438,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         return;
       }
       // ↓ arrow: enter suggestion browsing
-      if (key.downArrow && step.suggestions && filteredSuggestions.length > 0) {
+      if (key.downArrow && suggestions.length > 0 && filteredSuggestions.length > 0) {
         setBrowsingSuggestions(true);
         setSuggestionIndex(0);
         return;
@@ -755,7 +780,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       )}
 
       {/* Suggestion list below text input */}
-      {step.type === 'text' && step.suggestions && filteredSuggestions.length > 0 && (() => {
+      {step.type === 'text' && suggestions.length > 0 && filteredSuggestions.length > 0 && (() => {
         const sugH = Math.max(2, height - 6);
         let sugScrollStart = 0;
         if (browsingSuggestions && clampedSuggestionIdx >= sugH) {
@@ -764,7 +789,10 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         const visibleSugs = filteredSuggestions.slice(sugScrollStart, sugScrollStart + sugH);
         return (
           <Box flexDirection="column">
-            <Text color={tuiColors.ghost}>  {LIGHT_RULE}{LIGHT_RULE}{LIGHT_RULE} or browse templates {LIGHT_RULE.repeat(Math.max(0, maxW - 28))}</Text>
+            <Text color={tuiColors.ghost}>
+              {'  '}{LIGHT_RULE}{LIGHT_RULE}{LIGHT_RULE} {step.suggestionsLabel ?? 'or browse templates'}{' '}
+              {LIGHT_RULE.repeat(Math.max(0, maxW - (step.suggestionsLabel?.length ?? 19) - 9))}
+            </Text>
             {visibleSugs.map((sug, i) => {
               const realIdx = i + sugScrollStart;
               const isSelected = browsingSuggestions && realIdx === clampedSuggestionIdx;

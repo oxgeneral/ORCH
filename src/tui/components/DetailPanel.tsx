@@ -20,7 +20,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { Task } from '../../domain/task.js';
-import { tuiColors, TASK_STATUS_COLOR, lightRule, capLine } from '../colors.js';
+import { getTaskStatusColor, tuiColors, lightRule, capLine } from '../colors.js';
 
 /** Message types for icon/color mapping */
 type MsgType = 'system' | 'lifecycle' | 'output' | 'tool' | 'result' | 'error' | 'file' | 'info';
@@ -69,7 +69,7 @@ export function SectionDivider({ label, width, color }: { label: string; width: 
 }
 
 export function DetailPanel({ task, height, width, taskLogs, agentNameMap, taskTitleMap }: DetailPanelProps) {
-  const statusColor = TASK_STATUS_COLOR[task.status] ?? tuiColors.dim;
+  const statusColor = getTaskStatusColor(task.status);
   const priColor = task.priority <= 2 ? (task.priority === 1 ? tuiColors.red : tuiColors.yellow) : undefined;
   const col1Width = 24;
 
@@ -269,4 +269,3 @@ export function DetailPanel({ task, height, width, taskLogs, agentNameMap, taskT
     </Box>
   );
 }
-

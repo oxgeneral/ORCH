@@ -151,17 +151,8 @@ export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPale
 /** Mutable live palette. Imports keep the same object reference across TUI rerenders. */
 export const tuiColors: TuiColorPalette = { ...TUI_PALETTES.amber };
 
-let activePalette: TuiPaletteName = 'amber';
-
 export function applyTuiPalette(name: TuiPaletteName): void {
-  activePalette = name;
   Object.assign(tuiColors, TUI_PALETTES[name]);
-  Object.assign(TASK_STATUS_COLOR, buildTaskStatusColors());
-  Object.assign(GOAL_STATUS_COLOR, buildGoalStatusColors());
-}
-
-export function getActiveTuiPalette(): TuiPaletteName {
-  return activePalette;
 }
 
 /** Preserve a semantic color token while switching between palette values. */
@@ -204,20 +195,20 @@ export const LOOP = '\u27F3';
 /** Filled diamond (◆) — brand marker, onboarding */
 export const DIAMOND = '\u25C6';
 
-/** Canonical task status → foreground color mapping. */
-function buildTaskStatusColors(): Record<TaskStatus, string> {
-  return {
-    in_progress: tuiColors.green,
-    retrying: tuiColors.yellow,
-    review: tuiColors.blue,
-    todo: tuiColors.dim,
-    done: tuiColors.green,
-    failed: tuiColors.red,
-    cancelled: tuiColors.dim,
-  };
-}
+const TASK_STATUS_COLOR_TOKEN: Record<TaskStatus, keyof TuiColorPalette> = {
+  in_progress: 'green',
+  retrying: 'yellow',
+  review: 'blue',
+  todo: 'dim',
+  done: 'green',
+  failed: 'red',
+  cancelled: 'dim',
+};
 
-export const TASK_STATUS_COLOR: Record<TaskStatus, string> = buildTaskStatusColors();
+/** Resolve a task status color from the active palette. */
+export function getTaskStatusColor(status: TaskStatus): string {
+  return tuiColors[TASK_STATUS_COLOR_TOKEN[status]];
+}
 
 /**
  * Pre-computed rule strings to avoid per-render Intl.Segmenter overhead.
@@ -253,14 +244,14 @@ export function capText(s: string | undefined, max: number = MAX_PANEL_TEXT): st
   return s.length > max ? s.slice(0, max) + '\n\u2026[truncated]' : s;
 }
 
-/** Canonical goal status → foreground color mapping. */
-function buildGoalStatusColors(): Record<GoalStatus, string> {
-  return {
-    active: tuiColors.green,
-    paused: tuiColors.dim,
-    achieved: tuiColors.amber,
-    abandoned: tuiColors.ghost,
-  };
-}
+const GOAL_STATUS_COLOR_TOKEN: Record<GoalStatus, keyof TuiColorPalette> = {
+  active: 'green',
+  paused: 'dim',
+  achieved: 'amber',
+  abandoned: 'ghost',
+};
 
-export const GOAL_STATUS_COLOR: Record<GoalStatus, string> = buildGoalStatusColors();
+/** Resolve a goal status color from the active palette. */
+export function getGoalStatusColor(status: GoalStatus): string {
+  return tuiColors[GOAL_STATUS_COLOR_TOKEN[status]];
+}

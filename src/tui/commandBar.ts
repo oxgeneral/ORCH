@@ -8,7 +8,7 @@
 
 export interface CommandSpec {
   /** Available subcommands (e.g. ['add', 'list', 'show']) */
-  sub?: string[];
+  sub?: readonly string[];
   /** Argument placeholder for help text */
   args?: string;
   /** One-line description for /help */
@@ -21,6 +21,20 @@ const CAT_MANAGE = 'MANAGEMENT';
 const CAT_MONITOR = 'MONITORING';
 const CAT_SETTINGS = 'SETTINGS';
 
+export const CONFIG_SETTINGS = [
+  'palette',
+  'activity-filter',
+  'max-concurrent',
+  'notifications-toast',
+  'notifications-bell',
+] as const;
+
+export type ConfigSetting = typeof CONFIG_SETTINGS[number];
+
+export function isConfigSetting(value: unknown): value is ConfigSetting {
+  return typeof value === 'string' && CONFIG_SETTINGS.includes(value as ConfigSetting);
+}
+
 export const COMMAND_REGISTRY: Record<string, CommandSpec> = {
   task:      { sub: ['add', 'list', 'show', 'cancel', 'retry', 'assign', 'approve', 'reject', 'delete'], help: 'Manage tasks', category: CAT_MANAGE },
   agent:     { sub: ['add', 'list', 'disable', 'enable', 'delete', 'autonomous', 'shop'], help: 'Manage agents', category: CAT_MANAGE },
@@ -32,7 +46,7 @@ export const COMMAND_REGISTRY: Record<string, CommandSpec> = {
   pause:     { help: 'Pause watch mode', category: CAT_MONITOR },
   status:    { help: 'Show orchestrator status', category: CAT_MONITOR },
   config:    {
-    sub: ['palette', 'activity-filter', 'max-concurrent', 'notifications-toast', 'notifications-bell'],
+    sub: CONFIG_SETTINGS,
     help: 'TUI settings',
     category: CAT_SETTINGS,
   },

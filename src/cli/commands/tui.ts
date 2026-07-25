@@ -10,6 +10,7 @@ import type { Command } from 'commander';
 import type { Container } from '../../container.js';
 import { SUPPORTED_ADAPTERS } from '../../domain/model-tiers.js';
 import { loadModelCatalog } from '../../infrastructure/models/model-discovery.js';
+import type { ModelCatalog } from '../../infrastructure/models/model-discovery.js';
 
 export function registerTuiCommand(program: Command, container: Container): void {
   program
@@ -221,8 +222,8 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.goalService.getProgressReport(goalId);
       };
 
-      const onLoadModelCatalog = async () => {
-        return loadModelCatalog(SUPPORTED_ADAPTERS);
+      const onLoadModelCatalog = async (onUpdate?: (catalog: ModelCatalog) => void) => {
+        return loadModelCatalog(SUPPORTED_ADAPTERS, onUpdate);
       };
 
       const onStartWatch = async () => {

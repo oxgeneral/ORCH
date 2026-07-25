@@ -22,8 +22,8 @@ import {
   tuiColors,
   HEAVY_RULE,
   LOOP,
-  TASK_STATUS_COLOR,
-  GOAL_STATUS_COLOR,
+  getTaskStatusColor,
+  getGoalStatusColor,
   heavyRule,
   lightRule,
   capLine,
@@ -37,7 +37,15 @@ import { Header } from './components/Header.js';
 import type { HeaderStats, HeaderTokens } from './components/Header.js';
 import { TABS } from './components/TabBar.js';
 import type { ViewId } from './components/TabBar.js';
-import { resolveCompletion, resolveSuggestions, CommandHistory, COMMAND_REGISTRY } from './commandBar.js';
+import {
+  CONFIG_SETTINGS,
+  isConfigSetting,
+  resolveCompletion,
+  resolveSuggestions,
+  CommandHistory,
+  COMMAND_REGISTRY,
+  type ConfigSetting,
+} from './commandBar.js';
 import type { Suggestion } from './commandBar.js';
 import { CommandBar } from './components/CommandBar.js';
 import { FormWizard } from './components/FormWizard.js';
@@ -55,11 +63,10 @@ import {
   getEditTaskWizardSteps, editTaskWizardToFields,
   getEditAgentWizardSteps, editAgentWizardToFields,
   getTeamWizardSteps, teamWizardToInput,
-  CONFIG_SETTINGS, getConfigWizardSteps, isConfigSetting,
+  getConfigWizardSteps,
   getGoalWizardSteps, goalWizardToInput,
   getEditGoalWizardSteps, editGoalWizardToFields,
   getShopWizardSteps, applyShopTemplate,
-  type ConfigSetting,
 } from './wizardConfigs.js';
 import { getShopTemplateByKey } from '../domain/agent-shop.js';
 import {
@@ -72,6 +79,7 @@ import {
 import { DEFAULT_CONFIG } from '../domain/config.js';
 import type { Team, CreateTeamInput } from '../domain/team.js';
 import { ERROR_HINTS, type AdapterErrorKind } from '../domain/errors.js';
+import { TuiPaletteContext, useTuiPalette } from './paletteContext.js';
 import type { ModelCatalog } from '../infrastructure/models/model-discovery.js';
 import { useTextInput } from './hooks/useTextInput.js';
 import { TextInput as UnifiedTextInput } from './components/TextInput.js';
@@ -182,8 +190,8 @@ export interface AppProps {
   onCompleteOnboarding?: () => Promise<void>;
   /** Default adapter from project config (used for agent shop template resolution) */
   defaultAdapter?: string;
-  /** Load runtime model choices for adapters that expose a model-list command. */
-  onLoadModelCatalog?: () => Promise<ModelCatalog>;
+  /** Load model choices, optionally streaming adapter entries as they resolve. */
+  onLoadModelCatalog?: (onUpdate?: (catalog: ModelCatalog) => void) => Promise<ModelCatalog>;
 }
 
 type InputMode = 'none' | 'new_task' | 'command' | 'wizard';
@@ -195,17 +203,9 @@ interface WizardConfig {
   kind: 'agent' | 'task' | 'edit_task' | 'edit_agent' | 'team' | 'config' | 'goal' | 'edit_goal' | 'agent_shop' | 'agent_from_shop';
   /** Target ID for edit wizards */
   targetId?: string;
-  /** Individual setting edited by a config wizard. */
-  configSetting?: ConfigSetting;
+  /** Template used to rebuild a pre-filled wizard when model choices refresh. */
+  templateKey?: string;
 }
-
-const CONFIG_SETTING_TITLES: Record<ConfigSetting, string> = {
-  palette: 'PALETTE',
-  'activity-filter': 'ACTIVITY FILTER',
-  'max-concurrent': 'MAX CONCURRENT',
-  'notifications-toast': 'TOAST NOTIFICATIONS',
-  'notifications-bell': 'COMPLETION BELL',
-};
 
 /** Message types for semantic styling */
 type MsgType = 'system' | 'lifecycle' | 'output' | 'tool' | 'result' | 'error' | 'file' | 'info';
@@ -292,11 +292,22 @@ function cyclePreset(current: Set<MsgType>): { label: ActivityFilterPreset; type
   return ACTIVITY_PRESETS[nextIdx]!;
 }
 
-/** Cheap change detection for entity lists — avoids no-op React re-renders from periodic disk polls. */
-function entityListChanged(prev: { id: string; updated_at?: string }[], next: { id: string; updated_at?: string }[]): boolean {
+/**
+ * Cheap change detection for entity lists.
+ *
+ * Tasks and goals carry `updated_at`, but agents do not. Comparing only IDs and
+ * timestamps therefore left edited agents stale in the TUI until restart.
+ */
+export function entityListChanged(
+  prev: { id: string; updated_at?: string }[],
+  next: { id: string; updated_at?: string }[],
+): boolean {
   if (prev.length !== next.length) return true;
   for (let i = 0; i < prev.length; i++) {
-    if (prev[i]!.id !== next[i]!.id || prev[i]!.updated_at !== next[i]!.updated_at) return true;
+    const previous = prev[i]!;
+    const current = next[i]!;
+    if (previous.id !== current.id || previous.updated_at !== current.updated_at) return true;
+    if (previous.updated_at === undefined && JSON.stringify(previous) !== JSON.stringify(current)) return true;
   }
   return false;
 }
@@ -933,10 +944,13 @@ export function App({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load runtime model choices in the background; wizards fall back until ready.
+  // Load model choices in the background and apply each adapter as it resolves.
   useEffect(() => {
     let cancelled = false;
-    onLoadModelCatalog?.().then((catalog) => {
+    const applyCatalog = (catalog: ModelCatalog) => {
+      if (!cancelled) setModelCatalog((current) => ({ ...current, ...catalog }));
+    };
+    onLoadModelCatalog?.(applyCatalog).then((catalog) => {
       if (!cancelled) setModelCatalog(catalog);
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -1030,12 +1044,39 @@ export function App({
     setInputMode('wizard');
   }, [liveAgents, liveTeams, modelCatalog]);
 
+  // Keep model options live when discovery completes after a wizard was opened.
+  useEffect(() => {
+    setWizardConfig((current) => {
+      if (!current) return current;
+      if (current.kind === 'agent') {
+        return { ...current, steps: getAgentWizardSteps(liveAgentsRef.current, liveTeamsRef.current, modelCatalog) };
+      }
+      if (current.kind === 'edit_agent' && current.targetId) {
+        const agent = liveAgentsRef.current.find((candidate) => candidate.id === current.targetId);
+        if (agent) {
+          return {
+            ...current,
+            steps: getEditAgentWizardSteps(agent, liveAgentsRef.current, liveTeamsRef.current, modelCatalog),
+          };
+        }
+      }
+      if (current.kind === 'agent_from_shop' && current.templateKey) {
+        const template = getShopTemplateByKey(current.templateKey);
+        if (template) {
+          const baseSteps = getAgentWizardSteps(liveAgentsRef.current, liveTeamsRef.current, modelCatalog);
+          return { ...current, steps: applyShopTemplate(baseSteps, template, defaultAdapter) };
+        }
+      }
+      return current;
+    });
+  }, [defaultAdapter, modelCatalog]);
+
   const launchConfigWizard = useCallback((setting: ConfigSetting) => {
+    const steps = getConfigWizardSteps(setting, palette, activityFilterLabel, maxConcurrent, notifications);
     setWizardConfig({
-      title: `SETTINGS — ${CONFIG_SETTING_TITLES[setting]}`,
-      steps: getConfigWizardSteps(setting, palette, activityFilterLabel, maxConcurrent, notifications),
+      title: `SETTINGS — ${setting.replaceAll('-', ' ').toUpperCase()}`,
+      steps,
       kind: 'config',
-      configSetting: setting,
     });
     setInputMode('wizard');
   }, [activityFilterLabel, maxConcurrent, notifications, palette]);
@@ -1044,7 +1085,6 @@ export function App({
     setInputMode('none');
     const kind = wizardConfig?.kind;
     const targetId = wizardConfig?.targetId;
-    const configSetting = wizardConfig?.configSetting;
     setWizardConfig(null);
 
     if (kind === 'agent_shop') {
@@ -1058,6 +1098,7 @@ export function App({
           title: `NEW AGENT \u2014 ${template.name}`,
           steps: prefilledSteps,
           kind: 'agent_from_shop',
+          templateKey: template.key,
         });
         setInputMode('wizard');
       } else {
@@ -1165,7 +1206,7 @@ export function App({
         },
         (err) => addMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`, tuiColors.red),
       );
-    } else if (kind === 'config' && configSetting) {
+    } else if (kind === 'config') {
       if (isTuiPaletteName(values.palette)) {
         changePalette(values.palette);
       }
@@ -1227,6 +1268,7 @@ export function App({
       title: `NEW AGENT \u2014 ${template.name}`,
       steps: prefilledSteps,
       kind: 'agent_from_shop',
+      templateKey: template.key,
     });
     setInputMode('wizard');
   }, [liveAgents, modelCatalog, defaultAdapter]);
@@ -2414,7 +2456,8 @@ export function App({
   const isPasteCapable = wizardConfig?.kind === 'task' || wizardConfig?.kind === 'edit_task';
 
   return (
-    <Box flexDirection="column" width={W} height={H}>
+    <TuiPaletteContext.Provider value={palette}>
+      <Box flexDirection="column" width={W} height={H}>
       {/* Header: brand + tabs + status + stats ribbon */}
       <Header
         projectName={projectName}
@@ -2431,7 +2474,6 @@ export function App({
         flashTab={flashTab?.tab}
         flashColor={flashTab?.color}
         onFlashComplete={flashTab ? () => setFlashTab(undefined) : undefined}
-        palette={palette}
       />
 
       {/* Breathing room after header */}
@@ -2458,7 +2500,6 @@ export function App({
           showAddRow={!!onCreateGoal}
           agentNameMap={agentNameMap}
           tasksByGoalMap={tasksByGoalMap}
-          palette={palette}
         />
       )}
       {!showHelpOverlay && onboardingStep !== 'welcome' && activeView === 'tasks' && (
@@ -2473,7 +2514,6 @@ export function App({
           hiddenCount={hiddenTaskCount}
           goalMap={goalMap}
           groupByGoal={groupByGoal}
-          palette={palette}
         />
       )}
       {/* Onboarding nudge — shown under task list for task_created/run_started */}
@@ -2497,7 +2537,6 @@ export function App({
           agentTeamMap={agentTeamMap}
           teamLeadSet={teamLeadSet}
           activeTeamCount={activeTeamCount}
-          palette={palette}
         />
       )}
 {!showHelpOverlay && activeView === 'logs' && (
@@ -2590,7 +2629,7 @@ export function App({
           <SectionLabel label={`GOAL: ${selectedGoal.title}`} width={ruleW}
             suffixLen={detailResizeHint.length + 2}
             suffix={<Text color={tuiColors.dim}> {detailResizeHint} </Text>} />
-          <GoalDetailPanel goal={selectedGoal} height={feedH} width={ruleW} agentNameMap={agentNameMap} tasks={selectedGoalTasks} progressReport={goalProgressReport} scrollOffset={goalDetailScroll} onClampScroll={setGoalDetailScroll} palette={palette} />
+          <GoalDetailPanel goal={selectedGoal} height={feedH} width={ruleW} agentNameMap={agentNameMap} tasks={selectedGoalTasks} progressReport={goalProgressReport} scrollOffset={goalDetailScroll} onClampScroll={setGoalDetailScroll} />
         </>
       ) : showAgentDetail ? (
         <>
@@ -2629,7 +2668,7 @@ export function App({
       <Box flexGrow={1} />
 
       {/* Toast notifications — task completion events */}
-      <ToastBanner toasts={toasts} onDismiss={handleDismissToast} palette={palette} />
+      <ToastBanner toasts={toasts} onDismiss={handleDismissToast} />
 
       {/* Undo banner — shows pending deletions with countdown */}
       {pendingDeletions.length > 0 && (
@@ -2664,7 +2703,8 @@ export function App({
         hasSuggestions={showSuggestions}
         onboardingCompleted={initialState.onboardingCompleted}
       />
-    </Box>
+      </Box>
+    </TuiPaletteContext.Provider>
   );
 }
 
@@ -2754,7 +2794,7 @@ function SuggestionsPanel({ suggestions, selectedIndex, height, width }: {
 
 /* ── Goals Content ───────────────────────────────────── */
 
-function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, tasksByGoalMap, palette }: {
+function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, tasksByGoalMap }: {
   goals: Goal[];
   selectedIndex: number;
   scrollOffset?: number;
@@ -2763,7 +2803,6 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
   showAddRow?: boolean;
   agentNameMap?: Map<string, string>;
   tasksByGoalMap?: Map<string, Task[]>;
-  palette: TuiPaletteName;
 }) {
   const addRowIndex = goals.length;
 
@@ -2774,7 +2813,7 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
     <Box flexDirection="column" height={height}>
       {visible.map((goal, i) => (
         <Box key={goal.id} paddingX={2}>
-          <GoalRow goal={goal} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} tasksByGoal={tasksByGoalMap?.get(goal.id)} palette={palette} />
+          <GoalRow goal={goal} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} tasksByGoal={tasksByGoalMap?.get(goal.id)} />
         </Box>
       ))}
       {addRowVisible && (
@@ -2791,7 +2830,7 @@ function GoalsContent({ goals, selectedIndex, scrollOffset = 0, height, width, s
 
 /* ── Goal Detail Panel ──────────────────────────────── */
 
-function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressReport, scrollOffset = 0, onClampScroll, palette }: {
+function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressReport, scrollOffset = 0, onClampScroll }: {
   goal: Goal;
   height: number;
   width: number;
@@ -2800,8 +2839,8 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
   progressReport?: string;
   scrollOffset?: number;
   onClampScroll?: (v: number) => void;
-  palette: TuiPaletteName;
 }) {
+  const palette = useTuiPalette();
   const col1Width = 24;
 
   // Build virtual lines — memoized to avoid JSX rebuild on scroll
@@ -2824,7 +2863,7 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
       ?.split('\n').flatMap((l) => wrapLine(l, textWidth)) ?? [];
     const descLines = capText(goal.description)
       ?.split('\n').flatMap((l) => wrapLine(l, textWidth)) ?? [];
-    const statusColor = GOAL_STATUS_COLOR[goal.status] ?? tuiColors.dim;
+    const statusColor = getGoalStatusColor(goal.status);
 
     // Task status summary counts
     const statusCounts = new Map<string, number>();
@@ -2926,7 +2965,7 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
       lines.push({ key: 'tasks-gap', node: <Text>{' '}</Text> });
       lines.push({ key: 'tasks-div', node: <SectionDivider label={`tasks (${taskList.length})`} width={width} /> });
       for (const t of taskList) {
-        const sc = TASK_STATUS_COLOR[t.status] ?? tuiColors.dim;
+        const sc = getTaskStatusColor(t.status);
         lines.push({ key: `task-${t.id}`, node: (
           <Text color={tuiColors.silver} wrap="truncate">
             {'  '}<Text color={sc}>{t.status.padEnd(12)}</Text>
@@ -2968,7 +3007,7 @@ function GoalDetailPanel({ goal, height, width, agentNameMap, tasks, progressRep
 
 /* ── Tasks Content ───────────────────────────────────── */
 
-function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, hiddenCount = 0, goalMap, groupByGoal = false, palette }: {
+function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, showAddRow, agentNameMap, hiddenCount = 0, goalMap, groupByGoal = false }: {
   tasks: Task[];
   selectedIndex: number;
   scrollOffset?: number;
@@ -2979,7 +3018,6 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
   hiddenCount?: number;
   goalMap?: Map<string, Goal>;
   groupByGoal?: boolean;
-  palette: TuiPaletteName;
 }) {
   const hasShowAll = hiddenCount > 0;
   // Virtual indices: tasks[0..n-1], show-all row (optional), add row (optional)
@@ -3047,7 +3085,7 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
 
     rows.push(
       <Box key={task.id} paddingX={2}>
-        <TaskRow task={task} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} goalMap={goalMap} palette={palette} />
+        <TaskRow task={task} selected={i + scrollOffset === selectedIndex} width={width - 2} agentNameMap={agentNameMap} goalMap={goalMap} />
       </Box>,
     );
   }
@@ -3085,7 +3123,7 @@ function TasksContent({ tasks, selectedIndex, scrollOffset = 0, height, width, s
 
 /* ── Agents Content ──────────────────────────────────── */
 
-function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width, state, taskTitleMap, showAddRow, agentTeamMap, teamLeadSet, activeTeamCount, palette }: {
+function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width, state, taskTitleMap, showAddRow, agentTeamMap, teamLeadSet, activeTeamCount }: {
   agents: Agent[];
   selectedIndex: number;
   scrollOffset?: number;
@@ -3097,7 +3135,6 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
   agentTeamMap?: Map<string, string>;
   teamLeadSet?: Set<string>;
   activeTeamCount?: number;
-  palette: TuiPaletteName;
 }) {
   // Build running entry lookup by agent ID
   const runningByAgent = new Map<string, typeof state.running[string]>();
@@ -3180,7 +3217,6 @@ function AgentsContent({ agents, selectedIndex, scrollOffset = 0, height, width,
           currentTaskTitle={agent.current_task ? taskTitleMap.get(agent.current_task) : undefined}
           teamName={team}
           isLead={teamLeadSet?.has(agent.id)}
-          palette={palette}
         />
       </Box>,
     );

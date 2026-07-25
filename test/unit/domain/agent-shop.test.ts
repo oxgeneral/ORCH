@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { AGENT_SHOP_TEMPLATES, getShopTemplateByKey } from '../../../src/domain/agent-shop.js';
 import type { AgentShopTemplate } from '../../../src/domain/agent-shop.js';
 import { getShopWizardSteps, applyShopTemplate, agentWizardToInput, getAgentWizardSteps } from '../../../src/tui/wizardConfigs.js';
-import { resolveModel } from '../../../src/domain/model-tiers.js';
 
 describe('Agent Shop catalog', () => {
   it('has 15 templates', () => {
@@ -103,11 +102,11 @@ describe('applyShopTemplate', () => {
     expect(adapterStep!.defaultValue).toBe('opencode');
   });
 
-  it('injects model defaultValue resolved from tier + adapter', () => {
+  it('falls back to the adapter default when a tier model is not in the live catalog', () => {
     const base = getAgentWizardSteps();
     const result = applyShopTemplate(base, template, 'claude');
     const modelStep = result.find((s) => s.id === 'model');
-    expect(modelStep!.defaultValue).toBe(resolveModel('claude', 'balanced'));
+    expect(modelStep!.defaultValue).toBe('');
   });
 
   it('forces role to __custom__', () => {

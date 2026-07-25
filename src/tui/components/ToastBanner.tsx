@@ -9,7 +9,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { tuiColors, LOZENGE } from '../colors.js';
-import type { TuiPaletteName } from '../../domain/global-config.js';
+import { useTuiPalette } from '../paletteContext.js';
 
 /* ── Types ───────────────────────────────────────── */
 
@@ -26,7 +26,6 @@ export interface Toast {
 export interface ToastBannerProps {
   toasts: Toast[];
   onDismiss: (id: string) => void;
-  palette?: TuiPaletteName;
 }
 
 /* ── Constants ───────────────────────────────────── */
@@ -67,10 +66,10 @@ function toastMessage(toast: Toast): string {
 interface ToastRowProps {
   toast: Toast;
   onDismiss: (id: string) => void;
-  palette?: TuiPaletteName;
 }
 
 const ToastRow = React.memo(function ToastRow({ toast, onDismiss }: ToastRowProps) {
+  useTuiPalette();
   const [fadingIn, setFadingIn] = useState(true);
   const [fadingOut, setFadingOut] = useState(false);
 
@@ -122,7 +121,7 @@ const ToastRow = React.memo(function ToastRow({ toast, onDismiss }: ToastRowProp
 
 /* ── Banner ──────────────────────────────────────── */
 
-export const ToastBanner = React.memo(function ToastBanner({ toasts, onDismiss, palette }: ToastBannerProps) {
+export const ToastBanner = React.memo(function ToastBanner({ toasts, onDismiss }: ToastBannerProps) {
   const visible = toasts.slice(0, MAX_VISIBLE);
 
   if (visible.length === 0) return null;
@@ -130,7 +129,7 @@ export const ToastBanner = React.memo(function ToastBanner({ toasts, onDismiss, 
   return (
     <Box flexDirection="column">
       {visible.map((t) => (
-        <ToastRow key={t.id} toast={t} onDismiss={onDismiss} palette={palette} />
+        <ToastRow key={t.id} toast={t} onDismiss={onDismiss} />
       ))}
     </Box>
   );

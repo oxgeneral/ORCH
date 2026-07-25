@@ -14,7 +14,7 @@ import { Box, Text } from 'ink';
 import { GOAL_STATUS_ORDER, type Goal, type GoalStatus } from '../../domain/goal.js';
 import type { Task } from '../../domain/task.js';
 import { tuiColors, DOT } from '../colors.js';
-import type { TuiPaletteName } from '../../domain/global-config.js';
+import { useTuiPalette } from '../paletteContext.js';
 
 /* ── Glyphs ───────────────────────────────────────── */
 
@@ -57,13 +57,12 @@ export interface GoalRowProps {
   agentNameMap?: Map<string, string>;
   /** Linked tasks for progress bar */
   tasksByGoal?: Task[];
-  /** Palette identity is used to invalidate React.memo after live theme changes. */
-  palette?: TuiPaletteName;
 }
 
 const PROGRESS_WIDTH = 14; // " ████░░ 4/6 " = 14 chars
 
 export const GoalRow = React.memo(function GoalRow({ goal, selected, width, agentNameMap, tasksByGoal }: GoalRowProps) {
+  useTuiPalette();
   const chip = STATUS_CHIP[goal.status];
 
   const cursor = selected ? '\u25B8' : ' '; // ▸ or space

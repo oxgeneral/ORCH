@@ -16,6 +16,7 @@ import type {
 import type { Team } from '../domain/team.js';
 import type { CreateTeamInput } from '../domain/team.js';
 import { AGENT_SHOP_TEMPLATES, getShopTemplateByKey } from '../domain/agent-shop.js';
+import type { ConfigSetting } from './commandBar.js';
 import type { AgentShopTemplate } from '../domain/agent-shop.js';
 import { isAdapterKind, resolveModel } from '../domain/model-tiers.js';
 import { isMcpSkill } from '../application/agent-factory.js';
@@ -140,7 +141,17 @@ export function applyShopTemplate(
   template: AgentShopTemplate,
   defaultAdapter: string,
 ): WizardStep[] {
-  const resolvedModel = resolveModel(defaultAdapter, template.tier);
+  const preferredModel = resolveModel(defaultAdapter, template.tier);
+  const modelStep = baseSteps.find((step) => step.id === 'model');
+  const availableModels =
+    modelStep?.getSuggestions?.({ adapter: defaultAdapter }) ??
+    modelStep?.suggestions ??
+    modelStep?.getOptions?.({ adapter: defaultAdapter }) ??
+    modelStep?.options ??
+    [];
+  const resolvedModel = availableModels.some((option) => option.value === preferredModel)
+    ? preferredModel
+    : (availableModels.find((option) => option.value === '')?.value ?? availableModels[0]?.value ?? '');
 
   return baseSteps.map((step): WizardStep => {
     switch (step.id) {
@@ -201,8 +212,11 @@ export function getAgentWizardSteps(agents?: Agent[], teams?: Team[], modelCatal
     {
       id: 'model',
       label: 'Model',
-      type: 'select',
-      getOptions: (vals) => getModelOptions(vals.adapter, modelCatalog),
+      type: 'text',
+      placeholder: 'Default, type a model ID, or press ↓ to browse',
+      getSuggestions: (vals) => getModelOptions(vals.adapter, modelCatalog),
+      suggestionMode: 'value',
+      suggestionsLabel: 'available models',
     },
     {
       id: 'effort',
@@ -452,9 +466,13 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
     {
       id: 'model',
       label: 'Model',
-      type: 'select',
-      getOptions: (vals) => getModelOptions(vals.adapter || agent.adapter, modelCatalog),
-      defaultValue: agent.config.model ?? '',
+      type: 'text',
+      placeholder: 'Default, type a model ID, or press ↓ to browse',
+      getSuggestions: (vals) => getModelOptions(vals.adapter || agent.adapter, modelCatalog),
+      suggestionMode: 'value',
+      suggestionsLabel: 'available models',
+      getDefaultValue: (vals) =>
+        (vals.adapter || agent.adapter) === agent.adapter ? (agent.config.model ?? '') : '',
     },
     {
       id: 'effort',
@@ -525,25 +543,6 @@ const TOGGLE_OPTIONS = [
   { value: 'true', label: 'On' },
   { value: 'false', label: 'Off' },
 ];
-
-export type ConfigSetting =
-  | 'palette'
-  | 'activity-filter'
-  | 'max-concurrent'
-  | 'notifications-toast'
-  | 'notifications-bell';
-
-export const CONFIG_SETTINGS: readonly ConfigSetting[] = [
-  'palette',
-  'activity-filter',
-  'max-concurrent',
-  'notifications-toast',
-  'notifications-bell',
-];
-
-export function isConfigSetting(value: unknown): value is ConfigSetting {
-  return typeof value === 'string' && CONFIG_SETTINGS.includes(value as ConfigSetting);
-}
 
 export function getConfigWizardSteps(
   setting: ConfigSetting,

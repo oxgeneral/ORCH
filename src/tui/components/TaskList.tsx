@@ -19,7 +19,7 @@ import type { Goal } from '../../domain/goal.js';
 import { tuiColors, DOT, LOZENGE, capLine, lightRule } from '../colors.js';
 import { Spinner } from './Spinner.js';
 import { formatDuration } from '../../cli/output.js';
-import type { TuiPaletteName } from '../../domain/global-config.js';
+import { useTuiPalette } from '../paletteContext.js';
 
 // Status sort order: running → retrying → review → todo → done → failed → cancelled
 const STATUS_ORDER: Record<TaskStatus, number> = {
@@ -107,12 +107,11 @@ export interface TaskRowProps {
   agentNameMap?: Map<string, string>;
   /** Map goal ID → Goal for badge display */
   goalMap?: Map<string, Goal>;
-  /** Palette identity is used to invalidate React.memo after live theme changes. */
-  palette?: TuiPaletteName;
 }
 
 const GOAL_BADGE_WIDTH = 18; // " ⊕ TRUNCATED_TITLE " = up to 18 chars
 export const TaskRow = React.memo(function TaskRow({ task, selected, width, agentNameMap, goalMap }: TaskRowProps) {
+  useTuiPalette();
   const chip = STATUS_CHIP[task.status];
   const isRunning = task.status === 'in_progress' || task.status === 'retrying';
   const priConf = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG[4]!;
