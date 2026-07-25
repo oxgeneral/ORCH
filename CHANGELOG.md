@@ -13,7 +13,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Release Infrastructure
 
-- **GitHub-only tagged releases** — pushing a `v*` tag validates, builds, tests, and creates a GitHub Release without publishing a package to npm.
 - **Isolated PTY configuration** — real terminal tests use a temporary global TUI config and never overwrite `~/.orchestry/global.yml`.
 
 ### Tests

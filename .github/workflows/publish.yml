@@ -1,4 +1,4 @@
-name: Create GitHub release
+name: Publish to npm
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -18,34 +18,43 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
-      - name: Resolve release version
-        id: release
+      - name: Check if version already published
+        id: check
         run: |
           LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @oxgeneral/orch version 2>/dev/null || echo "0.0.0")
           echo "version=$LOCAL" >> "$GITHUB_OUTPUT"
           echo "tag=v$LOCAL" >> "$GITHUB_OUTPUT"
-          if [ "${GITHUB_REF_TYPE:-}" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$LOCAL" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match package version v$LOCAL"
-            exit 1
+          if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Version $LOCAL already published — skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Publishing $LOCAL (remote has $REMOTE)"
           fi
+      - run: npm publish --access public
+        if: steps.check.outputs.skip != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Extract changelog for this version
         id: changelog
         run: |
-          VERSION="${{ steps.release.outputs.version }}"
+          VERSION="${{ steps.check.outputs.version }}"
           # Extract section between "## $VERSION" and next "## " or EOF
           BODY=$(awk "/^## ${VERSION//./\\.}/{found=1; next} /^## [0-9]/{if(found) exit} found" CHANGELOG.md)
           if [ -z "$BODY" ]; then
-            BODY="Release ${{ steps.release.outputs.tag }}"
+            BODY="Release ${{ steps.check.outputs.tag }}"
           fi
           # Write to file to avoid quoting issues
           echo "$BODY" > /tmp/release-notes.md
       - name: Create or update GitHub Release
         run: |
-          TAG="${{ steps.release.outputs.tag }}"
+          TAG="${{ steps.check.outputs.tag }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --notes-file /tmp/release-notes.md
           else
