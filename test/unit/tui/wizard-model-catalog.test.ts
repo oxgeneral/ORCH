@@ -39,6 +39,15 @@ describe('agent wizard model catalog', () => {
     expect(values).toContain('');
   });
 
+  it('uses a neutral fallback for unknown adapters', () => {
+    const steps = getAgentWizardSteps();
+    const modelStep = steps.find((step) => step.id === 'model')!;
+
+    expect(modelStep.getSuggestions?.({ adapter: 'custom' })).toEqual([
+      { value: '', label: 'Default', hint: 'use adapter default' },
+    ]);
+  });
+
   it('uses runtime catalog options in the edit agent wizard', () => {
     const catalog: ModelCatalog = {
       antigravity: [{ value: 'Gemini 3.5 Flash (High)', label: 'Gemini 3.5 Flash (High)', hint: 'runtime' }],

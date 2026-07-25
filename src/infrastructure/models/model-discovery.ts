@@ -77,10 +77,18 @@ export async function discoverModelOptions(
 
   try {
     switch (adapter) {
-      case 'claude': {
-        const output = await runCommand('claude', ['--help']);
-        return withDefault(parseClaudeModelAliases(output.stdout || output.stderr), 'use Claude configured default');
-      }
+      case 'claude':
+        return await discoverCommand(runCommand, 'claude', ['--help'], parseClaudeModelAliases, 'use Claude configured default');
+      case 'cursor':
+        return await discoverCommand(runCommand, 'cursor-agent', ['--list-models'], parseCursorModels, 'use Cursor configured default');
+      case 'grok':
+        return await discoverCommand(runCommand, 'grok', ['models'], parseGrokModels, 'use Grok configured default');
+      case 'antigravity':
+        return await discoverCommand(runCommand, 'agy', ['models'], parseRuntimeLineModels, 'use Antigravity configured default');
+      case 'opencode':
+        return await discoverCommand(runCommand, 'opencode', ['models'], parseRuntimeLineModels, 'use model configured in OpenCode');
+      case 'pi':
+        return await discoverCommand(runCommand, 'pi', ['--list-models'], parsePiModels, 'use Pi configured default', true);
       case 'codex': {
         const codexHome = runtime.codexHome ?? process.env.CODEX_HOME ?? join(homedir(), '.codex');
         const readTextFile = runtime.readTextFile ?? ((path: string) => readFile(path, 'utf8'));
@@ -89,32 +97,25 @@ export async function discoverModelOptions(
           'use Codex configured default',
         );
       }
-      case 'cursor': {
-        const output = await runCommand('cursor-agent', ['--list-models']);
-        return withDefault(parseCursorModels(output.stdout || output.stderr), 'use Cursor configured default');
-      }
-      case 'grok': {
-        const output = await runCommand('grok', ['models']);
-        return withDefault(parseGrokModels(output.stdout || output.stderr), 'use Grok configured default');
-      }
-      case 'antigravity': {
-        const output = await runCommand('agy', ['models']);
-        return withDefault(parseLineModels(output.stdout || output.stderr, 'runtime'), 'use Antigravity configured default');
-      }
-      case 'opencode': {
-        const output = await runCommand('opencode', ['models']);
-        return withDefault(parseLineModels(output.stdout || output.stderr, 'runtime'), 'use model configured in OpenCode');
-      }
-      case 'pi': {
-        const output = await runCommand('pi', ['--list-models']);
-        return withDefault(parsePiModels(`${output.stdout}\n${output.stderr}`), 'use Pi configured default');
-      }
       case 'shell':
         return getFallbackModelOptions('shell');
     }
   } catch {
     return [];
   }
+}
+
+async function discoverCommand(
+  runCommand: (command: string, args: string[]) => Promise<CommandOutput>,
+  command: string,
+  args: string[],
+  parse: (output: string) => ModelOption[],
+  defaultHint: string,
+  includeStderr = false,
+): Promise<ModelOption[]> {
+  const { stdout, stderr } = await runCommand(command, args);
+  const output = includeStderr ? `${stdout}\n${stderr}` : stdout || stderr;
+  return withDefault(parse(output), defaultHint);
 }
 
 export async function loadModelCatalog(
@@ -255,6 +256,10 @@ export function parseLineModels(output: string, hint: string): ModelOption[] {
     .filter((line) => !line.startsWith('Use ') && !line.startsWith('/'))
     .map((value) => ({ value, label: labelFromModelId(value), hint }));
   return dedupeOptions(options);
+}
+
+function parseRuntimeLineModels(output: string): ModelOption[] {
+  return parseLineModels(output, 'runtime');
 }
 
 function withDefault(options: ModelOption[], hint: string): ModelOption[] {
