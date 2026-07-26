@@ -8,12 +8,14 @@ describe('agentToEditorContent', () => {
   it('serializes all fields into YAML frontmatter + role body', () => {
     const result = agentToEditorContent({
       name: 'Backend Agent',
+      command: 'npm test',
       model: 'claude-sonnet-4-6',
       role: 'You are a backend developer.',
     });
 
     expect(result).toContain('---');
     expect(result).toContain('name: Backend Agent');
+    expect(result).toContain('command: npm test');
     expect(result).toContain('model: claude-sonnet-4-6');
     expect(result).toContain('You are a backend developer.');
     // Comments should be present
@@ -24,6 +26,7 @@ describe('agentToEditorContent', () => {
   it('handles missing model (empty string)', () => {
     const result = agentToEditorContent({ name: 'Test', role: 'A role' });
     expect(result).toContain('model: ');
+    expect(result).toContain('command: ');
     expect(result).toContain('name: Test');
     expect(result).toContain('A role');
   });
@@ -52,6 +55,7 @@ describe('agentFromEditorContent', () => {
       '# Role description goes below the second --- separator.',
       '---',
       'name: Backend Agent',
+      'command: npm test',
       'model: claude-sonnet-4-6',
       '---',
       '',
@@ -60,6 +64,7 @@ describe('agentFromEditorContent', () => {
 
     const parsed = agentFromEditorContent(content);
     expect(parsed.name).toBe('Backend Agent');
+    expect(parsed.command).toBe('npm test');
     expect(parsed.model).toBe('claude-sonnet-4-6');
     expect(parsed.role).toBe('You are a backend developer.');
   });
@@ -208,6 +213,7 @@ describe('agentFromEditorContent', () => {
     const parsed = agentFromEditorContent(content);
 
     expect(parsed.name).toBe('Minimal');
+    expect(parsed.command).toBe('');
     expect(parsed.model).toBe('');
     expect(parsed.role).toBe('');
   });
@@ -240,6 +246,7 @@ describe('agentFromEditorContent', () => {
     const content = [
       '---',
       'name: ',
+      'command: ',
       'model: ',
       '---',
       '',
@@ -248,6 +255,7 @@ describe('agentFromEditorContent', () => {
     const parsed = agentFromEditorContent(content);
     // Must be '' not undefined — '' allows clearing via update()
     expect(parsed.name).toBe('');
+    expect(parsed.command).toBe('');
     expect(parsed.model).toBe('');
     expect(parsed.role).toBe('');
   });

@@ -42,10 +42,11 @@ export function registerAgentCommand(program: Command, container: LightContainer
 
       if (opts.edit) {
         const { openInEditor, agentToEditorContent, agentFromEditorContent } = await import('../editor.js');
-        const initial = agentToEditorContent({ name, model: opts.model, role });
+        const initial = agentToEditorContent({ name, command: opts.command, model: opts.model, role });
         const edited = await openInEditor(initial);
         const parsed = agentFromEditorContent(edited);
         if (parsed.name) name = parsed.name;
+        if (parsed.command !== undefined) opts.command = parsed.command;
         if (parsed.model) opts.model = parsed.model;
         if (parsed.role) role = parsed.role;
       }
@@ -161,11 +162,15 @@ export function registerAgentCommand(program: Command, container: LightContainer
       console.log();
 
       const pairs: Array<[string, string]> = [
-        ['Adapter', `${a.adapter}${a.config.model ? ` (${a.config.model})` : ''}`],
+        ['Adapter', `${a.adapter}${a.adapter !== 'shell' && a.config.model ? ` (${a.config.model})` : ''}`],
         ['Status', `${statusIcon(a.status)} ${a.status}`],
-        ['Effort', a.config.effort ?? 'default'],
         ['Policy', a.config.approval_policy ?? 'auto'],
       ];
+      if (a.adapter === 'shell') {
+        pairs.splice(1, 0, ['Command', a.config.command ?? '—']);
+      } else {
+        pairs.splice(2, 0, ['Effort', a.config.effort ?? 'default']);
+      }
       if (a.current_task) pairs.push(['Task', a.current_task]);
       if (a.role) pairs.push(['Role', a.role]);
       if (a.config.skills?.length) pairs.push(['Skills', a.config.skills.join(', ')]);
@@ -192,6 +197,7 @@ export function registerAgentCommand(program: Command, container: LightContainer
       const { openInEditor, agentToEditorContent, agentFromEditorContent } = await import('../editor.js');
       const initial = agentToEditorContent({
         name: a.name,
+        command: a.config.command,
         model: a.config.model,
         role: a.role,
       });
@@ -202,6 +208,7 @@ export function registerAgentCommand(program: Command, container: LightContainer
       const updated = await container.agentService.update(id, {
         name: parsed.name,
         role: parsed.role,
+        command: parsed.command,
         model: parsed.model,
       });
 

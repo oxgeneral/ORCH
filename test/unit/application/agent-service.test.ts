@@ -123,6 +123,29 @@ describe('AgentService', () => {
       const agent = await service.create({ name: 'no-effort', adapter: 'claude' });
       expect(agent.config.effort).toBeUndefined();
     });
+
+    it('requires a non-empty command for shell agents', async () => {
+      await expect(service.create({ name: 'runner', adapter: 'shell' }))
+        .rejects.toThrow('Shell agents require a command');
+      await expect(service.create({ name: 'runner', adapter: 'shell', command: '   ' }))
+        .rejects.toThrow(InvalidArgumentsError);
+      expect(agentStore.save).not.toHaveBeenCalled();
+    });
+
+    it('trims shell commands and defaults their approval policy to auto', async () => {
+      const agent = await service.create({
+        name: 'runner',
+        adapter: 'shell',
+        command: '  npm test  ',
+        model: 'stale-model',
+        effort: 'high',
+      });
+
+      expect(agent.config.command).toBe('npm test');
+      expect(agent.config.approval_policy).toBe('auto');
+      expect(agent.config.model).toBeUndefined();
+      expect(agent.config.effort).toBeUndefined();
+    });
   });
 
   describe('get', () => {
@@ -236,6 +259,67 @@ describe('AgentService', () => {
       service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);
 
       const agent = await service.update('agt_test1', { effort: '' as any });
+      expect(agent.config.effort).toBeUndefined();
+    });
+
+    it('requires a command when switching an agent to shell', async () => {
+      agentStore = createMockAgentStore([makeAgent({ status: 'idle', adapter: 'claude' })]);
+      service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+      await expect(service.update('agt_test1', { adapter: 'shell' }))
+        .rejects.toThrow('Shell agents require a command');
+      expect(agentStore.save).not.toHaveBeenCalled();
+    });
+
+    it('updates and trims a shell command', async () => {
+      agentStore = createMockAgentStore([makeAgent({
+        status: 'idle',
+        adapter: 'shell',
+        config: { ...makeAgent().config, command: 'npm test' },
+      })]);
+      service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+      const agent = await service.update('agt_test1', { command: '  npm run lint  ' });
+      expect(agent.config.command).toBe('npm run lint');
+    });
+
+    it('preserves an explicit policy when editing an existing shell agent', async () => {
+      agentStore = createMockAgentStore([makeAgent({
+        status: 'idle',
+        adapter: 'shell',
+        config: {
+          ...makeAgent().config,
+          command: 'npm test',
+          approval_policy: 'manual',
+        },
+      })]);
+      service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+      const agent = await service.update('agt_test1', { command: 'npm run lint' });
+      expect(agent.config.approval_policy).toBe('manual');
+    });
+
+    it('can switch to shell when a command is provided in the same update', async () => {
+      agentStore = createMockAgentStore([makeAgent({
+        status: 'idle',
+        adapter: 'claude',
+        config: {
+          ...makeAgent().config,
+          model: 'claude-sonnet-4-6',
+          effort: 'high',
+          approval_policy: 'suggest',
+        },
+      })]);
+      service = new AgentService(agentStore, stateStore, eventBus, DEFAULT_CONFIG);
+
+      const agent = await service.update('agt_test1', {
+        adapter: 'shell',
+        command: 'npm test',
+      });
+      expect(agent.adapter).toBe('shell');
+      expect(agent.config.command).toBe('npm test');
+      expect(agent.config.approval_policy).toBe('auto');
+      expect(agent.config.model).toBeUndefined();
       expect(agent.config.effort).toBeUndefined();
     });
   });

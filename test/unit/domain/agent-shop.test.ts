@@ -116,12 +116,13 @@ describe('applyShopTemplate', () => {
     expect(roleStep!.defaultValue).toBe('__custom__');
   });
 
-  it('injects role prompt into role_custom and removes skip', () => {
+  it('injects role prompt into role_custom while preserving conditional visibility', () => {
     const base = getAgentWizardSteps();
     const result = applyShopTemplate(base, template, 'claude');
     const customStep = result.find((s) => s.id === 'role_custom');
     expect(customStep!.defaultValue).toBe(template.role);
-    expect(customStep!.skip).toBeUndefined();
+    expect(customStep!.skip!({ adapter: 'claude', role: '__custom__' })).toBe(false);
+    expect(customStep!.skip!({ adapter: 'shell', role: '__custom__' })).toBe(true);
   });
 
   it('injects skills as comma-separated string', () => {

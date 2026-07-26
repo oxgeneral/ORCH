@@ -16,6 +16,7 @@ import type { Task } from '../../../src/domain/task.js';
 import type { Agent } from '../../../src/domain/agent.js';
 import type { Goal } from '../../../src/domain/goal.js';
 import type { OrchestratorState } from '../../../src/domain/state.js';
+import type { Team } from '../../../src/domain/team.js';
 import { DEFAULT_STATE } from '../../../src/domain/state.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -595,6 +596,60 @@ describe('App', () => {
     expect(output).toContain('frontend');
   });
 
+  it('creates a shell agent through the minimal A → N wizard path', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let received: { name?: string; adapter?: string; command?: string; approval?: string } = {};
+    const onAddAgent: NonNullable<React.ComponentProps<typeof App>['onAddAgent']> = async (name, adapter, opts) => {
+      received = {
+        name,
+        adapter,
+        command: opts?.command,
+        approval: opts?.approval_policy,
+      };
+      return makeAgent({
+        id: 'shell-wizard',
+        name,
+        adapter: adapter ?? 'shell',
+        config: { command: opts?.command, approval_policy: 'auto' },
+      });
+    };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], agents: [], state, onAddAgent }),
+    );
+
+    stdin.write('a');
+    await delay(25);
+    stdin.write('n');
+    await delay(25);
+    expect(lastFrame()!).toContain('Agent name');
+
+    stdin.write('Test Runner');
+    await delay(25);
+    stdin.write('\r');
+    await delay(25);
+    expect(lastFrame()!).toContain('Provider');
+
+    for (let i = 0; i < 7; i++) stdin.write('j');
+    await delay(25);
+    stdin.write('\r');
+    await delay(25);
+    expect(lastFrame()!).toContain('Command');
+    expect(lastFrame()!).toContain('exit 0 = done');
+    expect(lastFrame()!).not.toContain('Model');
+
+    stdin.write('npm test');
+    await delay(25);
+    stdin.write('\r');
+    await delay(100);
+
+    expect(received).toEqual({
+      name: 'Test Runner',
+      adapter: 'shell',
+      command: 'npm test',
+      approval: 'auto',
+    });
+  });
+
   it('shows footer with view hints T A L', () => {
     const state: OrchestratorState = { ...DEFAULT_STATE };
     const { lastFrame } = render(
@@ -625,6 +680,74 @@ describe('App', () => {
     expect(output).toContain('AGENT');
     expect(output).toContain('backend');
     expect(output).toContain('Backend developer');
+  });
+
+  it('shows the executable command instead of a model for shell agents', async () => {
+    const agents = [makeAgent({
+      id: 'shell-1',
+      name: 'test-runner',
+      adapter: 'shell',
+      config: { command: 'npm run test:unit', approval_policy: 'auto' },
+    })];
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], agents, state }),
+    );
+
+    stdin.write('a');
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+
+    expect(lastFrame()!).toContain('command');
+    expect(lastFrame()!).toContain('npm run test:unit');
+  });
+
+  it('does not leave a team when editing a shell agent with the Team step hidden', async () => {
+    const agent = makeAgent({
+      id: 'shell-team',
+      name: 'team-runner',
+      adapter: 'shell',
+      config: { command: 'npm test', approval_policy: 'auto' },
+    });
+    const team: Team = {
+      id: 'team_1',
+      name: 'QA',
+      status: 'active',
+      members: [{ agent_id: agent.id, role: 'member', joined_at: '2026-01-01T00:00:00.000Z' }],
+      task_pool: [],
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
+      config: { auto_claim: true },
+    };
+    const onUpdateAgent = vi.fn(async () => agent);
+    const onLeaveTeam = vi.fn(async () => team);
+    const { stdin } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        agents: [agent],
+        state: { ...DEFAULT_STATE },
+        onUpdateAgent,
+        onLeaveTeam,
+        onListTeams: async () => [team],
+      }),
+    );
+
+    await delay(50);
+    stdin.write('a');
+    await delay(25);
+    stdin.write('e');
+    await delay(25);
+    stdin.write('\r');
+    await delay(25);
+    stdin.write('\r');
+    await delay(25);
+    stdin.write('\r');
+    await delay(100);
+
+    expect(onUpdateAgent).toHaveBeenCalledOnce();
+    expect(onLeaveTeam).not.toHaveBeenCalled();
   });
 
   it('does not switch views when detail panel is open', async () => {
@@ -1554,6 +1677,76 @@ describe('Command bar — /task add', () => {
     await delay(200);
     expect(addedName).toBe('myworker');
     expect(lastFrame()!).toContain('myworker');
+  });
+
+  it('creates a shell agent from the command bar with its full command', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    let received: { name?: string; adapter?: string; command?: string; approval?: string } = {};
+    const onAddAgent: NonNullable<React.ComponentProps<typeof App>['onAddAgent']> = async (name, adapter, opts) => {
+      received = {
+        name,
+        adapter,
+        command: opts?.command,
+        approval: opts?.approval_policy,
+      };
+      return makeAgent({
+        id: 'agt-shell',
+        name,
+        adapter: adapter ?? 'shell',
+        config: { command: opts?.command, approval_policy: 'auto' },
+      });
+    };
+    const { stdin, lastFrame } = render(
+      React.createElement(App, { projectName: 'test', tasks: [], agents: [], state, onAddAgent }),
+    );
+
+    stdin.write('/');
+    await delay(50);
+    for (const ch of 'agent add runner shell npm run test:unit') stdin.write(ch);
+    await delay(50);
+    stdin.write('\r');
+    await delay(200);
+
+    expect(received).toEqual({
+      name: 'runner',
+      adapter: 'shell',
+      command: 'npm run test:unit',
+      approval: 'auto',
+    });
+    expect(lastFrame()!).toContain('npm run test:unit');
+  });
+
+  it('opens the prefilled shell wizard when the default adapter needs a command', async () => {
+    const state: OrchestratorState = { ...DEFAULT_STATE };
+    const onAddAgent = vi.fn();
+    const { stdin, lastFrame } = render(
+      React.createElement(App, {
+        projectName: 'test',
+        tasks: [],
+        agents: [],
+        state,
+        defaultAdapter: 'shell',
+        onAddAgent,
+      }),
+    );
+
+    stdin.write('/');
+    await delay(50);
+    for (const ch of 'agent add runner') stdin.write(ch);
+    await delay(50);
+    stdin.write('\r');
+    await delay(50);
+
+    expect(lastFrame()!).toContain('NEW AGENT');
+    expect(lastFrame()!).toContain('runner');
+    expect(onAddAgent).not.toHaveBeenCalled();
+
+    stdin.write('\r');
+    await delay(25);
+    stdin.write('\r');
+    await delay(25);
+    expect(lastFrame()!).toContain('Command');
+    expect(lastFrame()!).toContain('exit 0 = done');
   });
 
   it('approves task via /task approve command', async () => {

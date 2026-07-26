@@ -14,12 +14,18 @@ function createMockProcess() {
     stdin: null;
     pid: number;
     kill: () => void;
+    exitCode: number | null;
+    signalCode: NodeJS.Signals | null;
+    killed: boolean;
   };
   proc.stdout = new PassThrough();
   proc.stderr = new PassThrough();
   proc.stdin = null;
   proc.pid = 9999;
   proc.kill = vi.fn();
+  proc.exitCode = null;
+  proc.signalCode = null;
+  proc.killed = false;
   return proc;
 }
 
@@ -85,6 +91,35 @@ describe('ShellAdapter', () => {
     }
 
     expect(events.some((e) => e.type === 'error' && e.data === 'something went wrong')).toBe(true);
+  });
+
+  it('rejects a non-zero exit that occurs before output consumption finishes', async () => {
+    const proc = createMockProcess();
+    const pm = createMockProcessManager(proc);
+    const adapter = new ShellAdapter(pm);
+
+    const handle = adapter.execute(makeParams({ config: { adapter: 'shell', command: 'exit 7' } }));
+
+    // Reproduce the real race: the child exits while the orchestrator is still
+    // handling its stderr event, before it resumes the adapter generator.
+    proc.stderr.write('intentional failure\n');
+    proc.exitCode = 7;
+    proc.emit('close', 7, null);
+    proc.stdout.end();
+    proc.stderr.end();
+
+    const consume = async () => {
+      for await (const event of handle.events) {
+        if (event.type === 'error') {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+      }
+    };
+
+    await expect(consume()).rejects.toMatchObject({
+      message: 'Shell command exited with code 7',
+      errorKind: AdapterErrorKind.PROCESS_CRASH,
+    });
   });
 
   it('does not hang when stream emits an error (buffer.close is called)', async () => {

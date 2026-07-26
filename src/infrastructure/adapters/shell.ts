@@ -59,6 +59,22 @@ export class ShellAdapter implements IAgentAdapter {
 
     const signal = params.signal;
     const processManager = this.processManager;
+    // Subscribe immediately after spawn. The process may finish while the
+    // orchestrator is still persisting/consuming its final output event.
+    // Resolving (rather than rejecting) keeps an early spawn error from
+    // becoming an unhandled promise rejection before the generator is read.
+    const exitPromise = new Promise<{
+      code: number | null;
+      signal: NodeJS.Signals | null;
+      error?: Error;
+    }>((resolve) => {
+      proc.once('close', (code, exitSignal) => {
+        resolve({ code, signal: exitSignal });
+      });
+      proc.once('error', (error) => {
+        resolve({ code: proc.exitCode, signal: proc.signalCode, error });
+      });
+    });
 
     async function* generateEvents(): AsyncGenerator<AgentEvent> {
       // Ring buffer with backpressure replaces Array.shift() polling
@@ -76,61 +92,61 @@ export class ShellAdapter implements IAgentAdapter {
         }
       }
 
-      const stdoutPromise = (async () => {
-        if (!proc.stdout) return;
-        for await (const line of readLines(proc.stdout)) {
-          if (signal?.aborted) break;
-          await buffer.push({
-            type: 'output',
-            timestamp: new Date().toISOString(),
-            data: line,
-          });
-        }
-      })();
-
-      const stderrPromise = (async () => {
-        if (!proc.stderr) return;
-        for await (const line of readLines(proc.stderr)) {
-          if (signal?.aborted) break;
-          await buffer.push({
-            type: 'error',
-            timestamp: new Date().toISOString(),
-            data: line,
-            errorKind: classifyAdapterError(line),
-          });
-        }
-      })();
-
-      // Close the buffer once both streams are drained (or on error)
-      void Promise.all([stdoutPromise, stderrPromise]).then(
-        () => buffer.close(),
-        () => buffer.close(),
-      );
-
-      // Yield events as they arrive — no polling, no busy-wait
-      yield* buffer;
-
-      // Clean up abort listener
-      if (signal && !signal.aborted) {
-        signal.removeEventListener('abort', onAbort);
-      }
-
-      // Wait for process to exit
-      await new Promise<void>((resolve, reject) => {
-        // If process already exited, resolve immediately
-        if (proc.exitCode !== null || proc.killed) {
-          resolve();
-          return;
-        }
-        proc.on('close', (code) => {
-          if (code === 0 || signal?.aborted) {
-            resolve();
-          } else {
-            reject(new Error(`Shell command exited with code ${code}`));
+      try {
+        const stdoutPromise = (async () => {
+          if (!proc.stdout) return;
+          for await (const line of readLines(proc.stdout)) {
+            if (signal?.aborted) break;
+            await buffer.push({
+              type: 'output',
+              timestamp: new Date().toISOString(),
+              data: line,
+            });
           }
-        });
-        proc.on('error', reject);
-      });
+        })();
+
+        const stderrPromise = (async () => {
+          if (!proc.stderr) return;
+          for await (const line of readLines(proc.stderr)) {
+            if (signal?.aborted) break;
+            await buffer.push({
+              type: 'error',
+              timestamp: new Date().toISOString(),
+              data: line,
+              errorKind: classifyAdapterError(line),
+            });
+          }
+        })();
+
+        // Close the buffer once both streams are drained (or on error)
+        void Promise.all([stdoutPromise, stderrPromise]).then(
+          () => buffer.close(),
+          () => buffer.close(),
+        );
+
+        // Yield events as they arrive — no polling, no busy-wait
+        yield* buffer;
+
+        const exit = await exitPromise;
+        if (signal?.aborted) return;
+
+        if (exit.error) {
+          throw Object.assign(exit.error, {
+            errorKind: classifyAdapterError(exit.error.message, exit.code ?? undefined),
+          });
+        }
+
+        if (exit.code !== 0) {
+          const message = exit.code === null
+            ? `Shell command terminated by signal ${exit.signal ?? 'unknown'}`
+            : `Shell command exited with code ${exit.code}`;
+          throw Object.assign(new Error(message), {
+            errorKind: classifyAdapterError(message, exit.code ?? undefined),
+          });
+        }
+      } finally {
+        signal?.removeEventListener('abort', onAbort);
+      }
     }
 
     return { pid, events: generateEvents() };

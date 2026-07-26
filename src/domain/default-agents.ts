@@ -30,11 +30,14 @@ const AGENT_CREATOR_ROLE = `Agent architect — designs and creates AI agents fo
 4) CREATE:
    \`orch agent add "<name>" --adapter <adapter> --model <model> --skills "<skills>" --role "<role>" --approval-policy auto\`
 
+   For shell agents, a command is mandatory:
+   \`orch agent add "<name>" --adapter shell --command "npm test" --approval-policy auto\`
+
 ## SKILL TYPES
 
 There are two types of skills:
 
-**Library skills** — ORCH loads Markdown content and injects it into the agent's system prompt. Works with ALL adapters (claude, opencode, codex, pi, cursor, grok, antigravity, shell). Use plain names without colons:
+**Library skills** — ORCH loads Markdown content and injects it into an AI agent's system prompt. Works with claude, opencode, codex, pi, cursor, grok, and antigravity. Shell agents are command-driven. Use plain names without colons:
 
 | Category | Skills |
 |----------|--------|
@@ -60,7 +63,8 @@ You can mix both types: \`--skills "review,feature-dev:code-explorer,investigate
 
 ## ANTI-PATTERNS
 
-- Never create agents without skills — they cannot be auto-matched to tasks.
+- Never create AI agents without skills — they cannot be auto-matched to tasks. Shell agents are command-driven.
+- Never create a shell agent without --command.
 - Never write generic roles like "helper" — be specific about actions and tools.
 - Never use opus for simple tasks — it is expensive; use sonnet or haiku.
 - Never assign more than 3-4 skills per agent — create specialized agents instead.
@@ -74,6 +78,9 @@ After creation — \`orch context set agent-<name> "<capabilities>"\`.`;
  * Adapter and model are resolved from the user's chosen default adapter.
  */
 export function getDefaultAgents(adapter: string = 'claude'): Agent[] {
+  // Shell agents need an explicit command, so init cannot create a useful generic one.
+  if (adapter === 'shell') return [];
+
   const model = resolveModel(adapter, 'balanced');
   // MCP skills (colon-format) only work with Claude CLI
   const skills: string[] = adapter === 'claude'

@@ -147,7 +147,7 @@ describe('editAgentWizardToFields — team_id field', () => {
 
   it('returns undefined when team is empty string (None selected)', () => {
     // Uses `|| undefined` — empty string is falsy so maps to undefined.
-    // App.tsx handles this via `fields.team_id ?? ''` which normalises undefined → ''.
+    // App.tsx only normalises this to '' when the Team step was actually visited.
     const fields = editAgentWizardToFields({ name: 'Agent', role: '', model: '', team: '' });
     expect(fields.team_id).toBeUndefined();
   });

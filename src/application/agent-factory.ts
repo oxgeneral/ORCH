@@ -7,6 +7,7 @@
 
 import type { AgentShopTemplate } from '../domain/agent-shop.js';
 import type { CreateAgentInput } from '../domain/agent.js';
+import { InvalidArgumentsError } from '../domain/errors.js';
 import { resolveModel } from '../domain/model-tiers.js';
 
 /** MCP skills use colon-separated names (e.g. `package:skill-name`). */
@@ -24,6 +25,12 @@ export function templateToAgentInput(
   template: AgentShopTemplate,
   adapter: string,
 ): CreateAgentInput {
+  if (adapter === 'shell') {
+    throw new InvalidArgumentsError(
+      'Agent Shop templates require an AI adapter; create shell agents with --command',
+    );
+  }
+
   const model = resolveModel(adapter, template.tier);
   const skills = adapter === 'claude'
     ? template.skills

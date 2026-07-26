@@ -93,6 +93,10 @@ describe('getDefaultAgents()', () => {
     expect(getDefaultAgents('pi')[0].adapter).toBe('pi');
   });
 
+  it('does not create an invalid commandless agent for the shell adapter', () => {
+    expect(getDefaultAgents('shell')).toEqual([]);
+  });
+
   it('resolves model from adapter tier', () => {
     expect(getDefaultAgents('claude')[0].config.model).toBe('claude-sonnet-4-6');
     expect(getDefaultAgents('codex')[0].config.model).toBe('gpt-5.3-codex');
@@ -226,6 +230,19 @@ describe('init command', () => {
       .join('\n');
 
     expect(output).toContain('Agent Creator');
+  });
+
+  it('initializes shell without a default agent and shows the explicit add command', async () => {
+    await program.parseAsync(['init', '--adapter', 'shell'], { from: 'user' });
+
+    const agentWrites = mocks.writeYaml.mock.calls.filter(([p]) => String(p).includes('/agents/'));
+    const output = (console.log as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: unknown[]) => String(c[0] ?? ''))
+      .join('\n');
+
+    expect(agentWrites).toHaveLength(0);
+    expect(output).toContain('orch agent add "Test Runner" --adapter shell --command "npm test"');
+    expect(output).not.toContain('--assignee agt_creator');
   });
 
   it('skips init when .orchestry already exists (no writeYaml for agents)', async () => {

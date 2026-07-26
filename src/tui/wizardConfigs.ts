@@ -161,7 +161,7 @@ export function applyShopTemplate(
       case 'role':
         return { ...step, defaultValue: '__custom__' };
       case 'role_custom':
-        return { ...step, defaultValue: template.role, skip: undefined };
+        return { ...step, defaultValue: template.role };
       case 'skills': {
         // MCP skills (colon-format) only work with Claude CLI — filter for other adapters
         const skills = defaultAdapter === 'claude'
@@ -179,7 +179,12 @@ export function applyShopTemplate(
 
 // ── Agent creation wizard ──
 
-export function getAgentWizardSteps(agents?: Agent[], teams?: Team[], modelCatalog?: ModelCatalog): WizardStep[] {
+export function getAgentWizardSteps(
+  agents?: Agent[],
+  teams?: Team[],
+  modelCatalog?: ModelCatalog,
+  defaultAdapter: string = 'claude',
+): WizardStep[] {
   const teamOptions = buildTeamOptions(teams);
 
   return [
@@ -205,6 +210,17 @@ export function getAgentWizardSteps(agents?: Agent[], teams?: Team[], modelCatal
       label: 'Provider',
       type: 'select',
       options: ADAPTERS,
+      defaultValue: defaultAdapter,
+    },
+    {
+      id: 'command',
+      label: 'Command',
+      type: 'text',
+      placeholder: 'e.g. npm test or bash scripts/deploy.sh',
+      description: 'Runs from task workspace · exit 0 = done · non-zero = failed',
+      required: true,
+      skip: (vals) => vals.adapter !== 'shell',
+      validate: (v) => v.trim() ? null : 'Command is required for Shell',
     },
     {
       id: 'model',
@@ -214,6 +230,7 @@ export function getAgentWizardSteps(agents?: Agent[], teams?: Team[], modelCatal
       getSuggestions: (vals) => getModelOptions(vals.adapter, modelCatalog),
       suggestionMode: 'value',
       suggestionsLabel: 'available models',
+      skip: (vals) => vals.adapter === 'shell',
     },
     {
       id: 'effort',
@@ -227,19 +244,21 @@ export function getAgentWizardSteps(agents?: Agent[], teams?: Team[], modelCatal
       label: 'Role / specialization',
       type: 'select',
       options: ROLE_PRESETS,
+      skip: (vals) => vals.adapter === 'shell',
     },
     {
       id: 'role_custom',
       label: 'Describe the role',
       type: 'textarea',
       placeholder: 'e.g. Specialist in React and TypeScript',
-      skip: (vals) => vals.role !== '__custom__',
+      skip: (vals) => vals.adapter === 'shell' || vals.role !== '__custom__',
     },
     {
       id: 'skills',
       label: 'Skills (comma-separated)',
       type: 'text',
       placeholder: 'e.g. feature-dev:feature-dev, testing-suite:generate-tests',
+      skip: (vals) => vals.adapter === 'shell',
     },
     {
       id: 'approval_policy',
@@ -252,26 +271,35 @@ export function getAgentWizardSteps(agents?: Agent[], teams?: Team[], modelCatal
       label: 'Join team',
       type: 'select',
       options: teamOptions,
-      skip: () => teamOptions.length <= 1, // Skip if no teams exist
+      skip: (vals) => vals.adapter === 'shell' || teamOptions.length <= 1, // Skip if no teams exist
     },
   ];
 }
 
 /** Convert wizard values → CreateAgentInput-compatible object */
 export function agentWizardToInput(vals: Record<string, string>, defaultAdapter: string = 'claude') {
-  const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
-  const skills = vals.skills ? vals.skills.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
-  const approval_policy = (vals.approval_policy as 'auto' | 'suggest' | 'manual' | undefined) || 'auto';
-  const effort = (vals.effort as ReasoningEffort | undefined) || undefined;
+  const adapter = vals.adapter || defaultAdapter;
+  const isShell = adapter === 'shell';
+  const role = isShell
+    ? undefined
+    : vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
+  const skills = !isShell && vals.skills
+    ? vals.skills.split(',').map((s) => s.trim()).filter(Boolean)
+    : undefined;
+  const approval_policy = isShell
+    ? 'auto'
+    : (vals.approval_policy as 'auto' | 'suggest' | 'manual' | undefined) || 'auto';
+  const effort = isShell ? undefined : (vals.effort as ReasoningEffort | undefined) || undefined;
   return {
     name: vals.name!,
-    adapter: vals.adapter || defaultAdapter,
+    adapter,
+    command: isShell ? vals.command?.trim() || undefined : undefined,
     role,
-    model: vals.model || undefined,
+    model: isShell ? undefined : vals.model || undefined,
     effort,
     approval_policy,
     skills,
-    team_id: vals.team || undefined,
+    team_id: isShell ? undefined : vals.team || undefined,
   };
 }
 
@@ -461,6 +489,17 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
       defaultValue: agent.adapter,
     },
     {
+      id: 'command',
+      label: 'Command',
+      type: 'text',
+      defaultValue: agent.config.command ?? '',
+      placeholder: 'e.g. npm test or bash scripts/deploy.sh',
+      description: 'Runs from task workspace · exit 0 = done · non-zero = failed',
+      required: true,
+      skip: (vals) => (vals.adapter || agent.adapter) !== 'shell',
+      validate: (v) => v.trim() ? null : 'Command is required for Shell',
+    },
+    {
       id: 'model',
       label: 'Model',
       type: 'text',
@@ -470,6 +509,7 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
       suggestionsLabel: 'available models',
       getDefaultValue: (vals) =>
         (vals.adapter || agent.adapter) === agent.adapter ? (agent.config.model ?? '') : '',
+      skip: (vals) => (vals.adapter || agent.adapter) === 'shell',
     },
     {
       id: 'effort',
@@ -485,6 +525,7 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
       type: 'select',
       options: ROLE_PRESETS,
       defaultValue: roleDefault,
+      skip: (vals) => (vals.adapter || agent.adapter) === 'shell',
     },
     {
       id: 'role_custom',
@@ -492,7 +533,7 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
       type: 'textarea',
       defaultValue: agent.role && !currentRoleInPresets ? agent.role : '',
       placeholder: 'e.g. Specialist in React and TypeScript',
-      skip: (vals) => vals.role !== '__custom__',
+      skip: (vals) => (vals.adapter || agent.adapter) === 'shell' || vals.role !== '__custom__',
     },
     {
       id: 'team',
@@ -500,7 +541,7 @@ export function getEditAgentWizardSteps(agent: Agent, agents?: Agent[], teams?: 
       type: 'select',
       options: teamOptions,
       defaultValue: currentTeamId ?? '',
-      skip: () => teamOptions.length <= 1,
+      skip: (vals) => (vals.adapter || agent.adapter) === 'shell' || teamOptions.length <= 1,
     },
   ];
 }
@@ -595,15 +636,17 @@ export function getConfigWizardSteps(
 }
 
 export function editAgentWizardToFields(vals: Record<string, string>) {
+  const isShell = vals.adapter === 'shell';
   const role = vals.role === '__custom__' ? (vals.role_custom || undefined) : (vals.role || undefined);
   const effort = vals.effort !== undefined ? vals.effort as ReasoningEffort | '' : undefined;
   return {
     name: vals.name,
     adapter: vals.adapter,
-    role,
-    model: vals.model,
-    effort,
-    team_id: vals.team || undefined,
+    command: isShell ? vals.command?.trim() : vals.adapter ? '' : undefined,
+    role: isShell ? undefined : role,
+    model: isShell ? undefined : vals.model,
+    effort: isShell ? undefined : effort,
+    team_id: isShell ? undefined : vals.team || undefined,
   };
 }
 

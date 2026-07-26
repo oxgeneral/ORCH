@@ -194,7 +194,12 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
 
   // Inline validation state
   const [dirty, setDirty] = useState(false); // true after user types at least one character
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [validationState, setValidationState] = useState<{
+    error: string | null;
+    value: string | null;
+  }>({ error: null, value: null });
+  const validationError = validationState.error;
+  const validatedValue = validationState.value;
   const [enterBlockHint, setEnterBlockHint] = useState(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const enterBlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -210,9 +215,12 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
   // Debounced validation (300ms)
   const runValidation = useCallback((value: string, validateFn?: (v: string) => string | null) => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    if (!validateFn) { setValidationError(null); return; }
+    if (!validateFn) {
+      setValidationState({ error: null, value });
+      return;
+    }
     debounceTimerRef.current = setTimeout(() => {
-      setValidationError(validateFn(value));
+      setValidationState({ error: validateFn(value), value });
     }, 300);
   }, []);
 
@@ -265,7 +273,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     setBrowsingSuggestions(false);
     setSuggestionIndex(0);
     setDirty(false);
-    setValidationError(null);
+    setValidationState({ error: null, value: null });
     setEnterBlockHint(false);
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
@@ -344,7 +352,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
     setBrowsingSuggestions(false);
     setSuggestionIndex(0);
     setDirty(false);
-    setValidationError(null);
+    setValidationState({ error: null, value: null });
     setEnterBlockHint(false);
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
@@ -371,6 +379,16 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       const idx = prevOptions.findIndex((o) => o.value === prevVal);
       setSelectIndex(idx >= 0 ? idx : 0);
     }
+  };
+
+  const blockForValidationError = (error: string | null): boolean => {
+    if (error === null) return false;
+    setDirty(true);
+    setValidationState({ error, value: currentValue });
+    setEnterBlockHint(true);
+    if (enterBlockTimerRef.current) clearTimeout(enterBlockTimerRef.current);
+    enterBlockTimerRef.current = setTimeout(() => setEnterBlockHint(false), 2000);
+    return true;
   };
 
   useInput((input, key) => {
@@ -427,13 +445,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       if (key.return || key.tab) {
         const val = textInput.trim();
         if (step.required && !val) { setDirty(true); return; }
-        if (validationError !== null) {
-          setDirty(true);
-          setEnterBlockHint(true);
-          if (enterBlockTimerRef.current) clearTimeout(enterBlockTimerRef.current);
-          enterBlockTimerRef.current = setTimeout(() => setEnterBlockHint(false), 2000);
-          return;
-        }
+        if (blockForValidationError(step.validate?.(val) ?? null)) return;
         goToNextStep(val);
         return;
       }
@@ -464,13 +476,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
       if ((key.return && (key.ctrl || key.meta)) || key.tab) {
         const val = taLines.join('\n').trim();
         if (step.required && !val) { setDirty(true); return; }
-        if (validationError !== null) {
-          setDirty(true);
-          setEnterBlockHint(true);
-          if (enterBlockTimerRef.current) clearTimeout(enterBlockTimerRef.current);
-          enterBlockTimerRef.current = setTimeout(() => setEnterBlockHint(false), 2000);
-          return;
-        }
+        if (blockForValidationError(step.validate?.(val) ?? null)) return;
         goToNextStep(val);
         return;
       }
@@ -665,17 +671,7 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
         if (key.return || key.tab) {
           const selected = options[clampedSelectIndex];
           if (selected) {
-            if (step.validate) {
-              const err = step.validate(selected.value);
-              if (err !== null) {
-                setDirty(true);
-                setValidationError(err);
-                setEnterBlockHint(true);
-                if (enterBlockTimerRef.current) clearTimeout(enterBlockTimerRef.current);
-                enterBlockTimerRef.current = setTimeout(() => setEnterBlockHint(false), 2000);
-                return;
-              }
-            }
+            if (blockForValidationError(step.validate?.(selected.value) ?? null)) return;
             goToNextStep(selected.value);
           }
           return;
@@ -717,8 +713,12 @@ export function FormWizard({ title, steps, onComplete, onCancel, width, height, 
 
   if (!step) return null;
 
-  // Only show validation errors visually after user has interacted (dirty)
-  const visibleError = dirty ? validationError : null;
+  // Only render an error for the exact value that produced it. While the next
+  // debounced validation is pending, an error from the previous value is stale.
+  const validationIsCurrent =
+    (step.type !== 'text' && step.type !== 'textarea') ||
+    validatedValue === currentValue;
+  const visibleError = dirty && validationIsCurrent ? validationError : null;
   const maxW = Math.max(20, width - 6);
   const progressText = `${currentStep + 1}/${totalSteps}`;
 

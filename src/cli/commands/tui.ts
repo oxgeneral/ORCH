@@ -81,10 +81,11 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.stateStore.read();
       };
 
-      const onAddAgent = async (name: string, adapter?: string, opts?: { model?: string; effort?: string; role?: string; approval_policy?: string; skills?: string[] }) => {
+      const onAddAgent = async (name: string, adapter?: string, opts?: { command?: string; model?: string; effort?: string; role?: string; approval_policy?: string; skills?: string[] }) => {
         return container.agentService.create({
           name,
           adapter: adapter ?? container.config.defaults.agent.adapter,
+          command: opts?.command || undefined,
           model: opts?.model || undefined,
           effort: (opts?.effort as import('../../domain/agent.js').ReasoningEffort) || undefined,
           role: opts?.role || undefined,
@@ -113,7 +114,7 @@ export function registerTuiCommand(program: Command, container: Container): void
         return container.taskService.update(taskId, fields);
       };
 
-      const onUpdateAgent = async (agentId: string, fields: { name?: string; adapter?: string; role?: string; model?: string; effort?: string; approval_policy?: string }) => {
+      const onUpdateAgent = async (agentId: string, fields: { name?: string; adapter?: string; role?: string; command?: string; model?: string; effort?: string; approval_policy?: string }) => {
         return container.agentService.update(agentId, {
           ...fields,
           effort: fields.effort as import('../../domain/agent.js').ReasoningEffort | '' | undefined,

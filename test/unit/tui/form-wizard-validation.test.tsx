@@ -325,6 +325,55 @@ describe('FormWizard inline validation', () => {
     expect(onComplete).toHaveBeenCalledWith({ name: 'valid input' });
   });
 
+  it('allows immediate Enter when current text is valid but the debounced error is stale', async () => {
+    const onComplete = vi.fn();
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextStep({ validate: (value) => value.trim() ? null : 'Name is required' }),
+        onComplete,
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(400); // Initial empty-value validation has completed.
+
+    stdin.write('valid');
+    await delay(20); // Current input is rendered; the 300ms validation is still stale.
+    expect(lastFrame()!).not.toContain('Name is required');
+    stdin.write('\r');
+    await delay(50);
+
+    expect(onComplete).toHaveBeenCalledWith({ name: 'valid' });
+  });
+
+  it('allows immediate textarea confirmation when current value is valid but the error is stale', async () => {
+    const onComplete = vi.fn();
+    const { stdin, lastFrame } = render(
+      React.createElement(FormWizard, {
+        title: 'Test',
+        steps: makeTextareaStep({
+          required: true,
+          validate: (value) => value.trim() ? null : 'Description is required',
+        }),
+        onComplete,
+        onCancel: vi.fn(),
+        width: 60,
+        height: 20,
+      }),
+    );
+    await delay(400); // Initial empty-value validation has completed.
+
+    stdin.write('valid');
+    await delay(20); // Current input is rendered; the 300ms validation is still stale.
+    expect(lastFrame()!).not.toContain('Description is required');
+    stdin.write(CTRL_ENTER);
+    await delay(50);
+
+    expect(onComplete).toHaveBeenCalledWith({ body: 'valid' });
+  });
+
   /* ── 6. Select validate — synchronous on confirm ── */
 
   it('blocks select confirmation and shows error when validate returns error', async () => {

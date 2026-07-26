@@ -35,11 +35,20 @@ async function runSingle(container: Container, taskId: string): Promise<void> {
   console.log();
   console.log(`  ${amber('orch')} · running ${taskId} "${task.title}"`);
 
+  let targetRunId: string | undefined;
+  let targetCompleted = false;
+  let unsub = () => {};
+
   // Subscribe to events for live output
-  const unsub = container.eventBus.onAny((event) => {
+  unsub = container.eventBus.onAny((event) => {
     const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     switch (event.type) {
+      case 'agent:started':
+        if (event.taskId === taskId) {
+          targetRunId = event.runId;
+        }
+        break;
       case 'agent:output':
         console.log(`  ${dim(time)}  ${getIcon('agentAction')} ${typeof event.data === 'string' ? event.data.slice(0, 80) : ''}`);
         break;
@@ -50,18 +59,30 @@ async function runSingle(container: Container, taskId: string): Promise<void> {
         console.log(`  ${dim(time)}  ${getIcon('failed')} ${event.error}`);
         break;
       case 'agent:completed':
+        if (event.runId !== targetRunId) break;
         if (event.success) {
           printSuccess('Done');
         } else {
           printError('Failed');
+          process.exitCode = 1;
         }
+        targetCompleted = true;
+        unsub();
         break;
     }
   });
 
   try {
     await container.orchestrator.runTask(taskId);
-  } finally {
+  } catch (error) {
+    unsub();
+    throw error;
+  }
+
+  // A terminal/non-dispatchable task may not emit a run lifecycle. Normal
+  // dispatched runs keep the listener until their asynchronous collector emits
+  // agent:completed, so output and the final exit code are not lost.
+  if (!targetRunId || targetCompleted) {
     unsub();
   }
 

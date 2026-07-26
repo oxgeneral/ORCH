@@ -487,18 +487,16 @@ describe('Unified text input — visual rendering', () => {
   });
 
   it('shows error border when validation fails', async () => {
-    vi.useFakeTimers();
     const { stdin, lastFrame } = renderWizard(
       makeTextStep({
         required: true,
         validate: (v) => (v.length < 3 ? 'Too short' : null),
       }),
     );
-    await vi.advanceTimersByTimeAsync(50);
+    await delay(50);
     stdin.write('ab');
-    await vi.advanceTimersByTimeAsync(300); // fire validation debounce
+    await delay(350);
     const output = lastFrame()!;
     expect(output).toContain('Too short');
-    vi.useRealTimers();
   });
 });

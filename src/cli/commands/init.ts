@@ -261,7 +261,10 @@ export function registerInitCommand(program: Command): void {
         return;
       }
       await runInit(opts);
-      console.log(`  Next: ${dim('orch task add "Create backend agent" --assignee agt_creator')}`);
+      const next = opts.adapter === 'shell'
+        ? 'orch agent add "Test Runner" --adapter shell --command "npm test"'
+        : 'orch task add "Create backend agent" --assignee agt_creator';
+      console.log(`  Next: ${dim(next)}`);
       console.log();
     });
 }

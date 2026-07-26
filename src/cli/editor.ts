@@ -124,6 +124,7 @@ export function fromEditorContent(content: string): {
 export interface AgentEditorFields {
   name?: string;
   role?: string;
+  command?: string;
   model?: string;
 }
 
@@ -137,6 +138,7 @@ export interface AgentEditorFields {
  * # Role description goes below the --- separator.
  * ---
  * name: My Agent
+ * command:
  * model: claude-sonnet-4-6
  * ---
  *
@@ -145,6 +147,7 @@ export interface AgentEditorFields {
  */
 export function agentToEditorContent(fields: {
   name: string;
+  command?: string;
   model?: string;
   role?: string;
 }): string {
@@ -154,6 +157,7 @@ export function agentToEditorContent(fields: {
     '# Role description goes below the second --- separator.',
     '---',
     `name: ${fields.name}`,
+    `command: ${fields.command ?? ''}`,
     `model: ${fields.model ?? ''}`,
     '---',
     '',
@@ -194,6 +198,8 @@ export function agentFromEditorContent(content: string): AgentEditorFields {
     const value = kv[2] ?? '';
     if (key === 'name') {
       result.name = value.trim();
+    } else if (key === 'command') {
+      result.command = value.trim();
     } else if (key === 'model') {
       result.model = value.trim();
     }

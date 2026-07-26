@@ -21,26 +21,34 @@ export class AgentService {
   ) {}
 
   async create(input: CreateAgentInput): Promise<Agent> {
-    if (!input.name.trim()) {
+    const name = input.name.trim();
+    if (!name) {
       throw new InvalidArgumentsError('Agent name is required');
     }
 
+    const adapter = input.adapter?.trim() || this.config.defaults.agent.adapter;
+    const command = input.command?.trim() || undefined;
+    if (adapter === 'shell' && !command) {
+      throw new InvalidArgumentsError('Shell agents require a command');
+    }
+
     // Check for duplicate name
-    const existing = await this.agentStore.getByName(input.name);
+    const existing = await this.agentStore.getByName(name);
     if (existing) {
-      throw new InvalidArgumentsError(`Agent "${input.name}" already exists`);
+      throw new InvalidArgumentsError(`Agent "${name}" already exists`);
     }
 
     const agent: Agent = {
       id: `agt_${nanoid(7)}`,
-      name: input.name.trim(),
-      adapter: input.adapter || this.config.defaults.agent.adapter,
+      name,
+      adapter,
       role: input.role,
       config: {
-        command: input.command,
-        model: input.model,
-        effort: input.effort,
-        approval_policy: input.approval_policy ?? this.config.defaults.agent.approval_policy,
+        command,
+        model: adapter === 'shell' ? undefined : input.model,
+        effort: adapter === 'shell' ? undefined : input.effort,
+        approval_policy: input.approval_policy ??
+          (adapter === 'shell' ? 'auto' : this.config.defaults.agent.approval_policy),
         max_turns: input.max_turns ?? this.config.defaults.agent.max_turns,
         timeout_ms: input.timeout_ms ?? this.config.defaults.agent.timeout_ms,
         stall_timeout_ms: input.stall_timeout_ms ?? this.config.defaults.agent.stall_timeout_ms,
@@ -88,8 +96,19 @@ export class AgentService {
     await this.agentStore.delete(id);
   }
 
-  async update(id: string, fields: { name?: string; adapter?: string; role?: string; model?: string; effort?: Agent['config']['effort'] | ''; approval_policy?: Agent['config']['approval_policy'] }): Promise<Agent> {
+  async update(id: string, fields: { name?: string; adapter?: string; role?: string; command?: string; model?: string; effort?: Agent['config']['effort'] | ''; approval_policy?: Agent['config']['approval_policy'] }): Promise<Agent> {
     const agent = await this.get(id);
+    const wasShell = agent.adapter === 'shell';
+
+    const adapter = fields.adapter !== undefined ? fields.adapter.trim() : agent.adapter;
+    if (!adapter) throw new InvalidArgumentsError('Agent adapter cannot be empty');
+
+    const command = fields.command !== undefined
+      ? fields.command.trim() || undefined
+      : agent.config.command;
+    if (adapter === 'shell' && !command) {
+      throw new InvalidArgumentsError('Shell agents require a command');
+    }
 
     if (fields.name !== undefined) {
       if (!fields.name.trim()) throw new InvalidArgumentsError('Agent name cannot be empty');
@@ -101,14 +120,21 @@ export class AgentService {
       agent.name = fields.name.trim();
     }
     if (fields.adapter !== undefined) {
-      const adapter = fields.adapter.trim();
-      if (!adapter) throw new InvalidArgumentsError('Agent adapter cannot be empty');
       agent.adapter = adapter;
     }
     if (fields.role !== undefined) agent.role = fields.role || undefined;
+    if (fields.command !== undefined) agent.config.command = command;
     if (fields.model !== undefined) agent.config.model = fields.model || undefined;
     if (fields.effort !== undefined) agent.config.effort = fields.effort || undefined;
-    if (fields.approval_policy !== undefined) agent.config.approval_policy = fields.approval_policy;
+    if (adapter === 'shell' && !wasShell) {
+      agent.config.model = undefined;
+      agent.config.effort = undefined;
+    }
+    if (fields.approval_policy !== undefined) {
+      agent.config.approval_policy = fields.approval_policy;
+    } else if (adapter === 'shell' && !wasShell) {
+      agent.config.approval_policy = 'auto';
+    }
 
     await this.agentStore.save(agent);
     return agent;

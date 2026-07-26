@@ -333,6 +333,10 @@ Every department gets the same superpowers: state machine governance, retry, mes
 
 The `shell` adapter is the key: **if it runs in a terminal, it's an agent** — `npm test`, `python bot.py`, Semgrep, `curl`, CRM scripts, data pipelines. Any CLI tool gets state tracking, retry, and coordination for free.
 
+```bash
+orch agent add "Test Runner" --adapter shell --command "npm test"
+```
+
 <br/>
 
 <!-- Divider -->

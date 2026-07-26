@@ -41,10 +41,9 @@ describe('templateToAgentInput', () => {
     expect(input.model).toBe('gpt-5.3-codex');
   });
 
-  it('resolves empty model for shell adapter', () => {
-    const input = templateToAgentInput(baseTemplate, 'shell');
-    expect(input.adapter).toBe('shell');
-    expect(input.model).toBeUndefined(); // empty string → undefined
+  it('rejects shell because shop templates do not define executable commands', () => {
+    expect(() => templateToAgentInput(baseTemplate, 'shell'))
+      .toThrow('Agent Shop templates require an AI adapter');
   });
 
   it('resolves model for pi adapter', () => {

@@ -135,13 +135,13 @@ export interface AppProps {
   // History (loaded progressively from disk on startup)
   onLoadHistory?: (onBatch: (entries: HistoryEntry[]) => void) => Promise<void>;
   // New actions
-  onAddAgent?: (name: string, adapter?: string, opts?: { model?: string; effort?: string; role?: string; approval_policy?: string; skills?: string[] }) => Promise<Agent>;
+  onAddAgent?: (name: string, adapter?: string, opts?: { command?: string; model?: string; effort?: string; role?: string; approval_policy?: string; skills?: string[] }) => Promise<Agent>;
   onDeleteAgent?: (agentId: string) => Promise<void>;
   onApproveTask?: (taskId: string) => Promise<void>;
   onRejectTask?: (taskId: string, feedback?: string) => Promise<void>;
   onDeleteTask?: (taskId: string) => Promise<void>;
   onUpdateTask?: (taskId: string, fields: { title?: string; description?: string; priority?: number; attachments?: string[] }) => Promise<Task>;
-  onUpdateAgent?: (agentId: string, fields: { name?: string; adapter?: string; role?: string; model?: string; effort?: string; approval_policy?: string }) => Promise<Agent>;
+  onUpdateAgent?: (agentId: string, fields: { name?: string; adapter?: string; role?: string; command?: string; model?: string; effort?: string; approval_policy?: string }) => Promise<Agent>;
   onForceStopAgent?: (agentId: string) => Promise<void>;
   onCreateTeam?: (input: CreateTeamInput) => Promise<Team>;
   onListTeams?: () => Promise<Team[]>;
@@ -986,23 +986,32 @@ export function App({
   }, [onLoadModelCatalog]);
 
   // Wizard launchers
-  const launchAgentWizard = useCallback(() => {
+  const launchAgentWizard = useCallback((defaults?: { name?: string; adapter?: string }) => {
+    const adapter = defaults?.adapter ?? defaultAdapter;
+    const steps = getAgentWizardSteps(liveAgents, liveTeamsRef.current, modelCatalog, adapter).map((step) => {
+      if (step.id === 'name' && defaults?.name) return { ...step, defaultValue: defaults.name };
+      return step;
+    });
     setWizardConfig({
       title: 'NEW AGENT',
-      steps: getAgentWizardSteps(liveAgents, liveTeamsRef.current, modelCatalog),
+      steps,
       kind: 'agent',
     });
     setInputMode('wizard');
-  }, [liveAgents, modelCatalog]);
+  }, [defaultAdapter, liveAgents, modelCatalog]);
 
   const launchShopWizard = useCallback(() => {
+    if (defaultAdapter === 'shell') {
+      addMessage('Agent Shop requires an AI provider. Press N to create a Shell agent.', tuiColors.yellow);
+      return;
+    }
     setWizardConfig({
       title: 'AGENT SHOP',
       steps: getShopWizardSteps(),
       kind: 'agent_shop',
     });
     setInputMode('wizard');
-  }, []);
+  }, [addMessage, defaultAdapter]);
 
   const launchTaskWizard = useCallback(() => {
     setPendingAttachments([]);
@@ -1078,7 +1087,18 @@ export function App({
     setWizardConfig((current) => {
       if (!current) return current;
       if (current.kind === 'agent') {
-        return { ...current, steps: getAgentWizardSteps(liveAgentsRef.current, liveTeamsRef.current, modelCatalog) };
+        const adapter = current.steps.find((step) => step.id === 'adapter')?.defaultValue ?? defaultAdapter;
+        const name = current.steps.find((step) => step.id === 'name')?.defaultValue;
+        const steps = getAgentWizardSteps(
+          liveAgentsRef.current,
+          liveTeamsRef.current,
+          modelCatalog,
+          adapter,
+        ).map((step) => step.id === 'name' && name ? { ...step, defaultValue: name } : step);
+        return {
+          ...current,
+          steps,
+        };
       }
       if (current.kind === 'edit_agent' && current.targetId) {
         const agent = liveAgentsRef.current.find((candidate) => candidate.id === current.targetId);
@@ -1092,7 +1112,7 @@ export function App({
       if (current.kind === 'agent_from_shop' && current.templateKey) {
         const template = getShopTemplateByKey(current.templateKey);
         if (template) {
-          const baseSteps = getAgentWizardSteps(liveAgentsRef.current, liveTeamsRef.current, modelCatalog);
+          const baseSteps = getAgentWizardSteps(liveAgentsRef.current, liveTeamsRef.current, modelCatalog, defaultAdapter);
           return { ...current, steps: applyShopTemplate(baseSteps, template, defaultAdapter) };
         }
       }
@@ -1121,7 +1141,7 @@ export function App({
       const templateKey = values.shop_template;
       const template = templateKey ? getShopTemplateByKey(templateKey) : undefined;
       if (template) {
-        const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current, modelCatalog);
+        const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current, modelCatalog, defaultAdapter);
         const prefilledSteps = applyShopTemplate(baseSteps, template, defaultAdapter);
         setWizardConfig({
           title: `NEW AGENT \u2014 ${template.name}`,
@@ -1140,6 +1160,7 @@ export function App({
       const input = agentWizardToInput(values, defaultAdapter);
       addMessage(`Creating agent "${input.name}"...`, tuiColors.amber);
       onAddAgent(input.name, input.adapter, {
+        command: input.command,
         model: input.model,
         effort: input.effort,
         role: input.role,
@@ -1147,7 +1168,10 @@ export function App({
         skills: input.skills,
       }).then(
         (agent) => {
-          addMessage(`\u2713 Created agent "${agent.name}" (${agent.id}, ${agent.adapter})`, tuiColors.green);
+          const commandHint = agent.adapter === 'shell' && agent.config.command
+            ? ` · ${capLine(agent.config.command, 60)}`
+            : '';
+          addMessage(`\u2713 Created agent "${agent.name}" (${agent.id}, ${agent.adapter})${commandHint}`, tuiColors.green);
           // Auto-join team if selected in wizard
           if (input.team_id && onJoinTeam) {
             onJoinTeam(input.team_id, agent.id).then(
@@ -1207,10 +1231,11 @@ export function App({
       );
     } else if (kind === 'edit_agent' && targetId && onUpdateAgent) {
       const fields = editAgentWizardToFields(values);
-      const newTeamId = fields.team_id ?? '';
       const oldTeamId = liveTeams.find(t => t.members.some(m => m.agent_id === targetId))?.id ?? '';
+      // A skipped Team step means "unchanged", not "leave the current team".
+      const newTeamId = values.team === undefined ? oldTeamId : fields.team_id ?? '';
       addMessage(`Updating agent...`, tuiColors.amber);
-      onUpdateAgent(targetId, { name: fields.name, adapter: fields.adapter, role: fields.role, model: fields.model, effort: fields.effort }).then(
+      onUpdateAgent(targetId, { name: fields.name, adapter: fields.adapter, role: fields.role, command: fields.command, model: fields.model, effort: fields.effort }).then(
         (agent) => {
           addMessage(`\u2713 Updated agent "${agent.name}"`, tuiColors.green);
           // Handle team change
@@ -1289,9 +1314,13 @@ export function App({
 
   /** Handle template selection from inline suggestion list in agent wizard name step */
   const handleSuggestionSelected = useCallback((templateKey: string) => {
+    if (defaultAdapter === 'shell') {
+      addMessage('Agent Shop requires an AI provider. Choose Shell and enter a command instead.', tuiColors.yellow);
+      return;
+    }
     const template = getShopTemplateByKey(templateKey);
     if (!template) return;
-    const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current, modelCatalog);
+    const baseSteps = getAgentWizardSteps(liveAgents, liveTeamsRef.current, modelCatalog, defaultAdapter);
     const prefilledSteps = applyShopTemplate(baseSteps, template, defaultAdapter);
     setWizardConfig({
       title: `NEW AGENT \u2014 ${template.name}`,
@@ -1300,7 +1329,7 @@ export function App({
       templateKey: template.key,
     });
     setInputMode('wizard');
-  }, [liveAgents, modelCatalog, defaultAdapter]);
+  }, [addMessage, liveAgents, modelCatalog, defaultAdapter]);
 
   // Live event subscription — update activity feed AND refresh data
   useEffect(() => {
@@ -1603,10 +1632,21 @@ export function App({
           const name = parts[2];
           if (!name) { launchAgentWizard(); return; }
           if (!onAddAgent) { addMessage('Agent creation not available', tuiColors.yellow); return; }
-          const adapter = parts[3];
+          const adapter = parts[3] ?? defaultAdapter;
+          const command = adapter === 'shell' ? parts.slice(4).join(' ').trim() : '';
+          if (adapter === 'shell' && !command) {
+            launchAgentWizard({ name, adapter: 'shell' });
+            return;
+          }
           addMessage(`Creating agent "${name}"...`, tuiColors.amber);
-          onAddAgent(name, adapter).then(
-            (agent) => { addMessage(`\u2713 Created agent "${agent.name}" (${agent.id}, ${agent.adapter})`, tuiColors.green); refreshAll(); },
+          onAddAgent(name, adapter, adapter === 'shell' ? { command, approval_policy: 'auto' } : undefined).then(
+            (agent) => {
+              const commandHint = agent.adapter === 'shell' && agent.config.command
+                ? ` · ${capLine(agent.config.command, 60)}`
+                : '';
+              addMessage(`\u2713 Created agent "${agent.name}" (${agent.id}, ${agent.adapter})${commandHint}`, tuiColors.green);
+              refreshAll();
+            },
             (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
           );
         } else if (sub === 'list') {
@@ -1889,7 +1929,7 @@ export function App({
       onCancelTask, onRetryTask, onAssignTask, onRunAll, onRunTask, onCreateTask,
       onDisableAgent, onEnableAgent, onAddAgent, onApproveTask, onRejectTask, onDeleteTask,
       onJoinTeam, onLeaveTeam, onDisbandTeam, onSetTeamLead,
-      onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard, launchConfigWizard, changePalette]);
+      onStartWatch, onStopWatch, addMessage, exit, refreshAll, launchTaskWizard, launchAgentWizard, launchTeamWizard, launchConfigWizard, changePalette, defaultAdapter]);
 
   useInput((input, key) => {
     // ── Help overlay dismiss: any key closes it ──
@@ -3808,16 +3848,20 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
         </Box>
       </Box>
 
-      {/* Row 2: model + task */}
+      {/* Row 2: model/task for AI agents; task/command for shell agents */}
       <Box>
         <Box width={col1Width}>
-          <Text color={tuiColors.dim}>  model     </Text>
-          <Text>{agent.config.model ?? '\u2014'}</Text>
+          <Text color={tuiColors.dim}>{agent.adapter === 'shell' ? '  task      ' : '  model     '}</Text>
+          <Text color={agent.adapter === 'shell' && !taskTitle ? tuiColors.dim : undefined}>
+            {agent.adapter === 'shell' ? (taskTitle ?? '\u2014') : (agent.config.model ?? '\u2014')}
+          </Text>
         </Box>
         <Box>
-          <Text color={tuiColors.dim}>  task      </Text>
-          <Text color={taskTitle ? tuiColors.white : tuiColors.dim}>
-            {taskTitle ?? '\u2014'}
+          <Text color={tuiColors.dim}>{agent.adapter === 'shell' ? '  command   ' : '  task      '}</Text>
+          <Text color={agent.adapter === 'shell' ? tuiColors.cyan : taskTitle ? tuiColors.white : tuiColors.dim} wrap="truncate">
+            {agent.adapter === 'shell'
+              ? (agent.config.command ?? '\u2014')
+              : (taskTitle ?? '\u2014')}
           </Text>
         </Box>
       </Box>
