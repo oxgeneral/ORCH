@@ -104,6 +104,13 @@ const MAX_TOASTS = 5;
 /** Statuses that allow R (run) action */
 const RUNNABLE: Set<TaskStatus> = new Set(['todo', 'failed', 'cancelled']);
 
+function createdAgentMessage(agent: Agent): string {
+  const commandHint = agent.adapter === 'shell' && agent.config.command
+    ? ` · ${capLine(agent.config.command, 60)}`
+    : '';
+  return `\u2713 Created agent "${agent.name}" (${agent.id}, ${agent.adapter})${commandHint}`;
+}
+
 /** History entry returned by onLoadHistory */
 export interface HistoryEntry {
   timestamp: string;
@@ -1168,10 +1175,7 @@ export function App({
         skills: input.skills,
       }).then(
         (agent) => {
-          const commandHint = agent.adapter === 'shell' && agent.config.command
-            ? ` · ${capLine(agent.config.command, 60)}`
-            : '';
-          addMessage(`\u2713 Created agent "${agent.name}" (${agent.id}, ${agent.adapter})${commandHint}`, tuiColors.green);
+          addMessage(createdAgentMessage(agent), tuiColors.green);
           // Auto-join team if selected in wizard
           if (input.team_id && onJoinTeam) {
             onJoinTeam(input.team_id, agent.id).then(
@@ -1641,10 +1645,7 @@ export function App({
           addMessage(`Creating agent "${name}"...`, tuiColors.amber);
           onAddAgent(name, adapter, adapter === 'shell' ? { command, approval_policy: 'auto' } : undefined).then(
             (agent) => {
-              const commandHint = agent.adapter === 'shell' && agent.config.command
-                ? ` · ${capLine(agent.config.command, 60)}`
-                : '';
-              addMessage(`\u2713 Created agent "${agent.name}" (${agent.id}, ${agent.adapter})${commandHint}`, tuiColors.green);
+              addMessage(createdAgentMessage(agent), tuiColors.green);
               refreshAll();
             },
             (err) => addMessage(`Failed: ${errMsg(err)}`, tuiColors.red),
@@ -3831,6 +3832,7 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
   const statusColor = getAgentStatusDetailColor(agent.status);
   const runningEntry = Object.values(state.running).find((e) => e.agent_id === agent.id);
   const taskTitle = agent.current_task ? taskTitleMap.get(agent.current_task) : undefined;
+  const isShell = agent.adapter === 'shell';
 
   const col1Width = 24;
 
@@ -3851,15 +3853,15 @@ function AgentDetailPanel({ agent, height, state, taskTitleMap, teamName }: {
       {/* Row 2: model/task for AI agents; task/command for shell agents */}
       <Box>
         <Box width={col1Width}>
-          <Text color={tuiColors.dim}>{agent.adapter === 'shell' ? '  task      ' : '  model     '}</Text>
-          <Text color={agent.adapter === 'shell' && !taskTitle ? tuiColors.dim : undefined}>
-            {agent.adapter === 'shell' ? (taskTitle ?? '\u2014') : (agent.config.model ?? '\u2014')}
+          <Text color={tuiColors.dim}>{isShell ? '  task      ' : '  model     '}</Text>
+          <Text color={isShell && !taskTitle ? tuiColors.dim : undefined}>
+            {isShell ? (taskTitle ?? '\u2014') : (agent.config.model ?? '\u2014')}
           </Text>
         </Box>
         <Box>
-          <Text color={tuiColors.dim}>{agent.adapter === 'shell' ? '  command   ' : '  task      '}</Text>
-          <Text color={agent.adapter === 'shell' ? tuiColors.cyan : taskTitle ? tuiColors.white : tuiColors.dim} wrap="truncate">
-            {agent.adapter === 'shell'
+          <Text color={tuiColors.dim}>{isShell ? '  command   ' : '  task      '}</Text>
+          <Text color={isShell ? tuiColors.cyan : taskTitle ? tuiColors.white : tuiColors.dim} wrap="truncate">
+            {isShell
               ? (agent.config.command ?? '\u2014')
               : (taskTitle ?? '\u2014')}
           </Text>

@@ -36,7 +36,6 @@ async function runSingle(container: Container, taskId: string): Promise<void> {
   console.log(`  ${amber('orch')} · running ${taskId} "${task.title}"`);
 
   let targetRunId: string | undefined;
-  let targetCompleted = false;
   let unsub = () => {};
 
   // Subscribe to events for live output
@@ -66,7 +65,6 @@ async function runSingle(container: Container, taskId: string): Promise<void> {
           printError('Failed');
           process.exitCode = 1;
         }
-        targetCompleted = true;
         unsub();
         break;
     }
@@ -82,7 +80,7 @@ async function runSingle(container: Container, taskId: string): Promise<void> {
   // A terminal/non-dispatchable task may not emit a run lifecycle. Normal
   // dispatched runs keep the listener until their asynchronous collector emits
   // agent:completed, so output and the final exit code are not lost.
-  if (!targetRunId || targetCompleted) {
+  if (!targetRunId) {
     unsub();
   }
 

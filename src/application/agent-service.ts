@@ -27,8 +27,9 @@ export class AgentService {
     }
 
     const adapter = input.adapter?.trim() || this.config.defaults.agent.adapter;
+    const isShell = adapter === 'shell';
     const command = input.command?.trim() || undefined;
-    if (adapter === 'shell' && !command) {
+    if (isShell && !command) {
       throw new InvalidArgumentsError('Shell agents require a command');
     }
 
@@ -45,10 +46,10 @@ export class AgentService {
       role: input.role,
       config: {
         command,
-        model: adapter === 'shell' ? undefined : input.model,
-        effort: adapter === 'shell' ? undefined : input.effort,
+        model: isShell ? undefined : input.model,
+        effort: isShell ? undefined : input.effort,
         approval_policy: input.approval_policy ??
-          (adapter === 'shell' ? 'auto' : this.config.defaults.agent.approval_policy),
+          (isShell ? 'auto' : this.config.defaults.agent.approval_policy),
         max_turns: input.max_turns ?? this.config.defaults.agent.max_turns,
         timeout_ms: input.timeout_ms ?? this.config.defaults.agent.timeout_ms,
         stall_timeout_ms: input.stall_timeout_ms ?? this.config.defaults.agent.stall_timeout_ms,
@@ -102,6 +103,7 @@ export class AgentService {
 
     const adapter = fields.adapter !== undefined ? fields.adapter.trim() : agent.adapter;
     if (!adapter) throw new InvalidArgumentsError('Agent adapter cannot be empty');
+    const enteringShell = adapter === 'shell' && !wasShell;
 
     const command = fields.command !== undefined
       ? fields.command.trim() || undefined
@@ -126,13 +128,13 @@ export class AgentService {
     if (fields.command !== undefined) agent.config.command = command;
     if (fields.model !== undefined) agent.config.model = fields.model || undefined;
     if (fields.effort !== undefined) agent.config.effort = fields.effort || undefined;
-    if (adapter === 'shell' && !wasShell) {
+    if (enteringShell) {
       agent.config.model = undefined;
       agent.config.effort = undefined;
     }
     if (fields.approval_policy !== undefined) {
       agent.config.approval_policy = fields.approval_policy;
-    } else if (adapter === 'shell' && !wasShell) {
+    } else if (enteringShell) {
       agent.config.approval_policy = 'auto';
     }
 
