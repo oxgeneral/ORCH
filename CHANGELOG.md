@@ -3,6 +3,30 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## 1.0.31 (2026-07-27)
+
+### New Features
+
+- **First-class Shell agents** — create and edit command-backed agents from the CLI, editor, and TUI. Shell agents run their configured command from the task workspace and map exit code `0` to success and non-zero exits to failure.
+- **Simplified Shell setup** — selecting Shell asks only for the agent name and command, hides model, reasoning, role, skills, and team fields, and applies the automatic approval policy.
+- **Command-aware TUI** — creation confirmations and agent details show the configured command, while Shell agent details prioritize the active task and command over AI-only model information.
+
+### Bug Fixes
+
+- **Reliable targeted run completion** — `orch run <task-id>` keeps its event listener until the requested run completes, preserving final output and returning a non-zero process exit code when the Shell command fails.
+- **Immediate wizard confirmation** — text and textarea validation is checked against the current value when the user confirms, eliminating stale debounce errors without allowing invalid values through.
+- **Safe adapter transitions** — switching an existing agent to Shell clears incompatible model and effort settings, requires a command, and defaults approval to automatic.
+
+### Refactoring
+
+- Centralized repeated Shell conditions and agent-creation status formatting without changing behavior.
+
+### Tests
+
+- Added service, CLI, adapter, wizard, command-bar, and TUI regression coverage for Shell creation, editing, validation, execution, success, and failure.
+- Verified the built CLI in a real pseudo-terminal TUI session.
+- Full suite: 2069 passed, 2 skipped.
+
 ## 1.0.30 (2026-07-25)
 
 ### Bug Fixes
