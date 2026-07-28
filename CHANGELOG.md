@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+## 1.0.32 (2026-07-28)
+
 ### New Features
 
 - **Light TUI palette** — a high-contrast palette for terminals with light backgrounds. Select it through `/config palette`, or persist it before launching the dashboard with `orch config global set palette light`.
