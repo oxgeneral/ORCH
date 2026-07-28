@@ -56,4 +56,25 @@ describe('config command', () => {
       expect(container.configStore.set).toHaveBeenCalledWith('flag', true);
     });
   });
+
+  describe('config global', () => {
+    it('persists a valid TUI palette', async () => {
+      await program.parseAsync(['config', 'global', 'set', 'palette', 'light'], { from: 'user' });
+
+      expect(container.globalConfigStore.set).toHaveBeenCalledWith('palette', 'light');
+    });
+
+    it('rejects an unknown TUI palette', async () => {
+      await program.parseAsync(['config', 'global', 'set', 'palette', 'solarized'], { from: 'user' });
+
+      expect(container.globalConfigStore.set).not.toHaveBeenCalled();
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Valid: amber, ocean, forest, violet, light'));
+    });
+
+    it('reads the current TUI palette', async () => {
+      await program.parseAsync(['config', 'global', 'get', 'palette'], { from: 'user' });
+
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('"amber"'));
+    });
+  });
 });

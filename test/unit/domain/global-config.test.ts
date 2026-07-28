@@ -27,7 +27,7 @@ describe('DEFAULT_GLOBAL_CONFIG', () => {
   });
 
   it('validates every built-in palette name', () => {
-    expect(TUI_PALETTE_NAMES).toEqual(['amber', 'ocean', 'forest', 'violet']);
+    expect(TUI_PALETTE_NAMES).toEqual(['amber', 'ocean', 'forest', 'violet', 'light']);
     for (const palette of TUI_PALETTE_NAMES) {
       expect(isTuiPaletteName(palette)).toBe(true);
     }

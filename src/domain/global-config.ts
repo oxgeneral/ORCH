@@ -8,13 +8,14 @@
 export type ActivityFilterPreset = 'all' | 'text' | 'tools' | 'errors' | 'events';
 
 /** Built-in TUI color palette name. */
-export type TuiPaletteName = 'amber' | 'ocean' | 'forest' | 'violet';
+export type TuiPaletteName = 'amber' | 'ocean' | 'forest' | 'violet' | 'light';
 
 export const TUI_PALETTE_NAMES: readonly TuiPaletteName[] = [
   'amber',
   'ocean',
   'forest',
   'violet',
+  'light',
 ];
 
 export function isTuiPaletteName(value: unknown): value is TuiPaletteName {

@@ -18,6 +18,16 @@ export function makeContainer(overrides: Partial<Container> = {}): Container {
       read: vi.fn(async () => ({})),
       write: vi.fn(async () => {}),
     },
+    globalConfigStore: {
+      read: vi.fn(async () => ({
+        tui: {
+          palette: 'amber',
+          activity_filter: 'all',
+          notifications: { toast: true, bell: false },
+        },
+      })),
+      set: vi.fn(async () => {}),
+    },
     contextStore: {
       get: vi.fn(async () => null),
       set: vi.fn(async () => {}),

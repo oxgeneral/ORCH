@@ -2,6 +2,8 @@
  * TUI color palette — "Command & Control" theme.
  *
  * Dark-first design with amber brand accent and strategic color pops.
+ * The explicit light palette uses dark foregrounds and pale chip backgrounds
+ * for terminals whose default background is light.
  * Hex equivalents of ANSI 256 palette for Ink compatibility.
  */
 
@@ -31,6 +33,7 @@ export interface TuiColorPalette {
   toolBg: string;
   accentBg: string;
   neutralBg: string;
+  alternatingRowBg: string;
   darkText: string;
   pink: string;
   olive: string;
@@ -60,6 +63,7 @@ export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPale
     toolBg: '#0f1f2d',
     accentBg: '#2d1f0a',
     neutralBg: '#1a1a22',
+    alternatingRowBg: '#1a1a1a',
     darkText: '#0a0a0c',
     pink: '#d787af',
     olive: '#afaf5f',
@@ -87,6 +91,7 @@ export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPale
     toolBg: '#102f46',
     accentBg: '#12304a',
     neutralBg: '#182631',
+    alternatingRowBg: '#141d2b',
     darkText: '#07131d',
     pink: '#ff87d7',
     olive: '#afd787',
@@ -114,6 +119,7 @@ export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPale
     toolBg: '#15302a',
     accentBg: '#14351f',
     neutralBg: '#1c2920',
+    alternatingRowBg: '#172219',
     darkText: '#09150c',
     pink: '#d787af',
     olive: '#afd75f',
@@ -141,10 +147,39 @@ export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPale
     toolBg: '#1c2342',
     accentBg: '#30204a',
     neutralBg: '#261e30',
+    alternatingRowBg: '#1d1826',
     darkText: '#130a1d',
     pink: '#ff87d7',
     olive: '#afd787',
     orange: '#ff9f7f',
+  },
+  light: {
+    amber: '#9a6700',
+    amberDim: '#7a5200',
+    green: '#1a7f37',
+    red: '#b42318',
+    blue: '#175cd3',
+    yellow: '#946200',
+    cyan: '#007a85',
+    purple: '#6941c6',
+    white: '#1d2939',
+    silver: '#344054',
+    gray: '#667085',
+    dim: '#475467',
+    ghost: '#667085',
+    void: '#f2f4f7',
+    errorBg: '#fef3f2',
+    warnBg: '#fffaeb',
+    successBg: '#ecfdf3',
+    infoBg: '#eff8ff',
+    toolBg: '#eef4ff',
+    accentBg: '#fff7e0',
+    neutralBg: '#f2f4f7',
+    alternatingRowBg: '#f8fafc',
+    darkText: '#1d2939',
+    pink: '#c11574',
+    olive: '#5f6f13',
+    orange: '#b54708',
   },
 };
 

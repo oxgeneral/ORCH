@@ -3628,7 +3628,7 @@ function ActivityFeed({ messages, height, width, agents, agentNameMap, agentColo
 
         // Subtle zebra: odd groups get barely-visible tint, errors override
         const isOddGroup = (groupIndices[i]! & 1) === 1;
-        const rowBg = getMsgBg(msgType) ?? (isOddGroup ? '#1a1a1a' : undefined);
+        const rowBg = getMsgBg(msgType) ?? (isOddGroup ? tuiColors.alternatingRowBg : undefined);
 
         const relTs = relativeTime(msg.ts, now);
         const displayText = capLine(msg.text, textW);

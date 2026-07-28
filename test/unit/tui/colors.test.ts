@@ -37,4 +37,12 @@ describe('TUI color palettes', () => {
       .toBe(TUI_PALETTES.violet.red);
     expect(remapTuiColor('#123456', 'amber', 'violet')).toBe('#123456');
   });
+
+  it('provides a high-contrast palette for light terminals', () => {
+    applyTuiPalette('light');
+
+    expect(tuiColors.white).toBe('#1d2939');
+    expect(tuiColors.ghost).toBe('#667085');
+    expect(tuiColors.alternatingRowBg).toBe('#f8fafc');
+  });
 });
