@@ -34,7 +34,8 @@ export interface TuiColorPalette {
   accentBg: string;
   neutralBg: string;
   alternatingRowBg: string;
-  darkText: string;
+  /** Foreground rendered on saturated solid fills. */
+  solidText: string;
   pink: string;
   olive: string;
   orange: string;
@@ -64,7 +65,7 @@ export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPale
     accentBg: '#2d1f0a',
     neutralBg: '#1a1a22',
     alternatingRowBg: '#1a1a1a',
-    darkText: '#0a0a0c',
+    solidText: '#0a0a0c',
     pink: '#d787af',
     olive: '#afaf5f',
     orange: '#d7875f',
@@ -92,7 +93,7 @@ export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPale
     accentBg: '#12304a',
     neutralBg: '#182631',
     alternatingRowBg: '#141d2b',
-    darkText: '#07131d',
+    solidText: '#07131d',
     pink: '#ff87d7',
     olive: '#afd787',
     orange: '#ff9f5f',
@@ -120,7 +121,7 @@ export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPale
     accentBg: '#14351f',
     neutralBg: '#1c2920',
     alternatingRowBg: '#172219',
-    darkText: '#09150c',
+    solidText: '#09150c',
     pink: '#d787af',
     olive: '#afd75f',
     orange: '#d79f5f',
@@ -148,7 +149,7 @@ export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPale
     accentBg: '#30204a',
     neutralBg: '#261e30',
     alternatingRowBg: '#1d1826',
-    darkText: '#130a1d',
+    solidText: '#130a1d',
     pink: '#ff87d7',
     olive: '#afd787',
     orange: '#ff9f7f',
@@ -164,7 +165,7 @@ export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPale
     purple: '#6941c6',
     white: '#1d2939',
     silver: '#344054',
-    gray: '#667085',
+    gray: '#5d6678',
     dim: '#475467',
     ghost: '#667085',
     void: '#f2f4f7',
@@ -176,7 +177,7 @@ export const TUI_PALETTES: Readonly<Record<TuiPaletteName, Readonly<TuiColorPale
     accentBg: '#fff7e0',
     neutralBg: '#f2f4f7',
     alternatingRowBg: '#f8fafc',
-    darkText: '#1d2939',
+    solidText: '#ffffff',
     pink: '#c11574',
     olive: '#5f6f13',
     orange: '#b54708',

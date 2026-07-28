@@ -21,6 +21,14 @@ import { DEFAULT_STATE } from '../../../src/domain/state.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+async function waitUntil(predicate: () => boolean, attempts = 40): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (predicate()) return;
+    await delay(25);
+  }
+  throw new Error('Timed out waiting for asynchronous TUI update');
+}
+
 // Kitty keyboard protocol CSI u for Ctrl+Enter (textarea confirm)
 const CTRL_ENTER = '\x1b[13;5u';
 
@@ -1407,7 +1415,10 @@ describe('Command bar — tab completion', () => {
     for (const ch of 'config palette ocean') stdin.write(ch);
     await delay(50);
     stdin.write('\r');
-    await delay(50);
+    await waitUntil(() =>
+      onSavePalette.mock.calls.length > 0 &&
+      (lastFrame()?.includes('Palette: ocean') ?? false),
+    );
 
     expect(onSavePalette).toHaveBeenCalledWith('ocean');
     expect(lastFrame()).toContain('Palette: ocean');
@@ -1437,10 +1448,13 @@ describe('Command bar — tab completion', () => {
     expect(lastFrame()).toContain('SETTINGS — PALETTE');
     expect(lastFrame()).toContain('step 1/1');
 
-    stdin.write('\x1B[B');
+    stdin.write('j');
     await delay(20);
     stdin.write('\r');
-    await delay(50);
+    await waitUntil(() =>
+      onSavePalette.mock.calls.length > 0 &&
+      (lastFrame()?.includes('Settings saved') ?? false),
+    );
 
     expect(onSavePalette).toHaveBeenCalledWith('ocean');
     expect(lastFrame()).toContain('Settings saved');

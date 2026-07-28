@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { registerContextCommand } from '../../../src/cli/commands/context.js';
 import type { ContextEntry } from '../../../src/infrastructure/storage/interfaces.js';
@@ -27,6 +27,10 @@ describe('context command', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
     registerContextCommand(program, container);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('context set', () => {

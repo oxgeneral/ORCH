@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { registerLogsCommand } from '../../../src/cli/commands/logs.js';
 import type { RunEvent } from '../../../src/domain/run.js';
@@ -34,6 +34,10 @@ describe('logs command', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
     registerLogsCommand(program, container);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('logs <run-id>', () => {

@@ -131,7 +131,7 @@ function FlashingTabLabel({
 
   if (isBright) {
     return (
-      <Text backgroundColor={flashColor} color={tuiColors.darkText} bold>
+      <Text backgroundColor={flashColor} color={tuiColors.solidText} bold>
         {' '}{tab.key} {tab.label}{badge}{' '}
       </Text>
     );
@@ -226,7 +226,7 @@ function BrandBar({
             <React.Fragment key={tab.id}>
               {i > 0 && <Text>{'  '}</Text>}
               {isActive ? (
-                <Text backgroundColor={tuiColors.amber} color={tuiColors.darkText} bold>
+                <Text backgroundColor={tuiColors.amber} color={tuiColors.solidText} bold>
                   {' '}{tab.key} {tab.label}{badge}{' '}
                 </Text>
               ) : isFlashing ? (

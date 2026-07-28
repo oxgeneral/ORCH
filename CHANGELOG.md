@@ -9,6 +9,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - **Light TUI palette** — a high-contrast palette for terminals with light backgrounds. Select it through `/config palette`, or persist it before launching the dashboard with `orch config global set palette light`.
 
+### Bug Fixes
+
+- **Readable light-palette tabs** — active and flashing header tabs use a semantic solid-fill foreground, keeping text above the WCAG AA 4.5:1 contrast threshold on every saturated light-palette status color.
+- **Stable palette transitions** — light-palette gray and ghost tokens remain distinct, so live color remapping preserves their intended semantic colors when switching palettes.
+
+### Security
+
+- Updated `js-yaml`, `liquidjs`, Vitest, Vite, esbuild, and tsx to patched releases. The complete production and development dependency graph now passes `npm audit` with verified registry signatures.
+
+### Tests
+
+- Added contrast and palette-remapping regression coverage.
+- Verified the production CLI in a real pseudo-terminal, including persisted light-palette loading, emitted ANSI colors, activity filtering, and clean shutdown.
+- Full suite: 2078 passed, 2 skipped. Coverage: 69.72% statements, 63.37% branches, 69.64% functions, and 71.94% lines.
+
 ## 1.0.31 (2026-07-27)
 
 ### New Features

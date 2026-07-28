@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { registerConfigCommand } from '../../../src/cli/commands/config.js';
 import { makeContainer } from './helpers.js';
@@ -14,6 +14,10 @@ describe('config command', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
     registerConfigCommand(program, container);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('config get', () => {
