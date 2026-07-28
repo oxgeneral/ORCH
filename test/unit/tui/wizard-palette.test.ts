@@ -23,6 +23,7 @@ describe('config wizard palette setting', () => {
       'ocean',
       'forest',
       'violet',
+      'light',
     ]);
   });
 

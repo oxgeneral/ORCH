@@ -573,6 +573,7 @@ const PALETTE_OPTIONS = [
   { value: 'ocean', label: 'Ocean', hint: 'cool blue control room' },
   { value: 'forest', label: 'Forest', hint: 'calm green operations' },
   { value: 'violet', label: 'Violet', hint: 'high-contrast purple' },
+  { value: 'light', label: 'Light', hint: 'high-contrast palette for light terminals' },
 ];
 
 // ── Notification toggle options ──

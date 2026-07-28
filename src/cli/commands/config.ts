@@ -6,7 +6,11 @@
 
 import type { Command } from 'commander';
 import type { LightContainer } from '../../container.js';
-import type { ActivityFilterPreset } from '../../domain/global-config.js';
+import {
+  isTuiPaletteName,
+  TUI_PALETTE_NAMES,
+  type ActivityFilterPreset,
+} from '../../domain/global-config.js';
 import { printSuccess, printError, dim } from '../output.js';
 import { spawn } from 'node:child_process';
 
@@ -84,7 +88,11 @@ export function registerConfigCommand(program: Command, container: LightContaine
     .description('Get a global config value')
     .action(async (key: string) => {
       const gc = await container.globalConfigStore.read();
-      const value = key === 'activity_filter' ? gc.tui.activity_filter : undefined;
+      const value = key === 'activity_filter'
+        ? gc.tui.activity_filter
+        : key === 'palette'
+          ? gc.tui.palette
+          : undefined;
       if (container.context.json) {
         console.log(JSON.stringify({ key, value }));
       } else {
@@ -103,6 +111,14 @@ export function registerConfigCommand(program: Command, container: LightContaine
         }
         await container.globalConfigStore.set('activity_filter', value as ActivityFilterPreset);
         printSuccess(`${key} = ${value}`);
+      } else if (key === 'palette') {
+        const palette = value.toLowerCase();
+        if (!isTuiPaletteName(palette)) {
+          printError(`Invalid value "${value}". Valid: ${TUI_PALETTE_NAMES.join(', ')}`);
+          return;
+        }
+        await container.globalConfigStore.set('palette', palette);
+        printSuccess(`${key} = ${palette}`);
       } else {
         printError(`Unknown global config key: ${key}`);
       }
@@ -117,6 +133,7 @@ export function registerConfigCommand(program: Command, container: LightContaine
         console.log(JSON.stringify(gc));
       } else {
         console.log(`  ${dim('tui.activity_filter')} = ${gc.tui.activity_filter}`);
+        console.log(`  ${dim('tui.palette')} = ${gc.tui.palette}`);
       }
     });
 }

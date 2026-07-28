@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { registerConfigCommand } from '../../../src/cli/commands/config.js';
 import { makeContainer } from './helpers.js';
@@ -14,6 +14,10 @@ describe('config command', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
     registerConfigCommand(program, container);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('config get', () => {
@@ -54,6 +58,27 @@ describe('config command', () => {
       await program.parseAsync(['config', 'set', 'flag', 'true'], { from: 'user' });
 
       expect(container.configStore.set).toHaveBeenCalledWith('flag', true);
+    });
+  });
+
+  describe('config global', () => {
+    it('persists a valid TUI palette', async () => {
+      await program.parseAsync(['config', 'global', 'set', 'palette', 'light'], { from: 'user' });
+
+      expect(container.globalConfigStore.set).toHaveBeenCalledWith('palette', 'light');
+    });
+
+    it('rejects an unknown TUI palette', async () => {
+      await program.parseAsync(['config', 'global', 'set', 'palette', 'solarized'], { from: 'user' });
+
+      expect(container.globalConfigStore.set).not.toHaveBeenCalled();
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Valid: amber, ocean, forest, violet, light'));
+    });
+
+    it('reads the current TUI palette', async () => {
+      await program.parseAsync(['config', 'global', 'get', 'palette'], { from: 'user' });
+
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('"amber"'));
     });
   });
 });

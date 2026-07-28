@@ -12,19 +12,19 @@ const mocks = vi.hoisted(() => {
   const atomicWrite = vi.fn(async () => {});
   const agentPathFn = vi.fn((id: string) => `/mock/.orchestry/agents/${id}.yml`);
 
-  const MockPaths = vi.fn(() => ({
-    root: '/mock/.orchestry',
-    tasksDir: '/mock/.orchestry/tasks',
-    agentsDir: '/mock/.orchestry/agents',
-    runsDir: '/mock/.orchestry/runs',
-    templatesDir: '/mock/.orchestry/templates',
-    logsDir: '/mock/.orchestry/logs',
-    configPath: '/mock/.orchestry/config.yml',
-    gitignorePath: '/mock/.orchestry/.gitignore',
-    workspaceExcludePath: '/mock/.orchestry/.workspace-exclude',
-    defaultTemplatePath: vi.fn(() => '/mock/.orchestry/templates/default.md'),
-    agentPath: agentPathFn,
-  }));
+  class MockPaths {
+    readonly root = '/mock/.orchestry';
+    readonly tasksDir = '/mock/.orchestry/tasks';
+    readonly agentsDir = '/mock/.orchestry/agents';
+    readonly runsDir = '/mock/.orchestry/runs';
+    readonly templatesDir = '/mock/.orchestry/templates';
+    readonly logsDir = '/mock/.orchestry/logs';
+    readonly configPath = '/mock/.orchestry/config.yml';
+    readonly gitignorePath = '/mock/.orchestry/.gitignore';
+    readonly workspaceExcludePath = '/mock/.orchestry/.workspace-exclude';
+    readonly defaultTemplatePath = vi.fn(() => '/mock/.orchestry/templates/default.md');
+    readonly agentPath = agentPathFn;
+  }
 
   const execFile = vi.fn((_cmd: string, _args: string[], _opts: unknown, cb: (err: Error | null) => void) => {
     cb(null);

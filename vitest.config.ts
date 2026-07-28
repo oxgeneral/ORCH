@@ -10,12 +10,7 @@ export default defineConfig({
     environment: 'node',
     include: ['test/**/*.test.{ts,tsx}'],
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        minThreads: maxThreads,
-        maxThreads,
-      },
-    },
+    maxWorkers: maxThreads,
     typecheck: {
       tsconfig: 'tsconfig.test.json',
     },
