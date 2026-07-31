@@ -295,7 +295,7 @@ describe('PiAdapter', () => {
       expect(events.at(-1)!.tokens).toEqual({ input: 10, output: 4, reasoning: 0, total: 14, cache_read: 0, cache_write: 0 });
     });
 
-    it('maps response failure to error', async () => {
+    it('maps response failure to a terminal error', async () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new PiAdapter(pm);
@@ -303,10 +303,134 @@ describe('PiAdapter', () => {
 
       proc.stdout.write(JSON.stringify({ type: 'response', command: 'prompt', success: false, error: 'bad request' }) + '\n');
 
-      const events = await collectEvents(handle, proc);
+      const events: AgentEvent[] = [];
+      await expect(async () => {
+        for await (const event of handle.events) events.push(event);
+      }).rejects.toMatchObject({
+        message: 'bad request',
+        errorKind: AdapterErrorKind.UNKNOWN,
+      });
 
       expect(events[0]!.type).toBe('error');
       expect(events[0]!.errorKind).toBe(AdapterErrorKind.UNKNOWN);
+      expect(events.some((event) => event.type === 'done')).toBe(false);
+      expect(pm.killWithGrace).toHaveBeenCalledWith(proc.pid, 1_000);
+    });
+
+    it('maps a terminal agent_end rate limit to error instead of done', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new PiAdapter(pm);
+      const handle = adapter.execute(makeParams());
+      const message = 'Permission denied: Reached overall message rate limit. Please try again later.';
+
+      proc.stdout.write(JSON.stringify({
+        type: 'agent_end',
+        messages: [{
+          role: 'assistant',
+          content: [],
+          stopReason: 'error',
+          errorMessage: message,
+        }],
+      }) + '\n');
+
+      const events: AgentEvent[] = [];
+      await expect(async () => {
+        for await (const event of handle.events) events.push(event);
+      }).rejects.toMatchObject({
+        message,
+        errorKind: AdapterErrorKind.RATE_LIMIT,
+      });
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        type: 'error',
+        errorKind: AdapterErrorKind.RATE_LIMIT,
+        data: { message },
+      });
+      expect(events.some((event) => event.type === 'done')).toBe(false);
+      expect(pm.killWithGrace).toHaveBeenCalledWith(proc.pid, 1_000);
+    });
+
+    it('waits through Pi auto-retry and emits only the settled successful completion', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new PiAdapter(pm);
+      const handle = adapter.execute(makeParams());
+
+      proc.stdout.write(JSON.stringify({
+        type: 'agent_end',
+        willRetry: true,
+        messages: [{
+          role: 'assistant',
+          content: [],
+          stopReason: 'error',
+          errorMessage: 'Rate limit exceeded; retrying',
+        }],
+      }) + '\n');
+      proc.stdout.write(JSON.stringify({ type: 'auto_retry_start', attempt: 1 }) + '\n');
+      proc.stdout.write(JSON.stringify({
+        type: 'agent_end',
+        willRetry: false,
+        messages: [{
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Recovered after retry.' }],
+          stopReason: 'stop',
+          usage: { input: 12, output: 5 },
+        }],
+      }) + '\n');
+      proc.stdout.write(JSON.stringify({ type: 'agent_settled' }) + '\n');
+
+      const events: AgentEvent[] = [];
+      for await (const event of handle.events) events.push(event);
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        type: 'done',
+        data: { result: 'Recovered after retry.' },
+      });
+      expect(events[0]!.tokens).toEqual({
+        input: 12,
+        output: 5,
+        reasoning: 0,
+        total: 17,
+        cache_read: 0,
+        cache_write: 0,
+      });
+      expect(pm.killWithGrace).toHaveBeenCalledWith(proc.pid, 1_000);
+    });
+
+    it('fails after agent_settled when Pi exhausts its retries', async () => {
+      const proc = createMockProcess();
+      const pm = createMockProcessManager(proc);
+      const adapter = new PiAdapter(pm);
+      const handle = adapter.execute(makeParams());
+      const message = 'Request timed out after retries';
+
+      proc.stdout.write(JSON.stringify({
+        type: 'agent_end',
+        willRetry: false,
+        messages: [{
+          role: 'assistant',
+          content: [],
+          stopReason: 'error',
+          errorMessage: message,
+        }],
+      }) + '\n');
+      proc.stdout.write(JSON.stringify({ type: 'agent_settled' }) + '\n');
+
+      const events: AgentEvent[] = [];
+      await expect(async () => {
+        for await (const event of handle.events) events.push(event);
+      }).rejects.toMatchObject({
+        message,
+        errorKind: AdapterErrorKind.TIMEOUT,
+      });
+
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe('error');
+      expect(events[0]!.errorKind).toBe(AdapterErrorKind.TIMEOUT);
+      expect(events.some((event) => event.type === 'done')).toBe(false);
     });
 
     it('yields an error event when stdout emits an error before any line', async () => {
@@ -321,7 +445,12 @@ describe('PiAdapter', () => {
       setTimeout(() => proc.emit('close', 1), 20);
 
       const events: AgentEvent[] = [];
-      for await (const ev of handle.events) events.push(ev);
+      await expect(async () => {
+        for await (const ev of handle.events) events.push(ev);
+      }).rejects.toMatchObject({
+        message: 'ECONNRESET',
+        errorKind: AdapterErrorKind.PROCESS_CRASH,
+      });
 
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe('error');

@@ -107,6 +107,7 @@ function createPiRpcEvents(
     let streamErrorYielded = false;
     let finalText = '';
     let lastTokens: TokenUsage | undefined;
+    let pendingCompletion: PiCompletion | undefined;
     let exitCode: number | null = null;
     let exitError: Error | null = null;
 
@@ -127,6 +128,10 @@ function createPiRpcEvents(
             if (event.finalText !== undefined) finalText = event.finalText;
             if (event.tokens) lastTokens = event.tokens;
 
+            if (event.completion) {
+              pendingCompletion = event.completion;
+            }
+
             if (event.agentEvent) {
               if (event.agentEvent.type === 'done') gotDoneEvent = true;
               yield event.agentEvent;
@@ -137,8 +142,33 @@ function createPiRpcEvents(
                 return;
               }
             }
+
+            const terminalCompletion = event.settled
+              ? pendingCompletion
+              : event.completion && !event.completion.waitForSettled
+                ? event.completion
+                : undefined;
+
+            if (terminalCompletion) {
+              const terminal = toTerminalPiEvent(terminalCompletion);
+              if (terminal.event.type === 'done') gotDoneEvent = true;
+              yield terminal.event;
+
+              // Pi RPC is a long-lived process. Once the full run has settled,
+              // stop the process instead of waiting for stdin to close.
+              await processManager.killWithGrace(pid, 1_000).catch(() => {});
+
+              if (terminal.error) throw terminal.error;
+              return;
+            }
           }
         } catch (err) {
+          // Terminal provider failures are deliberately thrown after their
+          // canonical error event is yielded. Let the orchestrator's failure
+          // path handle retry/failed state instead of weakening them into a
+          // stdout transport error or a successful generator completion.
+          if (err instanceof PiTerminalError) throw err;
+
           // stdout emitted 'error' (ECONNRESET, EPIPE, etc) before a terminal event.
           // Without this catch the rejection propagates out of the async generator
           // as an unhandled error and the orchestrator only sees the run hang.
@@ -167,7 +197,10 @@ function createPiRpcEvents(
     await exitPromise;
 
     // streamError was already surfaced as an error event — don't double-report.
-    if (streamErrorYielded) return;
+    if (streamErrorYielded && streamError) {
+      const classified = classifyAdapterError(streamError.message, exitCode ?? undefined);
+      throw Object.assign(streamError, { errorKind: classified });
+    }
 
     const spawnError = exitError as Error | null;
     if (spawnError && !signal?.aborted && !gotDoneEvent) {
@@ -195,6 +228,29 @@ interface ParsedPiEvent {
   agentEvent?: AgentEvent;
   finalText?: string;
   tokens?: TokenUsage;
+  completion?: PiCompletion;
+  settled?: boolean;
+}
+
+interface PiCompletion {
+  result: string;
+  raw: Record<string, unknown>;
+  tokens?: TokenUsage;
+  waitForSettled: boolean;
+  failure?: {
+    message: string;
+    errorKind: ReturnType<typeof classifyAdapterError>;
+  };
+}
+
+class PiTerminalError extends Error {
+  constructor(
+    message: string,
+    readonly errorKind: ReturnType<typeof classifyAdapterError>,
+  ) {
+    super(message);
+    this.name = 'PiTerminalError';
+  }
 }
 
 function parsePiRpcEvent(line: string, state: ParseState): ParsedPiEvent | null {
@@ -228,7 +284,15 @@ function parsePiRpcEvent(line: string, state: ParseState): ParsedPiEvent | null 
       if (parsed.success === false) {
         const message = typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed);
         return {
-          agentEvent: { type: 'error', timestamp, data: { message, raw: parsed }, errorKind: classifyAdapterError(message) },
+          completion: {
+            result: '',
+            raw: parsed,
+            waitForSettled: false,
+            failure: {
+              message,
+              errorKind: classifyAdapterError(message),
+            },
+          },
         };
       }
       return null;
@@ -256,19 +320,16 @@ function parsePiRpcEvent(line: string, state: ParseState): ParsedPiEvent | null 
       return parseToolExecutionEnd(parsed, timestamp);
 
     case 'agent_end': {
-      const final = extractFinalText(parsed) ?? state.finalText;
-      const tokens = extractPiTokensFromAgentEnd(parsed) ?? state.lastTokens;
+      const completion = parsePiCompletion(parsed, state);
       return {
-        finalText: final,
-        tokens,
-        agentEvent: {
-          type: 'done',
-          timestamp,
-          data: { result: final, raw: parsed },
-          tokens,
-        },
+        finalText: completion.result,
+        tokens: completion.tokens,
+        completion,
       };
     }
+
+    case 'agent_settled':
+      return { settled: true };
 
     case 'extension_error': {
       const message = typeof parsed.message === 'string' ? parsed.message : JSON.stringify(parsed);
@@ -311,9 +372,17 @@ function parseMessageUpdate(parsed: Record<string, unknown>, timestamp: string, 
   }
 
   if (updateType === 'error') {
-    const reason = typeof assistantMessageEvent?.reason === 'string' ? assistantMessageEvent.reason : JSON.stringify(parsed);
+    const errorMessage = extractPiMessageError(assistantMessageEvent?.error)
+      ?? extractPiMessageError(parsed.message)
+      ?? (typeof assistantMessageEvent?.reason === 'string' ? assistantMessageEvent.reason : undefined)
+      ?? JSON.stringify(parsed);
     return {
-      agentEvent: { type: 'error', timestamp, data: { message: reason, raw: parsed }, errorKind: classifyAdapterError(reason) },
+      agentEvent: {
+        type: 'error',
+        timestamp,
+        data: { message: errorMessage, raw: parsed },
+        errorKind: classifyAdapterError(errorMessage),
+      },
     };
   }
 
@@ -374,15 +443,82 @@ function extractPassiveUpdate(parsed: Record<string, unknown>): ParsedPiEvent | 
   return tokens ? { tokens } : null;
 }
 
-function extractFinalText(parsed: Record<string, unknown>): string | undefined {
+function parsePiCompletion(parsed: Record<string, unknown>, state: ParseState): PiCompletion {
+  const assistantMessage = extractLastAssistantMessage(parsed);
+  const result = extractTextFromContent(assistantMessage?.content) ?? state.finalText;
+  const tokens = extractPiTokensFromMessage(assistantMessage ?? {}) ?? state.lastTokens;
+  const stopReason = typeof assistantMessage?.stopReason === 'string'
+    ? assistantMessage.stopReason
+    : undefined;
+  const errorMessage = typeof assistantMessage?.errorMessage === 'string'
+    ? assistantMessage.errorMessage.trim()
+    : '';
+
+  const completion: PiCompletion = {
+    result,
+    raw: parsed,
+    tokens,
+    // Current Pi RPC emits agent_settled after agent_end and exposes
+    // willRetry on agent_end. Older Pi versions have neither field, where
+    // agent_end remains the terminal event.
+    waitForSettled: Object.prototype.hasOwnProperty.call(parsed, 'willRetry'),
+  };
+
+  if (stopReason === 'error' || stopReason === 'aborted') {
+    const message = errorMessage || result || `Pi agent stopped with reason: ${stopReason}`;
+    completion.failure = {
+      message,
+      errorKind: classifyAdapterError(message),
+    };
+  }
+
+  return completion;
+}
+
+function toTerminalPiEvent(completion: PiCompletion): {
+  event: AgentEvent;
+  error?: PiTerminalError;
+} {
+  const timestamp = new Date().toISOString();
+  if (completion.failure) {
+    const { message, errorKind } = completion.failure;
+    return {
+      event: {
+        type: 'error',
+        timestamp,
+        data: { message, raw: completion.raw },
+        errorKind,
+      },
+      error: new PiTerminalError(message, errorKind),
+    };
+  }
+
+  return {
+    event: {
+      type: 'done',
+      timestamp,
+      data: { result: completion.result, raw: completion.raw },
+      tokens: completion.tokens,
+    },
+  };
+}
+
+function extractLastAssistantMessage(parsed: Record<string, unknown>): Record<string, unknown> | undefined {
   const messages = parsed.messages;
   if (!Array.isArray(messages)) return undefined;
 
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i] as Record<string, unknown>;
-    if (message.role !== 'assistant') continue;
-    const text = extractTextFromContent(message.content);
-    if (text) return text;
+    if (message.role === 'assistant') return message;
+  }
+  return undefined;
+}
+
+function extractPiMessageError(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const record = value as Record<string, unknown>;
+  if (typeof record.errorMessage === 'string' && record.errorMessage.trim()) {
+    return record.errorMessage.trim();
   }
   return undefined;
 }
@@ -403,19 +539,6 @@ function extractPath(args: Record<string, unknown> | undefined): string | undefi
   if (!args) return undefined;
   if (typeof args.path === 'string') return args.path;
   if (typeof args.file_path === 'string') return args.file_path;
-  return undefined;
-}
-
-function extractPiTokensFromAgentEnd(parsed: Record<string, unknown>): TokenUsage | undefined {
-  const messages = parsed.messages;
-  if (!Array.isArray(messages)) return undefined;
-
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i] as Record<string, unknown>;
-    if (message.role !== 'assistant') continue;
-    const tokens = extractPiTokensFromMessage(message);
-    if (tokens) return tokens;
-  }
   return undefined;
 }
 

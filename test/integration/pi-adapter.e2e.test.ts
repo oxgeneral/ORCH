@@ -33,6 +33,7 @@ import { Orchestrator } from '../../src/application/orchestrator.js';
 import { PiAdapter } from '../../src/infrastructure/adapters/pi.js';
 import { AdapterRegistry } from '../../src/infrastructure/adapters/registry.js';
 import type { OrchestratorEvent } from '../../src/domain/events.js';
+import { AdapterErrorKind } from '../../src/domain/errors.js';
 import {
   buildDeps,
   makeTask,
@@ -257,6 +258,106 @@ describe('Pi adapter — end-to-end through Orchestrator', () => {
       cache_write: 0,
       total: 62, // input + output + reasoning (cache_read/write are informational)
     });
+
+    cleanupOrch(orch);
+  });
+
+  it('keeps a rate-limited Pi task out of done and records the run as failed', async () => {
+    const proc = createMockProcess();
+    const killWithGrace = vi.fn(async (_pid: number, _timeoutMs?: number) => {
+      setImmediate(() => proc.emit('close', 0));
+    });
+    const processManager: IProcessManager = {
+      isAlive: vi.fn(() => true),
+      kill: vi.fn(),
+      killWithGrace,
+      spawn: vi.fn((): SpawnResult => ({ process: proc as unknown as ChildProcess, pid: proc.pid })),
+    };
+
+    const agent = makeAgent({
+      id: 'agt_pi_rate_limit',
+      name: 'pi-rate-limited',
+      adapter: 'pi',
+      status: 'idle',
+    });
+    const task = makeTask({
+      id: 'tsk_pi_rate_limit',
+      title: 'Task that hits the provider limit',
+      status: 'todo',
+      max_attempts: 1,
+    });
+    const taskStore = createMockTaskStore([task]);
+    const agentStore = createMockAgentStore([agent]);
+    const runStore = createMockRunStore();
+    const stateStore = createMockStateStore();
+    const adapterRegistry = new AdapterRegistry();
+    adapterRegistry.register(new PiAdapter(processManager));
+
+    const deps = buildDeps({
+      taskStore,
+      agentStore,
+      runStore,
+      stateStore,
+      processManager,
+      adapterRegistry,
+    });
+    const transitions: string[] = [];
+    deps.eventBus.on('task:status_changed', (event) => {
+      const change = event as Extract<OrchestratorEvent, { type: 'task:status_changed' }>;
+      if (change.taskId === task.id) transitions.push(`${change.from}→${change.to}`);
+    });
+
+    const orch = new Orchestrator(deps);
+    await (orch as { loadState: () => Promise<void> }).loadState();
+    await (orch as { tick: () => Promise<void> }).tick();
+
+    const message = 'Permission denied: Reached overall message rate limit. Please try again later.';
+    proc.stdout.write(JSON.stringify({
+      type: 'agent_end',
+      willRetry: false,
+      messages: [{
+        role: 'assistant',
+        content: [],
+        stopReason: 'error',
+        errorMessage: message,
+      }],
+    }) + '\n');
+    proc.stdout.write(JSON.stringify({ type: 'agent_settled' }) + '\n');
+
+    const finalTask = await waitFor(async () => {
+      const current = await taskStore.get(task.id);
+      return current?.status === 'failed' ? current : null;
+    });
+
+    expect(finalTask.status).toBe('failed');
+    expect(transitions).toEqual(['todo→in_progress', 'in_progress→failed']);
+    expect(transitions.some((transition) => transition.endsWith('→done'))).toBe(false);
+
+    const finalAgent = await agentStore.get(agent.id);
+    expect(finalAgent).toMatchObject({
+      status: 'idle',
+      stats: {
+        tasks_completed: 0,
+        tasks_failed: 1,
+        total_runs: 1,
+      },
+      last_error: {
+        message,
+        kind: AdapterErrorKind.RATE_LIMIT,
+      },
+    });
+    expect(finalAgent!.current_task).toBeUndefined();
+
+    const runs = await runStore.listAll();
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toMatchObject({
+      task_id: task.id,
+      status: 'failed',
+      error: message,
+    });
+    const runEvents = await runStore.readEvents(runs[0]!.id);
+    expect(runEvents.map((event) => event.type)).toEqual(['error']);
+    expect(killWithGrace).toHaveBeenCalledWith(proc.pid, 1_000);
 
     cleanupOrch(orch);
   });
