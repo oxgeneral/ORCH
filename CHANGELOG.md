@@ -5,6 +5,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+## 1.0.33 (2026-07-31)
+
+### Bug Fixes
+
+- **Pi terminal failure handling** ([#19](https://github.com/oxgeneral/ORCH/issues/19)) — rate limits, timeouts, aborted responses, rejected prompt commands, and stdout transport failures now finish through the orchestrator failure path instead of completing assigned tasks.
+- **Pi retry-aware completion** — current Pi RPC sessions wait for `agent_settled`, allowing automatic retries and queued continuations to finish before ORCH emits the single terminal success or failure event; older Pi versions keep their `agent_end` compatibility path.
+
+### Tests
+
+- Added Pi adapter regression coverage for provider failures, exhausted retries, successful automatic recovery, rejected prompt commands, and broken stdout streams.
+- Added an orchestrator integration scenario proving a rate-limited Pi run transitions its task to `failed`, records the run error, releases the agent, and never reaches `done`.
+- Full suite: 2082 passed, 2 skipped. Coverage: 69.99% statements, 63.55% branches, 69.71% functions, and 72.22% lines.
+
 ## 1.0.32 (2026-07-28)
 
 ### New Features
