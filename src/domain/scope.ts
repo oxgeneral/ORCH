@@ -22,11 +22,8 @@ export function scopesOverlap(a: string[] | undefined, b: string[] | undefined):
   return false;
 }
 
-/**
- * Pre-computed pattern info for O(1) base/dir lookups during overlap checks.
- */
+/** Pre-computed pattern info used while adding patterns to a ScopeIndex. */
 interface PatternInfo {
-  raw: string;
   base: string;
   isFile: boolean;
   dir: string;
@@ -36,22 +33,32 @@ function computePatternInfo(pattern: string): PatternInfo {
   const base = pattern.split('*')[0]!;
   const isFile = !base.endsWith('/');
   const dir = isFile ? dirname(base) : '';
-  return { raw: pattern, base, isFile, dir };
+  return { base, isFile, dir };
 }
 
 /**
  * Pre-computed scope index for batch overlap checking.
- * Computes base prefixes and dirnames once, then checks overlap in O(1) per pair.
+ *
+ * A pattern pair overlaps when either base is a string prefix of the other, or
+ * when both are file-like patterns in the same non-root directory. Store all
+ * base prefixes so each of those checks can be answered without scanning the
+ * indexed patterns. The sets are intentionally mutable: add() updates them in
+ * place and therefore keeps the same query cost for dynamic workloads.
  */
 export class ScopeIndex {
-  private readonly entries: PatternInfo[];
+  /** Every complete base currently in the index. */
+  private readonly bases = new Set<string>();
+  /** Every prefix of every indexed base, including each complete base. */
+  private readonly basePrefixes = new Set<string>();
+  /** Directories containing indexed file-like patterns, excluding '.'. */
+  private readonly fileDirs = new Set<string>();
+  private patternCount = 0;
 
   constructor(scopes: Array<string[] | undefined>) {
-    this.entries = [];
     for (const scope of scopes) {
       if (scope?.length) {
         for (const p of scope) {
-          this.entries.push(computePatternInfo(p));
+          this.addPattern(computePatternInfo(p));
         }
       }
     }
@@ -59,12 +66,11 @@ export class ScopeIndex {
 
   /** Returns true if the given scope overlaps with any pattern in the index. */
   overlapsAny(scope: string[] | undefined): boolean {
-    if (!scope?.length || this.entries.length === 0) return false;
+    if (!scope?.length || this.patternCount === 0) return false;
     for (const raw of scope) {
       const info = computePatternInfo(raw);
-      for (const entry of this.entries) {
-        if (patternsOverlapInfo(info, entry)) return true;
-      }
+      if (this.baseOverlaps(info.base)) return true;
+      if (info.isFile && info.dir !== '.' && this.fileDirs.has(info.dir)) return true;
     }
     return false;
   }
@@ -73,23 +79,38 @@ export class ScopeIndex {
   add(scope: string[] | undefined): void {
     if (!scope?.length) return;
     for (const p of scope) {
-      this.entries.push(computePatternInfo(p));
+      this.addPattern(computePatternInfo(p));
     }
   }
 
   get size(): number {
-    return this.entries.length;
+    return this.patternCount;
   }
-}
 
-/** Check overlap using pre-computed PatternInfo (no re-splitting). */
-function patternsOverlapInfo(a: PatternInfo, b: PatternInfo): boolean {
-  if (a.raw === b.raw) return true;
-  if (a.base.startsWith(b.base) || b.base.startsWith(a.base)) return true;
-  if (a.isFile && b.isFile) {
-    return a.dir === b.dir && a.dir !== '.';
+  private addPattern(info: PatternInfo): void {
+    this.patternCount++;
+    this.bases.add(info.base);
+    for (let end = 0; end <= info.base.length; end++) {
+      this.basePrefixes.add(info.base.slice(0, end));
+    }
+    if (info.isFile && info.dir !== '.') {
+      this.fileDirs.add(info.dir);
+    }
   }
-  return false;
+
+  /**
+   * Check whether a query base has a prefix relation with any indexed base.
+   *
+   * basePrefixes.has(base) catches indexed bases below the query. Walking the
+   * query's own prefixes and checking bases catches indexed bases above it.
+   */
+  private baseOverlaps(base: string): boolean {
+    if (this.basePrefixes.has(base)) return true;
+    for (let end = 0; end <= base.length; end++) {
+      if (this.bases.has(base.slice(0, end))) return true;
+    }
+    return false;
+  }
 }
 
 /**

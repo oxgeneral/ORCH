@@ -75,6 +75,30 @@ describe('ScopeIndex', () => {
     expect(idx.overlapsAny(['src/auth/logout.ts'])).toBe(true);
   });
 
+  it('does not treat files in the root directory as siblings', () => {
+    const idx = new ScopeIndex([['login.ts']]);
+    expect(idx.overlapsAny(['logout.ts'])).toBe(false);
+  });
+
+  it('preserves string-prefix semantics without a path-boundary check', () => {
+    const idx = new ScopeIndex([['src/auth']]);
+    expect(idx.overlapsAny(['src/authorisation/**'])).toBe(true);
+  });
+
+  it('matches patterns with an empty base prefix', () => {
+    const idx = new ScopeIndex([['*']]);
+    expect(idx.overlapsAny(['services/api/**'])).toBe(true);
+  });
+
+  it('updates the sibling directory index when patterns are added', () => {
+    const idx = new ScopeIndex([]);
+    expect(idx.overlapsAny(['src/auth/logout.ts'])).toBe(false);
+
+    idx.add(['src/auth/login.ts']);
+    expect(idx.overlapsAny(['src/auth/logout.ts'])).toBe(true);
+    expect(idx.overlapsAny(['src/db/pool.ts'])).toBe(false);
+  });
+
   it('constructor skips undefined and empty scopes', () => {
     const idx = new ScopeIndex([undefined, [], ['src/auth/**']]);
     expect(idx.size).toBe(1);
