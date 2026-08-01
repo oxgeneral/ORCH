@@ -5,6 +5,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+## 1.0.34 (2026-08-01)
+
+### Performance
+
+- **Indexed scope overlap lookups** — `ScopeIndex` now uses a compressed radix tree for path-prefix checks and a directory set for sibling-file checks, avoiding a full scan of every indexed pattern during repeated lookups on large scope sets.
+- **Incremental batch indexing** — scopes selected during a scheduling tick are added directly to the same index, preserving conflict detection in both parent-to-child and child-to-parent insertion order.
+
+### Refactoring
+
+- Removed redundant radix-node state while preserving the existing scope size, duplicate-pattern, empty-prefix, UTF-16 prefix, and sibling-directory semantics.
+
+### Tests
+
+- Added edge-case coverage for radix splits, surrogate pairs, root files, empty prefixes, duplicate bases, dynamic additions, and both prefix insertion directions.
+- Added a real-runtime E2E scenario with filesystem stores, shell child processes, PID locking, concurrent disjoint scopes, serialized overlapping scopes, event output, and persisted run artifacts.
+- Full suite: 2091 passed, 2 skipped. Coverage: 71.11% statements, 63.94% branches, 71.07% functions, and 73.43% lines.
+
 ## 1.0.33 (2026-07-31)
 
 ### Bug Fixes
