@@ -39,7 +39,6 @@ interface RadixTrieNode {
   label: string;
   /** Sparse UTF-16 child table makes one-code-unit dispatch a numeric lookup. */
   readonly children: Array<RadixTrieNode | undefined>;
-  hasChildren: boolean;
   /** Whether an indexed base ends exactly at this node. */
   terminal: boolean;
 }
@@ -48,7 +47,6 @@ function newRadixTrieNode(label: string, terminal: boolean): RadixTrieNode {
   return {
     label,
     children: [],
-    hasChildren: false,
     terminal,
   };
 }
@@ -78,7 +76,6 @@ class PrefixTrie {
       const child = parent.children[key];
       if (child === undefined) {
         parent.children[key] = newRadixTrieNode(value.slice(offset), true);
-        parent.hasChildren = true;
         return;
       }
 
@@ -107,11 +104,9 @@ class PrefixTrie {
       // the common prefix as a branch node and retain both suffixes below it.
       const split = newRadixTrieNode(label.slice(0, commonLength), false);
       parent.children[key] = split;
-      parent.hasChildren = true;
 
       child.label = label.slice(commonLength);
       split.children[child.label.charCodeAt(0)] = child;
-      split.hasChildren = true;
 
       const newOffset = offset + commonLength;
       if (newOffset === value.length) {
@@ -131,7 +126,7 @@ class PrefixTrie {
 
     // An empty indexed base is a prefix of every query. Conversely, every
     // non-empty indexed base has an empty query as its prefix.
-    if (node.terminal || value.length === 0) return node.terminal || node.hasChildren;
+    if (node.terminal || value.length === 0) return node.terminal || node.children.length > 0;
 
     while (offset < value.length) {
       const child = node.children[value.charCodeAt(offset)];
