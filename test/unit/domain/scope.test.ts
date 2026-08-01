@@ -90,6 +90,36 @@ describe('ScopeIndex', () => {
     expect(idx.overlapsAny(['services/api/**'])).toBe(true);
   });
 
+  it('matches a parent added after a longer indexed base', () => {
+    const idx = new ScopeIndex([]);
+    idx.add(['src/auth/private/credentials/**']);
+    expect(idx.overlapsAny(['src/auth/**'])).toBe(true);
+  });
+
+  it('matches a longer base added after its parent', () => {
+    const idx = new ScopeIndex([]);
+    idx.add(['src/auth/**']);
+    idx.add(['src/auth/private/credentials/**']);
+    expect(idx.overlapsAny(['src/auth/private/credentials/key.json'])).toBe(true);
+  });
+
+  it('keeps duplicate bases observable through size and overlap', () => {
+    const idx = new ScopeIndex([['src/auth/**']]);
+    idx.add(['src/auth/**']);
+    expect(idx.size).toBe(2);
+    expect(idx.overlapsAny(['src/auth/login.ts'])).toBe(true);
+  });
+
+  it('handles a radix split between surrogate pair code units', () => {
+    const highSurrogate = '\ud83d';
+    const lowSurrogate = '\ude00';
+    const idx = new ScopeIndex([[`src/${highSurrogate}${lowSurrogate}/one/**`]]);
+
+    expect(idx.overlapsAny([`src/${highSurrogate}x/two/**`])).toBe(false);
+    idx.add([`src/${highSurrogate}x/three/**`]);
+    expect(idx.overlapsAny([`src/${highSurrogate}x/three/file.ts`])).toBe(true);
+  });
+
   it('updates the sibling directory index when patterns are added', () => {
     const idx = new ScopeIndex([]);
     expect(idx.overlapsAny(['src/auth/logout.ts'])).toBe(false);
