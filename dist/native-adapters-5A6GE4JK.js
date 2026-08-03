@@ -92,11 +92,25 @@ var NativeOpusWorkflowAdapter = class {
   }
   pm;
   async execute(passport, prompt, workspace, sessionId, mode) {
+    const taskContext = JSON.stringify({
+      job_id: passport.job_id,
+      objective: passport.objective,
+      approved_plan_hash: passport.approved_plan_hash,
+      acceptance_criteria: passport.acceptance_criteria,
+      mandatory_amendments: passport.mandatory_amendments,
+      allowed_file_scope: passport.allowed_file_scope,
+      required_checks: passport.required_checks
+    });
     const recovery = mode === "resume" ? `A native resume flag is not verified. Continue from this persisted passport and current worktree state.
 ${JSON.stringify(passport)}
 
 ` : "";
-    const instruction = `${recovery}${prompt}
+    const instruction = `Task passport projection:
+${taskContext}
+
+Do not modify files outside allowed_file_scope when it is non-empty.
+
+${recovery}${prompt}
 
 Implement, test, and commit on the current worktree branch. End with strict JSON: job_id, status completed|partial|failed, files_changed, commands_run, tests_reported, deviations, unresolved, summary.`;
     const result = await claudeCall(this.pm, bounded(instruction, passport.config.max_input_bytes), workspace, "opus", 50, passport.config.max_output_bytes);
@@ -160,6 +174,9 @@ var NativeWorkflowGitGateway = class {
   }
   async merge(branch) {
     try {
+      if (!branch.startsWith("orchestry/workflow/")) return { success: false, detail: "Refusing to merge a non-workflow branch" };
+      const status = (await git(this.projectRoot, ["status", "--porcelain"])).trim();
+      if (status) return { success: false, detail: "Controller worktree is dirty" };
       await git(this.projectRoot, ["merge", "--no-ff", branch, "-m", `Merge ${branch}`]);
       return { success: true, detail: "merged" };
     } catch (error) {
@@ -253,5 +270,5 @@ function compactEvidence(value) {
 }
 
 export { NativeCodexWorkflowAdapter, NativeFableWorkflowAdapter, NativeOpusWorkflowAdapter, NativeWorkflowGitGateway };
-//# sourceMappingURL=native-adapters-ICQVF2GZ.js.map
-//# sourceMappingURL=native-adapters-ICQVF2GZ.js.map
+//# sourceMappingURL=native-adapters-5A6GE4JK.js.map
+//# sourceMappingURL=native-adapters-5A6GE4JK.js.map

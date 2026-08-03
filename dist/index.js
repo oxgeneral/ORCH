@@ -2815,7 +2815,7 @@ async function buildFullContainer(context) {
     import('./doctor-service-WPXAUB6S.js'),
     import('./artifact-store-2HCU365W.js'),
     import('./engine-Q723KIZQ.js'),
-    import('./native-adapters-ICQVF2GZ.js')
+    import('./native-adapters-5A6GE4JK.js')
   ]);
   const processManager = new ProcessManager();
   const templateEngine = new LiquidTemplateEngine();

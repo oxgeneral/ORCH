@@ -17,7 +17,7 @@ describe('secured fork static invariants', () => {
     expect(String((pkg.scripts as Record<string, string>).prepublishOnly)).toContain('must not be published');
     for (const path of ['readme.md', 'SECURITY.md']) {
       expect(source(path)).not.toMatch(/npm (?:install|i)(?: -g)? @oxgeneral\/orch/);
-      expect(source(path)).toContain('github.com/Thibault1818/ORCH.git#ae04d3222cbc43e83ae0fffb21c526df13b540b2');
+      expect(source(path)).toContain('github.com/Thibault1818/ORCH.git#7ea78932cca32b305c6b2a97a1e4a320411a00de');
     }
   });
 
@@ -109,6 +109,9 @@ describe('secured fork static invariants', () => {
     expect(engine).toContain("['git diff --check']");
     expect(engine).toMatch(/checks\.checks\.length\s*===\s*0/);
     expect(native).toContain("'--sandbox', 'read-only'");
+    expect(native).toContain("branch.startsWith('orchestry/workflow/')");
+    expect(native).toContain("['status', '--porcelain']");
+    expect(native).toContain('allowed_file_scope: passport.allowed_file_scope');
     for (const flag of ['--bare', '--tools', '--disable-slash-commands', '--strict-mcp-config', '--no-session-persistence']) {
       expect(native).toContain(`'${flag}'`);
     }
