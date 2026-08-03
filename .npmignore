@@ -1,0 +1,7 @@
+*
+!dist/**
+!scripts/**
+!skills/**
+!LICENSE
+!readme.md
+!package.json

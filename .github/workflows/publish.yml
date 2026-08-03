@@ -1,71 +1,23 @@
-name: Publish to npm
+name: Publication guard
 
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  publish:
+  verify-private-package:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
-          registry-url: https://registry.npmjs.org
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-      - name: Check if version already published
-        id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${LOCAL}" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match package version ${LOCAL}" >&2
-            exit 1
-          fi
-          REMOTE=$(npm view @oxgeneral/orch version 2>/dev/null || echo "0.0.0")
-          echo "version=$LOCAL" >> "$GITHUB_OUTPUT"
-          echo "tag=v$LOCAL" >> "$GITHUB_OUTPUT"
-          if [ "$LOCAL" = "$REMOTE" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Version $LOCAL already published — skipping"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "Publishing $LOCAL (remote has $REMOTE)"
-          fi
-      - run: npm publish --access public --ignore-scripts --provenance
-        if: steps.check.outputs.skip != 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Extract changelog for this version
-        id: changelog
-        run: |
-          VERSION="${{ steps.check.outputs.version }}"
-          # Extract section between "## $VERSION" and next "## " or EOF
-          BODY=$(awk "/^## ${VERSION//./\\.}/{found=1; next} /^## [0-9]/{if(found) exit} found" CHANGELOG.md)
-          if [ -z "$BODY" ]; then
-            BODY="Release ${{ steps.check.outputs.tag }}"
-          fi
-          # Write to file to avoid quoting issues
-          NOTES_FILE="$RUNNER_TEMP/release-notes-${{ github.run_id }}.md"
-          echo "$BODY" > "$NOTES_FILE"
-          echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
-      - name: Create or update GitHub Release
-        run: |
-          TAG="${{ steps.check.outputs.tag }}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --notes-file "${{ steps.changelog.outputs.notes_file }}"
-          else
-            gh release create "$TAG" --target "$GITHUB_SHA" --notes-file "${{ steps.changelog.outputs.notes_file }}"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify npm publication is disabled
+        run: node -e "const p=require('./package.json'); if(p.private!==true) throw new Error('package must remain private')"
+      - run: npm test -- test/security/security-regression.test.ts

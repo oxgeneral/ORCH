@@ -102,7 +102,7 @@ async function runServe(container: Container, currentVersion: string, opts: Serv
         logger.log('warn', 'update:available', {
           current: info.current,
           latest: info.latest,
-          hint: 'Run: npm install -g @oxgeneral/orch',
+          hint: 'Use the commit-pinned secured-fork command from the README',
         });
       }
     });

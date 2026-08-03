@@ -23,7 +23,7 @@ body:
       label: Steps to Reproduce
       description: Step-by-step instructions to reproduce the behavior.
       placeholder: |
-        1. Run `npm install -g @oxgeneral/orch`
+        1. Install the secured fork using the pinned command from the README
         2. Run `orch init`
         3. Run `orch task add "test" -p 1`
         4. See error...

@@ -45,7 +45,7 @@ import { sanitizeForPersistence, sanitizeText } from '../infrastructure/security
 const MAX_EVENT_DATA_LEN = 8192;
 /** Max event data sent to TUI via event bus (4 KB) */
 const MAX_BUS_DATA_LEN = 4096;
-const DANGEROUS_EXECUTION_ENV = 'ORCH_ALLOW_DANGEROUS_EXECUTION';
+const DANGEROUS_EXECUTION_ENV = 'ORCHESTRY_ALLOW_DANGEROUS_EXECUTION';
 const MAX_FAILURE_MESSAGE_LEN = 1000;
 const MAX_GOAL_ORCHESTRATION_CYCLES = 10;
 
@@ -634,21 +634,7 @@ export class Orchestrator {
     if (orphanedTasks.length > 0) {
       await Promise.all(
         orphanedTasks.map(async (task) => {
-          try {
-            await this.deps.taskService.updateStatus(task.id, 'failed');
-          } catch {
-            // If 'failed' transition is invalid, force-write via store
-            task.status = 'failed';
-            task.updated_at = new Date().toISOString();
-            await this.deps.taskStore.save(task).catch((err) => {
-              this.deps.eventBus.emit({
-                type: 'orchestrator:error',
-                error: err instanceof Error ? err.message : String(err),
-                context: `force-write orphaned task ${task.id}`,
-                fatal: false,
-              });
-            });
-          }
+          await this.deps.taskService.updateStatus(task.id, 'failed');
           this.deps.eventBus.emit({
             type: 'task:orphaned',
             taskId: task.id,
@@ -1401,8 +1387,6 @@ export class Orchestrator {
       // Reset terminal states before transitioning to in_progress
       if (task.status === 'failed' || task.status === 'cancelled') {
         await this.deps.taskService.retry(taskId);
-        task.status = 'todo';
-        task.attempts = 0;
       }
       // Update task status
       await this.deps.taskService.updateStatus(taskId, 'in_progress');
@@ -1771,6 +1755,11 @@ export class Orchestrator {
         state.stats.total_tokens.input + state.stats.total_tokens.output + state.stats.total_tokens.reasoning;
     }
 
+    // Workflow branches are owned exclusively by the dedicated workflow merge gate.
+    if (task.proof?.branch?.startsWith('orchestry/workflow/')) {
+      throw new Error(`Generic orchestrator cannot merge protected workflow branch: ${task.proof.branch}`);
+    }
+
     // Auto merge-back: if task used a worktree branch, merge into current branch
     if (task.proof?.branch) {
       try {
@@ -1808,29 +1797,8 @@ export class Orchestrator {
       }
     }
 
-    // Update task status — force-write via store if service validation fails
-    try {
-      await this.deps.taskService.updateStatus(taskId, newStatus);
-    } catch (validationErr) {
-      // Bypass state machine validation and force-write directly
-      const error = validationErr instanceof Error ? validationErr.message : String(validationErr);
-      this.deps.eventBus.emit({
-        type: 'orchestrator:error',
-        error,
-        context: `state machine validation failed for task ${taskId} -> ${newStatus}, force-writing`,
-        fatal: false,
-      });
-      task.status = newStatus;
-      task.updated_at = new Date().toISOString();
-      await this.deps.taskStore.save(task).catch((saveErr) => {
-        this.deps.eventBus.emit({
-          type: 'orchestrator:error',
-          error: saveErr instanceof Error ? saveErr.message : String(saveErr),
-          context: `force-write task ${taskId} to store failed`,
-          fatal: false,
-        });
-      });
-    }
+    // State-machine validation is authoritative. Invalid transitions fail closed.
+    await this.deps.taskService.updateStatus(taskId, newStatus);
     await this.deps.agentService.setStatus(agentId, 'idle').catch((err) => {
       this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `_handleRunSuccess setStatus idle for agent ${agentId}`, fatal: false });
     });
@@ -2011,38 +1979,9 @@ export class Orchestrator {
       results,
     });
 
-    // If all passed, auto-approve: review → done
-    // If criteria failed but autoApprove is set, still transition to done (with warning)
-    if (allPassed || autoApprove) {
-      if (!allPassed) {
-        this.deps.eventBus.emit({
-          type: 'orchestrator:error',
-          error: `Review criteria failed for task ${taskId} but autoApprove is set — force-approving`,
-          context: 'auto-review-with-auto-approve',
-          fatal: false,
-        });
-      }
-      try {
-        await this.deps.taskService.updateStatus(taskId, 'done');
-      } catch (validationErr) {
-        const error = validationErr instanceof Error ? validationErr.message : String(validationErr);
-        this.deps.eventBus.emit({
-          type: 'orchestrator:error',
-          error,
-          context: `auto-review transition failed for task ${taskId} -> done, force-writing`,
-          fatal: false,
-        });
-        task.status = 'done';
-        task.updated_at = new Date().toISOString();
-        await this.deps.taskStore.save(task).catch((saveErr) => {
-          this.deps.eventBus.emit({
-            type: 'orchestrator:error',
-            error: saveErr instanceof Error ? saveErr.message : String(saveErr),
-            context: `force-write task ${taskId} to store failed (auto-review)`,
-            fatal: false,
-          });
-        });
-      }
+    // Failed deterministic review criteria never auto-approve.
+    if (allPassed) {
+      await this.deps.taskService.updateStatus(taskId, 'done');
     }
   }
 
@@ -2060,9 +1999,8 @@ export class Orchestrator {
       agent_summary: `${summaryPrefix}\n\n${task.proof?.agent_summary ?? ''}`.slice(0, 2000),
       files_changed: task.proof?.files_changed ?? [],
     };
-    task.status = 'review';
-    task.updated_at = new Date().toISOString();
     await this.deps.taskStore.save(task);
+    await this.deps.taskService.updateStatus(task.id, 'review');
     await this.deps.agentService.setStatus(agentId, 'idle').catch((err) => {
       this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `forceTaskToReview setStatus idle for agent ${agentId}`, fatal: false });
     });
@@ -2196,20 +2134,11 @@ export class Orchestrator {
     }
   }
 
-  /** Cancel a task, falling back to direct store write if transition is invalid. */
+  /** Cancel a task through the validated state machine. */
   private async forceTaskCancelled(taskId: string): Promise<void> {
-    try {
-      await this.deps.taskService.updateStatus(taskId, 'cancelled');
-    } catch {
-      const task = await this.deps.taskStore.get(taskId);
-      if (task && !isTerminal(task.status)) {
-        task.status = 'cancelled';
-        task.updated_at = new Date().toISOString();
-        await this.deps.taskStore.save(task).catch((err) => {
-          this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `startup cleanup: force-cancel task ${taskId}`, fatal: false });
-        });
-      }
-    }
+    const task = await this.deps.taskStore.get(taskId);
+    if (!task || isTerminal(task.status)) return;
+    await this.deps.taskService.updateStatus(taskId, 'cancelled');
   }
 
   private async saveState(): Promise<void> {

@@ -8,7 +8,7 @@
 
 import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, ExecuteHandle } from './interface.js';
 import type { IProcessManager } from '../process/process-manager.js';
-import { extractTokens, createStreamingEvents, buildChildEnv } from './utils.js';
+import { extractTokens, createStreamingEvents, buildChildEnv, buildFullPrompt } from './utils.js';
 import { classifyAdapterError, AdapterErrorKind } from '../../domain/errors.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -54,11 +54,8 @@ export class ClaudeAdapter implements IAgentAdapter {
       args.push('--effort', params.config.effort);
     }
 
-    // System prompt: orchestrator-generated (cacheable) takes priority, then per-agent config
+    // Keep both system and user prompts out of argv.
     const effectiveSystemPrompt = params.systemPrompt ?? params.config.system_prompt;
-    if (effectiveSystemPrompt) {
-      args.push('--system-prompt', effectiveSystemPrompt);
-    }
 
     const { process: proc, pid } = this.processManager.spawn('claude', args, {
       cwd: params.workspace,
@@ -67,7 +64,7 @@ export class ClaudeAdapter implements IAgentAdapter {
       signal: params.signal,
     });
 
-    proc.stdin?.write(params.prompt);
+    proc.stdin?.write(buildFullPrompt(effectiveSystemPrompt, params.prompt));
     proc.stdin?.end();
 
     const events = createStreamingEvents(proc, parseClaudeEvent, 'Claude', params.signal);

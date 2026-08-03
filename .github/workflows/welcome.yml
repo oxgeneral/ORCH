@@ -22,9 +22,9 @@ jobs:
 
             We appreciate you taking the time to report this. Here are some helpful links:
 
-            - 📖 [Contributing Guide](https://github.com/oxgeneral/ORCH/blob/main/CONTRIBUTING.md) — how to set up, test, and submit changes
-            - 🏗️ [Architecture Overview](https://github.com/oxgeneral/ORCH/blob/main/CLAUDE.md) — understand the codebase structure
-            - 💬 [GitHub Discussions](https://github.com/oxgeneral/ORCH/discussions) — ask questions or share ideas
+            - 📖 [Contributing Guide](https://github.com/Thibault1818/ORCH/blob/main/CONTRIBUTING.md) — how to set up, test, and submit changes
+            - 🏗️ [Architecture Overview](https://github.com/Thibault1818/ORCH/blob/main/CLAUDE.md) — understand the codebase structure
+            - 💬 [GitHub Issues](https://github.com/Thibault1818/ORCH/issues) — ask questions or share ideas
 
             If you'd like to fix this yourself, PRs are very welcome! We have **1493+ tests** and strict TypeScript — the CI will guide you.
 
@@ -37,6 +37,6 @@ jobs:
             - ✅ Full test suite (1493+ tests via Vitest)
             - ✅ ESM build verification
 
-            A maintainer will review your changes shortly. In the meantime, check the [Contributing Guide](https://github.com/oxgeneral/ORCH/blob/main/CONTRIBUTING.md) to make sure everything is in order.
+            A maintainer will review your changes shortly. In the meantime, check the [Contributing Guide](https://github.com/Thibault1818/ORCH/blob/main/CONTRIBUTING.md) to make sure everything is in order.
 
             ⭐ If you enjoy working with ORCH, a star on the repo goes a long way!

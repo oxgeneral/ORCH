@@ -1,7 +1,7 @@
 /**
  * OpenCode adapter.
  *
- * Spawns `opencode run --format json` in headless mode.
+ * Spawns `opencode run --format json` in headless mode and pipes prompts via stdin.
  * Parses JSONL events from stdout into AgentEvent stream.
  */
 
@@ -44,15 +44,15 @@ export class OpenCodeAdapter implements IAgentAdapter {
       args.push('--model', params.config.model);
     }
 
-    // OpenCode has no native --system-prompt; prepend to user prompt
-    const fullPrompt = buildFullPrompt(params.systemPrompt, params.prompt);
-    args.push(fullPrompt);
-
     const { process: proc, pid } = this.processManager.spawn('opencode', args, {
       cwd: params.workspace,
       env: buildChildEnv(params.env),
       signal: params.signal,
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
+
+    proc.stdin?.write(buildFullPrompt(params.systemPrompt, params.prompt));
+    proc.stdin?.end();
 
     const events = createStreamingEvents(proc, parseOpenCodeEvent, 'OpenCode', params.signal);
 

@@ -22,12 +22,12 @@ const SOURCE = readFileSync(SCRIPT, 'utf8');
 
 describe('postinstall.cjs — source content', () => {
   it('contains correct GitHub link', () => {
-    expect(SOURCE).toContain('https://github.com/oxgeneral/ORCH');
+    expect(SOURCE).toContain('https://github.com/Thibault1818/ORCH');
   });
 
   it('star CTA appears after $ orch command', () => {
     const orchIdx = SOURCE.indexOf("bold('orch')");
-    const ctaIdx = SOURCE.indexOf('https://github.com/oxgeneral/ORCH');
+    const ctaIdx = SOURCE.indexOf('https://github.com/Thibault1818/ORCH');
     expect(orchIdx).toBeGreaterThan(-1);
     expect(ctaIdx).toBeGreaterThan(-1);
     // CTA must come after the orch command line
@@ -41,7 +41,7 @@ describe('postinstall.cjs — source content', () => {
 
   it('star CTA is wrapped with dim()', () => {
     // The GitHub star line must use the dim() helper
-    expect(SOURCE).toMatch(/dim\([^)]*https:\/\/github\.com\/oxgeneral\/ORCH/);
+    expect(SOURCE).toMatch(/dim\([^)]*https:\/\/github\.com\/Thibault1818\/ORCH/);
   });
 
   it('banner guard checks process.env.CI', () => {

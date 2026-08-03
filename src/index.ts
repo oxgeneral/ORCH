@@ -28,12 +28,19 @@ export { TaskService } from './application/task-service.js';
 export { AgentService } from './application/agent-service.js';
 export { RunService } from './application/run-service.js';
 export { Orchestrator } from './application/orchestrator.js';
+export { WorkflowEngine, DEFAULT_WORKFLOW_CONFIG } from './application/workflow/engine.js';
+export type { StartWorkflowInput } from './application/workflow/engine.js';
+export type { CodexRolePort, FableRolePort, OpusRolePort, WorkflowGitPort, WorkflowRolePorts } from './application/workflow/ports.js';
 
 // Infrastructure interfaces
 export type { IAgentAdapter, AgentEvent, ExecuteParams, AdapterTestResult } from './infrastructure/adapters/interface.js';
 export { AdapterRegistry } from './infrastructure/adapters/registry.js';
 export type { ISkillLoader } from './infrastructure/skills/skill-loader.js';
 export { SkillLoader } from './infrastructure/skills/skill-loader.js';
+export { WorkflowArtifactStore, ARTIFACT_FILES, hashCanonical } from './infrastructure/workflow/artifact-store.js';
+export * from './domain/workflow/contracts.js';
+export * from './domain/workflow/state.js';
+export * from './domain/workflow/transitions.js';
 
 // Clipboard
 export { detectClipboardType, getClipboardImage, isClipboardToolAvailable } from './infrastructure/clipboard-service.js';

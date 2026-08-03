@@ -1,8 +1,9 @@
 {
-  "name": "@oxgeneral/orch",
+  "name": "orch-secured-fork-local",
   "version": "1.0.27-th.1",
   "description": "AI agent runtime — orchestrate Claude, Cursor, Codex & OpenCode as one team. Multi-agent task automation with state machine, auto-retry, inter-agent messaging, goals and teams. Zero-config CLI + programmatic API.",
   "type": "module",
+  "private": true,
   "engines": {
     "node": ">=20.0.0"
   },
@@ -36,7 +37,7 @@
     "postinstall": "node scripts/postinstall.cjs || true",
     "benchmark": "tsx scripts/benchmark.ts",
     "load-test": "tsx scripts/load-test.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "node -e \"throw new Error('This private fork must not be published to npm')\""
   },
   "keywords": [
     "ai-agent",
@@ -73,37 +74,34 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/oxgeneral/ORCH.git"
+    "url": "git+https://github.com/Thibault1818/ORCH.git"
   },
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/",
-    "access": "public"
-  },
-  "homepage": "https://github.com/oxgeneral/ORCH#readme",
+  "homepage": "https://github.com/Thibault1818/ORCH#readme",
   "bugs": {
-    "url": "https://github.com/oxgeneral/ORCH/issues"
+    "url": "https://github.com/Thibault1818/ORCH/issues"
   },
   "dependencies": {
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
     "ink": "^6.8.0",
-    "js-yaml": "^5.2.1",
+    "js-yaml": "^5.2.3",
     "liquidjs": "^10.27.2",
     "nanoid": "^5.1.5",
     "react": "^19.2.4"
   },
   "overrides": {
-    "ws": "^8.21.0"
+    "ws": "^8.21.0",
+    "esbuild": "0.28.1"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.17.0",
     "@types/react": "^19.2.14",
-    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/coverage-v8": "^3.2.6",
     "ink-testing-library": "^4.0.0",
     "tsup": "^8.4.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "vitest": "^3.2.6"
   }
 }

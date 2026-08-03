@@ -32,7 +32,7 @@ function createMockProcess() {
   };
   proc.stdout = new PassThrough();
   proc.stderr = new PassThrough();
-  proc.stdin = null;
+  proc.stdin = new PassThrough();
   proc.pid = 7777;
   proc.kill = vi.fn();
   return proc;
@@ -79,13 +79,16 @@ describe('OpenCodeAdapter', () => {
         expect.arrayContaining([
           'run',
           '--format', 'json',
-          'test prompt',
         ]),
         expect.objectContaining({ cwd: '/tmp/workspace' }),
       );
       // No --dir flag — workspace is set via cwd
       const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
       expect(args).not.toContain('--dir');
+      expect(args).not.toContain('test prompt');
+      expect((pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][2]).toEqual(
+        expect.objectContaining({ stdio: ['pipe', 'pipe', 'pipe'] }),
+      );
     });
 
     it('includes --model when config.model is set', () => {
@@ -100,30 +103,29 @@ describe('OpenCodeAdapter', () => {
       expect(args).toContain('anthropic/claude-sonnet-4');
     });
 
-    it('prepends systemPrompt to prompt (no native --system-prompt)', () => {
+    it('prepends systemPrompt and writes the prompt to stdin', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new OpenCodeAdapter(pm);
 
+      const write = vi.spyOn(proc.stdin!, 'write');
       adapter.execute(makeParams({
         prompt: 'user task',
         systemPrompt: 'system instructions',
       }));
 
-      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
-      const lastArg = args[args.length - 1];
-      expect(lastArg).toBe('system instructions\n\nuser task');
+      expect(write).toHaveBeenCalledWith('system instructions\n\nuser task');
     });
 
-    it('passes prompt as-is when no systemPrompt', () => {
+    it('writes the prompt as-is to stdin when no systemPrompt', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new OpenCodeAdapter(pm);
 
+      const write = vi.spyOn(proc.stdin!, 'write');
       adapter.execute(makeParams({ prompt: 'just the prompt' }));
 
-      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
-      expect(args[args.length - 1]).toBe('just the prompt');
+      expect(write).toHaveBeenCalledWith('just the prompt');
     });
 
     it('returns pid in handle', () => {

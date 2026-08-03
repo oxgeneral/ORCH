@@ -129,7 +129,7 @@ describe('ClaudeAdapter', () => {
       expect(args).not.toContain('--effort');
     });
 
-    it('includes --system-prompt when config.system_prompt is set', () => {
+    it('keeps config.system_prompt out of argv', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new ClaudeAdapter(pm);
@@ -137,42 +137,38 @@ describe('ClaudeAdapter', () => {
       adapter.execute(makeParams({ config: { adapter: 'claude', system_prompt: 'Be helpful' } }));
 
       const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1];
-      expect(args).toContain('--system-prompt');
-      expect(args).toContain('Be helpful');
+      expect(args).not.toContain('--system-prompt');
+      expect(args).not.toContain('Be helpful');
     });
 
-    it('uses params.systemPrompt for --system-prompt over config.system_prompt', () => {
+    it('uses params.systemPrompt over config.system_prompt on stdin', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new ClaudeAdapter(pm);
 
+      const writeSpy = vi.spyOn(proc.stdin, 'write');
       adapter.execute(makeParams({
         systemPrompt: 'Orchestrator system prompt',
         config: { adapter: 'claude', system_prompt: 'Agent config system prompt' },
       }));
 
-      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
-      expect(args).toContain('--system-prompt');
-      // params.systemPrompt takes priority
-      const sysIdx = args.indexOf('--system-prompt');
-      expect(args[sysIdx + 1]).toBe('Orchestrator system prompt');
+      expect(writeSpy).toHaveBeenCalledWith('Orchestrator system prompt\n\ntest prompt');
     });
 
-    it('uses config.system_prompt when params.systemPrompt is absent', () => {
+    it('uses config.system_prompt on stdin when params.systemPrompt is absent', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new ClaudeAdapter(pm);
 
+      const writeSpy = vi.spyOn(proc.stdin, 'write');
       adapter.execute(makeParams({
         config: { adapter: 'claude', system_prompt: 'Agent config prompt' },
       }));
 
-      const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
-      const sysIdx = args.indexOf('--system-prompt');
-      expect(args[sysIdx + 1]).toBe('Agent config prompt');
+      expect(writeSpy).toHaveBeenCalledWith('Agent config prompt\n\ntest prompt');
     });
 
-    it('does not include --system-prompt when neither systemPrompt nor config is set', () => {
+    it('does not include --system-prompt', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new ClaudeAdapter(pm);
@@ -183,7 +179,7 @@ describe('ClaudeAdapter', () => {
       expect(args).not.toContain('--system-prompt');
     });
 
-    it('writes prompt to stdin and systemPrompt via --system-prompt flag', () => {
+    it('writes system and user prompts to stdin', () => {
       const proc = createMockProcess();
       const pm = createMockProcessManager(proc);
       const adapter = new ClaudeAdapter(pm);
@@ -197,12 +193,10 @@ describe('ClaudeAdapter', () => {
 
       const args = (pm.spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
       expect(args).not.toContain('user task prompt');
-      expect(writeSpy).toHaveBeenCalledWith('user task prompt');
+      expect(writeSpy).toHaveBeenCalledWith('system instructions\n\nuser task prompt');
       expect(endSpy).toHaveBeenCalled();
-      // systemPrompt should be passed via --system-prompt flag, not as a bare arg
-      const spIdx = args.indexOf('--system-prompt');
-      expect(spIdx).toBeGreaterThan(-1);
-      expect(args[spIdx + 1]).toBe('system instructions');
+      expect(args).not.toContain('--system-prompt');
+      expect(args).not.toContain('system instructions');
     });
 
     it('returns pid in handle', () => {

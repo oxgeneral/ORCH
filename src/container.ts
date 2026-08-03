@@ -15,6 +15,8 @@ import type { ITemplateEngine } from './infrastructure/template/template-engine.
 import type { IProcessManager } from './infrastructure/process/process-manager.js';
 import type { AdapterRegistry } from './infrastructure/adapters/registry.js';
 import type { ISkillLoader } from './infrastructure/skills/skill-loader.js';
+import type { WorkflowEngine } from './application/workflow/engine.js';
+import type { WorkflowArtifactStore } from './infrastructure/workflow/artifact-store.js';
 
 import { type GlobalConfig, DEFAULT_GLOBAL_CONFIG } from './domain/global-config.js';
 import { Paths } from './infrastructure/storage/paths.js';
@@ -79,6 +81,8 @@ export interface Container extends LightContainer {
   skillLoader: ISkillLoader;
   doctorService: DoctorService;
   orchestrator: Orchestrator;
+  workflowStore: WorkflowArtifactStore;
+  workflowEngine: WorkflowEngine;
 }
 
 /**
@@ -169,6 +173,9 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     { SkillLoader },
     { Orchestrator },
     { DoctorService },
+    { WorkflowArtifactStore },
+    { WorkflowEngine },
+    { NativeCodexWorkflowAdapter, NativeFableWorkflowAdapter, NativeOpusWorkflowAdapter, NativeWorkflowGitGateway },
   ] = await Promise.all([
     import('./infrastructure/process/process-manager.js'),
     import('./infrastructure/adapters/registry.js'),
@@ -185,6 +192,9 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     import('./infrastructure/skills/skill-loader.js'),
     import('./application/orchestrator.js'),
     import('./application/doctor-service.js'),
+    import('./infrastructure/workflow/artifact-store.js'),
+    import('./application/workflow/engine.js'),
+    import('./infrastructure/workflow/native-adapters.js'),
   ]);
 
   const processManager = new ProcessManager();
@@ -208,6 +218,13 @@ export async function buildFullContainer(context: CliContext): Promise<Container
   adapterRegistry.register(new AntigravityAdapter(processManager));
 
   const doctorService = new DoctorService(adapterRegistry, processManager, context.projectRoot);
+  const workflowStore = new WorkflowArtifactStore(context.projectRoot);
+  const workflowEngine = new WorkflowEngine(workflowStore, {
+    codex: new NativeCodexWorkflowAdapter(processManager),
+    fable: new NativeFableWorkflowAdapter(processManager),
+    opus: new NativeOpusWorkflowAdapter(processManager),
+    git: new NativeWorkflowGitGateway(context.projectRoot),
+  });
   const orchestrator = new Orchestrator({
     taskStore: light.taskStore,
     agentStore: light.agentStore,
@@ -239,6 +256,8 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     skillLoader,
     doctorService,
     orchestrator,
+    workflowStore,
+    workflowEngine,
   };
 }
 

@@ -1,14 +1,16 @@
-import { Paths } from './chunk-SVLEMEUQ.js';
-import { canTransition, isTerminal } from './chunk-K5UXMBMS.js';
-export { Orchestrator, canTransition, isBlocked, isDispatchable, isTerminal, resolveFailureStatus } from './chunk-K5UXMBMS.js';
-import { GOAL_LEAD_LABEL, GOAL_REVIEW_LABEL, AUTONOMOUS_LABEL } from './chunk-YNPZFT75.js';
-export { AdapterRegistry } from './chunk-6DWHQPTE.js';
-export { SkillLoader } from './chunk-Z632G3QJ.js';
-import { ensureDir, readYaml, writeYaml, readJson, writeJson, listFiles, appendJsonl, readJsonl, readJsonlTail, closeAppendHandle, pathExists } from './chunk-MGX3XJQL.js';
-import { sanitizeText } from './chunk-RQZGDMFG.js';
+import { Paths } from './chunk-IFOHGLEJ.js';
+import { canTransition, isTerminal } from './chunk-MQCWGD2M.js';
+export { Orchestrator, canTransition, isBlocked, isDispatchable, isTerminal, resolveFailureStatus } from './chunk-MQCWGD2M.js';
 export { createTokenUsage } from './chunk-UG72A2JI.js';
-import { InvalidArgumentsError, TaskNotFoundError, InvalidTransitionError, AgentNotFoundError, OrchestryError, TeamNotFoundError, GoalNotFoundError, GoalHasPendingTasksError } from './chunk-BBYWS5VU.js';
-export { AdapterErrorKind, AgentNotFoundError, ERROR_HINTS, GoalHasPendingTasksError, NotInitializedError, OrchestryError, TaskNotFoundError, WorkspaceError, classifyAdapterError } from './chunk-BBYWS5VU.js';
+import { InvalidArgumentsError, TaskNotFoundError, InvalidTransitionError, AgentNotFoundError, OrchestryError, TeamNotFoundError, GoalNotFoundError, GoalHasPendingTasksError } from './chunk-Z7JNYNWE.js';
+export { AdapterErrorKind, AgentNotFoundError, ERROR_HINTS, GoalHasPendingTasksError, NotInitializedError, OrchestryError, TaskNotFoundError, WorkspaceError, classifyAdapterError } from './chunk-Z7JNYNWE.js';
+import { GOAL_LEAD_LABEL, GOAL_REVIEW_LABEL, AUTONOMOUS_LABEL } from './chunk-YNPZFT75.js';
+export { DEFAULT_WORKFLOW_CONFIG, WORKFLOW_SCHEMA_VERSION, WorkflowEngine, validateCheckResults, validateCodexBrief, validateCodexPlanReview, validateCodexSynthesis, validateCodexTechnicalReview, validateFableComplianceReview, validateFablePlan, validateOpusResult } from './chunk-KESYOT63.js';
+export { ARTIFACT_FILES, WORKFLOW_PHASE_TRANSITIONS, WorkflowArtifactStore, canTransitionWorkflow, hashCanonical, isTerminalWorkflowPhase, transitionWorkflow } from './chunk-CK2SLSS4.js';
+export { AdapterRegistry } from './chunk-6DWHQPTE.js';
+export { SkillLoader } from './chunk-Y5P4NXTL.js';
+import { ensureDir, readYaml, writeYaml, readJson, writeJson, listFiles, appendJsonl, readJsonl, readJsonlTail, closeAppendHandle, pathExists } from './chunk-54K3JU53.js';
+import { sanitizeText } from './chunk-RQZGDMFG.js';
 import fs, { mkdtemp, readFile, unlink, rm, mkdir } from 'fs/promises';
 import { constants, createWriteStream, createReadStream } from 'fs';
 import path, { join } from 'path';
@@ -699,6 +701,11 @@ var TaskService = class {
     this.paths = paths;
     this.agentStore = agentStore;
   }
+  taskStore;
+  eventBus;
+  config;
+  paths;
+  agentStore;
   async create(input) {
     if (!input.title.trim()) {
       throw new InvalidArgumentsError("Task title is required");
@@ -1014,6 +1021,10 @@ var AgentService = class {
     this.eventBus = eventBus;
     this.config = config;
   }
+  agentStore;
+  stateStore;
+  eventBus;
+  config;
   async create(input) {
     if (!input.name.trim()) {
       throw new InvalidArgumentsError("Agent name is required");
@@ -1175,6 +1186,8 @@ var RunService = class {
     this.runStore = runStore;
     this.eventBus = eventBus;
   }
+  runStore;
+  eventBus;
   async create(params) {
     const run = {
       id: `run_${nanoid(7)}`,
@@ -1581,6 +1594,7 @@ var TaskStore = class {
       itemPath: (id) => paths.taskPath(id)
     });
   }
+  paths;
   index;
   async list(filter) {
     const all = await this.index.readIndex();
@@ -1637,6 +1651,7 @@ var AgentStore = class {
       itemPath: (id) => paths.agentPath(id)
     });
   }
+  paths;
   index;
   async list() {
     return this.index.readIndex();
@@ -1670,6 +1685,7 @@ var RunStore = class {
   constructor(paths) {
     this.paths = paths;
   }
+  paths;
   async save(run) {
     await ensureDir(this.paths.runsDir);
     await writeJson(this.paths.runPath(run.id), run);
@@ -1772,6 +1788,7 @@ var StateStore = class {
   constructor(paths) {
     this.paths = paths;
   }
+  paths;
   async read() {
     const raw = await readJson(this.paths.statePath);
     if (!raw) return structuredClone(DEFAULT_STATE);
@@ -1842,6 +1859,7 @@ var ConfigStore = class {
   constructor(paths) {
     this.paths = paths;
   }
+  paths;
   async read() {
     const config = await readYaml(this.paths.configPath);
     return normalizeConfig(deepMerge(
@@ -1965,6 +1983,7 @@ var ContextStore = class _ContextStore {
       fileFilter: (f) => f !== "_index.json"
     });
   }
+  paths;
   index;
   async get(key) {
     const entry = await readJson(this.paths.contextPath(key));
@@ -2057,6 +2076,7 @@ var MessageStore = class {
       fileFilter: (fileName) => fileName !== "_index.json"
     });
   }
+  paths;
   index;
   async save(message) {
     await ensureDir(this.paths.messagesDir);
@@ -2146,6 +2166,7 @@ var GoalStore = class {
       itemPath: (id) => paths.goalPath(id)
     });
   }
+  paths;
   index;
   async list(filter) {
     const all = await this.index.readIndex();
@@ -2185,6 +2206,7 @@ var TeamStore = class {
   constructor(paths) {
     this.paths = paths;
   }
+  paths;
   async save(team) {
     await ensureDir(this.paths.teamsDir);
     await writeYaml(this.paths.teamPath(team.id), team);
@@ -2225,6 +2247,10 @@ var MessageService = class {
     this.teamStore = teamStore;
     this.eventBus = eventBus;
   }
+  messageStore;
+  agentStore;
+  teamStore;
+  eventBus;
   /**
    * Send a message. For broadcast, creates one message per recipient agent.
    * For 'lead' channel, resolves team lead and sends direct.
@@ -2353,6 +2379,11 @@ var GoalService = class {
     this.taskService = taskService;
     this.contextStore = contextStore;
   }
+  goalStore;
+  eventBus;
+  agentService;
+  taskService;
+  contextStore;
   async create(input) {
     if (!input.title.trim()) {
       throw new InvalidArgumentsError("Goal title is required");
@@ -2578,6 +2609,10 @@ var TeamService = class {
     this.taskStore = taskStore;
     this.eventBus = eventBus;
   }
+  teamStore;
+  agentStore;
+  taskStore;
+  eventBus;
   async create(input) {
     if (!input.name.trim()) throw new InvalidArgumentsError("Team name is required");
     const lead = await this.agentStore.get(input.lead_agent_id);
@@ -2758,23 +2793,29 @@ async function buildFullContainer(context) {
     { LiquidTemplateEngine },
     { SkillLoader: SkillLoader2 },
     { Orchestrator: Orchestrator2 },
-    { DoctorService }
+    { DoctorService },
+    { WorkflowArtifactStore: WorkflowArtifactStore2 },
+    { WorkflowEngine: WorkflowEngine2 },
+    { NativeCodexWorkflowAdapter, NativeFableWorkflowAdapter, NativeOpusWorkflowAdapter, NativeWorkflowGitGateway }
   ] = await Promise.all([
     import('./process-manager-BRCBBME3.js'),
     import('./registry-JXXRLJ5J.js'),
-    import('./claude-I3NKCY6H.js'),
-    import('./codex-TQU3MZZL.js'),
-    import('./cursor-EQIQXDJK.js'),
-    import('./shell-2GBVWZBE.js'),
-    import('./opencode-VWM44YZ6.js'),
-    import('./pi-LFHJZAPC.js'),
-    import('./grok-J27VLGLO.js'),
-    import('./antigravity-IP4D5ALO.js'),
-    import('./workspace-manager-ELPCSEFR.js'),
+    import('./claude-WXXFWVHV.js'),
+    import('./codex-76Q2VLU7.js'),
+    import('./cursor-NT7PQ4FZ.js'),
+    import('./shell-NETW4YGX.js'),
+    import('./opencode-OIBR56TL.js'),
+    import('./pi-Y7GCJNN6.js'),
+    import('./grok-UFNQFTNN.js'),
+    import('./antigravity-XDE24CYL.js'),
+    import('./workspace-manager-NGJ6YVTB.js'),
     import('./template-engine-ZZWWQC5M.js'),
-    import('./skill-loader-PIOCB2VQ.js'),
-    import('./orchestrator-KHFBBUDV.js'),
-    import('./doctor-service-F2SXDWHS.js')
+    import('./skill-loader-4GSQSW7Q.js'),
+    import('./orchestrator-OTG2FJWD.js'),
+    import('./doctor-service-WPXAUB6S.js'),
+    import('./artifact-store-2HCU365W.js'),
+    import('./engine-Q723KIZQ.js'),
+    import('./native-adapters-ICQVF2GZ.js')
   ]);
   const processManager = new ProcessManager();
   const templateEngine = new LiquidTemplateEngine();
@@ -2794,6 +2835,13 @@ async function buildFullContainer(context) {
   adapterRegistry.register(new GrokAdapter(processManager));
   adapterRegistry.register(new AntigravityAdapter(processManager));
   const doctorService = new DoctorService(adapterRegistry, processManager, context.projectRoot);
+  const workflowStore = new WorkflowArtifactStore2(context.projectRoot);
+  const workflowEngine = new WorkflowEngine2(workflowStore, {
+    codex: new NativeCodexWorkflowAdapter(processManager),
+    fable: new NativeFableWorkflowAdapter(processManager),
+    opus: new NativeOpusWorkflowAdapter(processManager),
+    git: new NativeWorkflowGitGateway(context.projectRoot)
+  });
   const orchestrator = new Orchestrator2({
     taskStore: light.taskStore,
     agentStore: light.agentStore,
@@ -2823,7 +2871,9 @@ async function buildFullContainer(context) {
     templateEngine,
     skillLoader,
     doctorService,
-    orchestrator
+    orchestrator,
+    workflowStore,
+    workflowEngine
   };
 }
 async function buildContainer(context) {

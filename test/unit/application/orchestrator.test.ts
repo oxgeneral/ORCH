@@ -49,7 +49,7 @@ describe('Orchestrator', () => {
   let orchestrator: Orchestrator;
 
   afterEach(() => {
-    delete process.env['ORCH_ALLOW_DANGEROUS_EXECUTION'];
+    delete process.env['ORCHESTRY_ALLOW_DANGEROUS_EXECUTION'];
     // Force-clean interval and signal handlers without going through the mutex
     if (orchestrator) {
       const o = orchestrator as any;
@@ -174,7 +174,7 @@ describe('Orchestrator', () => {
     });
 
     it('passes dangerous execution flags only with runtime env unlock', async () => {
-      process.env['ORCH_ALLOW_DANGEROUS_EXECUTION'] = '1';
+      process.env['ORCHESTRY_ALLOW_DANGEROUS_EXECUTION'] = '1';
       const task = makeTask({ id: 'tsk_1', status: 'todo' });
       const agent = makeAgent({ id: 'agt_1', adapter: 'shell', status: 'idle' });
       const taskStore = createMockTaskStore([task]);
@@ -204,7 +204,7 @@ describe('Orchestrator', () => {
           security: { allowPermissionBypass: true, allowShellAdapter: true },
         }));
       } finally {
-        delete process.env['ORCH_ALLOW_DANGEROUS_EXECUTION'];
+        delete process.env['ORCHESTRY_ALLOW_DANGEROUS_EXECUTION'];
       }
     });
 

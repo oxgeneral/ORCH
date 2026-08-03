@@ -7,13 +7,11 @@
 
 <p align="center">
   <strong>Open-source orchestration for zero-human companies, processes and departments.</strong><br/>
-  <sub>Run multiple AI agents on one project — without babysitting any of them.<br/>Coordinate Claude, Codex, Pi, Cursor and any CLI tool in parallel. One npm install. Zero infrastructure.</sub>
+  <sub>Security-hardened private fork for coordinating local AI agent tools.</sub>
 </p>
 
 <p align="center">
-  <a href="https://github.com/oxgeneral/ORCH/stargazers"><img src="https://img.shields.io/github/stars/oxgeneral/ORCH?style=for-the-badge&color=f59e0b&labelColor=0a0a0a" alt="GitHub Stars" /></a>&nbsp;
-  <a href="https://www.orch.one/"><img src="https://img.shields.io/badge/website-orch.one-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="Website" /></a>&nbsp;
-  <a href="https://www.npmjs.com/package/@oxgeneral/orch"><img src="https://img.shields.io/npm/v/@oxgeneral/orch?style=for-the-badge&color=f59e0b&labelColor=0a0a0a" alt="npm" /></a>&nbsp;
+  <a href="https://github.com/Thibault1818/ORCH"><img src="https://img.shields.io/badge/source-secured%20fork-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="Secured fork" /></a>&nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="MIT License" /></a>&nbsp;
   <a href="#development"><img src="https://img.shields.io/badge/tests-1954%20passing-f59e0b?style=for-the-badge&labelColor=0a0a0a" alt="Tests" /></a>
 </p>
@@ -34,9 +32,34 @@
 </p>
 
 ```bash
-npm install -g @oxgeneral/orch      # Install
-cd ~/your-project && orch           # Launch TUI
+# Pin the secured fork; do not install the upstream npm package.
+npm install -g "git+https://github.com/Thibault1818/ORCH.git#ae04d3222cbc43e83ae0fffb21c526df13b540b2"
+cd ~/your-project && orch
 ```
+
+This repository is private/local package identity and is not published to npm. Review and update the pinned commit deliberately when adopting later fork changes.
+
+## Codex to Fable to Opus workflow
+
+The secured fork includes a recoverable, artifact-based implementation pipeline. Opus works on a dedicated worktree and cannot merge until deterministic checks pass and Codex returns `DONE` with explicit merge authorization for the unchanged commit and diff.
+
+```bash
+# First verify that the local Codex and Claude CLIs are available.
+orch workflow doctor
+
+# Start the autonomous foreground controller. It prints the recoverable job ID first.
+orch workflow start "Describe the change you want" --pipeline codex-fable-opus
+
+# Monitor or recover the printed job ID from another terminal.
+orch workflow status <job-id>
+orch workflow pause <job-id>
+orch workflow resume <job-id>
+orch workflow logs <job-id>
+orch workflow artifacts <job-id>
+orch workflow cancel <job-id>
+```
+
+Fable is limited to one turn per call in an empty temporary workspace, with a three-call absolute pre-Opus cap and no automatic retry. The normal path uses two pre-Opus calls. Canonical artifacts and session references live under `.orchestry/workflows/<job-id>/` with restrictive permissions and secret redaction.
 
 <br/>
 
@@ -128,20 +151,11 @@ $ orch run --all --watch
 
 ## Start coordinating agents in 30 seconds
 
-<!-- Install Card -->
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/install-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./assets/install-light.svg">
-  <img alt="Install ORCH" src="./assets/install-dark.svg" width="100%">
-</picture>
-
-<br/>
-
-That's it. ORCH auto-initializes and opens the TUI dashboard. Add agents, set goals, and run — right from there.
+Install the fork from the pinned Git commit shown above. ORCH auto-initializes and opens the TUI dashboard.
 
 ### Claude Code integration
 
-After install, the `/orch` skill is automatically available in **Claude Code**. Just type `/orch` and describe what you need in natural language:
+Install-time side effects are disabled by default. To deliberately register the `/orch` skill and apply the optional Ink cache patch, install with `ORCH_POSTINSTALL_OPT_IN=1`; ORCH never performs this setup or any package installation in the background.
 
 ```
 /orch deploy a team to refactor the auth module and add tests
@@ -585,7 +599,7 @@ orch config edit                   # Open in $EDITOR
 
 ## Architecture
 
-ORCH is an engine first, CLI second. The core has zero dependencies on CLI/TUI layers — you can import `@oxgeneral/orch` as a library and build your own interface.
+ORCH is an engine first, CLI second. The core has zero dependencies on CLI/TUI layers. This fork is installed from Git and has no public npm import identity.
 
 <!-- Architecture Diagram -->
 <picture>
@@ -639,9 +653,7 @@ npm run typecheck      # Strict TypeScript
 
 ## Community
 
-If ORCH saves you time — **[Star it on GitHub](https://github.com/oxgeneral/ORCH)** — it helps other founders find the project.
-
-[![Star History Chart](https://api.star-history.com/svg?repos=oxgeneral/ORCH&type=Date)](https://star-history.com/#oxgeneral/ORCH&Date)
+Fork source and issues: **[Thibault1818/ORCH](https://github.com/Thibault1818/ORCH)**.
 
 - **Open an issue** if something breaks or could be better
 - **Submit a PR** — see [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -650,7 +662,7 @@ If ORCH saves you time — **[Star it on GitHub](https://github.com/oxgeneral/OR
 
 ## Ship something with ORCH?
 
-> Using ORCH on a real project? [Share your setup](https://github.com/oxgeneral/ORCH/issues/new?title=Using+ORCH&body=Tell+us+about+your+setup) — we'd love to hear how it went.
+> Using this fork on a real project? [Share your setup](https://github.com/Thibault1818/ORCH/issues/new?title=Using+ORCH&body=Tell+us+about+your+setup).
 
 <br/>
 
@@ -733,7 +745,7 @@ None. Zero cloud. All state in `.orchestry/` — plain YAML, JSON, JSONL files. 
 
 <br/>
 
-Paperclip needs PostgreSQL, a web server, and cloud setup. ORCH needs `npm install`. Same vision — zero-human companies — but ORCH is the hacker's version: terminal-first, file-based, zero infrastructure, MIT licensed.
+Paperclip needs PostgreSQL, a web server, and cloud setup. ORCH is terminal-first, file-based, zero infrastructure, and MIT licensed.
 
 </details>
 

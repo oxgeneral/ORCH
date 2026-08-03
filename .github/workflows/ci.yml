@@ -19,5 +19,9 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: npm test -- test/security/security-regression.test.ts
       - run: npm run typecheck
       - run: npm test
+      - run: npm run build
+      - name: Verify Git-installable package includes workflow distribution
+        run: npm pack --dry-run --ignore-scripts 2>&1 | grep -q 'dist/workflow-'

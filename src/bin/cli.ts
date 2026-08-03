@@ -35,6 +35,7 @@ const FULL_COMMANDS: Record<string, (program: Command, container: Container) => 
   doctor:  async (p, c) => { const m = await import('../cli/commands/doctor.js');  m.registerDoctorCommand(p, c); },
   tui:     async (p, c) => { const m = await import('../cli/commands/tui.js');     m.registerTuiCommand(p, c); },
   serve:   async (p, c) => { const m = await import('../cli/commands/serve.js');   m.registerServeCommand(p, c); },
+  workflow: async (p, c) => { const m = await import('../cli/commands/workflow.js'); m.registerWorkflowCommand(p, c); },
 };
 
 const program = new Command();
@@ -69,6 +70,7 @@ const COMMAND_STUBS: Array<[name: string, description: string]> = [
   ['doctor',  'Check adapters and dependencies'],
   ['tui',     'Launch TUI dashboard'],
   ['serve',   'Headless daemon mode with structured logs'],
+  ['workflow','Run the Codex-Fable-Opus workflow'],
   ['init',    'Initialize project'],
   ['update',  'Check for updates'],
 ];

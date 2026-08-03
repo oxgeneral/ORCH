@@ -1,57 +1,27 @@
 # Security Policy
 
-Thanks for helping keep ORCH and its users safe.
+## Supported Distribution
 
-## Supported Versions
+Only the secured fork at [Thibault1818/ORCH](https://github.com/Thibault1818/ORCH) is covered by this policy. It is a private/local package and is not published to npm. Install from the fork at an audited commit or tag; do not substitute the upstream npm package.
 
-Security fixes land on the latest published minor version on npm (`@oxgeneral/orch`). Older versions are not patched — upgrade to the latest to stay protected.
+```bash
+npm install -g "git+https://github.com/Thibault1818/ORCH.git#ae04d3222cbc43e83ae0fffb21c526df13b540b2"
+```
 
-| Version | Supported |
-|---------|-----------|
-| latest  | ✅        |
-| older   | ❌        |
+## Security Defaults
 
-## Reporting a Vulnerability
+- Permission bypass and the shell adapter default to disabled.
+- Dangerous execution requires both the corresponding config flag and `ORCHESTRY_ALLOW_DANGEROUS_EXECUTION=1`.
+- Prompts are sent over stdin where supported, excluded from child environments, and not persisted by default.
+- Child environments are allowlisted; persisted data and terminal output are redacted.
+- Worktree isolation, path containment, identifier validation, and symlink checks protect local state.
+- Postinstall exits without side effects unless `ORCH_POSTINSTALL_OPT_IN=1`.
+- ORCH does not install npm packages automatically or in the background. `orch update` only displays the secured fork's explicit update procedure.
 
-**Please do not open a public issue for security problems.**
+These invariants are enforced by `test/security/security-regression.test.ts` and CI.
 
-Report vulnerabilities privately through GitHub's built-in advisory form:
+## Reporting
 
-1. Go to the [Security tab](https://github.com/oxgeneral/ORCH/security) of this repository
-2. Click **Report a vulnerability**
-3. Fill out the advisory form
+Do not open a public issue for a vulnerability. Use the fork's [private security advisory form](https://github.com/Thibault1818/ORCH/security/advisories/new) and include impact, reproduction steps, affected commit, OS, and Node.js version.
 
-Please include:
-
-- A clear description of the issue and its impact
-- Steps to reproduce (minimal example preferred)
-- Affected version(s) and environment (OS, Node version)
-- Any suggested fix or mitigation
-
-### What to expect
-
-This is a small open-source project maintained in spare time — please be patient. A realistic expectation:
-
-- **Acknowledgement**: within a week
-- **Fix timeline**: based on severity, communicated after triage
-- **Credit**: we're glad to credit you in the release notes (unless you prefer to remain anonymous)
-
-## Scope
-
-In scope:
-- The `@oxgeneral/orch` npm package and its runtime
-- The CLI (`orch`) and TUI
-- Adapters that spawn external processes (claude, opencode, codex, cursor, shell)
-- File storage under `.orchestry/` (YAML/JSON/JSONL)
-- Template rendering (LiquidJS prompts)
-
-Out of scope:
-- Vulnerabilities in external AI tools (Claude CLI, OpenCode, etc.) — report those upstream
-- Misconfiguration by end users (e.g., running untrusted skills, exposing API keys)
-- Denial-of-service via self-inflicted resource exhaustion
-
-## Disclosure
-
-We prefer **coordinated disclosure**: give us a reasonable window to release a fix before publishing details. Low-impact issues can be disclosed sooner; critical issues may need longer — we'll agree a timeline together.
-
-Thank you for reporting responsibly.
+External agent CLI vulnerabilities remain the responsibility of their respective vendors.

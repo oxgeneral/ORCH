@@ -81,6 +81,6 @@ ${skillInstalled ? `  ${green('✓')} Claude Code skill ${bold('/orch')} registe
   Get started:
     $ ${bold('orch')}
 ${skillInstalled ? `    ${dim('or use')} ${bold('/orch')} ${dim('in Claude Code')}\n` : ''}
-  ${dim('⭐ Like it? Star us on GitHub: https://github.com/oxgeneral/ORCH')}
+  ${dim('Fork source: https://github.com/Thibault1818/ORCH')}
 
 `);

@@ -135,7 +135,7 @@ describe('autoApprove + review_criteria interaction', () => {
     expect(task!.status).toBe('done');
   });
 
-  it('transitions to done when review_criteria FAIL but autoApprove is set', async () => {
+  it('stays in review when review_criteria fail even if autoApprove is set', async () => {
     const { orch, taskStore, taskId, runId, agentId } = await setup({
       autoApprove: true,
       criteriaPass: false,
@@ -144,10 +144,10 @@ describe('autoApprove + review_criteria interaction', () => {
     await (orch as any)._handleRunSuccess(taskId, runId, agentId, undefined, 'result text', []);
 
     const task = await taskStore.get(taskId);
-    expect(task!.status).toBe('done');
+    expect(task!.status).toBe('review');
   });
 
-  it('emits warning when criteria fail but autoApprove forces done', async () => {
+  it('does not emit a force-approval warning when failed criteria block completion', async () => {
     const { orch, emittedEvents, taskId, runId, agentId } = await setup({
       autoApprove: true,
       criteriaPass: false,
@@ -158,8 +158,7 @@ describe('autoApprove + review_criteria interaction', () => {
     const warningEvent = emittedEvents.find(
       (e) => e.type === 'orchestrator:error' && e.context === 'auto-review-with-auto-approve',
     );
-    expect(warningEvent).toBeTruthy();
-    expect(warningEvent.error).toContain('force-approving');
+    expect(warningEvent).toBeUndefined();
   });
 
   it('stays in review when criteria fail and autoApprove is NOT set', async () => {
@@ -174,7 +173,7 @@ describe('autoApprove + review_criteria interaction', () => {
     expect(task!.status).toBe('review');
   });
 
-  it('saves review_results on task even when autoApprove overrides', async () => {
+  it('saves review_results when autoApprove cannot override failed checks', async () => {
     const { orch, taskStore, taskId, runId, agentId } = await setup({
       autoApprove: true,
       criteriaPass: false,
