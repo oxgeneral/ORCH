@@ -26,7 +26,7 @@ var NativeCodexWorkflowAdapter = class {
     return this.callText("Compile a concise executable Opus prompt from the approved passport and plan. Output prompt text only.", { passport, plan }, thread);
   }
   technicalReview(passport, evidence, checks, thread) {
-    return this.call("Review the actual diff and checks as primary evidence. Return only strict JSON with job_id, reviewed_commit, checks_passed, evidence, required_fixes, concise_reason.", { passport, evidence, checks }, thread);
+    return this.call("Inspect the files in the current worktree plus the actual diff and checks as primary evidence. Return only strict JSON with job_id, reviewed_commit, checks_passed, evidence, required_fixes, concise_reason.", { passport, evidence, checks }, thread, evidence.worktree);
   }
   synthesize(passport, technical, compliance, checks, thread) {
     return this.call("Synthesize reviews. Return only strict JSON with job_id, reviewed_commit, verdict DONE|FIX|REPLAN|BLOCKED, merge_allowed, evidence, required_fixes, concise_reason. DONE requires passing checks.", { passport, technical, compliance, checks }, thread);
@@ -34,19 +34,19 @@ var NativeCodexWorkflowAdapter = class {
   async available() {
     return availability("codex");
   }
-  async call(instruction, projection, thread) {
-    const result = await this.run(instruction, projection);
+  async call(instruction, projection, thread, cwd = process.cwd()) {
+    const result = await this.run(instruction, projection, cwd);
     return { value: parseJson(result.text), session_id: result.sessionId ?? thread ?? void 0, resumed: false, resume_failed: thread !== null, usage: result.usage };
   }
   async callText(instruction, projection, thread) {
-    const result = await this.run(instruction, projection);
+    const result = await this.run(instruction, projection, process.cwd());
     return { value: result.text, session_id: result.sessionId ?? thread ?? void 0, resumed: false, resume_failed: thread !== null, usage: result.usage };
   }
-  async run(instruction, projection) {
+  async run(instruction, projection, cwd) {
     const prompt = bounded(`${instruction}
 
 ${JSON.stringify(projection)}`, 256e3);
-    const output = await spawnCapture(this.pm, "codex", ["exec", "--json", "--sandbox", "read-only", "-"], process.cwd(), prompt, 1e6);
+    const output = await spawnCapture(this.pm, "codex", ["exec", "--json", "--sandbox", "read-only", "-"], cwd, prompt, 1e6);
     const lines = output.split("\n").filter(Boolean).map(parseObject);
     let text = "";
     let sessionId;
@@ -270,5 +270,5 @@ function compactEvidence(value) {
 }
 
 export { NativeCodexWorkflowAdapter, NativeFableWorkflowAdapter, NativeOpusWorkflowAdapter, NativeWorkflowGitGateway };
-//# sourceMappingURL=native-adapters-5A6GE4JK.js.map
-//# sourceMappingURL=native-adapters-5A6GE4JK.js.map
+//# sourceMappingURL=native-adapters-225JVJOP.js.map
+//# sourceMappingURL=native-adapters-225JVJOP.js.map

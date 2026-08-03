@@ -109,6 +109,7 @@ describe('secured fork static invariants', () => {
     expect(engine).toContain("['git diff --check']");
     expect(engine).toMatch(/checks\.checks\.length\s*===\s*0/);
     expect(native).toContain("'--sandbox', 'read-only'");
+    expect(native).toContain('thread, evidence.worktree');
     expect(native).toContain("branch.startsWith('orchestry/workflow/')");
     expect(native).toContain("['status', '--porcelain']");
     expect(native).toContain('allowed_file_scope: passport.allowed_file_scope');
