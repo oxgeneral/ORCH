@@ -17,7 +17,7 @@ describe('secured fork static invariants', () => {
     expect(String((pkg.scripts as Record<string, string>).prepublishOnly)).toContain('must not be published');
     for (const path of ['readme.md', 'SECURITY.md']) {
       expect(source(path)).not.toMatch(/npm (?:install|i)(?: -g)? @oxgeneral\/orch/);
-      expect(source(path)).toContain('github.com/Thibault1818/ORCH.git#7ea78932cca32b305c6b2a97a1e4a320411a00de');
+      expect(source(path)).toContain('github.com/Thibault1818/ORCH.git#51c9d8147bb1193671f8025d0c8b567733da33f9');
     }
   });
 
