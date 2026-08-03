@@ -5,7 +5,7 @@
 Only the secured fork at [Thibault1818/ORCH](https://github.com/Thibault1818/ORCH) is covered by this policy. It is a private/local package and is not published to npm. Install from the fork at an audited commit or tag; do not substitute the upstream npm package.
 
 ```bash
-npm install -g "git+https://github.com/Thibault1818/ORCH.git#51c9d8147bb1193671f8025d0c8b567733da33f9"
+npm install -g "git+https://github.com/Thibault1818/ORCH.git#6f8272cf8c4a6a3942d618be34dd5377da4d646c"
 ```
 
 ## Security Defaults

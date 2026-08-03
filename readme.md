@@ -33,7 +33,7 @@
 
 ```bash
 # Pin the secured fork; do not install the upstream npm package.
-npm install -g "git+https://github.com/Thibault1818/ORCH.git#51c9d8147bb1193671f8025d0c8b567733da33f9"
+npm install -g "git+https://github.com/Thibault1818/ORCH.git#6f8272cf8c4a6a3942d618be34dd5377da4d646c"
 cd ~/your-project && orch
 ```
 
