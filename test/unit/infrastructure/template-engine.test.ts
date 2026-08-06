@@ -240,6 +240,23 @@ describe('LiquidTemplateEngine timeout', () => {
   });
 });
 
+describe('LiquidTemplateEngine file access', () => {
+  const engine = new LiquidTemplateEngine();
+  const ctx = buildPromptContext(makeTask(), makeAgent(), 1, '/workspace', DEFAULT_CONFIG);
+
+  it.each([
+    '{% include "/etc/passwd" %}',
+    '{% include "../secret.txt" %}',
+    '{% render "/etc/passwd" %}',
+  ])('rejects file-backed tag: %s', async (template) => {
+    await expect(engine.render(template, ctx)).rejects.toThrow();
+  });
+
+  it('rejects dynamic include paths', async () => {
+    await expect(engine.render('{% assign path = "/etc/passwd" %}{% include path %}', ctx)).rejects.toThrow();
+  });
+});
+
 describe('LiquidTemplateEngine with retry context', () => {
   const engine = new LiquidTemplateEngine();
 
