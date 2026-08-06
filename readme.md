@@ -574,6 +574,24 @@ orch config edit                   # Open in $EDITOR
 
 </details>
 
+<details>
+<summary><strong>Native role workflow</strong></summary>
+
+Run a confirmed, sequential `Supervisor -> Implementer -> Reviewer` workflow. The Adviser is optional and, when selected, is limited to one call.
+
+```bash
+printf '%s' 'Add input validation and tests' | orch workflow --yes \
+  --supervisor codex --supervisor-model <model> \
+  --implementer claude --implementer-model <model> \
+  --reviewer codex --reviewer-model <model>
+```
+
+Omit `--yes` and use `--objective-file <path>` for an interactive final confirmation. The summary shows the selected CLIs/models, target branch and SHA, required checks, attempt limits, and the Implementer's autonomous write access inside its dedicated Git worktree before any model CLI starts.
+
+The workflow currently supports Codex for Supervisor/Reviewer and Claude for Implementer/Adviser. Grok, Antigravity, and other adapters are rejected for this command because a safe prompt transport is not established. The target repository must use one npm lockfile and define `typecheck` and `test` scripts. In the worktree, ORCH runs `npm ci --ignore-scripts`, those checks with npm lifecycle hooks disabled, optional `lint`, and `git diff --check`; any missing, failed, interrupted, or stale result blocks the merge. Immediately before merge, ORCH verifies the original target branch and SHA plus the reviewed worktree, branch, commit, ancestry, and diff hash.
+
+</details>
+
 <p align="center"><strong>Aliases:</strong> <kbd>orchestry</kbd> &nbsp; <kbd>orch</kbd> &nbsp; <kbd>ao</kbd></p>
 
 <br/>
