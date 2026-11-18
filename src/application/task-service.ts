@@ -14,8 +14,12 @@ import {
   TaskNotFoundError,
   InvalidTransitionError,
   InvalidArgumentsError,
+  WorkspaceError,
+  OrchestryError,
 } from '../domain/errors.js';
 import type { ITaskStore, IAgentStore } from '../infrastructure/storage/interfaces.js';
+import type { IWorkspaceManager } from '../infrastructure/workspace/interface.js';
+import { acquireLock, releaseLock, touchLock } from '../infrastructure/storage/lock.js';
 import type { Paths } from '../infrastructure/storage/paths.js';
 import type { OrchestratorConfig } from '../domain/config.js';
 import type { EventBus } from './event-bus.js';
@@ -28,6 +32,7 @@ export class TaskService {
     private readonly config: OrchestratorConfig,
     private readonly paths?: Paths,
     private readonly agentStore?: IAgentStore,
+    private readonly workspaceManager?: IWorkspaceManager,
   ) {}
 
   async create(input: CreateTaskInput): Promise<Task> {
@@ -95,12 +100,59 @@ export class TaskService {
     return task;
   }
 
-  async updateStatus(id: string, newStatus: TaskStatus): Promise<Task> {
+  async updateStatus(id: string, newStatus: TaskStatus, workspaces = this.workspaceManager): Promise<Task> {
+    if (newStatus === 'done' || newStatus === 'cancelled') {
+      return this.withDecisionLock(id, () => this.transition(id, newStatus, workspaces));
+    }
+    return this.transition(id, newStatus, workspaces);
+  }
+
+  private async withDecisionLock(id: string, decide: () => Promise<Task>): Promise<Task> {
+    if (!this.paths) return decide();
+    const lockPath = this.paths.taskPath(id) + '.lock';
+    await this.get(id);
+    const lock = await acquireLock(lockPath);
+    if (!lock.acquired) throw new OrchestryError(`Another decision for task ${id} is in progress`, 4);
+    const heartbeat = setInterval(() => { void touchLock(lockPath); }, 15_000);
+    try {
+      return await decide();
+    } finally {
+      clearInterval(heartbeat);
+      await releaseLock(lockPath);
+    }
+  }
+
+  private async transition(id: string, newStatus: TaskStatus, workspaces?: IWorkspaceManager): Promise<Task> {
     const task = await this.get(id);
     const oldStatus = task.status;
 
     if (!canTransition(oldStatus, newStatus)) {
       throw new InvalidTransitionError(id, oldStatus, newStatus);
+    }
+
+    const branch = newStatus === 'done' ? task.proof?.branch : undefined;
+    if (branch && (workspaces || task.proof?.pending_merge)) {
+      if (!workspaces) throw new WorkspaceError('A workspace manager is required to approve this task');
+      if (task.proof?.pending_merge && !task.proof.files_changed.length) {
+        task.proof.files_changed = await workspaces.getChangedFiles(branch);
+      }
+      try {
+        const result = await workspaces.mergeBack(branch, task);
+        if (!result.success) {
+          this.eventBus.emit({ type: 'workspace:merge_conflict', taskId: id, branch, conflictInfo: result.conflictInfo });
+          throw new WorkspaceError(`Merge failed for ${branch}: ${result.conflictInfo}`);
+        }
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        const proof = task.proof!;
+        if (!proof.agent_summary?.startsWith(detail)) {
+          proof.agent_summary = `${detail}\n\n${proof.agent_summary ?? ''}`.slice(0, 2000);
+          await this.taskStore.save(task);
+        }
+        throw error;
+      }
+      this.eventBus.emit({ type: 'workspace:merge_succeeded', taskId: id, branch });
+      delete task.proof!.pending_merge;
     }
 
     task.status = newStatus;
@@ -114,6 +166,11 @@ export class TaskService {
       to: newStatus,
     });
 
+    if (branch && workspaces) {
+      await workspaces.cleanup(id, branch).catch((err) => {
+        this.eventBus.emit({ type: 'orchestrator:error', error: String(err), context: `workspace cleanup for ${id}`, fatal: false });
+      });
+    }
     return task;
   }
 
@@ -166,6 +223,10 @@ export class TaskService {
   }
 
   async reject(id: string, feedback?: string): Promise<Task> {
+    return this.withDecisionLock(id, () => this.rejectReview(id, feedback));
+  }
+
+  private async rejectReview(id: string, feedback?: string): Promise<Task> {
     const task = await this.get(id);
 
     if (task.status !== 'review') {

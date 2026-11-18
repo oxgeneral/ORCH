@@ -68,24 +68,47 @@ export class WorkspaceManager implements IWorkspaceManager {
     }
   }
 
-  async mergeBack(branch: string): Promise<MergeResult> {
+  async mergeBack(branch: string, task?: Task): Promise<MergeResult> {
+    if (task) {
+      const workspace = path.join(this.orchestryDir, 'workspaces', sanitizeId(task.id));
+      const exists = await fs.stat(workspace).then(() => true, (err: NodeJS.ErrnoException) => {
+        if (err.code === 'ENOENT') return false;
+        throw err;
+      });
+      if (exists) {
+        const head = await this.spawnAndCapture('git', ['-C', workspace, 'symbolic-ref', '--short', 'HEAD']);
+        if (head.code !== 0 || head.stdout.trim() !== branch) {
+          throw new WorkspaceError(`Expected branch ${branch} in ${workspace}`);
+        }
+        const status = await this.spawnAndCapture('git', ['-C', workspace, 'status', '--porcelain', '--untracked-files=normal']);
+        if (status.code !== 0 || status.stdout) {
+          throw new WorkspaceError(`Commit outstanding changes in ${workspace} before approval`);
+        }
+      } else if (task.proof?.pending_merge) {
+        throw new WorkspaceError(`Missing worktree for ${branch}: ${workspace}`);
+      } else if (await this.spawnAndWait('git', ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]) === 1) {
+        // Older releases merged and removed the branch before saving the review task.
+        return { success: true };
+      }
+    }
     return this.mergeStrategy.mergeBack(branch);
   }
 
   async cleanup(taskId: string, branch?: string): Promise<void> {
-    const workspacePath = path.join(this.orchestryDir, 'workspaces', sanitizeId(taskId));
-
-    // Try git worktree remove first (cleans up .git/worktrees/ metadata)
-    await this.spawnAndWait('git', ['worktree', 'remove', '--force', workspacePath]);
-
-    // Delete branch + remove directory concurrently
-    const branchDeletion = branch
-      ? this.spawnAndWait('git', ['branch', '-D', branch]).then(() => {})
-      : Promise.resolve();
-
-    const dirRemoval = fs.rm(workspacePath, { recursive: true, force: true }).catch(() => {});
-
-    await Promise.all([branchDeletion, dirRemoval]);
+    const workspace = path.join(this.orchestryDir, 'workspaces', sanitizeId(taskId));
+    if (branch && await this.spawnAndWait('git', ['merge-base', '--is-ancestor', branch, 'HEAD']) !== 0) return;
+    try {
+      await fs.access(workspace);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return;
+      throw err;
+    }
+    if (await this.spawnAndWait('git', ['worktree', 'remove', workspace]) !== 0) {
+      throw new WorkspaceError(`Could not remove worktree; files preserved at ${workspace}`);
+    }
+    if (branch && await this.spawnAndWait('git', ['branch', '-d', branch]) !== 0) {
+      throw new WorkspaceError(`Could not remove branch ${branch}`);
+    }
   }
 
   validate(workspacePath: string, projectRoot: string): void {
@@ -137,7 +160,7 @@ export class WorkspaceManager implements IWorkspaceManager {
     // Idempotent: if worktree directory already exists (retry after failure), reuse it
     try {
       await fs.access(workspacePath);
-      return { path: workspacePath, branch: branchName };
+      return { path: workspacePath, branch: task.proof?.branch ?? branchName };
     } catch {
       // Directory doesn't exist — create fresh
     }

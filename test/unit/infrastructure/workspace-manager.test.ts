@@ -269,22 +269,16 @@ describe('WorkspaceManager', () => {
   });
 
   describe('cleanup', () => {
-    it('tries git worktree remove then falls back to fs.rm', async () => {
-      const workspacePath = path.join(orchestryDir, 'workspaces', 'tsk_clean');
-      await fs.mkdir(workspacePath, { recursive: true });
-      await fs.writeFile(path.join(workspacePath, 'file.txt'), 'test');
+    it('preserves files when Git refuses to remove a dirty worktree', async () => {
+      const workspace = path.join(orchestryDir, 'workspaces', 'tsk_clean');
+      await fs.mkdir(workspace, { recursive: true });
+      await fs.writeFile(path.join(workspace, 'file.txt'), 'test');
+      const pm = createMockProcessManager(1);
+      const workspaceManager = new WorkspaceManager(tmpDir, orchestryDir, pm);
 
-      await manager.cleanup('tsk_clean');
-
-      expect(processManager.spawn).toHaveBeenCalledWith(
-        'git',
-        expect.arrayContaining(['worktree', 'remove', '--force']),
-        expect.objectContaining({ cwd: tmpDir }),
-      );
-
-      // Directory should be removed even if git worktree remove "succeeds"
-      const exists = await fs.access(workspacePath).then(() => true).catch(() => false);
-      expect(exists).toBe(false);
+      await expect(workspaceManager.cleanup('tsk_clean')).rejects.toThrow('files preserved');
+      expect(pm.spawn).toHaveBeenCalledWith('git', ['worktree', 'remove', workspace], { cwd: tmpDir });
+      expect(await fs.readFile(path.join(workspace, 'file.txt'), 'utf8')).toBe('test');
     });
 
     it('does not throw when workspace does not exist', async () => {

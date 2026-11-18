@@ -1,8 +1,7 @@
 /**
  * PID-based lock file for single-process constraint.
  *
- * Only one `orch run --watch` can run at a time.
- * One-shot commands do not acquire the lock.
+ * Watch and one-shot orchestrators hold a project lock while writing runtime state.
  */
 
 import fs from 'node:fs/promises';

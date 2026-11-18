@@ -11,7 +11,7 @@ import type { IAgentAdapter, AdapterTestResult, ExecuteParams, AgentEvent, Execu
 import type { IProcessManager } from '../process/process-manager.js';
 import type { Readable } from 'node:stream';
 import { createTokenUsage, type TokenUsage } from '../../domain/run.js';
-import { classifyAdapterError } from '../../domain/errors.js';
+import { AdapterErrorKind, classifyAdapterError } from '../../domain/errors.js';
 import { appendStderrTail, createStderrTailCapture } from './utils.js';
 import { execFile } from 'node:child_process';
 
@@ -102,20 +102,20 @@ function createPiRpcEvents(
   stderrTail: () => string,
   signal?: AbortSignal,
 ): AsyncGenerator<AgentEvent> {
+  let exitCode: number | null = null;
+  let exitError: Error | null = null;
+
+  const exitPromise = new Promise<void>((resolve) => {
+    proc.once('close', (code) => { exitCode = code; resolve(); });
+    proc.once('error', (err) => { exitError = err; resolve(); });
+  });
+
   async function* generate(): AsyncGenerator<AgentEvent> {
     let gotDoneEvent = false;
     let streamErrorYielded = false;
     let finalText = '';
     let lastTokens: TokenUsage | undefined;
     let pendingCompletion: PiCompletion | undefined;
-    let exitCode: number | null = null;
-    let exitError: Error | null = null;
-
-    const exitPromise = new Promise<void>((resolve) => {
-      proc.on('close', (code) => { exitCode = code; resolve(); });
-      proc.on('error', (err) => { exitError = err; resolve(); });
-    });
-
     let streamError: Error | null = null;
     try {
       if (proc.stdout) {
@@ -208,11 +208,18 @@ function createPiRpcEvents(
       const classified = classifyAdapterError(message, exitCode ?? undefined);
       throw Object.assign(new Error(message), { errorKind: classified });
     }
+    if (!signal?.aborted && pendingCompletion?.failure) {
+      const { message, errorKind } = pendingCompletion.failure;
+      throw new PiTerminalError(message, errorKind);
+    }
     if (exitCode !== 0 && exitCode !== null && !signal?.aborted && !gotDoneEvent) {
       const baseMsg = `Pi process exited with code ${exitCode}`;
       const message = appendStderrTail(baseMsg, 'pi', stderrTail());
       const classified = classifyAdapterError(message, exitCode);
       throw Object.assign(new Error(message), { errorKind: classified });
+    }
+    if (!signal?.aborted && !gotDoneEvent) {
+      throw new PiTerminalError('Pi exited before confirming completion', AdapterErrorKind.PROCESS_CRASH);
     }
   }
 

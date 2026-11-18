@@ -46,9 +46,9 @@ describe('forceTaskToReview clears agent.current_task', () => {
     const stateStore = createMockStateStore({
       running: {
         [taskId]: {
-          runId,
-          taskId,
-          agentId,
+          run_id: runId,
+          task_id: taskId,
+          agent_id: agentId,
           pid: 12345,
           started_at: '2025-01-01T00:00:00Z',
         },

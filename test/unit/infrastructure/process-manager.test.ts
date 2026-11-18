@@ -15,6 +15,20 @@ describe('ProcessManager', () => {
     vi.clearAllMocks();
   });
 
+  it('ignores invalid process IDs without sending a signal', async () => {
+    const signal = vi.spyOn(process, 'kill').mockReturnValue(true);
+    try {
+      for (const pid of [0, -1, NaN]) {
+        expect(manager.isAlive(pid)).toBe(false);
+        manager.kill(pid);
+        await manager.killWithGrace(pid);
+      }
+      expect(signal).not.toHaveBeenCalled();
+    } finally {
+      signal.mockRestore();
+    }
+  });
+
   describe('spawn', () => {
     it('calls proc.unref() after detached spawn to allow parent exit', () => {
       const mockUnref = vi.fn();

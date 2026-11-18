@@ -19,7 +19,8 @@ import {
   listFiles,
   pathExists,
 } from './fs-utils.js';
-import { createReadStream } from 'node:fs';
+import { createReadStream, watchFile, unwatchFile } from 'node:fs';
+import { writeFile, rm } from 'node:fs/promises';
 
 export class RunStore implements IRunStore {
   constructor(private readonly paths: Paths) {}
@@ -31,6 +32,30 @@ export class RunStore implements IRunStore {
 
   async get(id: string): Promise<Run | null> {
     return readJson<Run>(this.paths.runPath(id));
+  }
+
+  // A second CLI can request cancellation while only the owner writes runtime state.
+  async requestCancellation(runId: string): Promise<() => Promise<void>> {
+    const marker = this.paths.runPath(runId) + '.cancel';
+    await writeFile(marker, '');
+    return () => rm(marker, { force: true });
+  }
+
+  onCancellation(runId: string, cancel: () => void): () => void {
+    const marker = this.paths.runPath(runId) + '.cancel';
+    let active = true;
+    const notify = () => {
+      if (!active) return;
+      active = false;
+      cancel();
+    };
+    const listener = (stat: import('node:fs').Stats) => { if (stat.nlink) notify(); };
+    watchFile(marker, { interval: 200, persistent: false }, listener);
+    void pathExists(marker).then((present) => { if (present) notify(); });
+    return () => {
+      active = false;
+      unwatchFile(marker, listener);
+    };
   }
 
   async listAll(): Promise<Run[]> {

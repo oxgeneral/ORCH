@@ -29,6 +29,7 @@ export interface ReviewResult {
 
 export interface TaskProof {
   branch?: string;
+  pending_merge?: boolean;
   pr_url?: string;
   files_changed: string[];
   test_results?: string;

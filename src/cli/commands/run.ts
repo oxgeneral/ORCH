@@ -60,7 +60,7 @@ async function runSingle(container: Container, taskId: string): Promise<void> {
       case 'agent:completed':
         if (event.runId !== targetRunId) break;
         if (event.success) {
-          printSuccess('Done');
+          printSuccess('Agent finished');
         } else {
           printError('Failed');
           process.exitCode = 1;

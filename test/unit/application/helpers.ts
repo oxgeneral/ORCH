@@ -177,6 +177,7 @@ export function createMockWorkspaceManager(): IWorkspaceManager {
     mergeBack: vi.fn(async () => ({ success: true as const })),
     cleanup: vi.fn(async () => {}),
     validate: vi.fn(),
+    getChangedFiles: vi.fn(async () => []),
   };
 }
 
@@ -258,6 +259,7 @@ export function buildDeps(overrides: Partial<OrchestratorDeps> = {}): Orchestrat
   const agentStore = overrides.agentStore ?? createMockAgentStore();
   const runStore = overrides.runStore ?? createMockRunStore();
   const stateStore = overrides.stateStore ?? createMockStateStore();
+  const workspaceManager = overrides.workspaceManager ?? createMockWorkspaceManager();
   const eventBus = overrides.eventBus ?? new EventBus();
   const config = overrides.config ?? { ...DEFAULT_CONFIG, scheduling: { ...DEFAULT_CONFIG.scheduling, poll_interval_ms: 100_000 } };
 
@@ -267,11 +269,11 @@ export function buildDeps(overrides: Partial<OrchestratorDeps> = {}): Orchestrat
     runStore,
     stateStore,
     adapterRegistry: overrides.adapterRegistry ?? new AdapterRegistry(),
-    workspaceManager: overrides.workspaceManager ?? createMockWorkspaceManager(),
+    workspaceManager,
     templateEngine: overrides.templateEngine ?? createMockTemplateEngine(),
     processManager: overrides.processManager ?? createMockProcessManager(),
     eventBus,
-    taskService: overrides.taskService ?? new TaskService(taskStore, eventBus, config, undefined, agentStore),
+    taskService: overrides.taskService ?? new TaskService(taskStore, eventBus, config, undefined, agentStore, workspaceManager),
     agentService: overrides.agentService ?? new AgentService(agentStore, stateStore, eventBus, config),
     runService: overrides.runService ?? new RunService(runStore, eventBus),
     contextStore: overrides.contextStore ?? createMockContextStore(),

@@ -21,6 +21,7 @@ export interface IProcessManager {
 
 export class ProcessManager implements IProcessManager {
   isAlive(pid: number): boolean {
+    if (!Number.isSafeInteger(pid) || pid <= 0) return false;
     try {
       process.kill(pid, 0);
       return true;
@@ -32,6 +33,7 @@ export class ProcessManager implements IProcessManager {
   }
 
   kill(pid: number, signal: NodeJS.Signals = 'SIGTERM'): void {
+    if (!Number.isSafeInteger(pid) || pid <= 0) return;
     // Kill entire process group (-pid) to clean up child processes (vitest, playwright, etc.)
     try {
       process.kill(-pid, signal);

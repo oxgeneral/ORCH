@@ -148,9 +148,10 @@ describe('PiAdapter', () => {
 
       proc.stdout.write(JSON.stringify({ type: 'extension_ui_request', method: 'setTitle', title: 'noise' }) + '\n');
 
+      proc.stdout.write('{"type":"agent_end"}\n');
       const events = await collectEvents(handle, proc);
 
-      expect(events).toEqual([]);
+      expect(events.map((event) => event.type)).toEqual(['done']);
     });
 
     it('aggregates text_delta updates and emits one canonical output on text_end', async () => {
@@ -174,9 +175,10 @@ describe('PiAdapter', () => {
         assistantMessageEvent: { type: 'text_end', content: 'hello world' },
       }) + '\n');
 
+      proc.stdout.write('{"type":"agent_end"}\n');
       const events = await collectEvents(handle, proc);
 
-      expect(events).toHaveLength(1);
+      expect(events.map((event) => event.type)).toEqual(['output', 'done']);
       expect(events[0]!.type).toBe('output');
       expect(events[0]!.data).toEqual({ text: 'hello world' });
     });
@@ -195,8 +197,9 @@ describe('PiAdapter', () => {
         result: { content: [{ type: 'text', text: 'partial output…' }] },
       }) + '\n');
 
+      proc.stdout.write('{"type":"agent_end"}\n');
       const events = await collectEvents(handle, proc);
-      expect(events).toEqual([]);
+      expect(events.map((event) => event.type)).toEqual(['done']);
     });
 
     it('maps tool execution events to tool_call and output events', async () => {
@@ -208,6 +211,7 @@ describe('PiAdapter', () => {
       proc.stdout.write(JSON.stringify({ type: 'tool_execution_start', toolName: 'read', args: { path: 'a.ts' } }) + '\n');
       proc.stdout.write(JSON.stringify({ type: 'tool_execution_end', toolName: 'read', result: { content: [{ type: 'text', text: 'ok' }] }, isError: false }) + '\n');
 
+      proc.stdout.write('{"type":"agent_end"}\n');
       const events = await collectEvents(handle, proc);
 
       expect(events[0]!.type).toBe('tool_call');
@@ -229,6 +233,7 @@ describe('PiAdapter', () => {
         isError: false,
       }) + '\n');
 
+      proc.stdout.write('{"type":"agent_end"}\n');
       const events = await collectEvents(handle, proc);
 
       expect(events[0]!.type).toBe('command');
@@ -249,6 +254,7 @@ describe('PiAdapter', () => {
         isError: false,
       }) + '\n');
 
+      proc.stdout.write('{"type":"agent_end"}\n');
       const events = await collectEvents(handle, proc);
 
       expect(events[0]!.type).toBe('file_change');
@@ -479,6 +485,17 @@ describe('PiAdapter', () => {
       for await (const ev of handle.events) events.push(ev);
 
       expect(pm.killWithGrace).toHaveBeenCalledWith(proc.pid, 1_000);
+    });
+
+    it.each([
+      [[], 'Pi exited before confirming completion', AdapterErrorKind.PROCESS_CRASH],
+      [[{ role: 'assistant', stopReason: 'error', errorMessage: 'Rate limit exceeded' }], 'Rate limit exceeded', AdapterErrorKind.RATE_LIMIT],
+    ] as const)('fails an interrupted RPC response even if Pi has already exited', async (messages, message, errorKind) => {
+      const proc = createMockProcess();
+      const handle = new PiAdapter(createMockProcessManager(proc)).execute(makeParams());
+      proc.stdout.end(JSON.stringify({ type: 'agent_end', willRetry: false, messages }) + '\n');
+      proc.emit('close', 0);
+      await expect(handle.events.next()).rejects.toMatchObject({ message, errorKind });
     });
 
     it('appends stderr tail to error message on non-zero exit', async () => {

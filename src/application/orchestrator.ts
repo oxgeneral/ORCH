@@ -21,9 +21,9 @@ import {
   resolveFailureStatus,
   calculateRetryDelay,
 } from '../domain/transitions.js';
-import { NoAgentsError, TaskAlreadyRunningError, LockConflictError, WorkspaceError, classifyAdapterError } from '../domain/errors.js';
+import { InvalidArgumentsError, NoAgentsError, TaskAlreadyRunningError, LockConflictError, WorkspaceError, AdapterErrorKind, classifyAdapterError } from '../domain/errors.js';
 import { scopesOverlap, ScopeIndex } from '../domain/scope.js';
-import { acquireLock, releaseLock, touchLock } from '../infrastructure/storage/lock.js';
+import { acquireLock, checkLock, releaseLock, touchLock } from '../infrastructure/storage/lock.js';
 import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IContextStore, IGoalStore } from '../infrastructure/storage/interfaces.js';
 import { CachedTaskStore, CachedAgentStore, CachedGoalStore } from '../infrastructure/storage/cached-stores.js';
 import type { AdapterRegistry } from '../infrastructure/adapters/registry.js';
@@ -77,6 +77,9 @@ export class Orchestrator {
   private saveStateTimer: ReturnType<typeof setTimeout> | null = null;
   private saveStateDirty = false;
   private lockAcquired = false;
+  private lockHeartbeat: ReturnType<typeof setInterval> | null = null;
+  private temporaryOwner = false;
+  private temporaryUsers = 0;
   private consecutiveTickFailures = 0;
   private readonly maxConsecutiveTickFailures = 5;
   private readonly maxRetryQueueSize = 100;
@@ -143,10 +146,6 @@ export class Orchestrator {
    * Otherwise acquires a temporary lock for the duration of the run.
    */
   async runTask(taskId: string): Promise<void> {
-    if (this.lockAcquired) {
-      await this.freshDispatch(() => this.dispatchOnlyTask(taskId));
-      return;
-    }
     await this.withTemporaryLock(() => this.freshDispatch(() => this.dispatchOnlyTask(taskId)));
   }
 
@@ -156,10 +155,6 @@ export class Orchestrator {
    * Otherwise acquires a temporary lock for the duration of the run.
    */
   async runAll(): Promise<void> {
-    if (this.lockAcquired) {
-      await this.freshDispatch(() => this.dispatchAll());
-      return;
-    }
     await this.withTemporaryLock(() => this.freshDispatch(() => this.dispatchAll()));
   }
 
@@ -182,17 +177,39 @@ export class Orchestrator {
    * Used by single-shot commands (runTask, runAll) that don't go through startWatch.
    */
   private async withTemporaryLock(fn: () => Promise<void>): Promise<void> {
-    const lockResult = await acquireLock(this.deps.lockPath);
-    if (!lockResult.acquired) {
-      throw new LockConflictError(lockResult.pid!);
-    }
-    this.lockAcquired = true;
+    if (!this.lockAcquired) await this.takeLock(true);
+    if (!this.temporaryOwner) return fn();
+    this.temporaryUsers++;
     try {
       await fn();
     } finally {
-      this.lockAcquired = false;
-      await releaseLock(this.deps.lockPath);
+      this.temporaryUsers--;
+      await this.withStateLock(() => this.releaseTemporaryLockIfIdle());
     }
+  }
+
+  private async takeLock(temporary: boolean): Promise<void> {
+    const lock = await acquireLock(this.deps.lockPath);
+    if (!lock.acquired) throw new LockConflictError(lock.pid!);
+    this.lockAcquired = true;
+    this.temporaryOwner = temporary;
+    // A review command can outlast the stale-lock threshold while a tick holds the mutex.
+    this.lockHeartbeat = setInterval(() => { void touchLock(this.deps.lockPath); }, 15_000);
+    if (!temporary) this.lockHeartbeat.unref();
+    this.registerSignalHandlers();
+  }
+
+  private async dropLock(): Promise<void> {
+    if (!this.lockAcquired) return;
+    this.removeSignalHandlers();
+    this.temporaryOwner = false;
+    this.lockAcquired = false;
+    await releaseLock(this.deps.lockPath);
+  }
+
+  private async releaseTemporaryLockIfIdle(): Promise<void> {
+    if (!this.temporaryOwner || this.shuttingDown || this.temporaryUsers || this.activeCollectors.size || this.immediateDispatchTimer) return;
+    await this.dropLock();
   }
 
   /**
@@ -202,13 +219,16 @@ export class Orchestrator {
   async startWatch(opts?: { skipAutonomousSeeding?: boolean }): Promise<void> {
     this.skipAutonomousSeeding = opts?.skipAutonomousSeeding ?? false;
 
-    // Acquire lock — only one orchestrator per project
-    const lockResult = await acquireLock(this.deps.lockPath);
-    if (!lockResult.acquired) {
-      throw new LockConflictError(lockResult.pid!);
+    await this.takeLock(false);
+    try {
+      await this.startWatchLoop();
+    } catch (error) {
+      await this.stop();
+      throw error;
     }
-    this.lockAcquired = true;
+  }
 
+  private async startWatchLoop(): Promise<void> {
     await this.loadState();
 
     // Clean up stale running entries from a previous process (crash/restart).
@@ -219,9 +239,6 @@ export class Orchestrator {
     this.state!.pid = process.pid;
     this.state!.started_at = new Date().toISOString();
     await this.saveState();
-
-    // Register signal handlers for graceful shutdown
-    this.registerSignalHandlers();
 
     // Subscribe to task:created for reactive dispatch
     this.taskCreatedUnsub = this.deps.eventBus.on('task:created', () => {
@@ -295,6 +312,8 @@ export class Orchestrator {
    * Remove signal handlers to avoid listener leaks.
    */
   private removeSignalHandlers(): void {
+    if (this.lockHeartbeat) clearInterval(this.lockHeartbeat);
+    this.lockHeartbeat = null;
     for (const [sig, handler] of this.signalHandlers) {
       process.removeListener(sig, handler);
     }
@@ -356,14 +375,7 @@ export class Orchestrator {
       }
     });
 
-    // Release lock
-    if (this.lockAcquired) {
-      await releaseLock(this.deps.lockPath);
-      this.lockAcquired = false;
-    }
-
-    // Remove signal handlers
-    this.removeSignalHandlers();
+    await this.dropLock();
 
     // Resolve all stopped promises so waitForStop() callers unblock
     for (const resolve of this.stoppedResolvers) resolve();
@@ -375,15 +387,42 @@ export class Orchestrator {
    * Acquires lock if not already owned (standalone CLI invocation).
    */
   async cancelTask(taskId: string): Promise<void> {
-    if (!this.lockAcquired) {
-      return this.withTemporaryLock(() => this.cancelTask(taskId));
+    if (this.lockAcquired) return this.cancelOwnedTask(taskId);
+    try {
+      await this.withTemporaryLock(() => this.cancelOwnedTask(taskId));
+    } catch (error) {
+      if (!(error instanceof LockConflictError) || !this.deps.runStore.requestCancellation) throw error;
+      const entry = (await this.deps.stateStore.read()).running[taskId];
+      if (!entry) throw error;
+      const clear = await this.deps.runStore.requestCancellation(entry.run_id);
+      const deadline = Date.now() + 10_000;
+      try {
+        for (;;) {
+          const run = await this.deps.runStore.get(entry.run_id);
+          if (run?.status === 'cancelled' && (await this.deps.taskStore.get(taskId))?.status === 'cancelled') return;
+          if (!run || run.status === 'succeeded' || run.status === 'failed') {
+            throw new InvalidArgumentsError('The run finished before cancellation');
+          }
+          if (Date.now() >= deadline || !(await checkLock(this.deps.lockPath)).locked) {
+            if ((await this.deps.taskStore.get(taskId))?.status === 'cancelled') return;
+            throw new InvalidArgumentsError(`Cancellation of ${entry.run_id} was not confirmed by the owner`);
+          }
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+      } finally {
+        await clear();
+      }
     }
+  }
+
+  private async cancelOwnedTask(taskId: string, expectedRunId?: string): Promise<void> {
 
     await this.withStateLock(async () => {
       await this.loadState();
       const state = this.state!;
       const entry = state.running[taskId];
 
+      if (expectedRunId && entry?.run_id !== expectedRunId) return;
       if (entry) {
         this.abortControllers.get(taskId)?.abort();
         this.abortControllers.delete(taskId);
@@ -485,8 +524,6 @@ export class Orchestrator {
           queued,
         });
       });
-      // Touch lock file to prove we're alive (prevents stale-lock false positives from PID recycling)
-      await touchLock(this.deps.lockPath);
     } finally {
       this.tickInProgress = false;
     }
@@ -497,7 +534,7 @@ export class Orchestrator {
    * Called on task:created to avoid waiting for the next 30s tick.
    * Retries up to 10 times (5s) if a tick is in progress.
    */
-  private scheduleImmediateDispatch(retries = 0): void {
+  private scheduleImmediateDispatch(retries = 0, delay = 500): void {
     if (this.shuttingDown) return;
     if (this.immediateDispatchTimer) return; // already scheduled
 
@@ -508,7 +545,7 @@ export class Orchestrator {
         if (retries < 10) this.scheduleImmediateDispatch(retries + 1);
         return;
       }
-      this.immediateDispatch().catch((err) => {
+      this.immediateDispatch().finally(() => this.withStateLock(() => this.releaseTemporaryLockIfIdle())).catch((err) => {
         this.deps.eventBus.emit({
           type: 'orchestrator:error',
           error: err instanceof Error ? err.message : String(err),
@@ -516,7 +553,7 @@ export class Orchestrator {
           fatal: false,
         });
       });
-    }, 500);
+    }, delay);
   }
 
   /**
@@ -585,8 +622,10 @@ export class Orchestrator {
       const agentForStall = runningAgentData[i];
       const stallTimeout = agentForStall?.config.stall_timeout_ms ?? this.deps.config.defaults.agent.stall_timeout_ms;
 
-      if (now - lastEventAt > stallTimeout) {
-        this.deps.eventBus.emit({
+      const stalled = now - lastEventAt > stallTimeout;
+      const timeout = agentForStall?.config.timeout_ms ?? this.deps.config.defaults.agent.timeout_ms;
+      if (stalled || now - Date.parse(entry.started_at) > timeout) {
+        if (stalled) this.deps.eventBus.emit({
           type: 'orchestrator:stall_detected',
           runId: entry.run_id,
         });
@@ -594,7 +633,7 @@ export class Orchestrator {
         this.abortControllers.get(taskId)?.abort();
         await this.deps.processManager.killWithGrace(entry.pid, 5_000);
         try {
-          await this._handleRunFailure(taskId, entry, 'Agent stalled (no events)');
+          await this._handleRunFailure(taskId, entry, stalled ? 'Agent stalled (no events)' : 'Agent execution timed out');
         } catch {
           delete state.running[taskId];
           await this.deps.agentService.setStatus(entry.agent_id, 'idle').catch((err) => {
@@ -651,21 +690,8 @@ export class Orchestrator {
       );
     }
 
-    // Process retry queue — filter builds new array instead of mutating with splice
-    const dueRetries: string[] = [];
-    state.retry_queue = state.retry_queue.filter((retry) => {
-      if (now >= new Date(retry.due_at).getTime()) {
-        dueRetries.push(retry.task_id);
-        return false;
-      }
-      return true;
-    });
-    for (const taskId of dueRetries) {
-      // Guard: task may have succeeded while waiting in retry queue
-      const retryTask = await this.deps.taskStore.get(taskId);
-      if (!retryTask || !isDispatchable(retryTask.status)) continue;
-      await this.dispatchTask(taskId, retryTask);
-    }
+    // Due retries compete for capacity and scopes in the normal dispatch queue.
+    state.retry_queue = state.retry_queue.filter((entry) => Date.parse(entry.due_at) > now);
 
     await this.saveState();
   }
@@ -753,10 +779,14 @@ export class Orchestrator {
 
     const allTasks = await this.cachedTaskStore.list();
     const taskMap = new Map(allTasks.map((t) => [t.id, t]));
+    const now = Date.now();
+    state.retry_queue = state.retry_queue.filter((r) => taskMap.get(r.task_id)?.status === 'retrying');
+    const waiting = new Set(state.retry_queue.filter((r) => Date.parse(r.due_at) > now).map((r) => r.task_id));
     const candidates = allTasks
       .filter(
         (t) =>
           isDispatchable(t.status) &&
+          !waiting.has(t.id) &&
           !isBlocked(t, taskMap) &&
           !state.running[t.id] &&
           !state.claimed.has(t.id),
@@ -842,36 +872,39 @@ export class Orchestrator {
         });
       }
     }
+    if (this.temporaryOwner && !this.activeCollectors.size) {
+      const next = Math.min(...state.retry_queue.map((entry) => Date.parse(entry.due_at)).filter((due) => due > now));
+      if (Number.isFinite(next)) this.scheduleImmediateDispatch(0, Math.max(1, next - Date.now()));
+    }
   }
 
   /**
    * Dispatch exactly one requested task.
    *
-   * A single-shot CLI command (`orch run <task-id>`) should not opportunistically
-   * consume other ready tasks while the requested run is being collected.
-   * Temporarily claiming other dispatchable tasks keeps the shared dispatch path
-   * focused without changing watch/run-all semantics.
+   * Apply the same prerequisites as the scheduler without dispatching unrelated tasks.
    */
   private async dispatchOnlyTask(taskId: string): Promise<void> {
-    const state = this.state!;
-    const originalClaimed = new Set(state.claimed);
-    const allTasks = await this.cachedTaskStore.list();
-    this.singleTaskRunIds.add(taskId);
-
-    for (const task of allTasks) {
-      if (task.id !== taskId && isDispatchable(task.status)) {
-        state.claimed.add(task.id);
-      }
+    const task = await this.deps.taskService.get(taskId);
+    if (!isDispatchable(task.status)) {
+      await this.dispatchTask(taskId, task);
+      return;
     }
-
+    const tasks = await this.cachedTaskStore.list();
+    if (isBlocked(task, tasks)) throw new InvalidArgumentsError('Task has unfinished dependencies');
+    if (task.status === 'retrying' && this.state!.retry_queue.some((r) => r.task_id === taskId && Date.parse(r.due_at) > Date.now())) {
+      throw new InvalidArgumentsError('Task is waiting for its scheduled retry');
+    }
+    if (Object.keys(this.state!.running).length >= this.deps.config.scheduling.max_concurrent_agents) {
+      throw new InvalidArgumentsError('Maximum concurrent agents already running');
+    }
+    if (task.scope?.length && tasks.some((t) => t.status === 'in_progress' && scopesOverlap(task.scope, t.scope))) {
+      throw new InvalidArgumentsError('Task scope overlaps a running task');
+    }
+    this.singleTaskRunIds.add(taskId);
     try {
-      await this.dispatchTask(taskId);
+      await this.dispatchTask(taskId, task);
     } finally {
-      state.claimed = originalClaimed;
-      if (!state.running[taskId]) {
-        this.singleTaskRunIds.delete(taskId);
-      }
-      await this.saveState();
+      if (!this.state!.running[taskId]) this.singleTaskRunIds.delete(taskId);
     }
   }
 
@@ -1000,6 +1033,8 @@ export class Orchestrator {
         return;
       }
 
+      state.retry_queue = state.retry_queue.filter((retry) => retry.task_id !== taskId);
+
       // Prepare workspace
       const { path: workspacePath, branch: worktreeBranch } = await this.deps.workspaceManager.prepare(
         task,
@@ -1110,10 +1145,15 @@ export class Orchestrator {
 
       // Save worktree branch on proof immediately (survives any later failure)
       // Re-read from store to avoid overwriting in_progress status set above
-      if (worktreeBranch) {
+      if (worktreeBranch || workspacePath !== this.deps.projectRoot || task.workspace) {
         const freshTask = await this.deps.taskStore.get(taskId);
         if (freshTask) {
-          freshTask.proof = { ...(freshTask.proof ?? { files_changed: [] }), branch: worktreeBranch };
+          if (worktreeBranch) {
+            freshTask.proof = { ...freshTask.proof, files_changed: freshTask.proof?.files_changed ?? [], branch: worktreeBranch };
+          } else if (freshTask.proof) {
+            delete freshTask.proof.branch;
+            delete freshTask.proof.pending_merge;
+          }
           freshTask.workspace = workspacePath;
           await this.deps.taskStore.save(freshTask);
         }
@@ -1170,6 +1210,7 @@ export class Orchestrator {
         run.id,
         taskId,
         agent.id,
+        agentData.config,
       ).catch((err) => {
         this.deps.eventBus.emit({
           type: 'orchestrator:error',
@@ -1177,9 +1218,11 @@ export class Orchestrator {
           context: `adapter execution for ${taskId}`,
           fatal: false,
         });
-      }).finally(() => {
-        this.activeCollectors.delete(taskId);
-      });
+      }).finally(() => this.withStateLock(async () => {
+        const current = this.state?.running[taskId];
+        if (!current || current.run_id === run.id) this.activeCollectors.delete(taskId);
+        await this.releaseTemporaryLockIfIdle();
+      }));
     } catch (err) {
       // Rollback claim and clean up abort controller (process never launched)
       this.abortControllers.delete(taskId);
@@ -1197,6 +1240,7 @@ export class Orchestrator {
     runId: string,
     taskId: string,
     agentId: string,
+    config: Pick<import('../domain/agent.js').AgentConfig, 'timeout_ms' | 'stall_timeout_ms'> = {},
   ): Promise<void> {
     let collectedTokens: import('../domain/run.js').TokenUsage | undefined;
     let resultText: string | undefined;
@@ -1204,9 +1248,31 @@ export class Orchestrator {
     let lastErrorKind: import('../domain/errors.js').AdapterErrorKind | undefined;
     const filesChangedSet = new Set<string>();
 
-    try {
+    const controller = this.abortControllers.get(taskId);
+    let timeoutError: Error | undefined;
+    let stoppingProcess: Promise<void> | undefined;
+    const expire = (stalled: boolean) => {
+      const entry = this.state?.running[taskId];
+      if (entry?.run_id !== runId || !controller || controller.signal.aborted) return;
+      timeoutError = new Error(stalled ? 'Agent stalled (no events)' : 'Agent execution timed out');
+      if (stalled) this.deps.eventBus.emit({ type: 'orchestrator:stall_detected', runId });
+      controller.abort(timeoutError);
+      if (entry.pid > 0) stoppingProcess = this.deps.processManager.killWithGrace(entry.pid, 5_000).catch(() => {});
+    };
+    const stopWatching = this.deps.runStore.onCancellation?.(runId, () => {
+      void this.cancelOwnedTask(taskId, runId).catch((err) => {
+        this.deps.eventBus.emit({ type: 'orchestrator:error', error: String(err), context: `cancel ${runId}`, fatal: false });
+      });
+    });
+    const defaults = this.deps.config.defaults.agent;
+    const deadline = setTimeout(() => expire(false), config.timeout_ms ?? defaults.timeout_ms);
+    const idle = setTimeout(() => expire(true), config.stall_timeout_ms ?? defaults.stall_timeout_ms);
+    const stopTimers = () => { clearTimeout(deadline); clearTimeout(idle); };
+
+    const consume = async () => {
       for await (const event of generator) {
-        if (this.shuttingDown) break;
+        if (this.shuttingDown || controller?.signal.aborted) break;
+        idle.refresh();
 
         // Capture token usage and result text from done events
         if (event.type === 'done') {
@@ -1298,7 +1364,7 @@ export class Orchestrator {
         await this.deps.runService.appendEvent(runId, runEvent);
 
         // Update last_event_at for stall detection (debounced write — non-critical)
-        if (this.state?.running[taskId]) {
+        if (this.state?.running[taskId]?.run_id === runId && !controller?.signal.aborted) {
           this.state.running[taskId]!.last_event_at = eventTimestamp;
           this.saveStateLazy();
         }
@@ -1339,18 +1405,33 @@ export class Orchestrator {
           });
         }
       }
+    };
+    let onAbort: (() => void) | undefined;
+    try {
+      const aborted = new Promise<void>((resolve) => {
+        onAbort = resolve;
+        if (controller?.signal.aborted) resolve();
+        else controller?.signal.addEventListener('abort', onAbort, { once: true });
+      });
+      await Promise.race([consume(), aborted]);
+      stopTimers();
+      if (timeoutError) throw timeoutError;
+      if (controller?.signal.aborted) return;
 
       // Adapter finished successfully — runService.finish emits agent:completed
       // Use resultText from done event, or fall back to last agent message
       const finalResult = resultText ?? lastAgentMessage;
       await this.handleRunSuccess(taskId, runId, agentId, collectedTokens, finalResult, [...filesChangedSet]);
     } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
+      stopTimers();
+      if (controller?.signal.aborted && !timeoutError) return;
+      await stoppingProcess;
+      const error = timeoutError?.message ?? (err instanceof Error ? err.message : String(err));
       // Prefer errorKind from last error event; fall back to thrown error's errorKind (from utils.ts)
-      const errorKind = lastErrorKind
+      const errorKind = timeoutError ? AdapterErrorKind.TIMEOUT : lastErrorKind
         ?? (err instanceof Error ? (err as Error & { errorKind?: import('../domain/errors.js').AdapterErrorKind }).errorKind : undefined);
       const entry = this.state?.running[taskId];
-      if (entry) {
+      if (entry?.run_id === runId) {
         // runService.finish emits agent:completed
         await this.handleRunFailure(taskId, entry, error, errorKind);
       } else {
@@ -1359,6 +1440,8 @@ export class Orchestrator {
         await this.deps.runService.finish(runId, 'failed', undefined, error).catch(() => {});
       }
     } finally {
+      if (onAbort) controller?.signal.removeEventListener('abort', onAbort);
+      stopWatching?.();
       // Release the cached JSONL append handle FD for this run
       this.deps.runStore.closeRunEvents(runId);
     }
@@ -1384,11 +1467,11 @@ export class Orchestrator {
     filesChanged?: string[],
   ): Promise<void> {
     await this.flushStateLazy();
-    this.abortControllers.delete(taskId);
     const state = this.state!;
 
     // If task was already cancelled/removed from running, skip
-    if (!state.running[taskId]) return;
+    if (state.running[taskId]?.run_id !== runId) return;
+    this.abortControllers.delete(taskId);
 
     const task = await this.deps.taskStore.get(taskId);
     if (!task) return;
@@ -1402,6 +1485,7 @@ export class Orchestrator {
     // Save proof of work (agent summary + files changed); clear stale feedback
     task.proof = {
       ...task.proof,
+      ...(task.proof?.branch && { pending_merge: true }),
       agent_summary: resultText?.slice(0, 2000) ?? task.proof?.agent_summary,
       files_changed: effectiveFilesChanged?.length ? effectiveFilesChanged : (task.proof?.files_changed ?? []),
     };
@@ -1460,40 +1544,16 @@ export class Orchestrator {
         state.stats.total_tokens.input + state.stats.total_tokens.output + state.stats.total_tokens.reasoning;
     }
 
-    // Auto merge-back: if task used a worktree branch, merge into current branch
-    if (task.proof?.branch) {
-      try {
-        const mergeResult = await this.deps.workspaceManager.mergeBack(task.proof.branch);
-        if (mergeResult.success) {
-          this.deps.eventBus.emit({
-            type: 'workspace:merge_succeeded',
-            taskId,
-            branch: task.proof.branch,
-          });
-          // Clean up worktree and branch after successful merge
-          await this.deps.workspaceManager.cleanup(taskId, task.proof.branch).catch((err) => {
-            this.deps.eventBus.emit({
-              type: 'orchestrator:error',
-              error: err instanceof Error ? err.message : String(err),
-              context: `workspace cleanup for ${taskId}`,
-              fatal: false,
-            });
-          });
-        } else {
-          // Merge conflict: force task to review regardless of auto-approve
-          this.deps.eventBus.emit({
-            type: 'workspace:merge_conflict',
-            taskId,
-            branch: task.proof.branch,
-            conflictInfo: mergeResult.conflictInfo,
-          });
-          await this.forceTaskToReview(task, agentId, `MERGE CONFLICT: ${mergeResult.conflictInfo}`);
-          return;
-        }
-      } catch (err) {
-        const error = err instanceof Error ? err.message : String(err);
-        await this.forceTaskToReview(task, agentId, `MERGE ERROR: ${error}`);
-        return;
+    const manual = agent?.config.approval_policy === 'manual' && !isAutonomousTask;
+    let approve = autoApprove;
+    if (task.review_criteria?.length) {
+      const passed = await this.runAutoReview(task);
+      approve ||= passed && !manual;
+      if (!passed && autoApprove) {
+        this.deps.eventBus.emit({
+          type: 'orchestrator:error', error: `Review criteria failed for task ${taskId} but autoApprove is set — force-approving`,
+          context: 'auto-review-with-auto-approve', fatal: false,
+        });
       }
     }
 
@@ -1531,12 +1591,13 @@ export class Orchestrator {
       await this.deps.agentStore.save(agentAfter);
     }
 
-    // Auto-review: if task landed in 'review' and has review_criteria, run them
-    if (newStatus === 'review' && task.review_criteria?.length) {
-      await this.runAutoReview(taskId, task.review_criteria, task.workspace ?? this.deps.projectRoot, autoApprove);
-    } else if (newStatus === 'review' && autoApprove) {
-      // Auto-approve: skip review and transition review → done immediately
-      await this.deps.taskService.updateStatus(taskId, 'done');
+    if (approve) {
+      try {
+        await this.deps.taskService.updateStatus(taskId, 'done', this.deps.workspaceManager);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        this.deps.eventBus.emit({ type: 'orchestrator:error', error: detail, context: `approve ${taskId}`, fatal: false });
+      }
     }
 
     await this.saveState();
@@ -1651,25 +1712,10 @@ export class Orchestrator {
     }
   }
 
-  /**
-   * Run automatic review criteria on a task in 'review' status.
-   * If all criteria pass, transition review → done.
-   * If any fail, stay in review with results attached.
-   */
-  private async runAutoReview(
-    taskId: string,
-    criteria: import('../domain/task.js').ReviewCriterion[],
-    cwd: string,
-    autoApprove = false,
-  ): Promise<void> {
-    const runner = new ReviewRunner({ cwd });
-    const results = await runner.runAll(criteria);
-    const allPassed = ReviewRunner.allPassed(results);
-
-    // Save review results on task
-    const task = await this.deps.taskStore.get(taskId);
-    if (!task) return;
-
+  private async runAutoReview(task: Task): Promise<boolean> {
+    const cwd = task.workspace ?? this.deps.projectRoot;
+    const results = await new ReviewRunner({ cwd }).runAll(task.review_criteria!);
+    const passed = ReviewRunner.allPassed(results);
     task.review_results = results;
     task.proof = {
       ...task.proof,
@@ -1677,79 +1723,8 @@ export class Orchestrator {
       files_changed: task.proof?.files_changed ?? [],
     };
     await this.deps.taskStore.save(task);
-
-    // Emit auto-review event
-    this.deps.eventBus.emit({
-      type: 'task:auto_reviewed',
-      taskId,
-      passed: allPassed,
-      results,
-    });
-
-    // If all passed, auto-approve: review → done
-    // If criteria failed but autoApprove is set, still transition to done (with warning)
-    if (allPassed || autoApprove) {
-      if (!allPassed) {
-        this.deps.eventBus.emit({
-          type: 'orchestrator:error',
-          error: `Review criteria failed for task ${taskId} but autoApprove is set — force-approving`,
-          context: 'auto-review-with-auto-approve',
-          fatal: false,
-        });
-      }
-      try {
-        await this.deps.taskService.updateStatus(taskId, 'done');
-      } catch (validationErr) {
-        const error = validationErr instanceof Error ? validationErr.message : String(validationErr);
-        this.deps.eventBus.emit({
-          type: 'orchestrator:error',
-          error,
-          context: `auto-review transition failed for task ${taskId} -> done, force-writing`,
-          fatal: false,
-        });
-        task.status = 'done';
-        task.updated_at = new Date().toISOString();
-        await this.deps.taskStore.save(task).catch((saveErr) => {
-          this.deps.eventBus.emit({
-            type: 'orchestrator:error',
-            error: saveErr instanceof Error ? saveErr.message : String(saveErr),
-            context: `force-write task ${taskId} to store failed (auto-review)`,
-            fatal: false,
-          });
-        });
-      }
-    }
-  }
-
-  /**
-   * Force a task to 'review' status with a summary prefix.
-   * Used when merge-back fails (conflict or infrastructure error).
-   */
-  private async forceTaskToReview(
-    task: import('../domain/task.js').Task,
-    agentId: string,
-    summaryPrefix: string,
-  ): Promise<void> {
-    task.proof = {
-      ...task.proof,
-      agent_summary: `${summaryPrefix}\n\n${task.proof?.agent_summary ?? ''}`.slice(0, 2000),
-      files_changed: task.proof?.files_changed ?? [],
-    };
-    task.status = 'review';
-    task.updated_at = new Date().toISOString();
-    await this.deps.taskStore.save(task);
-    await this.deps.agentService.setStatus(agentId, 'idle').catch((err) => {
-      this.deps.eventBus.emit({ type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err), context: `forceTaskToReview setStatus idle for agent ${agentId}`, fatal: false });
-    });
-
-    // Clear current_task — agent is now idle
-    const agentAfter = await this.deps.agentStore.get(agentId);
-    if (agentAfter) {
-      agentAfter.current_task = undefined;
-      await this.deps.agentStore.save(agentAfter);
-    }
-
-    await this.saveState();
+    this.deps.eventBus.emit({ type: 'task:auto_reviewed', taskId: task.id, passed, results });
+    return passed;
   }
 
   private unclaim(taskId: string): void {
@@ -1902,17 +1877,12 @@ export class Orchestrator {
     if (this.saveStateTimer) return; // already scheduled
     this.saveStateTimer = setTimeout(() => {
       this.saveStateTimer = null;
-      if (this.saveStateDirty) {
-        this.saveStateDirty = false;
-        this.saveState().catch((err) => {
-          this.deps.eventBus.emit({
-            type: 'orchestrator:error',
-            error: err instanceof Error ? err.message : String(err),
-            context: 'debounced state save',
-            fatal: false,
-          });
+      this.withStateLock(() => this.flushStateLazy()).catch((err) => {
+        this.deps.eventBus.emit({
+          type: 'orchestrator:error', error: err instanceof Error ? err.message : String(err),
+          context: 'debounced state save', fatal: false,
         });
-      }
+      });
     }, 500);
   }
 

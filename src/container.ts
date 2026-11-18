@@ -10,9 +10,10 @@
 import type { OrchestratorConfig } from './domain/config.js';
 import type { CliContext } from './cli/context.js';
 import type { ITaskStore, IAgentStore, IRunStore, IStateStore, IConfigStore, IContextStore, IMessageStore, IGoalStore, ITeamStore } from './infrastructure/storage/interfaces.js';
+import { WorkspaceManager } from './infrastructure/workspace/workspace-manager.js';
 import type { IWorkspaceManager } from './infrastructure/workspace/interface.js';
 import type { ITemplateEngine } from './infrastructure/template/template-engine.js';
-import type { IProcessManager } from './infrastructure/process/process-manager.js';
+import { ProcessManager, type IProcessManager } from './infrastructure/process/process-manager.js';
 import type { AdapterRegistry } from './infrastructure/adapters/registry.js';
 import type { ISkillLoader } from './infrastructure/skills/skill-loader.js';
 
@@ -83,10 +84,10 @@ export interface Container extends LightContainer {
 
 /**
  * Build a light container (stores + services).
- * Fast — no ProcessManager, no adapters, no LiquidJS, no Orchestrator.
+ * Includes Git workspace operations for approval, without loading adapters or the orchestrator.
  * Used by read-only commands: task, agent, context, msg, goal, team, logs, status, config.
  */
-export async function buildLightContainer(context: CliContext): Promise<LightContainer> {
+export async function buildLightContainer(context: CliContext): Promise<LightContainer & Pick<Container, 'workspaceManager' | 'processManager'>> {
   const paths = new Paths(context.projectRoot);
 
   // Infrastructure — stores
@@ -109,7 +110,9 @@ export async function buildLightContainer(context: CliContext): Promise<LightCon
 
   // Application — services
   const eventBus = new EventBus();
-  const taskService = new TaskService(taskStore, eventBus, config, paths, agentStore);
+  const processManager = new ProcessManager();
+  const workspaceManager = new WorkspaceManager(context.projectRoot, paths.root, processManager);
+  const taskService = new TaskService(taskStore, eventBus, config, paths, agentStore, workspaceManager);
   const agentService = new AgentService(agentStore, stateStore, eventBus, config);
   const runService = new RunService(runStore, eventBus);
   const messageService = new MessageService(messageStore, agentStore, teamStore, eventBus);
@@ -119,6 +122,8 @@ export async function buildLightContainer(context: CliContext): Promise<LightCon
   return {
     context,
     paths,
+    workspaceManager,
+    processManager,
     config,
     taskStore,
     agentStore,
@@ -154,7 +159,6 @@ export async function buildFullContainer(context: CliContext): Promise<Container
 
   // Dynamic imports — avoid loading heavy deps at top level
   const [
-    { ProcessManager },
     { AdapterRegistry },
     { ClaudeAdapter },
     { CodexAdapter },
@@ -164,13 +168,11 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     { PiAdapter },
     { GrokAdapter },
     { AntigravityAdapter },
-    { WorkspaceManager },
     { LiquidTemplateEngine },
     { SkillLoader },
     { Orchestrator },
     { DoctorService },
   ] = await Promise.all([
-    import('./infrastructure/process/process-manager.js'),
     import('./infrastructure/adapters/registry.js'),
     import('./infrastructure/adapters/claude.js'),
     import('./infrastructure/adapters/codex.js'),
@@ -180,21 +182,15 @@ export async function buildFullContainer(context: CliContext): Promise<Container
     import('./infrastructure/adapters/pi.js'),
     import('./infrastructure/adapters/grok.js'),
     import('./infrastructure/adapters/antigravity.js'),
-    import('./infrastructure/workspace/workspace-manager.js'),
     import('./infrastructure/template/template-engine.js'),
     import('./infrastructure/skills/skill-loader.js'),
     import('./application/orchestrator.js'),
     import('./application/doctor-service.js'),
   ]);
 
-  const processManager = new ProcessManager();
+  const { processManager, workspaceManager } = light;
   const templateEngine = new LiquidTemplateEngine();
   const skillLoader = new SkillLoader();
-  const workspaceManager = new WorkspaceManager(
-    context.projectRoot,
-    light.paths.root,
-    processManager,
-  );
 
   // Adapter registry
   const adapterRegistry = new AdapterRegistry();

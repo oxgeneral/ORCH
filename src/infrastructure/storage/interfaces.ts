@@ -41,6 +41,8 @@ export interface IRunStore {
   readEventsTail(runId: string, count: number): Promise<RunEvent[]>;
   streamEvents(runId: string, signal?: AbortSignal): AsyncGenerator<RunEvent>;
   closeRunEvents(runId: string): void;
+  requestCancellation?(runId: string): Promise<() => Promise<void>>;
+  onCancellation?(runId: string, cancel: () => void): () => void;
 }
 
 export interface IStateStore {
