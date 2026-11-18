@@ -5,6 +5,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+## 1.0.35 (2026-11-18)
+
+### Bug Fixes
+
+- ORCH preserves uncommitted work in task worktrees. Review checks run against the task's changes, and tasks that require manual approval wait for approval before merging.
+- Single-task runs hold the project lock until they finish. A second client can still request cancellation.
+- Explicit runs respect task dependencies. Automatic retries respect their scheduled delay, and a stalled adapter releases its slot when the run times out.
+- An interrupted Pi RPC session reports a failed run so its task cannot be marked complete by mistake.
+
+### Tests
+
+- Added regression coverage for worktree recovery, approval, concurrent clients, dependencies, retry timing, run timeouts, and interrupted Pi sessions.
+
 ## 1.0.34 (2026-08-01)
 
 ### Performance
