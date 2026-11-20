@@ -87,6 +87,15 @@ export class LiquidTemplateEngine implements ITemplateEngine {
       this.engine = new Liquid({
         strictFilters: false,
         strictVariables: false,
+        fs: {
+          exists: async () => false,
+          readFile: async () => { throw new Error('Liquid file includes are disabled'); },
+          existsSync: () => false,
+          readFileSync: () => { throw new Error('Liquid file includes are disabled'); },
+          resolve: (_root: string, file: string) => file,
+          dirname: (file: string) => file,
+          sep: '/',
+        },
       });
     }
     return this.engine;
