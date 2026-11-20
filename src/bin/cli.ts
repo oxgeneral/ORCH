@@ -69,6 +69,7 @@ const COMMAND_STUBS: Array<[name: string, description: string]> = [
   ['doctor',  'Check adapters and dependencies'],
   ['tui',     'Launch TUI dashboard'],
   ['serve',   'Headless daemon mode with structured logs'],
+  ['workflow','Run a native role workflow'],
   ['init',    'Initialize project'],
   ['update',  'Check for updates'],
 ];
@@ -106,6 +107,11 @@ async function main(): Promise<void> {
   } else if (sub === 'update') {
     const { registerUpdateCommand } = await import('../cli/commands/update.js');
     registerUpdateCommand(program);
+  } else if (sub === 'workflow') {
+    const { registerWorkflowCommand } = await import('../cli/commands/workflow.js');
+    registerWorkflowCommand(program);
+    await program.parseAsync(process.argv);
+    return;
   }
 
   // Bare `orch` in a directory without .orchestry/ → auto-init + TUI (FTUE).
